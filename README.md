@@ -1,11 +1,11 @@
-# claude-skills
+# skills
 
 Personal Claude Code skills.
 
 ## Install
 
 ```bash
-npx skills@latest add PFalkowski/claude-skills
+npx skills@latest add PFalkowski/skills
 ```
 
 The installer (the [`skills`](https://www.npmjs.com/package/skills) CLI used by the wider Claude Code skills ecosystem) reads `.claude-plugin/plugin.json`, lets you pick which skills to enable, and drops them into `~/.claude/skills/` for any agent you select.
@@ -31,13 +31,13 @@ When iterating on a skill in this repo and you want Claude Code to pick up your 
 ```powershell
 New-Item -ItemType Junction `
     -Path "$env:USERPROFILE\.claude\skills\nightshift" `
-    -Target "C:\src\repos\PFalkowski\claude-skills\nightshift"
+    -Target "C:\src\repos\PFalkowski\skills\nightshift"
 ```
 
 ### macOS / Linux
 
 ```bash
-ln -s ~/src/claude-skills/nightshift ~/.claude/skills/nightshift
+ln -s ~/src/skills/nightshift ~/.claude/skills/nightshift
 ```
 
 Removing a junction/symlink doesn't delete the source — they're pointers, not copies.
