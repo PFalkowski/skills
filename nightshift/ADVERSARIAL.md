@@ -243,6 +243,20 @@ The cumulative-rules list grows monotonically. Rules earned from failures don't 
 
 A pragmatic test: if your exit summary says "6 tuning observations surfaced this run" but the `Folded into skills` line is empty, you've left 5 of them on the floor. Fold them. It's two file edits and a commit per skill touched.
 
+## Time-series backfill (when an item is "fill historical data")
+
+A common shape: an item asks you to backfill a multi-year time series of values for a single entity (production figures per year, prices per quarter, headcounts per year, etc.). The adversarial pattern works the same way as for single-record items, with two specific sub-patterns:
+
+**Annual-edition publication pattern.** When a publisher releases the same table structure every year (Australia's Geoscience AECR, USGS Mineral Commodity Summaries, BP Statistical Review of World Energy, IMF World Economic Outlook, etc.), time-series backfill is high-leverage: walk back through editions and extract each year's reference cell verbatim. Document the URL pattern in the generator prompt — annual publications are the cheapest cross-year corroboration source.
+
+**Two strategies, in order of preference:**
+- **Strategy A — per-entity verbatim.** Each year's value comes from a source page that names the specific entity and the specific year. Highest fidelity; requires the publisher to break out the entity by year.
+- **Strategy B — aggregate-fractioned.** When per-entity year figures don't exist, take a national/regional aggregate and apply a citable fraction (e.g. national-crude × deposit-share-of-national). The fraction itself MUST come from a verbatim quote on a cited URL — without one, you cannot use Strategy B and must fall back to A. Each entry's notes must explicitly mark the fraction value + the fraction citation, so a future auditor can trace what's verbatim and what's derived.
+
+Mixing per-year is acceptable: some years from A, others from B, with each entry's notes naming its strategy.
+
+**Rule-honest entry counts.** A "≥10 entries spanning the full history" goal is aspirational, not a floor. The hard floor is rule 1 (verbatim-quote pre-flight). Three verbatim-cited entries beat ten inferred ones. If the source publisher only year-stamps two figures across a 50-year history (decadal narrative without integer-year anchors), ship those two — don't interpolate. The schema's `minItems` is usually 0; the goal is what you can defend, not what you can fabricate.
+
 ## Anti-patterns
 
 - **Sharing context between generator and reviewer.** If the reviewer reads the generator's rationale, it inherits the generator's confirmation bias. Spawn fresh.
