@@ -228,6 +228,21 @@ Track these per cycle and per item:
 
 A round that lands 3-of-3 accepted with 1 downgrade is a productive round. A round that lands 0-of-3 because the generator hit allowlist gaps is a signal to expand the allowlist (a separate ADR-class decision).
 
+## Fold-back to the rules (mandatory before exit)
+
+The reviewer's "next-cycle prompt-tuning notes" are the active output of this pattern — more important than the per-item accept/reject decisions, because they compound. Each round earns 2-6 concrete proposed rule changes; if they only land in the per-run markdown file, they're read once by the morning reviewer and forgotten by the time the next cycle runs. The next generator and reviewer would re-discover the same lessons from scratch.
+
+**Before the run exits, fold the observations into the right skill file.** This is step 1 of LOOP.md's "Exit + summary" section — restated here because adversarial-mode runs are the most lesson-dense and miss this most often.
+
+The split:
+- **Project-specific rules** stay in the project skill (the one whose data shape, source allowlist, or domain conventions the rule references). New numbered rules go in the "Cumulative hard rules" section; sub-bullets clarifying existing rules go under the parent rule.
+- **Project-agnostic rules** go into this generic skill — `SKILL.md` "Hard rules that transfer across projects" for top-level lessons, `ADVERSARIAL.md` for adversarial-mode-specific lessons.
+- **Worked examples** (what failed, how the rule caught it the next round) belong in the project skill's run-history table — they keep the generic skill project-neutral.
+
+The cumulative-rules list grows monotonically. Rules earned from failures don't leave; the generator and reviewer prompts pick them up automatically on the next cycle because the prompts read the SKILL file fresh each time.
+
+A pragmatic test: if your exit summary says "6 tuning observations surfaced this run" but the `Folded into skills` line is empty, you've left 5 of them on the floor. Fold them. It's two file edits and a commit per skill touched.
+
 ## Anti-patterns
 
 - **Sharing context between generator and reviewer.** If the reviewer reads the generator's rationale, it inherits the generator's confirmation bias. Spawn fresh.
