@@ -15,6 +15,7 @@ The installer (the [`skills`](https://www.npmjs.com/package/skills) CLI used by 
 | Skill | One-liner |
 |---|---|
 | [nightshift](nightshift/SKILL.md) | Autonomously implement backlog work overnight using TDD (Red→Green→Refactor) per item, with pre-flight grilling and per-item subagent spawn. |
+| [prompt-backlog](prompt-backlog/SKILL.md) | Dead-simple ordered list of prompts to feed to an agent verbatim — status header + prompt fence + log per item. Includes the `prompts/` folder convention and an init recipe. |
 
 ## Layout
 
