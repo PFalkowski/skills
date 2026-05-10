@@ -1,48 +1,55 @@
 ---
 name: prompt-backlog
-description: Define and execute an ordered, verbatim queue of prompts for an agent. A prompt-backlog file lists prompts (not work items) that should be fed to an agent in sequence — useful for repeatable playbooks, multi-step refactors, onboarding scripts, or any flow where the exact wording of each prompt matters. Use when the user says "prompt backlog", "prompt queue", "agent script", "prompts to feed in order", "playbook of prompts", or invokes /prompt-backlog. Includes init for the `prompts/` folder convention.
+description: A dead-simple, ordered list of prompts to feed to an agent verbatim, with a status header and a log per item. Use when the user says "prompt backlog", "prompt queue", "agent script", "prompts to feed in order", "playbook of prompts", or invokes /prompt-backlog. Includes init for the `prompts/` folder convention.
 ---
 
 # prompt-backlog
 
-A **prompt backlog** is an ordered, machine-parseable file of prompts intended to be fed to an agent verbatim, one after another. Distinct from a *work-item* backlog (see `nightshift`): items here carry the literal prompt text, not acceptance criteria.
+A **prompt backlog** is a Markdown file of prompts to feed to an agent in order. The priority is the **prompt the user writes** — everything else (status, log) is one line of overhead.
 
-## When to use
+## File shape
 
-- Reproducible multi-prompt playbooks (e.g. "set up a new repo", "migrate from X to Y", "perform a release").
-- Hand-off from a senior author to an autonomous executor where the *exact wording* of each prompt is the work.
-- Long flows where you want the agent to resume cleanly after a context reset.
+```md
+# <Backlog title>
 
-## When NOT to use
+## [pending] First task title
 
-- One-off conversational tasks → just talk to the agent.
-- Work items with acceptance criteria (TDD, bugs, features) → use `nightshift`.
-- Architectural plans → use ADRs + `to-issues`.
+`​`​`
+Verbatim prompt. Multi-line OK. Fed to the agent exactly as written.
+`​`​`
+
+Log:
+- <append events here>
+
+---
+
+## [pending] Second task title
+...
+```
+
+That's the whole format. Three things per item:
+
+1. **Header** — `## [<status>] <title>`. Status is one of: `pending`, `in_progress`, `done`, `skipped`, `blocked`.
+2. **Prompt** — a fenced code block. Use a 4-tick fence (` ```` `) only if your prompt itself contains triple-backticks.
+3. **Log** — a `Log:` line followed by bullet events. Append-only.
+
+Items are separated by `---`.
+
+Copy-paste starter: [TEMPLATE.md](TEMPLATE.md).
 
 ## Convention — folder layout
 
 ```
-<repo-root>/
-├── prompts/                # the canonical location
-│   ├── INDEX.md            # optional — lists backlogs in suggested order
-│   ├── 01-<slug>.md        # individual backlog file
-│   └── 02-<slug>.md
-└── ...
+<repo-root>/prompts/<slug>.md
 ```
 
-Single-file repos may put one `prompts/backlog.md` at the root. The `prompts/` folder is the convention — don't scatter backlog files elsewhere.
+Single file per backlog, under `prompts/` at the repo root. Don't scatter backlogs elsewhere.
 
-## Init — bootstrap the folder + a starter file
+## Init
 
-When the user asks to "set up a prompt backlog" / "initialize prompts" / runs this skill in a repo with no `prompts/` folder:
+When the user asks to set up a prompt backlog and `prompts/` doesn't exist:
 
-1. Create `prompts/` at the repo root.
-2. Copy [TEMPLATE.md](TEMPLATE.md) to `prompts/<slug>.md` (slug from the user, default `backlog`).
-3. Fill in the frontmatter (`title`, `created` to today, `target_agent`).
-4. Leave one example item in `[pending]` state for the user to edit.
-5. Confirm the path back to the user.
-
-PowerShell one-liner (Windows):
+PowerShell (Windows):
 ```powershell
 New-Item -ItemType Directory -Path 'prompts' -Force | Out-Null
 Copy-Item "$env:USERPROFILE\.claude\skills\prompt-backlog\TEMPLATE.md" 'prompts\backlog.md'
@@ -53,50 +60,25 @@ POSIX:
 mkdir -p prompts && cp ~/.claude/skills/prompt-backlog/TEMPLATE.md prompts/backlog.md
 ```
 
-## File format (high level)
+Then open `prompts/backlog.md` and replace the example with real prompts.
 
-Each backlog file has:
-- A YAML frontmatter block (file-level metadata).
-- A `# Title` and one-paragraph context.
-- A status legend (copied verbatim — see TEMPLATE).
-- N items, each:
-  - `## [<status>] <NNN> — <imperative title>`
-  - A YAML metadata block (id, status, depends_on, expected_outcome).
-  - **Prompt to agent:** verbatim prompt inside a 4-tick fence.
-  - **Human notes:** editorial commentary the agent ignores.
-  - **Run log:** appended by the executor.
-
-Full spec with rationale: see [FORMAT.md](FORMAT.md). Copy-paste starter: see [TEMPLATE.md](TEMPLATE.md).
-
-## Execution model
+## Execution
 
 ```
-1. Open the backlog file. Find first item where status == pending and depends_on are all done.
-2. Flip [pending] → [in_progress] in both the header and the YAML block. Append "started: <ISO>" to Run log.
-3. Feed the **Prompt to agent** block verbatim to the executing agent. Do NOT include Human notes.
-4. Capture the agent's response (or a summary, if very long) into Run log.
-5. Decide outcome:
-   - Success → flip to [done], append "done: <ISO>".
-   - Cannot proceed (missing input, ambiguous) → flip to [blocked], append "blocked: <reason>".
-   - Skip on purpose → flip to [skipped] with a reason.
-6. Move to the next eligible item.
+1. Find the first item where status == pending.
+2. Flip [pending] → [in_progress] in the header. Append "started <date>" to Log.
+3. Feed the fenced prompt to the agent verbatim.
+4. Append a Log line with the outcome.
+5. Flip header to [done] / [blocked] / [skipped] as appropriate.
+6. Move to the next pending item.
 ```
-
-The status-in-the-header (`[pending]`) is intentional duplication of the YAML — it makes greppable what's left and lets a human eyeball progress in one scroll. Keep them in sync.
 
 ## Statuses
 
-| Status | Meaning |
-|---|---|
-| `pending` | Not yet started. |
-| `in_progress` | Currently executing. Should be at most one at a time per backlog. |
-| `done` | Completed successfully. |
-| `skipped` | Intentionally not executed (with reason). |
-| `blocked` | Cannot proceed; needs human input. |
+`pending` → not started · `in_progress` → running · `done` → finished · `skipped` → intentionally not run · `blocked` → needs human input
 
 ## Anti-patterns
 
-- **Don't paraphrase the prompt at execution time.** The verbatim prompt is the contract; if it's wrong, edit the file, don't reinterpret it.
-- **Don't merge prompt + acceptance into one item.** That's `nightshift`'s job.
-- **Don't scatter backlogs across the repo.** Use `prompts/` so future-you and other agents know where to look.
-- **Don't forget to flip status.** Header `[pending]` and YAML `status: pending` must stay in sync — drift makes resume after a context reset unreliable.
+- **Don't paraphrase the prompt at execution time.** If the prompt is wrong, edit the file.
+- **Don't add metadata you don't need.** This format intentionally has no IDs, no `depends_on`, no `expected_outcome`. Order is positional. Add a one-line note in the prompt itself if you need extra context.
+- **Don't merge prompt + acceptance criteria into one item.** That's `nightshift`'s job.
