@@ -129,6 +129,12 @@ These are the project-agnostic adversarial-verification rules earned across actu
 
 10. **Document why a candidate was dropped, not just that it was.** Generator rejection logs are training data for the next round. "Dropped — no Wikidata P625" is fine; "dropped" alone is not. The pattern of dropped candidates over many runs reveals where the source-allowlist needs expansion.
 
+11. **Knowledge-graph entity-typing reflex check (when a Wikidata-only or similar KG-only path is accepted).** Before trusting a knowledge-graph QID/URI that lacks a Wikipedia article (or equivalent first-class source), verify the entity's `instance-of` (P31 in Wikidata) is the expected resource class. A QID returning `instance-of` taxon, asteroid, painting, software, airport, aerodrome, or similar name-collision targets — or auto-import-corrupted values like the well-known "South Saqqara Stone" propagation in late-2025 Wikidata bots — is a name-collision and the KG-only path fails. *Conversely:* P31 ABSENCE is not disqualifying when independent identifier corroborators (e.g. GeoNames + matching narrative + matching coordinate) confirm the entity.
+
+12. **Exact-zero-drift on round numbers across sources = derivative reporting, not independent corroboration.** When two sources publish the same magnitude with zero decimal drift on a round number (5,700 = 5700.0; 17,000 = 17000.0; 1,000 = 1000.0), this is a fingerprint of shared upstream sourcing — typically a national operator's press release, a regulator's filing, or a single primary database — being mirrored by both downstream sources. These are NOT independent corroborators. The cross-source match satisfies rule 2's category-equality check but fails the spirit of independence. Hold at the lower confidence tier unless a third independent allowlisted authority publishes the same figure.
+
+13. **Quoted strings in narrative `notes` must appear verbatim on a cited URL** (or be paraphrased without quote marks). Decorative quotation invites cycle-to-cycle confirmation drift: a future reviewer or auditor reading the notes treats the quoted string as already-verified ground truth, but no source on the citation list actually contained it. This is a refinement of rule 1 (verbatim-quote pre-flight on numeric claims) extended to qualitative claims.
+
 ### Calibration
 
 Reviewer rejection rate <10% over a run of ≥10 items suggests the reviewer is too lenient. >80% suggests the generator is broken. Both states block productive work.
