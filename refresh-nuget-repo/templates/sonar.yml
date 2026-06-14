@@ -9,6 +9,9 @@
 # "Analyze with GitHub Actions" tutorial). For GitHub-imported projects the project key is
 # usually <GitHubOrg>_<repo> and the org key is the lowercase org slug. You can also read them
 # from the public API: curl -s "https://sonarcloud.io/api/components/show?component=<PROJECT_KEY>"
+#
+# Exclude non-library projects (demos/samples/harnesses) so coverage reflects the shipped code,
+# e.g. add to the begin command:  /d:sonar.exclusions="**/*TestHarness/**"
 name: SonarCloud
 
 on:
