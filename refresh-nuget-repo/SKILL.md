@@ -75,11 +75,12 @@ available). Close existing issues this work resolves, with a comment linking the
 - **Verify locally** the exact CI command sequence, and confirm committed YAML is LF
   (`git show HEAD:.github/workflows/ci.yml | grep -c $'\r'` → `0`).
 - **Static analysis (SonarCloud)**: default to **CI-based analysis with coverage**
-  (`templates/sonar.yml` — `dotnet-sonarscanner` + `dotnet-coverage`). One-time org setup: a
-  GitHub **org** secret `SONAR_TOKEN` (shared by all repos) + Automatic Analysis turned **off**
-  per project. Add the quality-gate **and coverage** badges to the README (verify each returns
-  200). Automatic Analysis is the zero-config, no-coverage fallback. → REFERENCE
-  "Phase 6 — SonarCloud".
+  (`templates/sonar.yml` — `dotnet-sonarscanner` + `dotnet-coverage`). One-time auth: a
+  `SONAR_TOKEN` secret — an **org** secret if the owner is a GitHub Organization, else a
+  **per-repo** secret (personal accounts have no shared secret) — plus Automatic Analysis
+  turned **off** per project. Add the quality-gate **and coverage** badges to the README
+  (verify each returns 200). Automatic Analysis is the zero-config, no-coverage fallback.
+  → REFERENCE "Phase 6 — SonarCloud".
 - Templates: `templates/ci.yml`, `templates/publish.yml`. Detail → REFERENCE "Phase 6".
 
 **7 — Security & quality bar.** No long-lived secrets; least-privilege workflow

@@ -1,7 +1,10 @@
 # SonarCloud analysis WITH test coverage (CI-based scanner).
 #
-# One-time setup (not per-repo):
-#   - Add an ORG-level GitHub secret SONAR_TOKEN (one SonarCloud token, shared by all repos).
+# One-time setup:
+#   - Add a SONAR_TOKEN GitHub secret. If <owner> is a GitHub ORGANIZATION, use an org secret
+#     (one secret, shared by all repos). If <owner> is a PERSONAL user account, there is no
+#     shared secret (gh secret set --org returns 404) — set it PER REPO, reusing the same
+#     SonarCloud token value:  gh secret set SONAR_TOKEN --repo <owner>/<repo>
 #   - Turn Automatic Analysis OFF for this project (SonarCloud > Project > Administration >
 #     Analysis Method) — Automatic Analysis and CI-based analysis are mutually exclusive.
 #

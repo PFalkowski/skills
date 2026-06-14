@@ -210,10 +210,12 @@ per project** — a CI-based scan errors if Automatic Analysis is still on.
 - Fill `/k:<project-key>` `/o:<org-key>`. Read both from the public API:
   `curl -s "https://sonarcloud.io/api/components/show?component=<project-key>"` →
   `.component.organization` is the org key (project key is usually `<GitHubOrg>_<repo>`).
-- **One-time org setup (not per-repo):** add a GitHub **organization** secret `SONAR_TOKEN`
-  (one SonarCloud token shared by every repo → no per-repo secret), and **turn Automatic
-  Analysis OFF** for the project (Administration > Analysis Method; the API's `autoscanEnabled`
-  must become `false`) or the analyses conflict.
+- **One-time auth setup:** add a `SONAR_TOKEN` GitHub secret. If `<owner>` is a GitHub
+  **Organization**, use an **org secret** (one secret, all repos). If it's a **personal user
+  account** there are no org secrets (`gh secret set --org` → HTTP 404), so set it **per repo**,
+  reusing the same SonarCloud token value: `gh secret set SONAR_TOKEN --repo <owner>/<repo>`.
+  Also **turn Automatic Analysis OFF** for the project (Administration > Analysis Method; the
+  API's `autoscanEnabled` must become `false`) or the analyses conflict.
 - Gives coverage **and** the deeper C# (MSBuild-integrated) rules.
 
 **Automatic Analysis — zero-config fallback.**
