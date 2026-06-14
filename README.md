@@ -15,6 +15,7 @@ The installer (the [`skills`](https://www.npmjs.com/package/skills) CLI used by 
 | Skill | One-liner |
 |---|---|
 | [nightshift](nightshift/SKILL.md) | Autonomously implement backlog work overnight using TDD (Red→Green→Refactor) per item, with pre-flight grilling and per-item subagent spawn. |
+| [signal-verdict](signal-verdict/SKILL.md) | Take a new trading/ML/quant idea from hypothesis → real-data baseline → TDD → walk-forward benchmark harness → honest PROMOTE/PARK verdict → docs. Falsify-first; data-first; real-data CI gate. |
 
 ## Layout
 

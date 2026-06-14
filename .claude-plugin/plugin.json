@@ -1,6 +1,7 @@
 {
   "name": "pfalkowski-skills",
   "skills": [
-    "./nightshift"
+    "./nightshift",
+    "./signal-verdict"
   ]
 }
