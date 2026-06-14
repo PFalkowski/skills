@@ -235,6 +235,27 @@ add the coverage badge too:
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=<org>_<repo>&metric=coverage)](https://sonarcloud.io/summary/new_code?id=<org>_<repo>)
 ```
 
+**Autonomous console setup — what an agent can and can't do.**
+- **Set the secret** (per-repo on a personal account; reuse the same token across repos). Take
+  the token from a session env var or a silent prompt — **never hardcode it** in the skill or
+  any committed file:
+  ```bash
+  read -rsp 'SonarCloud token: ' SONAR_TOKEN; echo        # held in the shell session only
+  for r in owner/repo1 owner/repo2; do
+    gh secret set SONAR_TOKEN --repo "$r" --body "$SONAR_TOKEN"
+  done
+  ```
+  Don't persist the token to disk/profile — the GitHub (repo or org) secret is the store of record.
+- **Read project/org keys** from the API:
+  `curl -s "https://sonarcloud.io/api/components/show?component=<project-key>"` →
+  `.component.organization` (org key). Current mode: `…/api/navigation/component?component=<key>` →
+  `autoscanEnabled`.
+- **Disabling Automatic Analysis is UI-only — no public API.** `POST api/settings/set` for
+  `sonar.autoscan.enabled` returns 400 ("cannot be set on a Project"), and `api/autoscan/*` 404s.
+  The maintainer must do it: SonarCloud → Project → **Administration → Analysis Method → turn off
+  Automatic Analysis**. Until then the first CI scan fails with an "Automatic Analysis is enabled"
+  conflict — so toggle it **before** merging the sonar workflow.
+
 ## Phase 7 — Security & quality checklist
 
 - [ ] No long-lived secrets in CI/CD (Trusted Publishing/OIDC for NuGet).
