@@ -131,6 +131,8 @@ and it now *is* the nuget.org package page — so fixing it is part of the refre
       `buildstats.info`); use shields.io for NuGet version/downloads/license; add the
       **SonarCloud quality-gate badge** if the project is analyzed (verify it returns 200 —
       see "Phase 6 — SonarCloud").
+- [ ] **Always include the Buy Me a Coffee badge** (every repo, non-negotiable):
+      `[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/piotrfalkowski)`
 - [ ] **API accuracy**: reconcile every type/member named in the README against the *current*
       public surface (renamed interfaces, new methods). Verify each code example compiles
       against the actual signatures — don't trust the old prose.
