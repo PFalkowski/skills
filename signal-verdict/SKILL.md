@@ -6,8 +6,8 @@ description: Runbook to take a new trading/ML/quant idea from hypothesis to an h
 # signal-verdict
 
 A repeatable, falsify-first runbook for testing whether a **new idea actually makes a data strategy more
-profitable** — without fooling yourself. It encodes the discipline that survived ADR-030/034–037 in the
-XtbClient repo: **data first, TDD, real-data CI gate, label ≠ objective ≠ verdict, and a one-shot holdout.**
+profitable** — without fooling yourself. It encodes the discipline that survived a real quant strategy
+build-out: **data first, TDD, real-data CI gate, label ≠ objective ≠ verdict, and a one-shot holdout.**
 
 The default outcome of a rigorous test is **PARK**, not PROMOTE. That is the point: the runbook's job is to
 cheaply kill bad ideas and to make the rare good one *trustworthy*. Most of the value is the negative results
@@ -120,7 +120,8 @@ within one run.
   did as well → the choice added no skill OOS. (This is the runbook working.)
 
 ## Reference implementation
-XtbClient `docs/adr/ADR-030`, `ADR-034`–`ADR-037` and `docs/plans/adr-034/*` are a worked example: baseline
-P&L decomposition, a policy backtester with golden-master parity, walk-forward holdout verdicts, a
-learned-model diagnostic, and the resulting PROMOTE (tighter stop) / PARK (diversification, horizon,
-learned primary pre-seed) records. Use them as templates for the artifacts each phase produces.
+A worked end-to-end example produces, per phase: baseline P&L decomposition, a policy backtester with
+golden-master parity, walk-forward holdout verdicts, a learned-model diagnostic, and the resulting
+PROMOTE (e.g. a tighter stop) / PARK (e.g. diversification, horizon, learned-primary pre-seed) records —
+captured as ADRs plus their backing plans. Use that shape as the template for the artifacts each phase
+produces.
