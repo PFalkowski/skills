@@ -1,0 +1,33 @@
+# CI — build (all target frameworks) and test on every push to the default branch and PR.
+# Pin action majors to current Node-LTS-native versions (verify latest before committing:
+#   gh api repos/actions/checkout/releases/latest --jq .tag_name
+#   gh api repos/actions/setup-dotnet/releases/latest --jq .tag_name )
+name: CI
+
+on:
+  push:
+    branches: [ master ]   # set to the repo's default branch
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x   # current LTS — verify latest
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build (Release, all target frameworks)
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --verbosity normal

@@ -1,0 +1,30 @@
+<!-- Key library .csproj properties after a refresh. Adapt values; verify "latest" before use. -->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Reach (netstandard2.0) + current LTS. Verify the latest LTS. -->
+    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <!-- Lets C# 8+ features (??=, using var, tuple deconstruction, out var) compile on netstandard2.0. -->
+    <LangVersion>latest</LangVersion>
+
+    <!-- Ship XML docs for documented members without forcing every member to be documented. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <!-- Packaging -->
+    <Version>10.0.0</Version>                                 <!-- bump appropriately; major for breaking changes -->
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>  <!-- not the deprecated PackageLicenseUrl -->
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/OWNER/REPO</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReleaseNotes>Summarize the refresh.</PackageReleaseNotes>
+    <!-- Optional hardening: <Deterministic>true</Deterministic>, SourceLink, <ContinuousIntegrationBuild> -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Bump every PackageReference to a current, supported version; drop heavyweight deps used for one helper. -->
+
+</Project>
