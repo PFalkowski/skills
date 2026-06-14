@@ -104,7 +104,22 @@ If a single item runs > 5 minutes (test suite duration), abandon in-place compre
 
 ## Exit + summary
 
-When a stop condition fires, prepend a summary block to the backlog file:
+When a stop condition fires, do these in order:
+
+### 1. Fold tuning observations into the relevant skill files (BEFORE the summary)
+
+If the run surfaced lessons worth codifying — concrete prompt-tuning notes, new failure modes, refinements to existing rules, calibration thresholds that worked or didn't — fold them into the right skill file BEFORE writing the exit summary. The run record alone is not propagation: a per-run markdown file is read once, by the morning reviewer, and never again. Skills are read on every subsequent invocation.
+
+Where things go:
+- **Project-specific rules** (tied to a particular project's data shape, source-allowlist quirks, domain conventions) → the project's own skill file (e.g. `.claude/skills/<project-skill>/SKILL.md` "Cumulative hard rules" section).
+- **Project-agnostic rules** (transferable patterns that would apply to any verification-heavy multi-agent flow, any TDD loop, any backlog-driven cycle) → this generic skill — `SKILL.md` "Hard rules that transfer across projects" or `ADVERSARIAL.md` "Hard rules" section.
+- **Worked examples** (what failed and how the rule caught it the next round) → the project skill's run-history table; never the generic skill (the generic skill stays project-neutral).
+
+If the parent NightShift agent is the one writing the summary, it does the fold. If a Phase-2 spawned subagent finishes the run alone (rare — usually the parent re-enters), it appends a TODO line to the summary and the parent folds in the next cycle.
+
+A run that captures 6 tuning observations in the exit summary but doesn't fold them anywhere has wasted 5 of them. The first one is read by the morning reviewer; the rest decay.
+
+### 2. Prepend the summary block to the backlog file
 
 ```md
 # NightShift run — <ISO date> <local timezone>
@@ -115,6 +130,7 @@ When a stop condition fires, prepend a summary block to the backlog file:
 - **Blocked on question:** <N>
 - **Failed after retries:** <N>
 - **Notable:** <one-line surprises — e.g. "QuoteService integration test was flaky, retried twice on item 3">
+- **Folded into skills:** <list of skill files touched + commit hashes; or "none — no new lessons surfaced this run">
 
 ## Items needing your attention
 
@@ -123,7 +139,11 @@ When a stop condition fires, prepend a summary block to the backlog file:
 ---
 ```
 
-Then return control. If running under the parent agent, return a one-line status. If running standalone (e.g. via `/loop`), simply terminate.
+The `Folded into skills` line is the audit trail for whether step 1 actually happened. If it reads "none", that's fine — not every run produces new rules. If it's missing entirely, the run skipped step 1.
+
+### 3. Return control
+
+If running under the parent agent, return a one-line status. If running standalone (e.g. via `/loop`), simply terminate.
 
 ## Anti-patterns to avoid in the loop
 
