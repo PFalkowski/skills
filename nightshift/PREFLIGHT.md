@@ -12,6 +12,10 @@ For each item in the backlog file:
 
 If any item lacks acceptance criteria, ask: "What's the observable outcome that means item *X* is done?" Don't proceed until answered.
 
+### Multi-cycle naming on the same date
+
+If the project organises run records by date and a backlog file already exists for today's date directory, do NOT overwrite — increment a numeric suffix (`nightshift-backlog-2.md`, `nightshift-backlog-3.md`, …) per the [SKILL.md multi-run convention](SKILL.md#multiple-runs-on-the-same-date). Confirm with the user which cycle suffix you are writing into before proceeding.
+
 ## 2. Design ambiguity sweep
 
 For each pending item, ask yourself: "What's the first decision I'd have to make to start coding?" Then ask the user. Common shapes:
