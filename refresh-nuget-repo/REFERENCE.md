@@ -134,8 +134,9 @@ and it now *is* the nuget.org package page — so fixing it is part of the refre
       against the actual signatures — don't trust the old prose.
 - [ ] **Install snippet**: `dotnet add package <Id>`.
 - [ ] **Working examples**: real, copy-pasteable; fix broken/truncated ones.
-- [ ] **Absolute image URLs** (`https://raw.githubusercontent.com/<owner>/<repo>/<branch>/img.png`)
-      so they render on nuget.org, not just GitHub.
+- [ ] **Absolute URLs for images _and_ links** — relative paths don't resolve on the nuget.org
+      package page. Images: `https://raw.githubusercontent.com/<owner>/<repo>/<branch>/img.png`;
+      in-repo file links (LICENSE, docs): `https://github.com/<owner>/<repo>/blob/<branch>/FILE`.
 - [ ] Fix obvious typos; state the supported target frameworks.
 
 ---
