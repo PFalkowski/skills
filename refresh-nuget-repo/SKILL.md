@@ -49,8 +49,11 @@ before, green after). No public API changes here. Keep build green.
 **3 — Modernize.** Multi-target for reach + current LTS (verify latest; e.g.
 `netstandard2.0;net8.0`). Set `LangVersion`, `GenerateDocumentationFile`, fix packaging
 (README in package, `PackageLicenseExpression`, drop deprecated fields), bump deps, clean
-analyzer warnings, add netstandard polyfills as needed. Recipes → REFERENCE "Phase 3" +
-`templates/csproj-snippet.xml`.
+analyzer warnings, add netstandard polyfills as needed. **Refresh the README (mandatory):**
+fix stale badges (point CI at the new workflow; drop dead Azure/Codecov/buildstats), correct
+the documented API to the *current* public surface, add an install snippet + working examples,
+and use absolute image URLs — it doubles as the nuget.org package README. Recipes →
+REFERENCE "Phase 3" + `templates/csproj-snippet.xml`.
 
 **4 — Breaking fixes. 🛑 GATE.** For inverted/misleading APIs, do **not** flip behavior
 silently. Present options and **ask the user**. Default: add correctly-named replacements,

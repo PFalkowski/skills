@@ -124,6 +124,20 @@ repo-root README is `..\README.md`:
 Verify it landed: `unzip -l bin/Release/<id>.<ver>.nupkg | grep -i readme`.
 Ref: https://devblogs.microsoft.com/dotnet/add-a-readme-to-your-nuget-package/
 
+**Refresh the README content (mandatory).** A dormant repo's README is almost always stale,
+and it now *is* the nuget.org package page — so fixing it is part of the refresh, not optional.
+- [ ] **Badges**: replace the CI badge with the new GitHub Actions workflow
+      (`.../actions/workflows/ci.yml/badge.svg`); drop dead ones (Azure DevOps, Codecov,
+      `buildstats.info`); use shields.io for NuGet version/downloads/license.
+- [ ] **API accuracy**: reconcile every type/member named in the README against the *current*
+      public surface (renamed interfaces, new methods). Verify each code example compiles
+      against the actual signatures — don't trust the old prose.
+- [ ] **Install snippet**: `dotnet add package <Id>`.
+- [ ] **Working examples**: real, copy-pasteable; fix broken/truncated ones.
+- [ ] **Absolute image URLs** (`https://raw.githubusercontent.com/<owner>/<repo>/<branch>/img.png`)
+      so they render on nuget.org, not just GitHub.
+- [ ] Fix obvious typos; state the supported target frameworks.
+
 ---
 
 ## Phase 4 — Breaking fixes via `[Obsolete]` shims (default strategy)
