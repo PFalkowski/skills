@@ -29,8 +29,8 @@ trail whether it wins or loses.
 | **Objective** | What a model/threshold optimizes | A calibrated / profit-weighted **probability loss**. **Never PnL. Never AUC.** Feature selection happens *inside* CV folds. |
 | **Verdict** | What decides accept/reject | Walk-forward **OOS** ROI/Sharpe uplift vs baseline on a **touched-once holdout**, deflated for multiplicity. Any knob that responds to this number invalidates it. |
 
-Judging by PnL is correct as a *verdict* and catastrophic as an *objective* — a PnL-tuned threshold has near-
-unlimited power to fence off *this* sample's losers and will overfit even under purged CV.
+Judging by PnL is correct as a *verdict* and catastrophic as an *objective* — a PnL-tuned threshold has
+near-unlimited power to fence off *this* sample's losers and will overfit even under purged CV.
 
 ## The runbook
 
@@ -121,6 +121,6 @@ within one run.
 
 ## Reference implementation
 XtbClient `docs/adr/ADR-030`, `ADR-034`–`ADR-037` and `docs/plans/adr-034/*` are a worked example: baseline
-P&L decomposition, a policy backtester with golden-master parity, walk-forward holdout verdicts, a learned-
-model diagnostic, and the resulting PROMOTE (tighter stop) / PARK (diversification, horizon, learned primary
-pre-seed) records. Use them as templates for the artifacts each phase produces.
+P&L decomposition, a policy backtester with golden-master parity, walk-forward holdout verdicts, a
+learned-model diagnostic, and the resulting PROMOTE (tighter stop) / PARK (diversification, horizon,
+learned primary pre-seed) records. Use them as templates for the artifacts each phase produces.
