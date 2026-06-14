@@ -1,0 +1,66 @@
+# SonarCloud analysis WITH test coverage (CI-based scanner).
+#
+# One-time setup (not per-repo):
+#   - Add an ORG-level GitHub secret SONAR_TOKEN (one SonarCloud token, shared by all repos).
+#   - Turn Automatic Analysis OFF for this project (SonarCloud > Project > Administration >
+#     Analysis Method) — Automatic Analysis and CI-based analysis are mutually exclusive.
+#
+# Replace <PROJECT_KEY> and <ORG_KEY>. Find them in SonarCloud (Project > Information, or the
+# "Analyze with GitHub Actions" tutorial). For GitHub-imported projects the project key is
+# usually <GitHubOrg>_<repo> and the org key is the lowercase org slug. You can also read them
+# from the public API: curl -s "https://sonarcloud.io/api/components/show?component=<PROJECT_KEY>"
+name: SonarCloud
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  sonar:
+    name: Build, test & analyze
+    runs-on: ubuntu-latest
+    # Skip PRs from forks — they can't access the SONAR_TOKEN secret.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # full history for accurate new-code / blame
+
+      - name: Set up JDK (required by the scanner)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Install scanner + coverage tools
+        run: |
+          dotnet tool install --global dotnet-sonarscanner
+          dotnet tool install --global dotnet-coverage
+
+      - name: Build, test (with coverage) & analyze
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          dotnet-sonarscanner begin \
+            /k:"<PROJECT_KEY>" /o:"<ORG_KEY>" \
+            /d:sonar.host.url="https://sonarcloud.io" \
+            /d:sonar.token="$SONAR_TOKEN" \
+            /d:sonar.cs.vscoveragexml.reportsPaths=coverage.xml
+          dotnet build --configuration Release
+          dotnet-coverage collect "dotnet test --configuration Release --no-build" -f xml -o coverage.xml
+          dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"

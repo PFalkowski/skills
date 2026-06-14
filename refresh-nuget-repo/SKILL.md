@@ -74,10 +74,11 @@ available). Close existing issues this work resolves, with a comment linking the
 - **Ask** the trigger model (tag-driven / GitHub Release / csproj-as-truth) before finalizing.
 - **Verify locally** the exact CI command sequence, and confirm committed YAML is LF
   (`git show HEAD:.github/workflows/ci.yml | grep -c $'\r'` → `0`).
-- **Static analysis (SonarCloud)**: prefer **Automatic Analysis** — zero per-repo
-  config/secrets; enabled once at the org level (auto-imports every repo). The per-repo step
-  is to add the quality-gate **badge** to the README (project key `<org>_<repo>`; verify the
-  badge URL returns 200 first). Coverage needs the opt-in CI-based scanner. → REFERENCE
+- **Static analysis (SonarCloud)**: default to **CI-based analysis with coverage**
+  (`templates/sonar.yml` — `dotnet-sonarscanner` + `dotnet-coverage`). One-time org setup: a
+  GitHub **org** secret `SONAR_TOKEN` (shared by all repos) + Automatic Analysis turned **off**
+  per project. Add the quality-gate **and coverage** badges to the README (verify each returns
+  200). Automatic Analysis is the zero-config, no-coverage fallback. → REFERENCE
   "Phase 6 — SonarCloud".
 - Templates: `templates/ci.yml`, `templates/publish.yml`. Detail → REFERENCE "Phase 6".
 

@@ -198,35 +198,39 @@ filename** (e.g. `publish.yml`). `NUGET_USER` is a repo **variable**, not a secr
 
 ## Phase 6 — SonarCloud (static analysis)
 
-Two modes — pick based on whether you need coverage. **They are mutually exclusive per
-project**: a CI-based scan errors if Automatic Analysis is still on.
+**Default: CI-based analysis _with test coverage_** (`templates/sonar.yml`). Automatic Analysis
+is the zero-config fallback for repos not worth wiring. The two modes are **mutually exclusive
+per project** — a CI-based scan errors if Automatic Analysis is still on.
 
-**Automatic Analysis — recommended default (zero per-repo work, no secrets).**
-- Server-side: SonarCloud clones and scans the default branch + PRs with **no workflow, no
-  `sonar-project.properties`, and no secret** in the repo.
-- One-time *org* setup (not per-repo): in SonarCloud, bind the GitHub org and **Import all
-  repositories** / enable auto-onboarding of new repos. After that every existing and future
-  repo is analyzed automatically — nothing to add to the repo or CI.
-- Limitation: **no test coverage** (it can't ingest a coverage report). Fine for
-  bugs / smells / security hotspots / duplication.
+**CI-based + coverage — the default.**
+- Drop in `templates/sonar.yml`: JDK + .NET setup, installs `dotnet-sonarscanner` +
+  `dotnet-coverage`, then `begin` → `dotnet build` → `dotnet-coverage collect "dotnet test"`
+  → `end`, feeding coverage via `sonar.cs.vscoveragexml.reportsPaths`. Checkout needs
+  `fetch-depth: 0`.
+- Fill `/k:<project-key>` `/o:<org-key>`. Read both from the public API:
+  `curl -s "https://sonarcloud.io/api/components/show?component=<project-key>"` →
+  `.component.organization` is the org key (project key is usually `<GitHubOrg>_<repo>`).
+- **One-time org setup (not per-repo):** add a GitHub **organization** secret `SONAR_TOKEN`
+  (one SonarCloud token shared by every repo → no per-repo secret), and **turn Automatic
+  Analysis OFF** for the project (Administration > Analysis Method; the API's `autoscanEnabled`
+  must become `false`) or the analyses conflict.
+- Gives coverage **and** the deeper C# (MSBuild-integrated) rules.
 
-**CI-based — opt in only when you need coverage or deeper C# (MSBuild) analysis.**
-- Workflow: `dotnet-sonarscanner begin` → build → test with a coverage collector
-  (`coverlet`) → `dotnet-sonarscanner end`, passing the coverage report path. Needs
-  `fetch-depth: 0` on checkout.
-- Auth: one SonarCloud token stored as a GitHub **organization** secret `SONAR_TOKEN`
-  (shared by all repos → still no per-repo secret). 
-- **Turn Automatic Analysis OFF** for that project first, or the two conflict.
+**Automatic Analysis — zero-config fallback.**
+- Server-side scan of default branch + PRs, no workflow/secret. Enable once at the org level
+  (Import all repositories / auto-onboard new repos). **No coverage.**
 
-**Per-repo step the skill always does: the badge.** Project key is `<org>_<repo>` (e.g.
-`PFalkowski_LoggerLite`). Verify it resolves before adding — never ship a broken badge:
+**Per-repo step the skill always does: the badges.** Project key is `<org>_<repo>` (e.g.
+`PFalkowski_LoggerLite`). Verify each resolves before adding — never ship a broken badge:
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' \
   "https://sonarcloud.io/api/project_badges/measure?project=<org>_<repo>&metric=alert_status"  # expect 200
 ```
-Then add to the README badge block (it's also the nuget.org package page, so quality shows there too):
+Add to the README badge block (it's also the nuget.org package page). With CI-based coverage,
+add the coverage badge too:
 ```markdown
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=<org>_<repo>&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=<org>_<repo>)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=<org>_<repo>&metric=coverage)](https://sonarcloud.io/summary/new_code?id=<org>_<repo>)
 ```
 
 ## Phase 7 — Security & quality checklist
