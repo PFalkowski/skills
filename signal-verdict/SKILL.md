@@ -29,8 +29,8 @@ trail whether it wins or loses.
 | **Objective** | What a model/threshold optimizes | A calibrated / profit-weighted **probability loss**. **Never PnL. Never AUC.** Feature selection happens *inside* CV folds. |
 | **Verdict** | What decides accept/reject | Walk-forward **OOS** ROI/Sharpe uplift vs baseline on a **touched-once holdout**, deflated for multiplicity. Any knob that responds to this number invalidates it. |
 
-Judging by PnL is correct as a *verdict* and catastrophic as an *objective* — a PnL-tuned threshold has near-
-unlimited power to fence off *this* sample's losers and will overfit even under purged CV.
+Judging by PnL is correct as a *verdict* and catastrophic as an *objective* — a PnL-tuned threshold has
+near-unlimited power to fence off *this* sample's losers and will overfit even under purged CV.
 
 ## The runbook
 

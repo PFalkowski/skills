@@ -17,6 +17,7 @@ public class MyIdeaHoldoutVerdictHarnessTests
     private const string DateFrom = "2024-01-06";
     private const string DateTo   = "2026-06-05";
     private const double TrainFraction = 0.70;   // first 70% select; last 30% = untouched holdout
+    private const int    EmbargoDays   = 5;      // ≈ holding horizon; gap purged between train & holdout
 
     [Test]
     public void SelectOnTrain_ConfirmOnHoldout_ProducesVerdict()
@@ -28,7 +29,7 @@ public class MyIdeaHoldoutVerdictHarnessTests
         using var scope = sp.CreateScope();
         // 1) REAL data → replay the production policy → labeled outcomes (deterministic).
         var data     = scope.ServiceProvider.GetRequiredService<IQuotesFilteringService>()
-                            .GetFilteredSimulationQuotes(/* window filters */);
+                            .GetFilteredSimulationQuotes(DateFrom, DateTo /*, …other filters */);
         var outcomes = new ReplaySelectionLabeler(data, /* timeService */)
                             .Label(baselineSelector, config, outcomeRule, window);
 
@@ -36,28 +37,41 @@ public class MyIdeaHoldoutVerdictHarnessTests
         var candidate = PolicyBacktester.DailyReturns(outcomes, candidatePolicy);
         var baseline  = PolicyBacktester.DailyReturns(outcomes, baselinePolicy);
 
-        // 3) Chronological split: select on train, confirm ONCE on the untouched holdout.
+        // 3) Chronological split WITH an embargo gap: select on train, confirm ONCE on the
+        //    untouched holdout. Drop the EmbargoDays straddling the boundary so a position
+        //    opened in train can't still be open in the holdout (purge by the holding horizon).
         var days     = baseline.Select(d => d.DateCest).OrderBy(d => d).ToList();
         var splitAt  = (int)Math.Floor(days.Count * TrainFraction);
-        var holdout  = days.Skip(splitAt).ToHashSet();
-        IReadOnlyList<double> Sub(IReadOnlyList<DailyReturn> s) =>
-            s.Where(d => holdout.Contains(d.DateCest)).OrderBy(d => d.DateCest).Select(d => d.NetReturn).ToList();
+        var holdout  = days.Skip(splitAt + EmbargoDays).ToHashSet();   // embargo gap = no train→holdout bleed
+        IReadOnlyList<DailyReturn> Sub(IReadOnlyList<DailyReturn> s) =>
+            s.Where(d => holdout.Contains(d.DateCest)).OrderBy(d => d.DateCest).ToList();
 
-        // 4) Verdict stats scaled to EFFECTIVE N: block-bootstrap CI on the paired difference,
+        // 4) Guard sample size BEFORE scoring — a too-small holdout must skip, not emit a verdict.
+        var baseHoldout = Sub(baseline);
+        Assert.That(baseHoldout.Count, Is.GreaterThan(20), "holdout needs enough days to score");
+
+        // 5) Align candidate vs baseline BY DATE — never a positional Zip: a day missing from
+        //    either series would silently misalign the paired difference and corrupt the CI.
+        var candByDate  = Sub(candidate).ToDictionary(d => d.DateCest, d => d.NetReturn);
+        var paired      = baseHoldout.Where(b => candByDate.ContainsKey(b.DateCest)).ToList();
+        var diff        = paired.Select(b => candByDate[b.DateCest] - b.NetReturn).ToList();
+        var candReturns = paired.Select(b => candByDate[b.DateCest]).ToList();
+
+        // 6) Verdict stats scaled to EFFECTIVE N: block-bootstrap CI on the paired difference,
         //    deflated Sharpe / PBO via the harness, against a same-skip random baseline.
-        var diff = Sub(candidate).Zip(Sub(baseline), (a, b) => a - b).ToList();
         var (ciLow, ciHigh) = BlockBootstrap.MeanCi(diff, 0.95, blockLength: 5, resamples: 2000, seed: 42);
         var ledger = new MultiplicityBudgetLedger();
         ledger.Declare("my-idea", "one line per declared trial");
-        var report = PnLHarness.Score(Sub(candidate), ledger, /* trialMatrix for PBO */ null,
+        // Pass the real per-trial OOS matrix to get a PBO number; null here only because this is a
+        // skeleton — a stubbed PBO is NOT a verdict, so wire the trial matrix before trusting PROMOTE.
+        var report = PnLHarness.Score(candReturns, ledger, /* trialMatrix for PBO */ null,
                                       new HarnessOptions { Confidence = 0.95 });
 
         var promote = ciLow > 0 /* && beats same-skip random && survives cost-shock && util floor */;
 
-        // 5) Deterministic markdown report to a version-controlled path.
+        // 7) Deterministic markdown report to a version-controlled path.
         File.WriteAllText(ResolveReportPath("my-idea-holdout-verdict.md"),
                           Render(report, ciLow, ciHigh, promote));
-        Assert.That(Sub(baseline).Count, Is.GreaterThan(20), "holdout needs enough days to score");
     }
 
     // Returns null when no connection is configured → the test skips instead of failing/mocking.
@@ -101,6 +115,10 @@ public void Model_IsDeterministic_AcrossTwoFits()               // pin seeds; SD
 
 ## Common pitfalls the template guards against
 - **Random `TrainTestSplit`** on time-ordered rows → leaked metrics. Use chronological + purge/embargo.
+- **No embargo at the split boundary** → a position opened in train still open in the holdout leaks the
+  verdict. Drop the holding-horizon days straddling the cut.
+- **Positional `Zip`** of two date-filtered series → silent misalignment when a day is missing in one.
+  Join candidate↔baseline by date.
 - **`Dictionary<double?>`** keyed by a nullable parameter throws on the null case — key by a label string.
 - **Per-run multiplicity only** — `PnLHarness` deflates to the ledger you pass; track cumulative trials
   across the whole effort, or the deflation understates overfit.
