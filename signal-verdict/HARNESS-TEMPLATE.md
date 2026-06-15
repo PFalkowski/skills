@@ -28,23 +28,23 @@ public class MyIdeaHoldoutVerdictHarnessTests
 
         using var scope = sp.CreateScope();
         // 1) REAL data → replay the production policy → labeled outcomes (deterministic).
-        var data     = scope.ServiceProvider.GetRequiredService<IQuotesFilteringService>()
-                            .GetFilteredSimulationQuotes(DateFrom, DateTo /*, …other filters */);
-        var outcomes = new ReplaySelectionLabeler(data, /* timeService */)
+        var data     = scope.ServiceProvider.GetRequiredService<IMarketDataService>()
+                            .GetDailyReturns(DateFrom, DateTo /*, …other filters */);
+        var outcomes = new OutcomeLabeler(data, /* timeService */)
                             .Label(baselineSelector, config, outcomeRule, window);
 
         // 2) Build the candidate vs baseline daily-return series via the policy backtester.
-        var candidate = PolicyBacktester.DailyReturns(outcomes, candidatePolicy);
-        var baseline  = PolicyBacktester.DailyReturns(outcomes, baselinePolicy);
+        var candidate = Backtester.DailyReturns(outcomes, candidatePolicy);
+        var baseline  = Backtester.DailyReturns(outcomes, baselinePolicy);
 
         // 3) Chronological split WITH an embargo gap: select on train, confirm ONCE on the
         //    untouched holdout. Drop the EmbargoDays straddling the boundary so a position
         //    opened in train can't still be open in the holdout (purge by the holding horizon).
-        var days     = baseline.Select(d => d.DateCest).OrderBy(d => d).ToList();
+        var days     = baseline.Select(d => d.Date).OrderBy(d => d).ToList();
         var splitAt  = (int)Math.Floor(days.Count * TrainFraction);
         var holdout  = days.Skip(splitAt + EmbargoDays).ToHashSet();   // embargo gap = no train→holdout bleed
         IReadOnlyList<DailyReturn> Sub(IReadOnlyList<DailyReturn> s) =>
-            s.Where(d => holdout.Contains(d.DateCest)).OrderBy(d => d.DateCest).ToList();
+            s.Where(d => holdout.Contains(d.Date)).OrderBy(d => d.Date).ToList();
 
         // 4) Guard sample size BEFORE scoring — a too-small holdout must skip, not emit a verdict.
         var baseHoldout = Sub(baseline);
@@ -52,20 +52,20 @@ public class MyIdeaHoldoutVerdictHarnessTests
 
         // 5) Align candidate vs baseline BY DATE — never a positional Zip: a day missing from
         //    either series would silently misalign the paired difference and corrupt the CI.
-        var candByDate  = Sub(candidate).ToDictionary(d => d.DateCest, d => d.NetReturn);
-        var paired      = baseHoldout.Where(b => candByDate.ContainsKey(b.DateCest)).ToList();
-        var diff        = paired.Select(b => candByDate[b.DateCest] - b.NetReturn).ToList();
-        var candReturns = paired.Select(b => candByDate[b.DateCest]).ToList();
+        var candByDate  = Sub(candidate).ToDictionary(d => d.Date, d => d.Return);
+        var paired      = baseHoldout.Where(b => candByDate.ContainsKey(b.Date)).ToList();
+        var diff        = paired.Select(b => candByDate[b.Date] - b.Return).ToList();
+        var candReturns = paired.Select(b => candByDate[b.Date]).ToList();
 
         // 6) Verdict stats scaled to EFFECTIVE N: block-bootstrap CI on the paired difference,
         //    deflated Sharpe / PBO via the harness, against a same-skip random baseline.
         var (ciLow, ciHigh) = BlockBootstrap.MeanCi(diff, 0.95, blockLength: 5, resamples: 2000, seed: 42);
-        var ledger = new MultiplicityBudgetLedger();
+        var ledger = new TrialLedger();
         ledger.Declare("my-idea", "one line per declared trial");
         // Pass the real per-trial OOS matrix to get a PBO number; null here only because this is a
         // skeleton — a stubbed PBO is NOT a verdict, so wire the trial matrix before trusting PROMOTE.
-        var report = PnLHarness.Score(candReturns, ledger, /* trialMatrix for PBO */ null,
-                                      new HarnessOptions { Confidence = 0.95 });
+        var report = VerdictHarness.Score(candReturns, ledger, /* trialMatrix for PBO */ null,
+                                          new HarnessOptions { Confidence = 0.95 });
 
         var promote = ciLow > 0 /* && beats same-skip random && survives cost-shock && util floor */;
 
@@ -79,14 +79,14 @@ public class MyIdeaHoldoutVerdictHarnessTests
     {
         var cfg = new ConfigurationBuilder()
             .AddJsonFile("appsettings.json", optional: true)
-            .AddUserSecrets(typeof(SomeAppAssembly).Assembly, optional: true)
+            .AddUserSecrets(typeof(Startup).Assembly, optional: true)
             .AddEnvironmentVariables()
             .Build();
         var conn = Environment.GetEnvironmentVariable("MYAPP_CONNSTR");
-        if (!string.IsNullOrEmpty(conn)) cfg["DatabaseSettings:ConnectionString"] = conn;
+        if (!string.IsNullOrEmpty(conn)) cfg["Data:ConnectionString"] = conn;
         var settings = new AppSettings(); cfg.Bind(settings);
         if (string.IsNullOrWhiteSpace(settings.ConnectionString)) return null;
-        var services = new ServiceCollection(); services.AddMyRuntime(settings);
+        var services = new ServiceCollection(); services.AddServices(settings);
         return services.BuildServiceProvider();
     }
 }
@@ -120,6 +120,6 @@ public void Model_IsDeterministic_AcrossTwoFits()               // pin seeds; SD
 - **Positional `Zip`** of two date-filtered series → silent misalignment when a day is missing in one.
   Join candidate↔baseline by date.
 - **`Dictionary<double?>`** keyed by a nullable parameter throws on the null case — key by a label string.
-- **Per-run multiplicity only** — `PnLHarness` deflates to the ledger you pass; track cumulative trials
+- **Per-run multiplicity only** — `VerdictHarness` deflates to the ledger you pass; track cumulative trials
   across the whole effort, or the deflation understates overfit.
 - **Working-directory drift** in shell runs — use absolute project paths for `dotnet test`.
