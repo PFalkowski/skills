@@ -2,6 +2,8 @@
   "name": "pfalkowski-skills",
   "skills": [
     "./nightshift",
+    "./prompt-backlog",
+    "./refresh-nuget-repo",
     "./signal-verdict"
   ]
 }
