@@ -3,6 +3,7 @@
   "skills": [
     "./nightshift",
     "./prompt-backlog",
-    "./refresh-nuget-repo"
+    "./refresh-nuget-repo",
+    "./signal-verdict"
   ]
 }

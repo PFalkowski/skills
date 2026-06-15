@@ -17,6 +17,7 @@ The installer (the [`skills`](https://www.npmjs.com/package/skills) CLI used by 
 | [nightshift](nightshift/SKILL.md) | Autonomously implement backlog work overnight using TDD (Red→Green→Refactor) per item, with pre-flight grilling and per-item subagent spawn. |
 | [prompt-backlog](prompt-backlog/SKILL.md) | Dead-simple ordered list of prompts to feed to an agent verbatim — status header + prompt fence + log per item. Includes the `prompts/` folder convention and an init recipe. |
 | [refresh-nuget-repo](refresh-nuget-repo/SKILL.md) | Autonomously refresh a dormant .NET/NuGet library repo — deep review, fix correctness bugs with regression tests, modernize targets/deps/packaging, deprecate-not-break misleading APIs, and set up CI + CD (NuGet Trusted Publishing/OIDC). Checks the published registry first to avoid refreshing a stale tree. |
+| [signal-verdict](signal-verdict/SKILL.md) | Take a new trading/ML/quant idea from hypothesis → real-data baseline → TDD → walk-forward benchmark harness → honest PROMOTE/PARK verdict → docs. Falsify-first; data-first; real-data CI gate. |
 
 ## Layout
 
