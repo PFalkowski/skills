@@ -1,6 +1,7 @@
 {
   "name": "pfalkowski-skills",
   "skills": [
+    "./azure-devops-pr-review",
     "./nightshift",
     "./prompt-backlog",
     "./refresh-nuget-repo",
