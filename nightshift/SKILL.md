@@ -31,9 +31,11 @@ Pre-flight succeeds when:
 
 ## Phase 2 — Loop (user asleep)
 
-Follow [LOOP.md](LOOP.md) per item: read backlog → mark `in_progress` → plan TDD slice → Red → Green → Refactor → update backlog → spawn fresh subagent for next item.
+Follow [LOOP.md](LOOP.md) per item: read backlog → mark `in_progress` → plan TDD slice → Red → Green → Refactor → **adversarial code review** ([CODE-REVIEW.md](CODE-REVIEW.md)) → commit + push + open PR → **post the review to the PR** → update backlog → spawn fresh subagent for next item.
 
 Spawned subagents run **Phase 2 only** — they must not re-enter pre-flight.
+
+When items build on each other, stack the PRs (each branch off the previous; PR base = previous branch; keep all open) — see LOOP.md "Stacked PRs". To **land** a stacked chain afterward, use the `merge-stack` skill (it handles the squash-rebase and cascade-close traps); don't hand-merge ad hoc.
 
 ## Backlog item schema
 
@@ -81,11 +83,17 @@ Inline what you find into a `## NightShift detected conventions` block at the to
 
 Subagents also inherit `CLAUDE.md` and saved memories automatically — they must respect those (e.g. don't reintroduce a retired dependency, don't violate a documented architectural rule).
 
+## Adversarial code review (every code item)
+
+The green test proves only what the *implementer* thought to assert — it cannot catch the bug in the branch the implementer didn't test, the guard a refactor silently dropped, or the caller the change just broke. So **every code item gets a second, independent pass**: after Green+Refactor and before the commit/PR, spawn a **fresh reviewer subagent that never sees the implementer's rationale** and have it hunt the diff for correctness bugs at extra-high recall. Confirmed bugs get a regression test + fix in-item; pre-existing or out-of-scope bugs the diff merely surfaced get a follow-up issue. Full protocol + hard rules: [CODE-REVIEW.md](CODE-REVIEW.md).
+
+This is the code-correctness sibling of the data-claim mode below — same governing principle (**independence**: the reviewer must not inherit the generator/implementer's blind spots), different target (implementation vs. claims about the world).
+
 ## Adversarial verification mode (for verification-heavy items)
 
 The default LOOP is single-agent TDD: one subagent writes a test, makes it pass, commits. That's right when the item's correctness is checkable by a unit test compiling and passing. It's wrong when the item's correctness depends on **claims about the world** the test runner can't validate — data fetched from web sources, citations supporting numeric claims, entity attributes (operators, owners, locations), historical figures.
 
-For those items, run **two-agent adversarial verification** instead.
+For those items, run **two-agent adversarial verification** instead (this is *in addition to* the code-review pass when an item has both an executable surface and web-sourced claims).
 
 ### When to use it
 
