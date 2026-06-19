@@ -26,11 +26,43 @@ One iteration = one work item, end-to-end. This file governs Phase 2 only — th
 6. Refactor (optional): only if the new code exposes a clear duplication
    or smell. Keep green throughout. If you can't articulate the value of
    the refactor in one sentence, skip it.
-7. Commit (if policy=yes): conventional message, single item scope.
+7. ADVERSARIAL CODE REVIEW (see CODE-REVIEW.md):
+   - Capture the item's green diff.
+   - Spawn a FRESH reviewer subagent with NO shared context — give it the
+     diff + the item's Acceptance line + repo read access ONLY. Do not pass
+     your plan or rationale.
+   - It hunts at extra-high recall (line-by-line + enclosing function,
+     removed-behavior, cross-file caller/callee, language pitfalls) and
+     returns findings with CONFIRMED/PLAUSIBLE/REFUTED votes.
+   - Triage: CONFIRMED bug → reproduce with a failing test, fix, re-green
+     (in-scope, not a retry). PLAUSIBLE → fix if cheap, else defer/file an
+     issue. Pre-existing bug merely surfaced → file a follow-up issue, don't
+     fold the fix into this item.
+   - Append "REVIEW: <n> findings — <c> confirmed-fixed, <p> deferred" to Run log.
+8. Commit (if policy=yes): conventional message, single item scope.
    Imperative mood: "feat(<area>): <what>" or "fix(<area>): <what>".
-8. Mark item [done], append wall-clock duration to Run log.
-9. Hand off to next item — see "Context management" below.
+9. Push + open PR (if policy=yes): push the branch; open the PR
+   (stacked chain → base = the previous item's branch; otherwise the
+   integration base). THEN post the adversarial-review audit comment to
+   the PR (CODE-REVIEW.md step 8) — findings + disposition, even at 0
+   findings. Append the PR URL to the Run log.
+10. Mark item [done], append wall-clock duration to Run log.
+11. Hand off to next item — see "Context management" below.
 ```
+
+## Stacked PRs (when items build on each other)
+
+When item N+1 depends on N's changes (shared files, a new type N introduced), don't branch every item off the integration base — **stack** them:
+
+- Branch naming: `<prefix>/<id>-<slug>` (e.g. `nightshift/<issue#>-<slug>`).
+- Each item's branch is created off the **previous item's branch**; the first off the integration base. PR base = the previous item's branch (not the base branch). Keep all PRs open.
+- This keeps every PR a clean single-item diff and avoids in-flight conflicts on shared files.
+
+Two traps bite when the stack is later **squash-merged** — codified in the `merge-stack` skill, which lands the chain:
+- squash-merging a parent rewrites its commits, so children phantom-conflict until rebased `--onto base <old-parent-tip>`;
+- deleting a merged branch **auto-closes** the next child PR unless you retarget it to the base first.
+
+Do not hand-merge a stacked chain ad hoc — invoke `merge-stack`.
 
 ## Retry budget
 
@@ -150,5 +182,7 @@ If running under the parent agent, return a one-line status. If running standalo
 - **Don't skip RED.** "I'll write the implementation and then the test" defeats the whole point — you can't tell the test is testing the right thing.
 - **Don't extend the retry budget** by reframing the problem mid-attempt. If you're on attempt 3, mark it blocked or failed; don't pretend it's attempt 1 of a "different" problem.
 - **Don't commit** before tests are green. The commit log is a contract that "this passed" — broken builds in history are noise for the morning review.
+- **Don't review your own diff.** The adversarial code-review pass (step 7) must be a fresh, independent reviewer subagent that never sees the implementer's rationale — self-review re-walks the same blind spots.
+- **Don't let a review finding balloon the item.** Fix in-scope confirmed bugs; file follow-up issues for pre-existing or out-of-scope ones rather than dragging unrelated work into the item's PR.
 - **Don't push** unless explicit pre-flight policy said yes.
-- **Don't spawn nested subagents.** Phase-2 spawned agents must NOT spawn their own. Only the parent (the one the user said "go" to) spawns.
+- **Don't spawn nested subagents** for the *next item*. Phase-2 spawned agents must NOT spawn their own successor. The single exception is the step-7 reviewer subagent, which reviews the current item and returns — it does not continue the loop. Only the parent (the one the user said "go" to) spawns the next item.
