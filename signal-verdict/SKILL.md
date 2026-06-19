@@ -5,19 +5,7 @@ description: Runbook to take a new trading/ML/quant idea from hypothesis to an h
 
 # signal-verdict
 
-A repeatable, falsify-first runbook for testing whether a **new idea actually makes a data strategy more
-profitable** — without fooling yourself. It encodes the discipline that survived a real quant strategy
-build-out: **data first, TDD, real-data CI gate, label ≠ objective ≠ verdict, and a one-shot holdout.**
-
-The default outcome of a rigorous test is **PARK**, not PROMOTE. That is the point: the runbook's job is to
-cheaply kill bad ideas and to make the rare good one *trustworthy*. Most of the value is the negative results
-it lets you record honestly.
-
-## When to run it
-
-A new idea exists: an ML algorithm, a selection rule, an exit/sizing/holding policy, a regime/exposure
-overlay, a feature, a model. You want to know if it beats what's already shipped — and to leave an auditable
-trail whether it wins or loses.
+Falsify-first: the default outcome of a rigorous test is **PARK**, not PROMOTE — the value is cheaply killing bad ideas and making the rare good one *trustworthy*. Discipline: **data first, TDD, real-data CI gate, label ≠ objective ≠ verdict, one-shot holdout.**
 
 ## The one rule that prevents the most expensive mistake
 

@@ -5,7 +5,7 @@ description: A dead-simple, ordered list of prompts to feed to an agent verbatim
 
 # prompt-backlog
 
-A **prompt backlog** is a Markdown file of prompts to feed to an agent in order. The priority is the **prompt the user writes** — everything else (status, log) is one line of overhead.
+The user's verbatim prompt is the payload; status + log are one line of overhead each.
 
 ## File shape
 
