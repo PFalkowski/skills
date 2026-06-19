@@ -2,6 +2,8 @@
   "name": "pfalkowski-skills",
   "skills": [
     "./azure-devops-pr-review",
+    "./evolve-skill",
+    "./merge-stack",
     "./nightshift",
     "./prompt-backlog",
     "./refresh-nuget-repo",
