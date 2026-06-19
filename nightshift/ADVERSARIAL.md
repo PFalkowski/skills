@@ -266,11 +266,11 @@ Mixing per-year is acceptable: some years from A, others from B, with each entry
 - **Allowing the generator to "fix" failed proposals by editing the validator or quality-bar doc.** Hard rule: the generator works against the rules as published; only the user changes the rules.
 - **Letting `_rejected.log` reasons drift to "no good".** Each rejection deserves a specific reason — that text is the next cycle's generator prompt input.
 
-## Project examples
+## Layering project-specific rules
 
-This pattern was developed in the GeopoliticsSim repo's
-`resource-deposit-backfill` skill (cycle 2026-05-10, rounds 1+2+3,
-27 records added across oil/gas/REE deposits with 5 reviewer
-interventions). Read that project's SKILL.md "Cumulative hard rules"
-section for an example of how project-specific rules layer on top of
-the project-agnostic rules in this file.
+The project-agnostic rules in this file are the base. A project that runs
+this pattern keeps its own rules — data-source allowlists, entity-typing
+conventions, magnitude-vs-centroid distinctions, and similar domain
+specifics — in a "Cumulative hard rules" section of that project's own
+SKILL.md, layered on top. Keep the two tiers separate so this file stays
+transferable across projects.
