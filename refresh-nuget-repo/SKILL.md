@@ -5,9 +5,7 @@ description: Autonomously refresh a dormant .NET/NuGet library repo — deep cod
 
 # Refresh a NuGet/.NET library repo
 
-Bring a neglected public .NET library up to current quality, security, and delivery
-standards **without silently breaking consumers**. Work in phases, keep the build green at
-every commit, and stop for the user at each **🛑 GATE**.
+Work in phases; keep the build green at every commit; never break consumers silently; stop at each **🛑 GATE**.
 
 ## Operating rules
 - **Never work on the default branch.** Get a clean tree first, then branch.

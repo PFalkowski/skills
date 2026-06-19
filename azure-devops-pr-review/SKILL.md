@@ -5,12 +5,7 @@ description: Review a pull request hosted on Azure DevOps (dev.azure.com / visua
 
 # Review an Azure DevOps pull request
 
-Drive an Azure DevOps PR review from the terminal: resolve the PR, get a trustworthy diff with
-surrounding context, and post inline comments. The non-obvious part is the **plumbing** — Azure
-DevOps auth, the diff API, and console encoding all have sharp edges. This skill encodes the path
-that works so you don't rediscover it each time.
-
-> Mechanics only. Apply your normal review judgement (or run `/code-review`) on the diff this produces.
+> Mechanics only — the plumbing (auth, diff API, console encoding) has sharp edges; this encodes the path that works. Apply your normal review judgement (or run `/code-review`) on the diff it produces.
 
 ## Prerequisites
 - `az` CLI with the **azure-devops** extension (`az extension add --name azure-devops`).
