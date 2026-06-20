@@ -4,11 +4,43 @@ Personal Claude Code skills.
 
 ## Install
 
+### Option A — Claude Code plugin marketplace (recommended)
+
+Installs the whole set as one Claude Code plugin and keeps it current automatically.
+
+```text
+/plugin marketplace add PFalkowski/skills
+/plugin install pfalkowski-skills@pfalkowski-skills
+```
+
+Claude Code copies the plugin into its own managed cache — no symlinks or hand-maintained copies under `~/.claude/skills/`. Skills are namespaced under the plugin (e.g. `pfalkowski-skills:nightshift`).
+
+### Option B — `skills` CLI
+
+Copies the individual skills into `~/.claude/skills/` and lets you pick which to enable.
+
 ```bash
 npx skills@latest add PFalkowski/skills
 ```
 
-The installer (the [`skills`](https://www.npmjs.com/package/skills) CLI used by the wider Claude Code skills ecosystem) reads `.claude-plugin/plugin.json`, lets you pick which skills to enable, and drops them into `~/.claude/skills/` for any agent you select.
+The [`skills`](https://github.com/vercel-labs/skills) CLI reads `.claude-plugin/plugin.json`, walks the listed skill directories, and drops the ones you choose into `~/.claude/skills/`.
+
+## Updating
+
+Pick the line that matches how you installed.
+
+```text
+# Option A — plugin marketplace: refresh the catalog and pull new versions
+/plugin marketplace update
+```
+
+No `version` is pinned in the manifest, so every push to this repo counts as a new version. Claude Code's background auto-update picks it up on startup; `/plugin marketplace update` just applies it immediately.
+
+```bash
+# Option B — skills CLI: re-pull installed skills
+npx skills update            # all installed skills
+npx skills update <skill>    # a single skill
+```
 
 ## Skills
 
@@ -24,9 +56,11 @@ The installer (the [`skills`](https://www.npmjs.com/package/skills) CLI used by 
 
 Each skill is a directory at the repo root containing at minimum a `SKILL.md` with the frontmatter Claude Code expects (`name`, `description`). Reference docs split into sibling files (e.g. `LOOP.md`, `PREFLIGHT.md`) when `SKILL.md` would exceed ~100 lines.
 
-`.claude-plugin/plugin.json` is the manifest the installer reads. Every new skill must be added there alongside its directory.
+`.claude-plugin/plugin.json` lists the skills in the plugin — every new skill must be added there alongside its directory. `.claude-plugin/marketplace.json` is the catalog clients add via `/plugin marketplace add`; it points at the repo root (`source: "./"`), so it needs no per-skill edits.
 
-## Local development
+## Local development (maintainers)
+
+> Installing or updating these skills as a user? See [Install](#install) and [Updating](#updating) above — you don't need any of this.
 
 When iterating on a skill in this repo and you want Claude Code to pick up your in-progress edits without re-running the installer:
 

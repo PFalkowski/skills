@@ -2,9 +2,16 @@
 # Version is derived from the tag. Tests gate the publish. Pin action majors to current
 # Node-LTS-native versions (verify latest, incl. gh api repos/NuGet/login/releases/latest).
 #
-# One-time setup the maintainer must do:
+# One-time setup the maintainer must do (VERIFY these exist before the first publish — see below):
 #   - NuGet.org Trusted Publishing policy: owner, repo, and workflow file == this filename.
-#   - Repo variable NUGET_USER = NuGet account name (a variable, NOT a secret).
+#   - Repo variable NUGET_USER = NuGet account name (a variable; a secret of the same name
+#     also works — the action just needs the value present). If it's missing, the run fails
+#     at the auth step with: "Error: Input required and not supplied: user".
+#
+# Before you cut the first release TAG, validate this workflow end-to-end via the manual
+# `workflow_dispatch` run below. A tag-triggered publish runs the workflow file AS IT EXISTS
+# AT THE TAGGED COMMIT — so a bug here means moving the tag (a destructive, often-blocked
+# remote-ref rewrite) to retry. Dispatch-first avoids that trap entirely.
 name: Publish NuGet
 
 on:
@@ -54,6 +61,12 @@ jobs:
       - name: Pack
         run: dotnet pack path/to/Library.csproj --configuration Release --output ./artifacts -p:Version=${{ steps.ver.outputs.version }}
 
+      # NuGet/login@v1 API contract (do NOT invent inputs — verify with
+      #   gh api repos/NuGet/login/contents/action.yml | jq -r '.content' | base64 -d):
+      #   inputs : user (the ONLY required input) [+ optional token-service-url, audience]
+      #   outputs: NUGET_API_KEY  (a short-lived key you MUST pass to `dotnet nuget push --api-key`)
+      #   There is NO `usernameVar`, `tokenVar`, `token`, or `password` input. Using those, or
+      #   omitting `--api-key` on the push, is the classic broken publish workflow.
       - name: NuGet auth (Trusted Publishing via OIDC)
         id: nuget-login
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841  # v1

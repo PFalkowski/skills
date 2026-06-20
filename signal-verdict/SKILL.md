@@ -49,14 +49,16 @@ Work top to bottom. Each phase has a Definition of Done; do not advance until it
    on synthetic data with hand-computed expected values.
 2. Every component ships a **leak-safety test** (asserts it reads only ≤ D-1 data) and, where it re-implements
    production behavior, a **golden-master parity test** (byte-identical to the incumbent on a fixture).
-3. **Determinism is mandatory** — pin RNG seeds; for ML.NET SDCA set `NumberOfThreads=1` (parallel updates
-   are non-deterministic even with a fixed seed). A non-reproducible harness cannot be a verdict.
+3. **Determinism is mandatory** — pin RNG seeds and disable nondeterministic parallelism in your trainer
+   (parallel gradient updates are non-deterministic even with a fixed seed — e.g. ML.NET's SDCA needs
+   `NumberOfThreads=1`). A non-reproducible harness cannot be a verdict.
 - **DoD:** unit tests green; leak-safety + parity tests present; re-runs are byte-identical.
 
 ### Phase 3 — Build the real-data benchmark harness (the CI real-data gate)
 1. The verdict runs against **real data, not mocks** — wire it as an integration test that connects to the
-   real store, and **skip cleanly (Inconclusive) when no connection is configured** so CI without DB access
-   passes silently. Mark it `[Explicit]` / a `Harness` category so it's opt-in, not in the default suite.
+   real store, and **skip cleanly when no connection is configured** so CI without DB access passes
+   silently. Mark it opt-in via a dedicated category / explicit-run flag (e.g. NUnit `[Explicit]` +
+   `Inconclusive`, a pytest marker, a Go build tag) so it's not in the default suite.
 2. **Walk-forward, not random split**: train/select on the earlier block, confirm on a later **untouched**
    block. Purge/embargo around fold boundaries by the holding horizon.
 3. Scale every haircut to **effective N** (autocorrelation-adjusted), not raw rows: **deflated Sharpe**,
@@ -83,7 +85,8 @@ within one run.
 ### Phase 5 — Document everything (win or lose)
 - An **ADR** for the decision (Context / Options / Decision / Consequences) — including the PARK ones; the
   recorded negatives are what stop the next person re-running a dead idea.
-- The harness **report** under `docs/plans/...`; link it from the ADR; update the ADR index.
+- The harness **report** under a version-controlled docs path (e.g. `docs/plans/…`); link it from the ADR;
+  update the ADR index.
 - Honest **caveats**: multiplicity, grid-boundary optima, regime-specific results, data-quality holes.
 - A durable **memory/handoff** note so the next agent inherits the verdict, not just the code.
 
@@ -108,8 +111,7 @@ within one run.
   did as well → the choice added no skill OOS. (This is the runbook working.)
 
 ## Reference implementation
-A worked end-to-end example produces, per phase: baseline P&L decomposition, a policy backtester with
+A worked end-to-end example produces, per phase: a baseline P&L decomposition, a policy backtester with
 golden-master parity, walk-forward holdout verdicts, a learned-model diagnostic, and the resulting
-PROMOTE (e.g. a tighter stop) / PARK (e.g. diversification, horizon, learned-primary pre-seed) records —
-captured as ADRs plus their backing plans. Use that shape as the template for the artifacts each phase
-produces.
+PROMOTE / PARK records — each captured as an ADR plus its backing plan. Use that shape as the template
+for the artifacts each phase produces.

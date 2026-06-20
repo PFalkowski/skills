@@ -108,8 +108,9 @@ Prompt: """
 You are running a single NightShift loop iteration in Phase 2.
 The user is asleep — do NOT do pre-flight, do NOT ask questions.
 Read the backlog at <ABSOLUTE PATH>, find the first [pending] item,
-and execute the per-item flow from
-C:\\Users\\John\\.claude\\skills\\nightshift\\LOOP.md against it.
+and execute the per-item flow from the NightShift skill's LOOP.md
+(<path to nightshift/LOOP.md> — e.g. ~/.claude/skills/nightshift/LOOP.md)
+against it.
 Defer any ambiguity per the question-deferral protocol — log Q:/A:
 inline and either proceed with a documented assumption or mark
 blocked-on-question.
