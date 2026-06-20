@@ -1,25 +1,25 @@
-# NightShift — Adversarial verification mode
+# NightShift — Adversarial source-verification mode (optional)
 
-For backlog items where correctness depends on **claims about the world** rather than on a unit test compiling and passing. Two subagents with no shared context — generator drafts, reviewer adversarially re-fetches every cited source.
+For the minority of backlog items where correctness depends on **claims about the world** rather than on a unit test compiling and passing. Two subagents with no shared context — a generator drafts, a reviewer adversarially re-fetches every cited source.
 
-The default LOOP.md flow is single-agent TDD. Use this mode instead when an item involves data fetched from web sources, citations supporting numeric claims, or entity attributes that only WebFetch can verify.
+The default second pass for code items is [CODE-REVIEW.md](CODE-REVIEW.md). Use *this* mode instead when an item's main risk is external-fact accuracy: data copied from web sources or docs, citations supporting numeric claims, version/compatibility facts, or entity attributes that only a fetch can verify. Most items are code and never need this mode.
 
 ## When to use this mode
 
-A backlog item warrants adversarial mode when **at least one** is true:
+A backlog item warrants source-verification mode when **at least one** is true:
 
-- The deliverable is a JSON / YAML / Markdown record with claims sourced from external URLs.
-- A failure mode includes hallucination: fabricated coordinates, plausible-but-fictional numbers, entity names lifted from training context rather than from cited sources.
-- The unit-test signal is weak — the test runner can confirm "the JSON is well-formed" but cannot confirm "the cited URL actually says what we claim".
-- A wrong claim landing has higher cost than the latency of running a second subagent.
+- The deliverable is a structured record (JSON / YAML / Markdown / config) whose values are claimed from external sources.
+- A failure mode includes hallucination: fabricated numbers, plausible-but-fictional values, names recalled from training context rather than read from a cited source.
+- The test signal is weak — the runner can confirm "the output is well-formed" but cannot confirm "the cited source actually says what we claim".
+- A wrong claim landing costs more than the latency of running a second subagent.
 
-If none apply, use the default single-agent LOOP.
+If none apply, use the default code-review pass (or plain LOOP for items with no external facts).
 
 ## Per-item flow
 
 ```
-1. Read backlog. Find first [pending] item. Confirm "adversarial mode"
-   applies (otherwise drop back to LOOP.md).
+1. Read backlog. Find first [pending] item. Confirm "source-verification
+   mode" applies (otherwise drop back to CODE-REVIEW.md / LOOP.md).
 
 2. Atomically: change [pending] → [in_progress], append "started: <ISO>"
    to Run log.
@@ -31,8 +31,8 @@ If none apply, use the default single-agent LOOP.
    - The project-specific source-allowlist or quality bar that gates
      both subagents.
 
-4. GENERATE — spawn the generator subagent (fresh context, WebFetch +
-   WebSearch enabled). Prompt template below.
+4. GENERATE — spawn the generator subagent (fresh context, fetch tools
+   enabled). Prompt template below.
 
 5. After generator returns, sanity-check that:
    - N proposals (or fewer, with explicit drop reasons) sit in the
@@ -90,37 +90,37 @@ For each candidate:
 1. Identify the candidate. Confirm it isn't already covered by an
    existing record.
 
-2. Fetch primary-source URLs that support the claims. The exact set of
-   "primary" sources is project-specific — the quality-bar doc names
+2. Fetch the source URLs that support the claims. The exact set of
+   acceptable sources is project-specific — the quality-bar doc names
    them.
 
-3. Verbatim-quote pre-flight: for every numeric value you intend to put
-   in a structured field, paste in your scratchpad the exact sentence
-   from a cited URL that contains that number. If no cited URL
-   contains the value, drop the field.
+3. Verbatim-quote pre-flight: for every value you intend to put in a
+   structured field, paste in your scratchpad the exact sentence from
+   a cited URL that contains that value. If no cited URL contains the
+   value, drop the field.
 
-4. Cross-source category audit: when you have two figures from
-   different sources for the "same" claim, quote the CATEGORY label
-   from each source verbatim. Match requires identical category, not
-   just identical number.
+4. Cross-source meaning audit: when you have two values from different
+   sources for the "same" claim, quote the LABEL / definition from each
+   source verbatim. A match requires the same meaning, not just the
+   same number.
 
 5. Intra-source contradiction check: scan each source for self-
-   contradictions (e.g. infobox vs lede with different numbers). If
-   present, flag in notes and degrade confidence.
+   contradictions (e.g. a summary and a detail table giving different
+   values). If present, flag in notes and degrade confidence.
 
 6. Source-precision honesty: don't over-claim a source's precision in
-   the source label. If Wikidata gives degree-minute, don't paraphrase
-   to sub-decimal seconds.
+   the source label. If a source publishes a rounded or low-precision
+   value, don't present it at finer precision.
 
-7. Entity-name attributions: only set entity-name fields (operator,
-   owner, manufacturer) when the name appears verbatim on a cited URL.
-   Substring + rebrand-equivalence accepted (e.g. "Total" ⇆
-   "TotalEnergies" post-2021). When sources disagree, use 2-of-3
-   majority with rebrand-equivalence; null only when all distinct.
+7. Entity-name attributions: only set entity-name fields (owner, author,
+   vendor, maintainer) when the name appears verbatim on a cited URL.
+   Substring + rebrand-equivalence accepted (e.g. "Facebook" ⇆ "Meta"
+   post-2021). When sources disagree, use majority with rebrand-
+   equivalence; null only when all are distinct.
 
-8. Self-rate confidence honestly. The cumulative hard rules define
-   the confidence ladder for this project. If only one source backs a
-   claim, the rating cannot be the multi-source tier.
+8. Self-rate confidence honestly. The cumulative hard rules define the
+   confidence ladder for this project. If only one source backs a claim,
+   the rating cannot be the multi-source tier.
 
 9. Write the record to {staging_dir}/<id>.json (or the project's
    convention).
@@ -131,12 +131,12 @@ For each candidate:
 Hard rules (in addition to {cumulative_hard_rules_section_or_link}):
 - Never invent values not present in any cited URL.
 - Never cite a homepage. Cite the exact page that supports the claim.
-- Never cite a domain outside the project allowlist.
+- Never cite a source outside the project allowlist.
 - When in doubt, ship at the most-conservative confidence tier rather
   than fabricate.
 
 Deliverable (printed to stdout AND written to {staging_dir}):
-- Summary table per candidate: id | <project-specific cols> | confidence | source-domains | category-label-verbatim
+- Summary table per candidate: id | <project-specific cols> | confidence | source-domains | label-verbatim
 - Path to every record file written
 - Project validator output (exit code required)
 - For each rejected candidate, a one-line reason (the rejection log
@@ -151,12 +151,12 @@ Do NOT commit. Do NOT push. The reviewer subagent runs next.
 You are the REVIEWER for an autonomous adversarial-verification cycle.
 A generator subagent (which you have NOT seen) drafted N records under
 {staging_dir}. Your job is adversarial verification via independent
-WebFetch on every cited URL.
+fetches of every cited URL.
 
 Authoritative spec: read {quality_bar_doc} end-to-end. Cumulative
 hard rules: {cumulative_hard_rules_section_or_link}.
 
-Hard rule: WebFetch on every cited URL. No heuristic shortcuts. No
+Hard rule: re-fetch every cited URL. No heuristic shortcuts. No
 skipping URLs because "this domain is reliable". The two-agent
 pattern's value is independence — go back to ground truth.
 
@@ -164,33 +164,31 @@ For each record:
 
 1. Read the record file.
 
-2. WebFetch every URL in the source list. The page must return 200 OK
+2. Fetch every URL in the source list. The page must return 200 OK
    and the body text must support the claim it is cited for. Quote
-   the exact paragraph or table cell when verifying numeric figures.
+   the exact sentence or table cell when verifying a value.
 
-3. Re-resolve any independently-checkable attributes (centroids,
-   timestamps, entity attributes) against primary sources. Apply the
+3. Re-resolve any independently-checkable attributes (timestamps,
+   identifiers, entity attributes) against primary sources. Apply the
    project-specific tolerance thresholds.
 
-4. Verbatim-quote audit (cumulative hard rule 1): for every numeric
-   value in a structured field, locate the verbatim sentence on a
-   cited URL containing that number. If the value is not on any cited
-   URL, REJECT or drop the field. This is the single highest-yield
-   adversarial check.
+4. Verbatim-quote audit (hard rule 1): for every value in a structured
+   field, locate the verbatim sentence on a cited URL containing that
+   value. If the value is not on any cited URL, REJECT or drop the
+   field. This is the single highest-yield adversarial check.
 
-5. Category-match audit (cumulative hard rule 2): for any record
-   self-rated above the lowest tier, verify both magnitude sources
-   publish the SAME category label (not just same number). Downgrade
-   if the categories differ.
+5. Meaning-match audit (hard rule 2): for any record self-rated above
+   the lowest tier, verify the corroborating sources publish the SAME
+   label/definition (not just the same number). Downgrade if they
+   differ.
 
-6. Intra-source contradiction audit (cumulative hard rule 3): if the
-   generator missed a self-contradiction in one of the cited sources,
-   flag and downgrade.
+6. Intra-source contradiction audit (hard rule 3): if the generator
+   missed a self-contradiction in one of the cited sources, flag and
+   downgrade.
 
-7. Entity-name verbatim audit (cumulative hard rule 5): if an entity-
-   name field is set, the name must appear verbatim on at least one
-   cited URL (substring + rebrand-equivalence OK). Otherwise null
-   the field.
+7. Entity-name verbatim audit (hard rule 5): if an entity-name field is
+   set, the name must appear verbatim on at least one cited URL
+   (substring + rebrand-equivalence OK). Otherwise null the field.
 
 8. Re-run the project validator independently. The record must pass.
 
@@ -222,7 +220,7 @@ Track these per cycle and per item:
 
 - **Rejection rate** = rejected / proposed. Rule of thumb: <10% over a sustained run means the reviewer is too lenient. >80% means the generator is broken. Either state blocks productive work.
 
-- **Downgrade rate** = downgraded / proposed. This is the *quieter* but *more sensitive* signal. A cycle with 0 rejections but 4 downgrades (medium → estimated, reserves dropped, operator nulled, etc.) is NOT a free-pass cycle — those downgrades are real quality interventions and should drive next-cycle prompt-tuning.
+- **Downgrade rate** = downgraded / proposed. This is the *quieter* but *more sensitive* signal. A cycle with 0 rejections but 4 downgrades (confidence lowered, a field dropped, an attribute nulled, etc.) is NOT a free-pass cycle — those downgrades are real quality interventions and should drive next-cycle prompt-tuning.
 
 - **Drop rate at generator** = generator-self-dropped / generator-attempted. Tracks how often the generator hits the project's source-allowlist or threshold rules. Large numbers (e.g. 14 of 17 attempted) mean the project's gap-list has shifted ahead of where allowlisted sources cover.
 
@@ -232,36 +230,36 @@ A round that lands 3-of-3 accepted with 1 downgrade is a productive round. A rou
 
 The reviewer's "next-cycle prompt-tuning notes" are the active output of this pattern — more important than the per-item accept/reject decisions, because they compound. Each round earns 2-6 concrete proposed rule changes; if they only land in the per-run markdown file, they're read once by the morning reviewer and forgotten by the time the next cycle runs. The next generator and reviewer would re-discover the same lessons from scratch.
 
-**Before the run exits, fold the observations into the right skill file.** This is step 1 of LOOP.md's "Exit + summary" section — restated here because adversarial-mode runs are the most lesson-dense and miss this most often.
+**Before the run exits, fold the observations into the right skill file.** This is step 1 of LOOP.md's "Exit + summary" section — restated here because source-verification runs are the most lesson-dense and miss this most often.
 
 The split:
 - **Project-specific rules** stay in the project skill (the one whose data shape, source allowlist, or domain conventions the rule references). New numbered rules go in the "Cumulative hard rules" section; sub-bullets clarifying existing rules go under the parent rule.
-- **Project-agnostic rules** go into this generic skill — `SKILL.md` "Hard rules that transfer across projects" for top-level lessons, `ADVERSARIAL.md` for adversarial-mode-specific lessons.
+- **Project-agnostic rules** go into this generic skill — `SKILL.md` "Source-verification rules that transfer across projects" for top-level lessons, `ADVERSARIAL.md` for mode-specific lessons.
 - **Worked examples** (what failed, how the rule caught it the next round) belong in the project skill's run-history table — they keep the generic skill project-neutral.
 
 The cumulative-rules list grows monotonically. Rules earned from failures don't leave; the generator and reviewer prompts pick them up automatically on the next cycle because the prompts read the SKILL file fresh each time.
 
 A pragmatic test: if your exit summary says "6 tuning observations surfaced this run" but the `Folded into skills` line is empty, you've left 5 of them on the floor. Fold them. It's two file edits and a commit per skill touched.
 
-## Time-series backfill (when an item is "fill historical data")
+## Backfilling a historical series (when an item is "fill historical data")
 
-A common shape: an item asks you to backfill a multi-year time series of values for a single entity (production figures per year, prices per quarter, headcounts per year, etc.). The adversarial pattern works the same way as for single-record items, with two specific sub-patterns:
+A common shape: an item asks you to backfill a multi-period series of values for a single entity (figures per year, prices per quarter, counts per release, etc.). The adversarial pattern works the same way as for single-record items, with two specific sub-patterns:
 
-**Annual-edition publication pattern.** When a publisher releases the same table structure every year (Australia's Geoscience AECR, USGS Mineral Commodity Summaries, BP Statistical Review of World Energy, IMF World Economic Outlook, etc.), time-series backfill is high-leverage: walk back through editions and extract each year's reference cell verbatim. Document the URL pattern in the generator prompt — annual publications are the cheapest cross-year corroboration source.
+**Periodic-edition publication pattern.** When a publisher releases the same table structure every period (an annual report, a versioned spec, dated release notes, an archived dashboard), series backfill is high-leverage: walk back through editions and extract each period's reference cell verbatim. Document the URL pattern in the generator prompt — periodic publications are the cheapest cross-period corroboration source.
 
 **Two strategies, in order of preference:**
-- **Strategy A — per-entity verbatim.** Each year's value comes from a source page that names the specific entity and the specific year. Highest fidelity; requires the publisher to break out the entity by year.
-- **Strategy B — aggregate-fractioned.** When per-entity year figures don't exist, take a national/regional aggregate and apply a citable fraction (e.g. national-crude × deposit-share-of-national). The fraction itself MUST come from a verbatim quote on a cited URL — without one, you cannot use Strategy B and must fall back to A. Each entry's notes must explicitly mark the fraction value + the fraction citation, so a future auditor can trace what's verbatim and what's derived.
+- **Strategy A — per-entity verbatim.** Each period's value comes from a source page that names the specific entity and the specific period. Highest fidelity; requires the publisher to break the entity out by period.
+- **Strategy B — aggregate-fractioned.** When per-entity period figures don't exist, take an aggregate and apply a citable fraction (e.g. a total × the entity's documented share). The fraction itself MUST come from a verbatim quote on a cited URL — without one, you cannot use Strategy B and must fall back to A. Each entry's notes must mark the fraction value + its citation, so a future auditor can trace what's verbatim and what's derived.
 
-Mixing per-year is acceptable: some years from A, others from B, with each entry's notes naming its strategy.
+Mixing per-period is acceptable: some periods from A, others from B, with each entry's notes naming its strategy.
 
-**Rule-honest entry counts.** A "≥10 entries spanning the full history" goal is aspirational, not a floor. The hard floor is rule 1 (verbatim-quote pre-flight). Three verbatim-cited entries beat ten inferred ones. If the source publisher only year-stamps two figures across a 50-year history (decadal narrative without integer-year anchors), ship those two — don't interpolate. The schema's `minItems` is usually 0; the goal is what you can defend, not what you can fabricate.
+**Rule-honest entry counts.** A "≥10 entries spanning the full history" goal is aspirational, not a floor. The hard floor is rule 1 (verbatim-quote pre-flight). Three verbatim-cited entries beat ten inferred ones. If the publisher only stamps two figures across a long history, ship those two — don't interpolate. The goal is what you can defend, not what you can fabricate.
 
 ## Anti-patterns
 
 - **Sharing context between generator and reviewer.** If the reviewer reads the generator's rationale, it inherits the generator's confirmation bias. Spawn fresh.
 - **Skipping URLs in the reviewer pass.** "This domain is reliable" defeats the whole pattern.
-- **Reviewer rubber-stamps without re-fetching.** Visible signal: reviewer reports verdict without quoting verbatim source text. If the reviewer can't quote, it didn't fetch.
+- **Reviewer rubber-stamps without re-fetching.** Visible signal: reviewer reports a verdict without quoting verbatim source text. If the reviewer can't quote, it didn't fetch.
 - **Generator over-rates confidence to please the reviewer.** Visible signal: the cycle's downgrade rate climbs above 50%. The fix is in the generator prompt's confidence-ladder section, not the reviewer prompt.
 - **Allowing the generator to "fix" failed proposals by editing the validator or quality-bar doc.** Hard rule: the generator works against the rules as published; only the user changes the rules.
 - **Letting `_rejected.log` reasons drift to "no good".** Each rejection deserves a specific reason — that text is the next cycle's generator prompt input.
@@ -270,7 +268,7 @@ Mixing per-year is acceptable: some years from A, others from B, with each entry
 
 The project-agnostic rules in this file are the base. A project that runs
 this pattern keeps its own rules — data-source allowlists, entity-typing
-conventions, magnitude-vs-centroid distinctions, and similar domain
-specifics — in a "Cumulative hard rules" section of that project's own
-SKILL.md, layered on top. Keep the two tiers separate so this file stays
+conventions, field-vs-derived distinctions, and similar domain specifics —
+in a "Cumulative hard rules" section of that project's own SKILL.md,
+layered on top. Keep the two tiers separate so this file stays
 transferable across projects.
