@@ -66,10 +66,18 @@ available). Close existing issues this work resolves, with a comment linking the
 **6 — CI/CD. 🛑 GATE on trigger model.** Add/upgrade GitHub Actions:
 - **CI** — restore → build (all TFMs, Release) → test on push to default branch + PR + manual.
 - **CD** — on `v*.*.*` tag: restore → build → **test** → pack (version from tag) → push.
-  Publish is gated behind passing tests.
+  Publish is gated behind passing tests. Always include a `workflow_dispatch` trigger too.
 - **Auth = Trusted Publishing (OIDC)**, never a long-lived key: `permissions: id-token: write`
   + `NuGet/login@v1` (`user` from `NUGET_USER` repo **variable**) → short-lived key.
+  **Don't invent the action's inputs** — `NuGet/login@v1` takes only `user`, outputs
+  `NUGET_API_KEY`, and you **must** pass that to `dotnet nuget push --api-key`. There is no
+  `usernameVar`/`tokenVar`/`token` input (using them → "Input required and not supplied: user").
 - Pin every action to a current Node-LTS-native major (verify latest).
+- **Validate the publish workflow BEFORE the first tag.** A tag runs the workflow file *at the
+  tagged commit*, so a bug means moving the tag (destructive remote-ref rewrite, usually
+  permission-blocked). Run it once via `workflow_dispatch` on the default branch first; only
+  tag once it's green. If a tag publish ever fails on a workflow bug, fix on the default branch
+  and re-publish via `workflow_dispatch` — don't move the tag.
 - **Ask** the trigger model (tag-driven / GitHub Release / csproj-as-truth) before finalizing.
 - **Verify locally** the exact CI command sequence, and confirm committed YAML is LF
   (`git show HEAD:.github/workflows/ci.yml | grep -c $'\r'` → `0`).
@@ -92,11 +100,20 @@ and publishing to the public registry are the user's calls — **offer, don't au
 After a release: confirm the CD run succeeded and the package indexed
 (`curl -s https://api.nuget.org/v3-flatcontainer/<id-lowercase>/index.json`).
 
-## One-time setup the user must do (surface these explicitly)
+## One-time setup the user must do (surface these explicitly — then VERIFY before publishing)
 - Create the NuGet **Trusted Publishing policy** (owner/repo/**workflow filename** must
   match the publish workflow, e.g. `publish.yml`).
-- Set repo variable `NUGET_USER` = their NuGet account name (not a secret).
+- Set repo variable `NUGET_USER` = their NuGet account name (a variable; a same-named secret
+  also works). This is the maintainer's NuGet.org username, i.e. the package owner.
 - Delete any leftover `NUGET_API_KEY` secret.
+
+**Pre-publish verification gate (do this before the release, not after a failed run):** these
+are external and easy to forget, and the first publish fails loudly if any is missing. Confirm:
+- `gh variable list --repo <o>/<r>` (or `gh secret list`) shows `NUGET_USER` — else the run
+  dies with "Input required and not supplied: user".
+- The Trusted Publishing policy exists and its **workflow filename matches** the actual file —
+  ask the user to confirm (it's UI-only; an agent can't read it).
+- The publish workflow has been exercised green at least once via `workflow_dispatch`.
 
 See [REFERENCE.md](REFERENCE.md) for per-phase detail and [templates/](templates/) for
 ready-to-adapt workflow and csproj snippets.

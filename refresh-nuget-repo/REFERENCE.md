@@ -198,6 +198,46 @@ filename** (e.g. `publish.yml`). `NUGET_USER` is a repo **variable**, not a secr
 - **Verify before trusting:** run the exact CI command sequence locally, and after push use
   `gh run watch <id> --exit-status` / `gh pr checks <pr>` rather than assuming green.
 
+**Trusted Publishing failure modes (each one cost a real release — prevent all three):**
+
+1. **Wrong `NuGet/login` inputs.** The action's API is small and easy to mis-remember.
+   The *only* input is `user`; the credential comes back as the **output** `NUGET_API_KEY`.
+   Inventing `usernameVar`/`tokenVar`/`token`, or forgetting `--api-key` on the push, yields:
+   `Warning: Unexpected input(s) 'usernameVar', 'tokenVar'` then `Error: Input required and not
+   supplied: user`. Verify the contract instead of guessing:
+   ```bash
+   gh api repos/NuGet/login/contents/action.yml | jq -r '.content' | base64 -d | sed -n '/inputs:/,/runs:/p'
+   ```
+   Correct shape: `with: { user: ${{ vars.NUGET_USER }} }` (id'd step) → push with
+   `--api-key "${{ steps.<id>.outputs.NUGET_API_KEY }}"`.
+
+2. **`NUGET_USER` not set.** Same `Input required and not supplied: user` error even with
+   correct YAML. It's the maintainer's NuGet.org username (the package owner shown on the
+   Trusted Publishing policy). Verify it exists before publishing:
+   `gh variable list --repo <o>/<r>` (or `gh secret list`). A variable is preferred; a
+   same-named secret also resolves.
+
+3. **A tag pinned the broken workflow.** A tag-triggered run executes the workflow file *at the
+   tagged commit*. Fixing `publish.yml` on the default branch does **not** fix an existing tag —
+   you'd have to move the tag, which is a destructive remote-ref rewrite (`git push origin
+   :refs/tags/vX` + force re-push) and is commonly permission-blocked. **Avoid the situation:**
+   keep `workflow_dispatch:` on the publish workflow and do a manual dispatch dry-run before the
+   first tag. **If already stuck:** don't fight the tag — fix on the default branch and publish
+   via `gh workflow run publish.yml --ref <default-branch>` (package version comes from the
+   csproj/`-p:Version`, so the manual run publishes correctly), leaving the tag on its commit.
+
+**Pre-tag validation recipe (cheap; saves a botched release):**
+```bash
+gh variable list --repo <o>/<r>                 # NUGET_USER present?  (or: gh secret list)
+gh workflow run publish.yml --ref <default-branch> -f version=<X.Y.Z>   # exercises the real auth+push path
+gh run watch "$(gh run list --workflow=publish.yml --limit 1 --json databaseId -q '.[0].databaseId')" --exit-status
+```
+Note this dispatch **actually publishes** `X.Y.Z` (it's the real push path, with `--skip-duplicate`,
+not a no-op) — so use the real next version. Once it's green and indexed you generally don't also
+need the tag; if you want the tag as a release marker, create it on the already-published commit.
+Match `-f version=…` to the workflow's `workflow_dispatch` inputs (the template requires it; a
+bare `workflow_dispatch:` with no inputs takes the version from the csproj instead).
+
 ---
 
 ## Phase 6 — SonarCloud (static analysis)
@@ -276,6 +316,10 @@ add the coverage badge too:
 - Push branch; open PR with a structured body (group findings; what + why). Use `gh pr create`.
 - Confirm CI green **on the PR** (`gh pr checks <n>`).
 - **Outward-facing actions are the user's call** — offer to merge/tag/publish; don't auto-run.
+- **Before tagging, run the pre-publish verification gate** (NUGET_USER present, policy
+  filename matches, publish workflow dispatched green at least once — see "Phase 6 — CI/CD
+  detail"). A failed tag publish is far more expensive to recover than a dispatch dry-run.
 - After release: `gh run view <id>` to confirm the CD run, then confirm the index picked it up:
   `curl -s https://api.nuget.org/v3-flatcontainer/<id-lowercase>/index.json` (allow a few
-  minutes of indexing lag — a successful push step is the source of truth).
+  minutes of indexing lag — a successful push step is the source of truth). Get the lowercase
+  id exactly right — a typo here just 404s and looks like a failed publish when it succeeded.
