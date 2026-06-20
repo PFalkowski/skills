@@ -9,7 +9,7 @@
     {
       "name": "pfalkowski-skills",
       "source": "./",
-      "description": "Skills for Azure DevOps PR review, autonomous overnight backlog runs, dormant NuGet repo refresh, trading/ML signal verdicts, ordered prompt backlogs, stacked-PR merges, and self-evolving skills.",
+      "description": "Skills for Azure DevOps PR review, autonomous overnight backlog runs, dormant NuGet repo refresh, trading/ML signal verdicts, ordered prompt backlogs, stacked-PR merges, fresh-context handoff checks, and self-evolving skills.",
       "license": "MIT",
       "homepage": "https://github.com/PFalkowski/skills",
       "repository": "https://github.com/PFalkowski/skills"
