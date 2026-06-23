@@ -1,6 +1,6 @@
 ---
 name: prompt-backlog
-description: A dead-simple, ordered list of prompts to feed to an agent verbatim, with a status header and a log per item. Use when the user says "prompt backlog", "prompt queue", "agent script", "prompts to feed in order", "playbook of prompts", or invokes /prompt-backlog. Includes init for the `prompts/` folder convention.
+description: 'A dead-simple, ordered list of prompts to feed to an agent verbatim, with a status header and a log per item. Use when the user says "prompt backlog", "prompt queue", "agent script", "prompts to feed in order", "playbook of prompts", or invokes /prompt-backlog. Includes init for the `prompts/` folder convention.'
 ---
 
 # prompt-backlog
