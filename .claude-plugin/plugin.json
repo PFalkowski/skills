@@ -11,6 +11,7 @@
     "./handoff-check",
     "./merge-stack",
     "./nightshift",
+    "./orchestrate",
     "./prompt-backlog",
     "./refresh-nuget-repo",
     "./restomod",
