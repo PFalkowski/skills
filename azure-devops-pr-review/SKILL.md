@@ -1,6 +1,6 @@
 ---
 name: azure-devops-pr-review
-description: Review a pull request hosted on Azure DevOps (dev.azure.com / visualstudio.com) end to end from the command line — resolve the PR, produce a clean reviewable diff with full repo context, then post findings back as inline PR comments. Use when given an Azure DevOps pull request URL or PR id to review or comment on, when `az repos` / `az devops invoke` auth or the diffs API misbehaves, or when the user invokes /azure-devops-pr-review.
+description: 'Review a pull request hosted on Azure DevOps (dev.azure.com / visualstudio.com) end to end from the command line — resolve the PR, produce a clean reviewable diff with full repo context, then post findings back as inline PR comments. Use when given an Azure DevOps pull request URL or PR id to review or comment on, when `az repos` / `az devops invoke` auth or the diffs API misbehaves, or when the user invokes /azure-devops-pr-review.'
 ---
 
 # Review an Azure DevOps pull request
