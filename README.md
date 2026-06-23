@@ -66,30 +66,30 @@ Each skill is a directory at the repo root containing at minimum a `SKILL.md` wi
 
 > Installing or updating these skills as a user? See [Install](#install) and [Updating](#updating) above — you don't need any of this.
 
-When iterating on a skill in this repo and you want Claude Code to pick up your in-progress edits without re-running the installer:
+Link every skill in this repo into `~/.claude/skills/` so Claude Code picks up your in-progress edits live (the link target *is* the repo file — no installer, no copies). **All skills are linked by default**, not just the one you're editing.
 
 ### Windows (PowerShell)
 
 ```powershell
-New-Item -ItemType Junction `
-    -Path "$env:USERPROFILE\.claude\skills\nightshift" `
-    -Target "C:\src\repos\PFalkowski\skills\nightshift"
+./link-skills.ps1
 ```
+
+Idempotent and self-healing — run it after adding a skill or to repair a machine: already-correct links are left alone (`=`), missing ones are created (`+`), and stale copies / wrong targets are replaced with a junction (`~`). Junctions need no admin rights or developer mode.
 
 ### macOS / Linux
 
 ```bash
-ln -s ~/src/skills/nightshift ~/.claude/skills/nightshift
+for d in */; do s=${d%/}; [ -f "$s/SKILL.md" ] && ln -sfn "$PWD/$s" ~/.claude/skills/"$s"; done
 ```
 
 Removing a junction/symlink doesn't delete the source — they're pointers, not copies.
 
 ## Adding a new skill
 
-1. Create `<skill-name>/SKILL.md` with the required frontmatter (`name`, `description`).
+1. Create `<skill-name>/SKILL.md` with the required frontmatter (`name`, `description`). **Quote the `description`** in single quotes if it contains a `:` (a bare `key: value` colon breaks YAML and the description silently fails to load).
 2. Split into reference files if SKILL.md would exceed ~100 lines.
 3. Add `"./<skill-name>"` to the `skills` array in `.claude-plugin/plugin.json`.
-4. Junction/symlink into `~/.claude/skills/` to test locally.
+4. Run `./link-skills.ps1` to link it into `~/.claude/skills/` (links all skills by default).
 5. Commit + push.
 
 ## License
