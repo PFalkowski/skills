@@ -1,6 +1,6 @@
 ---
 name: handoff-check
-description: When the user greenlights a substantial, multi-step task, reflects on whether the current context is too full or too off-topic to run it efficiently, and — only if a clean context would be clearly cheaper and safer — recommends a handoff (fresh session or subagent) with a ready-to-paste brief and the reasoning. Suggests only; never auto-spawns or clears. Use when the user commits to a big piece of work ("go ahead", "do it", "implement/build it", "let's ship it", "proceed").
+description: 'When the user greenlights a substantial, multi-step task, reflects on whether the current context is too full or too off-topic to run it efficiently, and — only if a clean context would be clearly cheaper and safer — recommends a handoff (fresh session or subagent) with a ready-to-paste brief and the reasoning. Suggests only; never auto-spawns or clears. Use when the user commits to a big piece of work ("go ahead", "do it", "implement/build it", "let''s ship it", "proceed").'
 ---
 
 # handoff-check

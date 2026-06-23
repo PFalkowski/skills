@@ -1,6 +1,6 @@
 ---
 name: merge-stack
-description: Land a stacked chain of dependent PRs onto its base branch (usually main/master), bottom-up, without hitting the two traps that bite stacked-PR merges. Trap 1 — squash-merging a parent rewrites its commits, so each child phantom-conflicts until rebased onto the freshly-advanced base. Trap 2 — deleting a merged branch auto-CLOSES the next child PR (a closed PR with a deleted base cannot be reopened), so the child must be retargeted to the base first. Use after building a stack of PRs (e.g. a NightShift run) or any time you have PRs where each branch is based on the previous one. Triggers — "merge the stack", "land the chain", "ship the stacked PRs", /merge-stack.
+description: 'Land a stacked chain of dependent PRs onto its base branch (usually main/master), bottom-up, without hitting the two traps that bite stacked-PR merges. Trap 1 — squash-merging a parent rewrites its commits, so each child phantom-conflicts until rebased onto the freshly-advanced base. Trap 2 — deleting a merged branch auto-CLOSES the next child PR (a closed PR with a deleted base cannot be reopened), so the child must be retargeted to the base first. Use after building a stack of PRs (e.g. a NightShift run) or any time you have PRs where each branch is based on the previous one. Triggers — "merge the stack", "land the chain", "ship the stacked PRs", /merge-stack.'
 ---
 
 # merge-stack

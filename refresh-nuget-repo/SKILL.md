@@ -1,6 +1,6 @@
 ---
 name: refresh-nuget-repo
-description: Autonomously refresh a dormant .NET/NuGet library repo — deep code review, fix correctness bugs with regression tests, modernize targets/deps/packaging, deprecate-not-break misleading APIs, file/close GitHub issues, and set up CI (build+test) and CD (NuGet publish via Trusted Publishing/OIDC). The .NET/NuGet specialization of the `restomod` skill. Use when asked to refresh, modernize, revive, or "bring back to life" a .NET library or NuGet package repo, fix its bugs/major issues, add or improve its CI/CD, or migrate NuGet publishing off long-lived API keys to Trusted Publishing.
+description: 'Autonomously refresh a dormant .NET/NuGet library repo — deep code review, fix correctness bugs with regression tests, modernize targets/deps/packaging, deprecate-not-break misleading APIs, file/close GitHub issues, and set up CI (build+test) and CD (NuGet publish via Trusted Publishing/OIDC). The .NET/NuGet specialization of the `restomod` skill. Use when asked to refresh, modernize, revive, or "bring back to life" a .NET library or NuGet package repo, fix its bugs/major issues, add or improve its CI/CD, or migrate NuGet publishing off long-lived API keys to Trusted Publishing.'
 ---
 
 # Refresh a NuGet/.NET library repo

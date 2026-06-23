@@ -1,6 +1,6 @@
 ---
 name: restomod
-description: Revive a dormant or neglected codebase without breaking its consumers — classic API, modern engine. Deep read-only review, fix correctness bugs with regression tests, modernize the toolchain/deps to a warning-free build, deprecate-don't-break for misleading APIs, then ship behind green CI. Language- and registry-agnostic; downstream skills layer ecosystem specifics (e.g. refresh-nuget-repo for .NET/NuGet). Use when asked to revive, refresh, modernize, refactor, harden, or "bring an old library back to life", or to run a disciplined correctness + modernization pass on a repo.
+description: 'Revive a dormant or neglected codebase without breaking its consumers — classic API, modern engine. Deep read-only review, fix correctness bugs with regression tests, modernize the toolchain/deps to a warning-free build, deprecate-don''t-break for misleading APIs, then ship behind green CI. Language- and registry-agnostic; downstream skills layer ecosystem specifics (e.g. refresh-nuget-repo for .NET/NuGet). Use when asked to revive, refresh, modernize, refactor, harden, or "bring an old library back to life", or to run a disciplined correctness + modernization pass on a repo.'
 ---
 
 # Restomod — classic API, modern engine
