@@ -12,6 +12,7 @@
     "./merge-stack",
     "./nightshift",
     "./orchestrate",
+    "./postmortem",
     "./prompt-backlog",
     "./refresh-nuget-repo",
     "./restomod",
