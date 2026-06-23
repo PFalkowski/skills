@@ -6,6 +6,7 @@
   },
   "skills": [
     "./azure-devops-pr-review",
+    "./bias-to-action",
     "./evolve-skill",
     "./handoff-check",
     "./merge-stack",
