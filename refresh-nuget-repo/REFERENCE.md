@@ -1,18 +1,16 @@
 # Refresh a NuGet/.NET library — reference
 
-Per-phase detail for [SKILL.md](SKILL.md). Read the phase you're on; don't front-load it all.
+The **.NET/NuGet companion** to the generic [`restomod` reference](../restomod/REFERENCE.md). Per-phase
+detail for [SKILL.md](SKILL.md); read the phase you're on. **Generic phase mechanics** (Phase 0 clean
+git, the deprecation-shim pattern, the generic security/ship checklists) live in the restomod reference —
+this file carries only the .NET/NuGet specifics.
 
 ---
 
 ## Phase 0 — Clean git state
 
-```bash
-git status                      # diverged? in-progress merge? untracked junk?
-cat .git/MERGE_HEAD 2>/dev/null  # exists => a merge is mid-flight
-```
-- **In-progress merge:** inspect what it does. If the result equals HEAD (`git diff --stat HEAD` empty), it's a no-op — conclude it (`git commit --no-edit`). Otherwise resolve deliberately or `git merge --abort`.
-- **Diverged from origin:** understand both sides (`git log --oneline --graph --all`) before reconciling.
-- Only once clean: `git checkout -b refresh/<topic>`. Never commit refresh work onto the default branch.
+Generic — see [restomod REFERENCE "Phase 0"](../restomod/REFERENCE.md). (`git status` / `MERGE_HEAD`
+check, reconcile, then `git checkout -b refresh/<topic>`; never work on the default branch.)
 
 ---
 
@@ -73,6 +71,18 @@ for a baseline (note count + warnings). For each finding give `file:line` and **
 missing XML docs, packaging gaps, analyzer warnings, dead code, heavy dependency pulled in
 for one method.
 
+**Tests that pass by coincidence (flag these explicitly):** a wrong formula accidentally
+returns the correct value for the specific inputs chosen — the test doesn't actually pin the
+behavior. To identify: mentally break the formula and ask *"would this test fail?"* If not,
+the test is hollow. Common patterns:
+- Average formula `(max - |min|) / 2` gives the correct midpoint when `min = 0` or when
+  `min = -max` (symmetric), but fails for any positive-only range like `[1, 5]`.
+- A variance formula that simplifies to the range (`(max-min)² / |max-min|`) is correct
+  only when `n = 11` (because range = population variance for that specific count).
+- Off-by-one errors that cancel out for the test's chosen step/count.
+Always add at least one test case that would fail if the formula were trivially broken
+(e.g., a positive-only range for an average, a step ≠ 1 for a variance).
+
 Deliver a **prioritized report** (P0 repo state → correctness → breaking API → robustness →
 maintenance) + **priority wins** (high value, low effort) *before* editing code.
 
@@ -91,7 +101,26 @@ maintenance) + **priority wins** (high value, low effort) *before* editing code.
 Remove bogus/false constants (e.g. a hand-set `NETSTANDARD2_0`), deprecated `PackageLicenseUrl`
 (use `PackageLicenseExpression`). See `templates/csproj-snippet.xml`.
 
-**netstandard2.0 polyfills** (these APIs are net6+/netstandard2.1+ only):
+**netstandard2.0 polyfills** (these APIs are net5+/netstandard2.1+/net6+ only — each will
+produce a build error when the netstandard2.0 TFM is compiled; fix before committing):
+
+| Missing in netstandard2.0 | Fix |
+|---|---|
+| `TimeSpan / TimeSpan` → `double` (net5+) | `(double)a.Ticks / b.Ticks` |
+| `TimeSpan / double` → `TimeSpan` (net5+) | `TimeSpan.FromTicks((long)(a.Ticks / d))` |
+| `Random.Shared` (net6+) | `#if NET6_0_OR_GREATER` guard (see below) |
+| `StringBuilder.AppendJoin` | `sb.Append(string.Join(sep, items))` |
+| `Enumerable.ToHashSet()` | `new HashSet<T>(items)` |
+| `Span<T>` / `Memory<T>` | add `System.Memory` NuGet package |
+| `string.Contains(char)` | `.IndexOf(ch) >= 0` |
+| `string[Range]` slices | `.Substring(start, len)` |
+
+**After adding a netstandard2.0 TFM**, always verify with:
+```bash
+dotnet build -f netstandard2.0 -c Release
+```
+This is the only way to catch these before the CI run. A successful `net8.0` build tells you nothing about `netstandard2.0`.
+
 ```csharp
 // Random.Shared (net6+)
 #if NET6_0_OR_GREATER
@@ -100,15 +129,53 @@ Remove bogus/false constants (e.g. a hand-set `NETSTANDARD2_0`), deprecated `Pac
     [ThreadStatic] private static Random _rng;
     private static Random SharedRandom => _rng ??= new Random();
 #endif
-
-// StringBuilder.AppendJoin  ->  sb.Append(string.Join(sep, items));
-// Enumerable.ToHashSet      ->  new HashSet<T>(items);
 ```
 `LangVersion latest` is what lets `??=`, `using var`, tuple deconstruction and `out var`
 compile against netstandard2.0.
 
-**Deps & packaging.** Bump packages to current (verify latest) and drive analyzer warnings to
-zero (test-arg order, duplicate `InlineData`, unused fields). Build **and** test after each
+**Central Package Management (CPM).** Moves all `Version=` attributes to a single
+`Directory.Packages.props` at the solution root — makes future bumps a one-line change and
+prevents version drift across projects. Quick mechanical win; do it during the dep-bump step.
+
+1. Create `Directory.Packages.props` at the solution root:
+```xml
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- lib -->
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.300" />
+    <PackageVersion Include="StrongRandom" Version="2.1.0" />
+    <!-- test -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
+    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+</Project>
+```
+2. In each `.csproj`, remove `Version=` from every `<PackageReference>` (keep all other
+   attributes like `PrivateAssets`, `IncludeAssets`):
+```xml
+<!-- before -->
+<PackageReference Include="StrongRandom" Version="2.1.0" />
+<!-- after -->
+<PackageReference Include="StrongRandom" />
+```
+3. Build and test to confirm nothing regressed. Commit as a standalone mechanical change.
+
+**Zero-warning policy.** Run `dotnet build -c Release` and fix every warning before committing.
+Common quick wins: wrong `Assert.Equal(expected, actual)` argument order, missing `?` on
+nullable returns, unused `using` directives. Once warnings are zero, add to the library
+`.csproj` to lock it in:
+```xml
+<PropertyGroup Condition="'$(Configuration)' == 'Release'">
+  <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+</PropertyGroup>
+```
+
+**Deps & packaging.** Bump packages to current (verify latest). Build **and** test after each
 change; keep it green.
 
 **Bundle a README into the package** (shows on the nuget.org page; `dotnet pack` warns if
@@ -149,21 +216,13 @@ and it now *is* the nuget.org package page — so fixing it is part of the refre
 
 ---
 
-## Phase 4 — Breaking fixes via `[Obsolete]` shims (default strategy)
+## Phase 4 — Breaking fixes via `[Obsolete]` shims
 
-Don't change the behavior of an existing name. Instead:
-1. Add a correctly-named member with the right behavior.
-2. Keep the old name, behavior **unchanged**, marked `[Obsolete("why; use <new>; removed in a future major")]`.
-3. Move internal callers onto the new member (so the lib doesn't warn against itself).
-4. Bump the **major** version.
-5. Tests: cover the new member's semantics; keep a (pragma-wrapped) test exercising the
-   obsolete shim so its behavior stays pinned.
-```csharp
-#pragma warning disable CS0618
-   // assertions calling the [Obsolete] member
-#pragma warning restore CS0618
-```
-Always present the options and let the user pick (shim vs. outright rename vs. document-only vs. defer).
+Generic strategy (add correct member · keep old name `[Obsolete]` with **unchanged** behavior · move
+internal callers · bump **major** · pin the shim with a suppression-wrapped test) →
+[restomod REFERENCE "Phase 4"](../restomod/REFERENCE.md). The C# specifics: deprecate with
+`[Obsolete("why; use <new>; removed in a future major")]` and pin the shim under
+`#pragma warning disable CS0618 … restore CS0618`. Always present the options and let the user pick.
 
 ---
 
@@ -210,6 +269,13 @@ filename** (e.g. `publish.yml`). `NUGET_USER` is a repo **variable**, not a secr
    ```
    Correct shape: `with: { user: ${{ vars.NUGET_USER }} }` (id'd step) → push with
    `--api-key "${{ steps.<id>.outputs.NUGET_API_KEY }}"`.
+   **Sub-trap — `${{ env.NUGET_API_KEY }}`:** correct inputs, but the push reads the key from the
+   wrong context. The action only calls `core.setOutput`/`core.setSecret`; it never writes
+   `$GITHUB_ENV`, so `env.NUGET_API_KEY` is empty and the push silently runs with a blank key →
+   401/auth failure. Org/repo secrets and variables don't populate `env` either — they're
+   `secrets.*` / `vars.*`. The login step also needs an explicit `id:` for `steps.<id>.outputs`
+   to resolve. This passes review easily because it *looks* wired up; grep the push line for
+   `env.NUGET_API_KEY` and replace with `steps.<id>.outputs.NUGET_API_KEY`.
 
 2. **`NUGET_USER` not set.** Same `Input required and not supplied: user` error even with
    correct YAML. It's the maintainer's NuGet.org username (the package owner shown on the
