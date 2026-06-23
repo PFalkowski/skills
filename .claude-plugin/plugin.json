@@ -12,6 +12,7 @@
     "./nightshift",
     "./prompt-backlog",
     "./refresh-nuget-repo",
+    "./restomod",
     "./signal-verdict"
   ]
 }
