@@ -6,7 +6,6 @@
   },
   "skills": [
     "./azure-devops-pr-review",
-    "./bias-to-action",
     "./evolve-skill",
     "./handoff-check",
     "./merge-stack",
@@ -14,6 +13,7 @@
     "./prompt-backlog",
     "./refresh-nuget-repo",
     "./restomod",
-    "./signal-verdict"
+    "./signal-verdict",
+    "./whatever"
   ]
 }
