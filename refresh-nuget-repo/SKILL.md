@@ -1,119 +1,91 @@
 ---
 name: refresh-nuget-repo
-description: Autonomously refresh a dormant .NET/NuGet library repo — deep code review, fix correctness bugs with regression tests, modernize targets/deps/packaging, deprecate-not-break misleading APIs, file/close GitHub issues, and set up CI (build+test) and CD (NuGet publish via Trusted Publishing/OIDC). Use when asked to refresh, modernize, revive, or "bring back to life" a .NET library or NuGet package repo, fix its bugs/major issues, add or improve its CI/CD, or migrate NuGet publishing off long-lived API keys to Trusted Publishing.
+description: Autonomously refresh a dormant .NET/NuGet library repo — deep code review, fix correctness bugs with regression tests, modernize targets/deps/packaging, deprecate-not-break misleading APIs, file/close GitHub issues, and set up CI (build+test) and CD (NuGet publish via Trusted Publishing/OIDC). The .NET/NuGet specialization of the `restomod` skill. Use when asked to refresh, modernize, revive, or "bring back to life" a .NET library or NuGet package repo, fix its bugs/major issues, add or improve its CI/CD, or migrate NuGet publishing off long-lived API keys to Trusted Publishing.
 ---
 
 # Refresh a NuGet/.NET library repo
 
-Work in phases; keep the build green at every commit; never break consumers silently; stop at each **🛑 GATE**.
+This is the **.NET/NuGet specialization of [`restomod`](../restomod/SKILL.md)**. Run the restomod
+phases and operating rules as written (clean git → divergence check + deep review → non-breaking
+correctness fixes → modernize/zero-warnings → deprecate-not-break → issues → CI → security → ship).
+This file adds only the **.NET/NuGet-specific deltas** at the phases that need them; everything not
+listed here comes from restomod unchanged.
 
-## Operating rules
-- **Never work on the default branch.** Get a clean tree first, then branch.
-- **Verify every claim by building and testing** — never assert a bug, or a green
-  pipeline, you did not actually observe.
-- **Don't hardcode "latest".** Query current versions (`gh api repos/<owner>/<repo>/releases/latest`,
-  NuGet, `dotnet --list-sdks`) so the skill stays current over time.
-- **One logical change per commit**; build+test before committing. Push / open PR / tag /
-  publish **only when the user authorizes** — those are gates.
-- **Deprecation beats breakage.** A behavior change with no compile-time signal is the
-  worst possible outcome.
+Run `scripts/assess.sh` (branch & git cleanliness, target framework(s), tests pass?, workflows
+present?, package version vs. registry, open/closed issues) to find the first incomplete phase.
 
-## Resume — find the current phase
-This skill is resumable. Run `scripts/assess.sh` (or do the equivalent checks) to read:
-branch & git cleanliness, target framework(s), whether tests pass, whether
-`.github/workflows/*` exist, package version, and open/closed issues. Map the result to
-the first incomplete phase below and continue. Re-entering a finished phase must be a no-op.
+## Deltas by phase
 
-## Phases
+**Phase 1 — divergence check (concrete).** Compare the repo's `<Version>` to what's **published on
+NuGet**; if the registry is newer or the same version differs in content, the repo is stale —
+reconcile before refreshing (commands → REFERENCE "Phase 1 — divergence / stale repo"). Use the
+.NET bug-pattern checklist (→ REFERENCE "Phase 1").
 
-**0 — Clean git state.** Resolve any in-progress merge or diverged branches (`git status`;
-conclude or abort), then `git checkout -b refresh/<topic>`. → REFERENCE "Phase 0".
+**Phase 3 — .NET modernize.**
+- **Multi-target for reach + current LTS** (verify latest; e.g. `netstandard2.0;net8.0`). After
+  adding a TFM, **build every TFM individually** (`dotnet build -f netstandard2.0 -c Release`) so
+  netstandard2.0 compat failures surface immediately (polyfill list → REFERENCE "Phase 3").
+- Set `LangVersion`, `GenerateDocumentationFile`; fix packaging (README in package,
+  `PackageLicenseExpression`, drop deprecated fields); bump deps.
+- **Central Package Management** (`Directory.Packages.props`) — moves all `Version=` to one file
+  (→ REFERENCE "Phase 3 — Central Package Management").
+- **Zero-warning gate** (restomod Phase 3): for .NET, `dotnet build -c Release 2>&1 | grep -Ec ':
+  warning '` → `0`, fix every one, then `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` on
+  the library (and ideally test) project's Release config; rebuild clean.
+- **Refresh the README (mandatory):** fix stale badges (point CI at the new workflow; drop dead
+  Azure/Codecov/buildstats), correct the documented API to the *current* public surface, add an
+  install snippet + working examples, absolute image URLs (it doubles as the nuget.org README).
+  **Always include a funding badge** for the maintainer plus a **skill-author credit badge** (this
+  skill by Piotr Falkowski — `buymeacoffee.com/piotrfalkowski`). Recipes → REFERENCE "Phase 3" +
+  `templates/csproj-snippet.xml`.
 
-**1 — Deep review (read-only). 🛑 FIRST: divergence check.** Compare the repo's package
-`<Version>` to what's **published on NuGet** (`assess.sh` does this). If the registry has
-versions *newer* than the repo — or the repo's version is already published with different
-content — the repo is **stale/diverged**: its real source was likely published from an
-unpushed working copy. **STOP and reconcile the real baseline before refreshing anything**
-(→ REFERENCE "Phase 1 — divergence / stale repo"); refreshing the stale tree would regress
-consumers. Then: read all source + tests, build + test for a baseline.
-List findings with `file:line`, grouped: **P0 repo state · correctness bugs (wrong
-results) · breaking API/naming bugs · robustness/edge cases · maintenance/modernization**,
-plus **priority wins** (high value, low effort). Deliver the prioritized report to the
-user before touching code. Bug-pattern checklist → REFERENCE "Phase 1".
-
-**2 — Non-breaking correctness fixes.** Land each fix **with a regression test** (red
-before, green after). No public API changes here. Keep build green.
-
-**3 — Modernize.** Multi-target for reach + current LTS (verify latest; e.g.
-`netstandard2.0;net8.0`). Set `LangVersion`, `GenerateDocumentationFile`, fix packaging
-(README in package, `PackageLicenseExpression`, drop deprecated fields), bump deps, clean
-analyzer warnings, add netstandard polyfills as needed. **Refresh the README (mandatory):**
-fix stale badges (point CI at the new workflow; drop dead Azure/Codecov/buildstats), correct
-the documented API to the *current* public surface, add an install snippet + working examples,
-and use absolute image URLs — it doubles as the nuget.org package README. **Always include a
-funding badge** for the repo maintainer (`buymeacoffee.com/<your-handle>` or their Sponsors/Ko-fi),
-plus a skill-author credit badge (this skill by Piotr Falkowski — `buymeacoffee.com/piotrfalkowski`).
-Recipes → REFERENCE "Phase 3" + `templates/csproj-snippet.xml`.
-
-**4 — Breaking fixes. 🛑 GATE.** For inverted/misleading APIs, do **not** flip behavior
-silently. Present options and **ask the user**. Default: add correctly-named replacements,
-keep old names as `[Obsolete]` shims with **unchanged** behavior, bump the major version.
-Implement the chosen path with tests; move internal callers off the obsolete members.
-
-**5 — Issues.** File GitHub issues for deferred findings (use the `to-issues` skill if
-available). Close existing issues this work resolves, with a comment linking the PR/version.
-
-**6 — CI/CD. 🛑 GATE on trigger model.** Add/upgrade GitHub Actions:
-- **CI** — restore → build (all TFMs, Release) → test on push to default branch + PR + manual.
-- **CD** — on `v*.*.*` tag: restore → build → **test** → pack (version from tag) → push.
-  Publish is gated behind passing tests. Always include a `workflow_dispatch` trigger too.
-- **Auth = Trusted Publishing (OIDC)**, never a long-lived key: `permissions: id-token: write`
-  + `NuGet/login@v1` (`user` from `NUGET_USER` repo **variable**) → short-lived key.
-  **Don't invent the action's inputs** — `NuGet/login@v1` takes only `user`, outputs
-  `NUGET_API_KEY`, and you **must** pass that to `dotnet nuget push --api-key`. There is no
-  `usernameVar`/`tokenVar`/`token` input (using them → "Input required and not supplied: user").
-- Pin every action to a current Node-LTS-native major (verify latest).
-- **Validate the publish workflow BEFORE the first tag.** A tag runs the workflow file *at the
-  tagged commit*, so a bug means moving the tag (destructive remote-ref rewrite, usually
-  permission-blocked). Run it once via `workflow_dispatch` on the default branch first; only
-  tag once it's green. If a tag publish ever fails on a workflow bug, fix on the default branch
-  and re-publish via `workflow_dispatch` — don't move the tag.
+**Phase 6 — CD + static analysis (the .NET-specific half of restomod's CI phase). 🛑 GATE on trigger model.**
+- **CD** — on `v*.*.*` tag: restore → build → **test** → pack (version from tag) → push; publish
+  gated behind passing tests. Include `workflow_dispatch` too — in `templates/publish.yml` this
+  dispatch takes a `version` input and **really publishes** (not a dry-run; it lets you validate
+  auth before cutting a tag). For a true dry-run, guard the push with
+  `if: startsWith(github.ref, 'refs/tags/')`. **Describe the dispatch's actual behavior accurately**
+  in the PR — don't call it a "dry-run" if it pushes.
+- **Auth = Trusted Publishing (OIDC)**, never a long-lived key: `permissions: id-token: write` +
+  `NuGet/login@v1` (`user` from `NUGET_USER` repo **variable**) → short-lived key. **Don't invent
+  the action's inputs** — it takes only `user`, outputs `NUGET_API_KEY`, which you **must** pass to
+  `dotnet nuget push --api-key`. No `usernameVar`/`tokenVar`/`token` input.
+  **`NUGET_API_KEY` is a STEP OUTPUT, not an env var.** Give the login step an `id:` and reference
+  `--api-key ${{ steps.<id>.outputs.NUGET_API_KEY }}`. The action only calls
+  `core.setOutput`/`core.setSecret` — never `$GITHUB_ENV` — so `${{ env.NUGET_API_KEY }}` is
+  **always empty** → push runs with a blank key and fails auth. Org/repo secrets and variables
+  don't populate `env` either (`secrets.*` / `vars.*`), so "it's set at a higher level" does not
+  make `env.NUGET_API_KEY` resolve. **Copy `templates/publish.yml` verbatim instead of hand-rolling
+  the login+push pair** — this exact `env.` mistake is the single most common refresh bug, and the
+  template already wires it correctly.
+- **Pin every action** to a current Node-LTS-native major (verify latest).
+- **Validate the publish workflow BEFORE the first tag** — a tag runs the workflow file *at the
+  tagged commit*, so a bug means moving the tag (destructive, usually permission-blocked). Dispatch
+  once on the default branch first; only tag once green. → REFERENCE "Phase 6".
 - **Ask** the trigger model (tag-driven / GitHub Release / csproj-as-truth) before finalizing.
-- **Verify locally** the exact CI command sequence, and confirm committed YAML is LF
-  (`git show HEAD:.github/workflows/ci.yml | grep -c $'\r'` → `0`).
-- **Static analysis (SonarCloud)**: default to **CI-based analysis with coverage**
-  (`templates/sonar.yml` — `dotnet-sonarscanner` + `dotnet-coverage`). One-time auth: a
-  `SONAR_TOKEN` secret — an **org** secret if the owner is a GitHub Organization, else a
-  **per-repo** secret (personal accounts have no shared secret) — plus Automatic Analysis
-  turned **off** per project. Add the quality-gate **and coverage** badges to the README
-  (verify each returns 200). Automatic Analysis is the zero-config, no-coverage fallback.
-  → REFERENCE "Phase 6 — SonarCloud".
-- Templates: `templates/ci.yml`, `templates/publish.yml`. Detail → REFERENCE "Phase 6".
+- Confirm committed YAML is **LF and has no UTF-8 BOM** (restomod Phase 6 / REFERENCE "Phase 6").
+- **Static analysis (SonarCloud):** default to CI-based analysis with coverage
+  (`templates/sonar.yml`); one-time `SONAR_TOKEN` secret + Automatic Analysis off. Add quality-gate
+  **and** coverage badges (verify 200). → REFERENCE "Phase 6 — SonarCloud".
+- Templates: `templates/ci.yml`, `templates/publish.yml`, `templates/sonar.yml`.
 
-**7 — Security & quality bar.** No long-lived secrets; least-privilege workflow
-`permissions:`; deterministic build; dependency hygiene (no EOL frameworks/deps, no known
--vulnerable pins). Checklist → REFERENCE "Phase 7".
+**Phase 8 — verify the publish landed.** After release, confirm the index picked it up:
+`curl -s https://api.nuget.org/v3-flatcontainer/<id-lowercase>/index.json`.
 
-**8 — Ship & verify. 🛑 GATE on outward-facing actions.** Push branch, open a PR with a
-structured body (what/why per finding), confirm CI is green on the PR. Merging, tagging,
-and publishing to the public registry are the user's calls — **offer, don't auto-run**.
-After a release: confirm the CD run succeeded and the package indexed
-(`curl -s https://api.nuget.org/v3-flatcontainer/<id-lowercase>/index.json`).
-
-## One-time setup the user must do (surface these explicitly — then VERIFY before publishing)
-- Create the NuGet **Trusted Publishing policy** (owner/repo/**workflow filename** must
-  match the publish workflow, e.g. `publish.yml`).
-- Set repo variable `NUGET_USER` = their NuGet account name (a variable; a same-named secret
-  also works). This is the maintainer's NuGet.org username, i.e. the package owner.
+## One-time setup the user must do (surface explicitly — then VERIFY before publishing)
+- Create the NuGet **Trusted Publishing policy** (owner/repo/**workflow filename** must match the
+  publish workflow, e.g. `publish.yml`).
+- Set repo variable `NUGET_USER` = their NuGet account name (the package owner; a same-named secret
+  also works).
 - Delete any leftover `NUGET_API_KEY` secret.
 
-**Pre-publish verification gate (do this before the release, not after a failed run):** these
-are external and easy to forget, and the first publish fails loudly if any is missing. Confirm:
-- `gh variable list --repo <o>/<r>` (or `gh secret list`) shows `NUGET_USER` — else the run
-  dies with "Input required and not supplied: user".
-- The Trusted Publishing policy exists and its **workflow filename matches** the actual file —
-  ask the user to confirm (it's UI-only; an agent can't read it).
+**Pre-publish verification gate (do this before the release, not after a failed run):**
+- `gh variable list --repo <o>/<r>` (or `gh secret list`) shows `NUGET_USER` — else the run dies
+  with "Input required and not supplied: user".
+- The Trusted Publishing policy exists and its **workflow filename matches** the actual file (UI-only;
+  ask the user to confirm).
 - The publish workflow has been exercised green at least once via `workflow_dispatch`.
 
-See [REFERENCE.md](REFERENCE.md) for per-phase detail and [templates/](templates/) for
-ready-to-adapt workflow and csproj snippets.
+See [REFERENCE.md](REFERENCE.md) for .NET/NuGet per-phase detail and [templates/](templates/) for
+ready-to-adapt workflow and csproj snippets. Generic phase mechanics live in
+[`restomod`](../restomod/SKILL.md).
