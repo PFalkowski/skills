@@ -8,6 +8,7 @@
     "./azure-devops-pr-review",
     "./evolve-skill",
     "./fact-check",
+    "./go-go-go",
     "./handoff-check",
     "./merge-stack",
     "./nightshift",
