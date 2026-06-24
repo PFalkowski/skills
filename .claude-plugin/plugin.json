@@ -9,6 +9,7 @@
     "./evolve-skill",
     "./fact-check",
     "./go-go-go",
+    "./handoff",
     "./handoff-check",
     "./merge-stack",
     "./nightshift",
