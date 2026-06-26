@@ -15,6 +15,7 @@
     "./orchestrate",
     "./postmortem",
     "./prompt-backlog",
+    "./quorum-review",
     "./refresh-nuget-repo",
     "./restomod",
     "./signal-verdict",
