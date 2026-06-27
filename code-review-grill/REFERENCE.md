@@ -19,18 +19,17 @@ Use `–` in an agent's cell when that agent did not flag the row.
 | 🔒 | security | Injection, authz/authn, secrets, unsafe deserialization, SSRF, crypto misuse, dependency risk. |
 | 🏛 | architecture | Boundaries, coupling, layering, abstraction fit, ripple/blast radius, backward compatibility. |
 | 🧹 | code-quality | Correctness bugs, error handling, naming, dead code, duplication, readability, idiom. |
-| 📚 | documentation | Doc/comment accuracy, public-API docs, README/changelog drift; **fact-checks claims against authoritative sources** (web). |
+| 📚 | documentation & conventions | **Conformance to the project's house rules** (Step 4): ADRs, coding guidelines, patterns/practices, and the documented architectural style (DDD vs n-tier vs hexagonal vs vertical-slice — layering and dependency direction). Plus doc/comment accuracy, public-API docs, README/changelog drift; **fact-checks claims against authoritative sources** (web). |
 | ⚡ | performance | Hot paths, allocations, N+1 / unbounded queries, sync-over-async, complexity regressions. |
 | 🧪 | tests | Coverage of the change, missing edge/negative cases, flakiness, assertion strength. |
 
-**Auto-pick heuristic** (when the user picks quorum but names no concerns) — always include 🧹 code-quality; add a concern when the diff shows its trigger:
+**Auto-pick heuristic** (when the user picks quorum but names no concerns) — **always include 🧹 code-quality and 📚 documentation & conventions** (the latter is near-mandatory: every diff must be judged against the repo's documented patterns/ADRs/architecture, so this concern fires almost always); add the rest when the diff shows their trigger:
 - 🔒 if it touches auth, SQL/query building, crypto, file/network I/O, deserialization, secrets, or dependencies.
 - 🏛 if it changes public signatures, module boundaries, or has a wide Step-3 ripple set.
-- 📚 if it changes public APIs, docs/README, or asserts factual/version/standards claims.
 - ⚡ if it touches loops over data, queries, caching, concurrency, or known hot paths.
 - 🧪 if it adds/changes behaviour but no tests, or weakens existing tests.
 
-Keep it lean — one worker per included concern, no more (per [orchestrate](../orchestrate/SKILL.md) effort budgets).
+📚 may only be dropped when the orchestrator has confirmed the repo carries **no** README/ADRs/guidelines at all — note that absence in the output. Keep it lean otherwise — one worker per included concern, no more (per [orchestrate](../orchestrate/SKILL.md) effort budgets).
 
 ## Standard finding payload (every agent returns this)
 
@@ -56,7 +55,7 @@ The documentation agent's `source` `detail` must be a working deep link (≥2 fo
 
 ## Brief templates
 
-Pass these to the `Agent` tool verbatim, filling the brackets. Always attach: the diff, the changed files at full context, and the Step-3 ripple set.
+Pass these to the `Agent` tool verbatim, filling the brackets. Always attach: the diff, the changed files at full context, the Step-3 ripple set, and the **Step-4 house rules** (the project's documented patterns/ADRs/architectural style) so every reviewer judges the diff against them.
 
 All briefs use the **grilling stance**: interrogate the diff one hunk at a time to a verified conclusion (what must be true for this to be correct? what input breaks it? what caller relied on the old behavior?); settle every doubt by running code or grepping the repo, never by speculating.
 
@@ -64,7 +63,8 @@ All briefs use the **grilling stance**: interrogate the diff one hunk at a time 
 ```
 Objective: Grill this diff hunk-by-hunk. Assume it is wrong until proven right; for each change ask
            what must be true for it to be correct, what input breaks it, and what caller/test relied
-           on the old behavior. Find correctness bugs, security issues, broken invariants, omissions.
+           on the old behavior. Find correctness bugs, security issues, broken invariants, omissions,
+           AND deviations from the attached house rules (ADRs / coding guidelines / architectural style).
 Output:    The standard finding payload, one block per finding, INCLUDING a verification artifact for
            each (runnable snippet+output, in-repo path:line proof, or authoritative deep link). State
            the method used. Downgrade any finding you cannot ground to ❓ unverified. End with a verdict.
@@ -82,8 +82,11 @@ Output:    The standard finding payload for <CONCERN> findings only; '✅ nothin
            path:line proof, or authoritative deep link) and name the method. No unverified findings —
            downgrade what you cannot ground to ❓ unverified.
 Tools:     Read/Grep the attached files + dependents. Run snippets/tests to confirm executable claims.
-           [documentation worker ONLY] + WebSearch + WebFetch — verify every doc/API/version/standards
-           claim against ≥2 authoritative sources; attach deep links. Apply the fact-check skill.
+           [documentation worker ONLY] You own the house rules: check the diff for conformance to the
+           project's ADRs, coding guidelines, patterns/practices, and architectural style (DDD vs n-tier
+           vs hexagonal — layering & dependency direction); cite the exact doc/ADR a violation breaks.
+           + WebSearch + WebFetch — verify every doc/API/version/standards claim against ≥2 authoritative
+           sources; attach deep links. Apply the fact-check skill.
 Boundaries: Stay in your concern. Do not duplicate other concerns; flag cross-cutting issues briefly
             and let the lead dedupe. Review only this diff and its ripple set.
 ```
@@ -116,7 +119,7 @@ F2 — method: in-repo
 src/Repo.cs:88 calls LoadOrder(id) inside the `foreach (var id in ids)` loop at :85 → one query per id.
 ```
 
-## Posting mechanics (Step 6 — never auto-post; post only user-selected findings)
+## Posting mechanics (Step 7 — never auto-post; post only user-selected findings)
 
 ### GitHub
 Resolve repo + PR head, then post each selected finding as an inline review comment. Post **one first** and confirm the response has a numeric `id` before sending the rest.
