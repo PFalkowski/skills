@@ -6,6 +6,7 @@
   },
   "skills": [
     "./azure-devops-pr-review",
+    "./code-review-grill",
     "./evolve-skill",
     "./fact-check",
     "./go-go-go",
