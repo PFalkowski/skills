@@ -6,6 +6,7 @@
   },
   "skills": [
     "./azure-devops-pr-review",
+    "./code-review-grill",
     "./evolve-skill",
     "./fact-check",
     "./go-go-go",
@@ -15,7 +16,6 @@
     "./orchestrate",
     "./postmortem",
     "./prompt-backlog",
-    "./quorum-review",
     "./refresh-nuget-repo",
     "./restomod",
     "./signal-verdict",
