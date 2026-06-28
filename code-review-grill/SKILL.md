@@ -87,8 +87,6 @@ This step runs after **every** review — single adversarial or quorum alike. Th
 2. **Ask two things explicitly:** (a) *do you want to post comments to PR #N (`<url>`)?* and (b) *which finding IDs?* (e.g. `F1,F3`, `all blockers`, `none`). Default is **post nothing** until the user names IDs.
 3. Post **only** the selected subset. Post **one** thread first, confirm it landed (numeric `id` in the response), then the rest. Each comment body includes the finding's severity, ID, description, suggested fix, and its verification artifact.
 
-**Variant — post-all-with-disposition.** When the same PR already carries **fixes** for some findings (e.g. the orchestrator fixed them in the same branch before posting), the user may instead want **every** finding posted with its disposition (fixed / deferred / by-design / nit) and the **fixed threads resolved** for a clean paper trail. Still confirm scope first (never auto-post); then post all, and resolve only the threads the diff actually fixes — see REFERENCE *"Resolving threads on fixed findings"* for the `resolveReviewThread` mechanics (the comment-id vs thread-id trap).
-
 - **GitHub** → inline review comments via `gh api` (path + line + body).
 - **Azure DevOps** → delegate to **[azure-devops-pr-review](../azure-devops-pr-review/SKILL.md)** (its thread/encoding workarounds).
 
