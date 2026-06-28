@@ -24,7 +24,7 @@ Feedback about a skill / MCP / hook / process that just ran — a change request
 ## Rules
 - Always ask before modifying; show the change first.
 - Public skills carry **no** private specifics — a reader with no repo access must understand it fully.
-- Minimal, targeted edits; capture the rationale, not just the rule.
+- **Minimal, targeted edits — capture the rule, not a procedure.** Add only what the feedback states; don't invent conditional branches, edge-case handling, or workflow variants the user didn't ask for. "Always do X" stays "always do X", not a decision tree. Prefer one sentence to a new subsection; when unsure, under-specify and let the next run add precision. Capture the rationale too, not just the rule.
 - Right home wins: generalizable → public skill; project-bound → memory; config → `update-config`.
 - Don't let the meta-work bury the task — capture, sign off, return.
 
