@@ -137,6 +137,28 @@ gh api "repos/$OWNER_REPO/pulls/<PR>/comments" \
 - `-F line=N` sends a number; `-f` sends strings. For a multi-line range add `-F start_line=N -f start_side=RIGHT`.
 - `line` is the line **in the file at `commit_id`**; it must fall on a line in the PR diff or GitHub rejects it.
 - To batch instead of one-at-a-time, `POST repos/$OWNER_REPO/pulls/<PR>/reviews` with a `comments` array of `{path,line,side,body}` and `event=COMMENT` — but the one-at-a-time form above is what lets you confirm the first thread landed.
+- **Rich bodies** (backticks, quotes, multi-line): build the body in a **single-quoted heredoc** into a variable — `body=$(cat <<'EOF' … EOF)` then `-f body="$body"` — otherwise backticks / `$(…)` inside the body get command-substituted by the shell. Append `--jq '.id'` to the POST to capture the comment's numeric id (you need it to resolve its thread later).
+
+### Resolving threads on fixed findings
+When the same PR also carries **fixes** for findings you posted (the "post-all-with-disposition" variant in SKILL Step 7), mark the fixed threads **resolved** so the PR reads as a clean paper trail. The trap: the REST POST returns the **comment** id, but GitHub resolves at the **thread** level and `resolveReviewThread` needs the thread *node* id — so you must map `comment.databaseId → thread.id` first.
+```bash
+# 1. Post, capturing the comment's numeric databaseId:
+CID=$(gh api "repos/$OWNER_REPO/pulls/<PR>/comments" \
+  -f commit_id="$HEAD_SHA" -f path="src/Repo.cs" -F line=42 -f side=RIGHT \
+  -f body="$body" --jq '.id')
+
+# 2. Map databaseId -> thread node id (resolve needs the THREAD id, NOT the comment id):
+gh api graphql -f o=<owner> -f r=<repo> -F n=<PR> -f query='
+  query($o:String!,$r:String!,$n:Int!){ repository(owner:$o,name:$r){ pullRequest(number:$n){
+    reviewThreads(first:100){ nodes { id comments(first:1){ nodes { databaseId } } } } } } }' \
+  --jq '.data.repository.pullRequest.reviewThreads.nodes[] | "\(.comments.nodes[0].databaseId) \(.id)"'
+  # → lines of "<databaseId> <threadNodeId>"; grep $CID to find its thread id
+
+# 3. Resolve the matching thread:
+gh api graphql -F t=<THREAD_NODE_ID> -f query='
+  mutation($t:ID!){ resolveReviewThread(input:{threadId:$t}){ thread { isResolved } } }'
+```
+Resolve only what the diff actually fixes; leave **deferred / by-design / nit** findings unresolved, with their disposition stated in the comment body.
 
 ### Azure DevOps
 Delegate to **[azure-devops-pr-review](../azure-devops-pr-review/SKILL.md)** — it encodes the `pullRequestThreads` JSON schema, left/right anchoring, and the Windows console-encoding workarounds. Build the finding bodies here; let that skill post the threads.
