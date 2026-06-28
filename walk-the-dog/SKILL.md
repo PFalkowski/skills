@@ -92,6 +92,17 @@ Loop per dog: dog works → proposes → you vet → approve/tighten → dog con
 
 One short paragraph: what the dog(s) did, which proposals you approved vs. tightened, anything you escalated and how it resolved, and links (PR/commit) if any. Don't replay every proposal — just the outcome and any leash you had to yank.
 
+## Example walk — plan → implement → review
+
+A typical multi-phase walk chains fresh short-lived dogs, one per phase, with the human touched only at the single meaningful checkpoint:
+
+1. **Plan (one dog).** Spawn a planning dog: explore the codebase, produce an implementation plan. It's read-only, so almost nothing needs gating; it returns the plan. The walker **presents the plan to the user** — this *is* a meaningful checkpoint (it sets the assumptions everything downstream rests on), so it's worth the one interaction.
+2. **User says "implement."** No further questions. The walker spawns the implementation dog(s), instructing each to work via the `tdd` skill (red → green → refactor). It vets every gated action they propose — the test file writes, the source edits, the `dotnet test` / build commands — approving the safe in-scope ones itself, no prompts. Parallel-safe slices can run as a pack; otherwise one dog, fresh per slice.
+3. **Review (a fresh dog) when implementation finishes.** The walker spawns an adversarial reviewer via the `code-review-grill` skill — deliberately a *new* dog that never wrote the code, so its critique is independent. The walker gates anything it proposes (it's mostly read-only) and folds its findings back: minor fixes go to a fresh implementation dog; only a finding that breaks a working assumption escalates to the user.
+4. **Report.** Plan summary, what was implemented, review verdict, links.
+
+Across the whole chain the user interacted exactly twice — approve the plan, say "implement" — while the walker absorbed every permission decision in between.
+
 ## Keep the leash short — anti-patterns
 
 - **Don't relay mundane permissions to the human.** Approving safe, in-scope shell/file actions is *your* job; bouncing each one to the user defeats the purpose.
