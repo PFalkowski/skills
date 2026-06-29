@@ -1,6 +1,6 @@
 ---
 name: old-fashioned-sdlc
-description: "The rigorous, by-the-book SDLC process. Pick up whenever BAU and quality is important like in the old days! Do not use for quick fixes, throwaway scripts, spikes, or 'just ship it' — that's go-go-go skill."
+description: "The rigorous, by-the-book SDLC process — software the way it used to be made: spec → grilled requirements → tests-first (TDD) → implement → adversarial review → refactor → merge. Pick it up whenever BAU and quality matter like in the old days. Use when the user wants it done 'by the book' / properly / the right way / rigorously / formally / disciplined; asks for the 'full / whole / end-to-end lifecycle' or 'full SDLC'; 'production-grade' / production-ready / enterprise-grade / hardened / robust; 'spec it first' / spec-first / design-first / requirements-first / plan it out; 'no shortcuts' / no cutting corners / no hacks / no quick-and-dirty / thorough; or is building a real feature, epic, subsystem, public API, module, or any load-bearing / high-stakes / hard-to-reverse change. Do NOT use for quick fixes, hotfixes, throwaway scripts, spikes, prototypes/POCs, one-liners, or 'just ship it' — that's the go-go-go skill."
 ---
 
 # old-fashioned-sdlc — software the way it used to be made
