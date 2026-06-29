@@ -86,7 +86,18 @@ Pick the PR title from the branch name / commit subject — don't ask. Keep it u
 If the branch is `main`/`master` with no feature branch yet → create one first:
 `git checkout -b <slug-from-task-description>` → push that branch → PR to main.
 
-## Step 6 — Unblock a stalled PR (State D)
+## Step 6 — Review & triage the PR (ALWAYS, once it's raised)
+
+"PR raised" is not "shipped." Drive every fresh PR through review and triage **before** the final report — don't wait to be asked:
+
+1. **Adversarial review.** Invoke **`code-review-grill`** on the new PR — a *fresh* agent that did not write the diff (never self-review from the session that wrote it). Scale to the change: a single reviewer for small/contained diffs, quorum (concern-per-agent) for load-bearing ones; keep models cost-aware per the table below.
+2. **Auto-apply the mechanical findings** and push — the reversible/low-risk class (renames, dead params, doc/comment accuracy, a missing test, an obvious off-by-one) you already decide on under whatever-mode.
+3. **Leave the rest as UNRESOLVED PR comments.** Every finding you did *not* auto-fix (design trade-offs, judgment calls, anything risky or uncertain) is posted on the PR as an unresolved review comment — visible and owned, never silently dropped, never auto-resolved.
+4. **Triage next steps into issues.** Convert deferred / out-of-scope work and any un-fixed findings into tracker issues via **`to-issues`** (or `gh issue create`), linked from the PR, so nothing falls through.
+
+The trap this guards against: a session reviewing its own just-written diff rationalises it. Spawn the fresh reviewer even when the change "looks clean."
+
+## Step 7 — Unblock a stalled PR (State D)
 
 Diagnose why the PR is stalled, then fix:
 
@@ -98,9 +109,9 @@ Diagnose why the PR is stalled, then fix:
 | Awaiting approval | Post a summary comment nudging the reviewer; don't spam |
 | Ready to merge | `gh pr merge --squash --delete-branch` (only if user authorized auto-merge) |
 
-## Step 7 — Report
+## Step 8 — Report
 
-One short paragraph: what state you found, what you did, what the PR URL is, and what (if anything) still needs human action. No rehashing every step — just the outcome and the link.
+One short paragraph: what state you found, what you did, the PR URL, the review outcome (findings auto-fixed vs left as unresolved PR comments), any issues filed, and what (if anything) still needs human action. No rehashing every step — just the outcome and the links.
 
 ## Model selection (minimize cost, preserve quality)
 
