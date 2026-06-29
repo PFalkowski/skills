@@ -1,6 +1,6 @@
 ---
 name: by-the-book
-description: "Drive a change through the full, deliberate software development lifecycle — write the spec, grill the business for requirements, write the tests first (TDD red→green→refactor), implement and iterate, run an adversarial review, refactor, iterate, then merge — delegating each phase to the focused skill that owns it instead of improvising. The rigorous, by-the-book counterpart to go-go-go: it optimizes for correctness, design quality, and an auditable paper trail over raw speed. Use when the work is load-bearing, high-stakes, or expensive to get wrong and the user wants it done properly — 'by the book', 'full/proper lifecycle', 'production-grade', 'do this right', 'spec it first', 'no shortcuts', or a real feature/epic/subsystem deserving real process. Do NOT use for quick fixes, throwaway scripts, spikes, or 'just ship it' — that's go-go-go."
+description: "The rigorous, by-the-book SDLC process. Pick up whenever BAU and quality is important like in the old days! Do not use for quick fixes, throwaway scripts, spikes, or 'just ship it' — that's go-go-go skill."
 ---
 
 # by-the-book — the full, deliberate SDLC
