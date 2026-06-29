@@ -1,15 +1,15 @@
 ---
-name: by-the-book
+name: neat
 description: "The rigorous, by-the-book SDLC process. Pick up whenever BAU and quality is important like in the old days! Do not use for quick fixes, throwaway scripts, spikes, or 'just ship it' — that's go-go-go skill."
 ---
 
-# by-the-book — the full, deliberate SDLC
+# neat — the deliberate, full-lifecycle SDLC
 
-*"Measure twice, cut once."* The patient counterpart to **go-go-go**. You are the **conductor**: each phase is delegated to the focused skill that owns it; you sequence them, hold the gates, and keep the paper trail. Never skip a phase to save time — skipping is what go-go-go is for.
+*"Served neat: no shortcuts, no dilution."* The patient, quality-first counterpart to **go-go-go**. You are the **conductor**: each phase is delegated to the focused skill that owns it; you sequence them, hold the gates, and keep the paper trail. Never skip a phase to save time — skipping is what go-go-go is for.
 
 ## Step 0 — Right-size first (don't over-process)
 
-Confirm the work deserves this weight. A typo, a one-liner, a throwaway spike → **stop, say "this is a go-go-go job, not by-the-book", and exit.** by-the-book is for changes where getting it wrong is costly: new features, subsystems, public APIs, data/schema, money, security, anything hard to reverse.
+Confirm the work deserves this weight. A typo, a one-liner, a throwaway spike → **stop, say "this is a go-go-go job, not a neat one", and exit.** neat is for changes where getting it wrong is costly: new features, subsystems, public APIs, data/schema, money, security, anything hard to reverse.
 
 ## The lifecycle — each phase has a GATE; do not advance until it's met
 
@@ -34,7 +34,7 @@ Confirm the work deserves this weight. A typo, a one-liner, a throwaway spike �
 
 ## Choosing between this and go-go-go
 
-| | **by-the-book** | **go-go-go** |
+| | **neat** | **go-go-go** |
 |---|---|---|
 | Optimises for | correctness, design, paper trail | speed to a raised PR |
 | Starts from | a problem to specify | whatever state the repo is in |
