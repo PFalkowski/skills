@@ -21,6 +21,7 @@
     "./refresh-nuget-repo",
     "./restomod",
     "./signal-verdict",
+    "./snapshot-terminal-sessions",
     "./walk-the-dog",
     "./whatever"
   ]
