@@ -86,6 +86,55 @@ function Get-ProcessCurrentDirectory {
     }
 }
 
+# --- Resolve exact session IDs when two+ live sessions share a directory ----------------
+# `claude --continue` resumes "the most recent conversation in this directory" - fine for
+# one live session, ambiguous for two. Claude Code stores each session as a .jsonl under
+# ~/.claude/projects/<cwd with `:`/`\` replaced by `-`>/<session-id>.jsonl. A freshly
+# started (non-resumed) session creates its .jsonl within seconds of the process starting,
+# so process-start-time vs. file-creation-time proximity gives a high-confidence match.
+# A resumed session's file predates the process by a lot, so as a second pass, if exactly
+# one process and exactly one recently-touched file remain unclaimed, pair them by
+# elimination. Anything still ambiguous after that is left unresolved (falls back to the
+# interactive `claude --resume` picker) rather than guessing.
+function Get-ClaudeProjectDir {
+    param([string]$Cwd)
+    $encoded = $Cwd.TrimEnd('\') -replace '[:\\]', '-'
+    return Join-Path $HOME ".claude\projects\$encoded"
+}
+
+function Resolve-SessionIdsForDuplicateCwd {
+    param([array]$SessionsInGroup)
+    $result = @{}
+    $projectDir = Get-ClaudeProjectDir -Cwd $SessionsInGroup[0].Cwd
+    if (-not (Test-Path $projectDir)) { return $result }
+    $files = @(Get-ChildItem -Path $projectDir -Filter '*.jsonl' -ErrorAction SilentlyContinue)
+    if ($files.Count -eq 0) { return $result }
+    $claimed = [System.Collections.Generic.HashSet[string]]::new()
+
+    foreach ($s in $SessionsInGroup) {
+        $candidate = $files | Where-Object {
+            -not $claimed.Contains($_.FullName) -and
+            $_.CreationTime -ge $s.CreationDate -and
+            ($_.CreationTime - $s.CreationDate).TotalSeconds -le 120
+        } | Sort-Object CreationTime | Select-Object -First 1
+        if ($candidate) {
+            $result[$s.ProcessId] = [System.IO.Path]::GetFileNameWithoutExtension($candidate.Name)
+            $claimed.Add($candidate.FullName) | Out-Null
+        }
+    }
+
+    # Tight window on purpose: a file touched hours ago is more likely a past, now-closed
+    # session (as opposed to the other live one in this group) than the currently-open idle
+    # session sitting in the remaining tab - widening this trades precision for reach.
+    $unmatched = @($SessionsInGroup | Where-Object { -not $result.ContainsKey($_.ProcessId) })
+    $recentUnclaimed = @($files | Where-Object { -not $claimed.Contains($_.FullName) -and $_.LastWriteTime -ge (Get-Date).AddHours(-2) })
+    if ($unmatched.Count -eq 1 -and $recentUnclaimed.Count -eq 1) {
+        $result[$unmatched[0].ProcessId] = [System.IO.Path]::GetFileNameWithoutExtension($recentUnclaimed[0].Name)
+    }
+
+    return $result
+}
+
 # --- Find which top-level app a process ultimately descends from ------------------------
 function Test-DescendsFromWindowsTerminal {
     param([hashtable]$ProcessesById, [int]$ProcessId)
@@ -116,7 +165,7 @@ foreach ($p in $claudeProcs) {
     }
     $cwd = Get-ProcessCurrentDirectory -ProcessId $p.ProcessId
     if (-not $cwd) { continue }
-    $sessions += [pscustomobject]@{ ProcessId = $p.ProcessId; Cwd = $cwd; Monitor = $null }
+    $sessions += [pscustomobject]@{ ProcessId = $p.ProcessId; Cwd = $cwd; Monitor = $null; CreationDate = $p.CreationDate }
 }
 
 foreach ($m in $monitorProcs) {
@@ -127,7 +176,7 @@ foreach ($m in $monitorProcs) {
     if ($match) {
         $match.Monitor = $m.ProcessId
     } else {
-        $sessions += [pscustomobject]@{ ProcessId = $null; Cwd = $cwd; Monitor = $m.ProcessId }
+        $sessions += [pscustomobject]@{ ProcessId = $null; Cwd = $cwd; Monitor = $m.ProcessId; CreationDate = $null }
     }
 }
 
@@ -140,10 +189,19 @@ if ($sessions.Count -eq 0) {
 }
 
 # Duplicate cwds mean multiple concurrent sessions in the same directory - `claude --continue`
-# can't tell them apart (it just resumes the most recent one), so for those we fall back to
-# `claude --resume` (no id), which opens the interactive picker instead of guessing.
+# can't tell them apart (it just resumes the most recent one). Try to resolve the exact
+# session id per process first; only fall back to the interactive `claude --resume` picker
+# for whichever ones stay genuinely ambiguous.
 $cwdCountMap = @{}
 $sessions | Group-Object Cwd | ForEach-Object { $cwdCountMap[$_.Name] = $_.Count }
+
+$sessionIdMap = @{}
+foreach ($grp in ($sessions | Where-Object { $_.ProcessId } | Group-Object Cwd)) {
+    if ($grp.Count -gt 1) {
+        $resolved = Resolve-SessionIdsForDuplicateCwd -SessionsInGroup $grp.Group
+        foreach ($k in $resolved.Keys) { $sessionIdMap[$k] = $resolved[$k] }
+    }
+}
 
 # --- Build the wt command ------------------------------------------------------------------
 $usedTitles = @{}
@@ -158,7 +216,11 @@ foreach ($s in $sessions) {
         $usedTitles[$title] = 1
     }
 
-    $resumeFlag = if ($cwdCountMap[$s.Cwd] -gt 1) { '--resume' } else { '--continue' }
+    if ($cwdCountMap[$s.Cwd] -gt 1) {
+        $resumeFlag = if ($s.ProcessId -and $sessionIdMap.ContainsKey($s.ProcessId)) { "--resume $($sessionIdMap[$s.ProcessId])" } else { '--resume' }
+    } else {
+        $resumeFlag = '--continue'
+    }
     $actions += "new-tab --title `"$title`" -d `"$($s.Cwd)`" pwsh -NoExit -Command `"claude $resumeFlag`""
 
     if ($s.Monitor) {
@@ -187,7 +249,11 @@ Set-Content -Path $OutputPath -Value "$header`n`n$wtCommand`n" -Encoding utf8
 Write-Output "Found $($sessions.Count) Claude session(s) under Windows Terminal:"
 foreach ($s in $sessions) {
     $tag = if ($s.Monitor) { " + monitor" } else { "" }
-    $flag = if ($cwdCountMap[$s.Cwd] -gt 1) { "resume-picker (duplicate dir)" } else { "continue" }
+    if ($cwdCountMap[$s.Cwd] -gt 1) {
+        $flag = if ($s.ProcessId -and $sessionIdMap.ContainsKey($s.ProcessId)) { "resolved to session $($sessionIdMap[$s.ProcessId])" } else { "resume-picker (couldn't disambiguate)" }
+    } else {
+        $flag = "continue"
+    }
     Write-Output "  - $($s.Cwd)$tag [$flag]"
 }
 if ($skippedNonWt -gt 0) {

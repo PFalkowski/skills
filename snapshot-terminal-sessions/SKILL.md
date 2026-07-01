@@ -39,9 +39,15 @@ pwsh -File "$HOME\scripts\reopen-claude-sessions.ps1"
   titles are UI-only state and can't be read back from a process, so this is the closest
   available default — matches the convention of hand-written templates that title tabs after
   the repo folder anyway).
-- Uses `claude --continue` to resume the most recent conversation in that directory. If two
-  live sessions share the same directory, `--continue` can't tell them apart, so those fall
-  back to `claude --resume` (no id) — that opens the interactive picker instead of guessing.
+- Uses `claude --continue` to resume the most recent conversation in that directory. If two+
+  live sessions share the same directory, `--continue` can't tell them apart, so it tries to
+  resolve the *exact* session id for each: Claude Code stores each session as
+  `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`, and a freshly started session creates
+  its file within seconds of the process starting, so process-start-time vs. file-creation-time
+  proximity gives a high-confidence match. For a resumed (not freshly started) session with no
+  such signal, it falls back to matching the one remaining process against the one remaining
+  file touched in the last 2 hours, by elimination. Anything still ambiguous after that gets
+  a bare `claude --resume` (interactive picker) rather than a guess.
 - Pairs a `claude-monitor.exe` with a `claude.exe` session into one tab (as a `split-pane
   --size 0.5`) when their directories match exactly.
 
