@@ -23,6 +23,11 @@ Ask the user: **single adversarial agent** or **quorum**?
 - **Single** — one fresh reviewer over the whole diff. Fast, cheap, good default for small/contained changes.
 - **Quorum** — one fresh subagent per concern, run in parallel; this is the orchestrator-workers pattern (see **[orchestrate](../orchestrate/SKILL.md)** for briefs and effort budgets). If the user names concerns, use exactly those; if not, the orchestrator picks the relevant subset from the diff. Concern menu + the auto-pick heuristic live in **[REFERENCE.md](REFERENCE.md)**.
 
+> **Azure DevOps PRs:** delegate the whole resolve → diff → post pipeline to
+> [azure-devops-pr-review](../azure-devops-pr-review/SKILL.md) (its steps 1–5) from the start, not
+> just Step 7's posting — it already solves PR-metadata lookup, the diffs-API workaround, and
+> full-context file reading, so Steps 1–3 below are for the generic/GitHub-or-local case.
+
 ## Step 1 — Resolve the base
 
 Default to the repo's **default branch**: `git symbolic-ref --short refs/remotes/origin/HEAD` (fallback `main`, then `master`). If the user named a PR, use that PR's base branch. State the resolved base and let the user override before diffing.
@@ -40,6 +45,8 @@ Read the changed files at **full context**, not just the hunks — a change is o
 ## Step 3 — Trace ripple effects
 
 For every changed public symbol, signature, invariant, or config key, grep callers and dependents **repo-wide**. An invariant dropped in one file may be silently relied on in another. The lead gathers this dependent set once and hands it to the reviewer(s) so they judge the change in context, not in isolation.
+
+**When the diff touches compilable/buildable code** (not just docs/config), also build a throwaway worktree of the PR branch and run the project's build + relevant unit tests before spawning the reviewer — hand it the exact command plus pass/fail output and the worktree path. This gives the reviewer verified compile/test ground truth instead of re-deriving it, and a place to read exact file/line content (useful later when posting inline comments at the right line numbers) instead of counting from diff hunks.
 
 ## Step 4 — Capture the house rules (docs, ADRs, conventions) — ALWAYS
 
