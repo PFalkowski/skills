@@ -46,7 +46,7 @@ Read the changed files at **full context**, not just the hunks — a change is o
 
 For every changed public symbol, signature, invariant, or config key, grep callers and dependents **repo-wide**. An invariant dropped in one file may be silently relied on in another. The lead gathers this dependent set once and hands it to the reviewer(s) so they judge the change in context, not in isolation.
 
-**When the diff touches compilable/buildable code** (not just docs/config), also build a throwaway worktree of the PR branch and run the project's build + relevant unit tests before spawning the reviewer — hand it the exact command plus pass/fail output and the worktree path. This gives the reviewer verified compile/test ground truth instead of re-deriving it, and a place to read exact file/line content (useful later when posting inline comments at the right line numbers) instead of counting from diff hunks.
+**Don't re-run the full build/test suite as a matter of course** — CI already gates the PR, so a local build+test pass mostly duplicates that cost for near-zero marginal signal (it won't surface the kind of defects this skill exists to find — those come from reading code and reasoning about it, not from compiling it). Check the PR's **existing** CI/build status instead (`gh pr checks`, or for Azure DevOps the PR's status checks / build info) and cite that rather than re-deriving it locally. Reserve an actual build or test run for when a specific finding needs a **runnable-snippet verification artifact** (a minimal repro, or one targeted test proving one hypothesis) — never a whole-solution build+test pass "just in case".
 
 ## Step 4 — Capture the house rules (docs, ADRs, conventions) — ALWAYS
 
