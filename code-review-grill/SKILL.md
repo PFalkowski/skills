@@ -23,6 +23,11 @@ Ask the user: **single adversarial agent** or **quorum**?
 - **Single** — one fresh reviewer over the whole diff. Fast, cheap, good default for small/contained changes.
 - **Quorum** — one fresh subagent per concern, run in parallel; this is the orchestrator-workers pattern (see **[orchestrate](../orchestrate/SKILL.md)** for briefs and effort budgets). If the user names concerns, use exactly those; if not, the orchestrator picks the relevant subset from the diff. Concern menu + the auto-pick heuristic live in **[REFERENCE.md](REFERENCE.md)**.
 
+> **Azure DevOps PRs:** delegate the whole resolve → diff → post pipeline to
+> [azure-devops-pr-review](../azure-devops-pr-review/SKILL.md) (its steps 1–5) from the start, not
+> just Step 7's posting — it already solves PR-metadata lookup, the diffs-API workaround, and
+> full-context file reading, so Steps 1–3 below are for the generic/GitHub-or-local case.
+
 ## Step 1 — Resolve the base
 
 Default to the repo's **default branch**: `git symbolic-ref --short refs/remotes/origin/HEAD` (fallback `main`, then `master`). If the user named a PR, use that PR's base branch. State the resolved base and let the user override before diffing.
@@ -37,9 +42,13 @@ git diff       <base>...HEAD
 ```
 Read the changed files at **full context**, not just the hunks — a change is only correct in the surrounding code (mirrors `azure-devops-pr-review` step 3).
 
+**Consider materializing a worktree at PR-head** (`git worktree add`) to do that reading. It's just a checkout — no restore/build — so its cost scales with repo size, not solution complexity; don't confuse it with building the solution. It turns full-context reads and ripple-tracing into plain Read/Grep/Glob calls on real paths instead of repeated `git show <ref>:<path>`, gives real 1-indexed line numbers for free (useful later when posting inline comments), and — unlike switching the current checkout — doesn't disturb whatever the user has checked out if the PR branch isn't already local. Skip it for a small diff where a couple of `git show`s are just as fast; for a large or heavy repo (monorepo, submodules, huge history) where even a checkout isn't obviously cheap, ask the user before creating one rather than deciding silently.
+
 ## Step 3 — Trace ripple effects
 
-For every changed public symbol, signature, invariant, or config key, grep callers and dependents **repo-wide**. An invariant dropped in one file may be silently relied on in another. The lead gathers this dependent set once and hands it to the reviewer(s) so they judge the change in context, not in isolation.
+For every changed public symbol, signature, invariant, or config key, grep callers and dependents **repo-wide** (`git grep`, on the worktree if you made one, or on the ref directly if not). An invariant dropped in one file may be silently relied on in another. The lead gathers this dependent set once and hands it to the reviewer(s) so they judge the change in context, not in isolation.
+
+**Building/testing locally is the reviewer's call, not a default step.** If CI already gates the PR, check its status first (`gh pr checks`, or for Azure DevOps the PR's status checks / build info) and cite that rather than re-deriving it — a full local build+test pass mostly duplicates what CI already verified, and rarely surfaces the kind of defects this skill exists to find (those tend to come from reading code and reasoning about it, not from compiling it). But if there's no CI configured, or its status isn't visible from where you're standing, a local build/test run is a reasonable — often the only — way to establish that baseline; use judgment. Either way, an actual build or test run is also the natural route to a **runnable-snippet verification artifact** for a specific finding (a minimal repro, or one targeted test proving one hypothesis).
 
 ## Step 4 — Capture the house rules (docs, ADRs, conventions) — ALWAYS
 

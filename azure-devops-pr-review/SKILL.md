@@ -11,7 +11,8 @@ description: 'Review a pull request hosted on Azure DevOps (dev.azure.com / visu
 - `az` CLI with the **azure-devops** extension (`az extension add --name azure-devops`).
 - Signed in so the extension works (`az repos pr show ...` returns JSON) **and** `git clone` of the
   repo succeeds (a git credential manager has cached creds). Short version of the auth model: the
-  **extension** and **`git clone`** work; raw bearer tokens often don't. See [REFERENCE.md](REFERENCE.md).
+  **extension** and **`git clone`** work; raw bearer tokens (and the `mcp__azure-devops__*` MCP tools,
+  which hit the same wall) often don't. See [REFERENCE.md](REFERENCE.md).
 
 ## 1. Parse the URL
 Azure DevOps PR URLs look like:
@@ -43,6 +44,12 @@ git checkout <sourceCommit> -- .                   # read files AT PR head for c
 ```
 The three-dot form diffs from `git merge-base <target> <source>`, so you see the PR's own changes,
 not unrelated target-branch drift.
+
+**Resolving an unfamiliar path or symbol** (before, or instead of, the full clone above): both
+`git ls-tree -r <ref> --name-only | grep -i <keyword>` and `git grep <pattern> <ref>` search a remote
+ref directly, no clone/checkout/archive needed. Don't guess a file's path from a class/symbol name
+(they often don't match) or archive+extract a ref just to grep it — `git grep <pattern> <ref>` alone
+does that.
 
 ## 4. Review
 Read the diff **and** the surrounding code — entities/models, callers, DI/registration, sibling

@@ -13,6 +13,7 @@ Azure DevOps orgs backed by **personal / MSA accounts** are the common gotcha:
 | `az repos pr ...`, `az devops invoke ...` | ✅ Works — the azure-devops extension handles auth. |
 | `git clone https://dev.azure.com/...` over HTTPS | ✅ Works — Git Credential Manager supplies cached creds. |
 | Raw bearer token: `az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798` then `curl`/`az rest` | ❌ Often redirects to a sign-in HTML page (`<html>...Sign In` / `Object moved`). AAD tokens are frequently not accepted for MSA-backed orgs. |
+| `mcp__azure-devops__*` MCP tools (e.g. `repo_get_pull_request_by_id`) | ❌ Frequently hit the same MSA-org wall (`TF400813: not authorized`) even when the CLI works fine on the same PR. Don't try these first for PR resolution — use the CLI approach below. |
 
 So: **prefer the extension and local git.** Don't burn time minting bearer tokens.
 
@@ -57,7 +58,9 @@ POST a thread to:
 - `offset` is a **1-based column**. To highlight a whole line range, `rightFileStart.offset = 1` and
   `rightFileEnd.offset = (last line length) + 1`. A single point (start == end) is also accepted.
 - Anchor `rightFile*` to line numbers in the **source/PR-head** version of the file (what `git diff`
-  shows on the `+` side / the file after `git checkout <sourceCommit> -- .`).
+  shows on the `+` side / the file after `git checkout <sourceCommit> -- .`) — read the actual
+  checked-out file to get real 1-indexed line numbers; don't count from the diff's hunk-relative
+  `@@` numbers, which reset per hunk and won't match.
 
 ### Comment on a removed line (target / "left" side)
 Use `leftFileStart` / `leftFileEnd` instead, with line numbers from the **target** version.
@@ -100,5 +103,7 @@ Parsing captured `az devops invoke` output (skips the preamble, tolerates bad by
 raw = open("out.json", encoding="utf-8", errors="replace").read()
 data = json.loads(raw[raw.find("["):])   # or raw.find("{") for a single object
 ```
+Plain Windows installs often only have the `py` launcher on PATH (no `python3`/`python`) — use
+`py -c "..."` if `python3` isn't found.
 `az rest` may still raise `'charmap' codec can't encode ...` when writing to stdout — use
 `--output-file <path>` (or the redirect above) and read the file back.
