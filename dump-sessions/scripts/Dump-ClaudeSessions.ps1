@@ -104,11 +104,17 @@ function Parse-Session {
         if ($d.cwd) { $cwd = $d.cwd }
         if ($d.gitBranch) { $branch = $d.gitBranch }
         switch ($d.type) {
-            'ai-title'    { if ($d.title)   { $title = $d.title }   elseif ($d.content) { $title = $d.content } }
-            'last-prompt' { if ($d.prompt)  { $lastPrompt = $d.prompt } elseif ($d.content) { $lastPrompt = (Get-BlockText $d.content) } }
+            # Field names are exactly as Claude Code writes them: `aiTitle` on ai-title lines,
+            # `lastPrompt` on last-prompt lines (verified against real transcripts).
+            'ai-title'    { if ($d.aiTitle)    { $title = $d.aiTitle } }
+            'last-prompt' { if ($d.lastPrompt) { $lastPrompt = $d.lastPrompt } }
             'user' {
                 $txt = Get-BlockText $d.message.content
-                if ($txt -and $txt -notmatch '^\s*<') { $turns.Add([pscustomobject]@{ Role = 'user'; Text = $txt }) }
+                # Skip injected wrapper turns (system-reminders, command stubs) but keep genuine
+                # user prose that merely happens to start with a '<' (e.g. pasted XML/HTML).
+                if ($txt -and $txt -notmatch '^\s*<(system-reminder|command-|local-command)') {
+                    $turns.Add([pscustomobject]@{ Role = 'user'; Text = $txt })
+                }
             }
             'assistant' {
                 $txt = Get-BlockText $d.message.content
@@ -142,7 +148,8 @@ function Get-GitRisk {
     # Live git state for the session's cwd - the state a receiver actually needs to know is
     # at risk (uncommitted / unpushed). Best-effort; a missing/removed cwd just yields $null.
     param([string]$Cwd)
-    if (-not $Cwd -or -not (Test-Path $Cwd)) { return $null }
+    # -LiteralPath: a cwd containing [ ] must not be treated as a wildcard.
+    if (-not $Cwd -or -not (Test-Path -LiteralPath $Cwd)) { return $null }
     try {
         $inside = (& git -C $Cwd rev-parse --is-inside-work-tree 2>$null)
         if ($inside -ne 'true') { return $null }
@@ -162,11 +169,17 @@ function Get-GitRisk {
 $parsed = foreach ($f in $files) { Parse-Session -File $f }
 
 # One workspace can have several transcripts (a conversation resumed repeatedly leaves an
-# older .jsonl behind each time). Collapse to the newest transcript per cwd+branch so the
-# dump is one entry per live workspace, and record how many were folded in.
+# older .jsonl behind each time - but two terminals open in the same repo also land here).
+# Collapse to the newest transcript per cwd+branch for the entry's content, but keep EVERY
+# session id so a genuinely-concurrent second session is still resumable, not silently lost.
+# Git risk is computed once per workspace here (not per render pass).
 $sessions = foreach ($g in ($parsed | Group-Object { "$($_.Cwd)|$($_.Branch)" })) {
-    $newest = $g.Group | Sort-Object Written -Descending | Select-Object -First 1
-    $newest | Add-Member -NotePropertyName TranscriptCount -NotePropertyValue $g.Count -PassThru
+    $ordered = @($g.Group | Sort-Object Written -Descending)
+    $newest = $ordered[0]
+    $newest | Add-Member -NotePropertyName TranscriptCount -NotePropertyValue $g.Count -Force
+    $newest | Add-Member -NotePropertyName SessionIds -NotePropertyValue @($ordered.SessionId) -Force
+    $newest | Add-Member -NotePropertyName Risk -NotePropertyValue (Get-GitRisk -Cwd $newest.Cwd) -Force
+    $newest
 }
 $sessions = @($sessions | Sort-Object Written -Descending)
 
@@ -188,10 +201,13 @@ foreach ($s in $sessions) {
     [void]$sb.AppendLine("- **last activity:** $($s.Written.ToString('yyyy-MM-dd HH:mm'))")
     [void]$sb.AppendLine("- **session:** ``$($s.SessionId)`` -> resume with ``claude --resume $($s.SessionId)`` in the cwd")
     if ($s.TranscriptCount -gt 1) {
-        [void]$sb.AppendLine("- <sub>($($s.TranscriptCount) transcripts for this workspace; showing the newest)</sub>")
+        # More than one transcript for this cwd+branch: could be resume-history OR a second
+        # concurrent session. List every id so nothing is unresumable; newest shown above.
+        $others = @($s.SessionIds | Where-Object { $_ -ne $s.SessionId })
+        [void]$sb.AppendLine("- <sub>($($s.TranscriptCount) transcripts for this workspace; other session id(s): $($others -join ', '))</sub>")
     }
 
-    $risk = Get-GitRisk -Cwd $s.Cwd
+    $risk = $s.Risk
     if ($risk) {
         $unpushedTxt = if ($null -ne $risk.Unpushed) { $risk.Unpushed } else { '?' }
         [void]$sb.AppendLine("- **git now:** branch ``$($risk.Branch)`` - $($risk.DirtyCount) uncommitted file(s), $unpushedTxt unpushed commit(s)")
@@ -229,7 +245,7 @@ Set-Content -Path $OutputPath -Value $sb.ToString() -Encoding utf8
 # --- Report -----------------------------------------------------------------------------
 Write-Output "Dumped $($sessions.Count) active session(s) to $OutputPath"
 foreach ($s in $sessions) {
-    $risk = Get-GitRisk -Cwd $s.Cwd
+    $risk = $s.Risk
     $riskTxt = if ($risk) { "$($risk.DirtyCount) dirty / $($risk.Unpushed) unpushed" } else { 'no git' }
     Write-Output ("  - {0,-16} {1}  [{2}]" -f $s.Branch, $s.Title, $riskTxt)
 }

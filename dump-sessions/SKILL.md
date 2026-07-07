@@ -49,6 +49,15 @@ Useful parameters:
 - A workspace that has been resumed repeatedly leaves several transcripts behind; entries are
   collapsed to the **newest transcript per cwd+branch**, with the fold count noted.
 
+## Privacy — the dump is plaintext
+
+The output aggregates prompts and assistant prose from **every** active repo into one file
+(`~/HANDOVER-ALL.md` by default). If any of those conversations touched a secret, token, or
+customer data, it now sits unredacted at rest in a predictable `$HOME` path. It's written
+*outside* any repo, so it won't be committed by accident — but delete it once you've used it
+(`Remove-Item ~/HANDOVER-ALL.md`), or point `-OutputPath` at a location you control. Treat the
+file as sensitive.
+
 ## Relationship to other skills
 
 - **handoff** — writes a careful, minimal handover for the *single current* session. Use that
