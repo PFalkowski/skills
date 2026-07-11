@@ -30,6 +30,8 @@ Score **blind** where you can (hide which model produced which output) to avoid 
 ### 3. Run the same prompt across all candidates, at matched effort
 Identical prompt, identical effort/verbosity setting. Record each output **and its token usage** — the input/output split if you have it, the total otherwise.
 
+**Record the run so it can be reproduced.** Capture the **exact prompt(s) verbatim** (not a paraphrase), the **model IDs**, the **effort/verbosity setting**, and any harness details needed to re-run it (system prompt, tools, temperature, how models were invoked). A bake-off you cannot re-run cannot be audited, and models change — the verbatim prompt is the seed that lets you re-check the verdict against a new tier later. Paraphrasing the prompt in the write-up quietly destroys reproducibility.
+
 ### 4. Score, and verify the load-bearing claims
 Score each output against the rubric. Call out the few **load-bearing moves** that separate a strong answer from a generic one — they are task-specific (e.g. catching that the request is already satisfied, pushing back on a shaky premise, refusing to fabricate a result it lacks data for). Then **verify every fact the answer leans on**: a confident-but-wrong load-bearing claim is worse than an honest "I couldn't confirm X" and should drop that model hard.
 
@@ -61,6 +63,7 @@ Give a **recommendation, not a single winner**:
 ## Definition of done
 
 - Rubric written **before** any output was read.
+- The **exact prompt(s) recorded verbatim**, with model IDs and effort/harness settings — enough for someone else to reproduce the run.
 - Every candidate scored on the same rubric, blind where feasible.
 - Load-bearing facts in each answer verified — accuracy scored, not just fluency.
 - Cost in **dollars** at current rates (pulled from `claude-api`, not memory), ranking shown robust to the input/output split.
