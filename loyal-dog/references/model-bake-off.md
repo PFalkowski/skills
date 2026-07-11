@@ -13,14 +13,47 @@ Skill/spec design — creative + architectural generation of a self-contained ag
 prose brief. The recommendation below generalizes only within this class (design/architecture of a
 file-based tool), not to code implementation or long-horizon agentic execution.
 
-## The brief (identical to all three models)
+## The brief — verbatim prompt (for reproduction)
 
-> Design a Claude Code skill `loyal-dog`: a cross-context, file-based memory (no DB engine, any
-> OS/architecture) that supports retrieval at **O(log N) or better** as memory grows. Deliver five
-> parts: (1) core concept + trigger, (2) the on-disk data structure that gives sub-linear
-> retrieval, with a worked explanation of *why* the Big-O holds (and honesty about what stays
-> linear), (3) cross-platform/atomicity/corruption-safety, (4) the capture→index→retrieve
-> workflow, (5) a SKILL.md frontmatter sketch.
+Each of the three models received **this exact prompt** (identical, character-for-character):
+
+```
+Design a Claude Code "skill" called **loyal-dog**: a cross-context memory that follows the
+user across sessions and projects, like a loyal dog following its owner wherever they go and
+writing things down. It is FILE-BASED (must work on any OS/architecture with no database
+engine, no server). As the memory grows large, retrieval must be **O(log N) or faster** — not
+a linear scan of everything.
+
+A "skill" here is a Markdown file (SKILL.md) with YAML frontmatter (name + description) that
+Claude Code loads and follows; it can bundle helper files. Skills use progressive disclosure
+and a description that routes the right requests to them.
+
+Produce a DESIGN (not a full implementation). Cover exactly these five parts, clearly labeled:
+
+1. **Core concept + trigger** — what loyal-dog is, and when/how it activates.
+2. **On-disk data structure for sub-linear retrieval** — the concrete file/directory layout
+   that makes lookup O(log N) or better as N memories grow. Include a WORKED explanation of
+   *why* the complexity holds. Be rigorous and honest about the Big-O — including which
+   operations remain linear (e.g. full-content/semantic search) and why. Do not claim a
+   complexity the structure does not actually deliver.
+3. **Cross-platform, atomicity & corruption-safety** — atomic writes, Windows-vs-POSIX
+   path/locking concerns, recovery from a half-written file.
+4. **Capture → index → retrieve workflow** — how the dog records a memory, indexes it, and
+   later finds it. The loop must close: what gets written must be findable.
+5. **SKILL.md frontmatter sketch** — a `name:` and a `description:` that would actually route
+   relevant requests to this skill.
+
+Be precise and concise. Return the design directly as your final message (it is the
+deliverable, not a message to a human).
+```
+
+**Harness / reproduction settings:**
+- Invoked via three parallel subagents (Claude Code `Agent` tool), one per model, with the
+  prompt above sent identically to each.
+- Model IDs: `claude-fable-5`, `claude-opus-4-8`, `claude-sonnet-5`.
+- Effort: matched — inherited session effort, identical across all three; no per-agent override.
+- No system-prompt / tool / temperature customization beyond the model override; each agent
+  returned its design as its final message.
 
 ## Candidates & pricing
 
