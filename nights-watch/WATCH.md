@@ -15,7 +15,7 @@ The Watch runs as a self-pacing loop (`/loop` dynamic mode / ScheduleWakeup wher
 - **Empty muster** → idle tick every 20–30 min. Trackers don't change faster than that at night.
 - **Budget exhausted or user stands you down** → stop the loop explicitly; on stand-down, release still-claimed tickets back to the ready label with a comment.
 
-The watcher carries almost nothing between patrols on purpose: the tracker labels are the state machine, and the journal is the memory. Any fresh context can take the next patrol from those two alone.
+The watcher carries almost nothing between patrols on purpose: the tracker labels are the state machine, the journal is the logbook, and the Library ([LIBRARY.md](LIBRARY.md)) is the long-term memory. Any fresh context can take the next patrol from those three alone.
 
 ## Dispatch — the worker pool
 
@@ -27,7 +27,8 @@ export const meta = {
   description: 'Work triaged AI-ready tickets: bounded worker pool, tiered models, budget-guarded',
   phases: [{ title: 'Rangers' }],
 }
-// args: { tickets: [{id, url, title, tier, effort, repo, brief, process}],
+// args: { tickets: [{id, url, title, tier, effort, repo, brief, process, chroniclePath}],
+//         libraryIndex: '<repo>/.nights-watch/library/INDEX.md',
 //         parallel: 1, maxWorkers: 3, reserve: 60000 }
 const queue = [...args.tickets]
 const results = []
@@ -44,6 +45,11 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
     const r = await agent(
       `You are a ranger of the Night's Watch working ticket ${t.id} (${t.url}) in repo ${t.repo}.
        Brief: ${t.brief}
+       First read the Library index at ${args.libraryIndex} and open ONLY the entries
+       relevant to this ticket (conventions, gotchas, tooling for this repo).
+       Keep a chronicle at ${t.chroniclePath} (absolute path, outside your worktree):
+       append field notes THE MOMENT you learn something — a convention discovered, a trap
+       hit, a command that finally worked, an assumption that proved false — not at the end.
        Work on a new branch named nw/${t.id}.
        Process (assigned at triage — mandatory): ${t.process}
        - haiku-tier: direct change, verified by build/tests.
@@ -91,12 +97,12 @@ The Watch treats tokens like the Wall treats firewood: counted, planned, never w
 
 - **Reserve per ticket.** Estimate conservatively (~60k output tokens for a sonnet ticket; halve for haiku, triple for opus — recalibrate from your own journal, below). A worker isn't started unless the remaining budget covers its reserve.
 - **Plan the wave, don't discover the wall.** Before dispatch, if `budget.total` is set: max tickets this patrol ≈ `budget.remaining() / avg reserve`. Triage the whole muster but dispatch only what fits; defer the rest with a log line and leave them `ai-ready` (unclaimed) so nothing sits claimed-but-starved.
-- **Journal the actuals.** After each patrol, record per-ticket spend (`budget.spent()` deltas around the workflow, or the workflow journal) next to its tier. Over a few nights this yields real per-tier costs — use them to sharpen both the reserve numbers and the triage rubric (tickets that consistently blow their tier's reserve were mis-tiered).
+- **Journal the actuals.** After each patrol, record per-ticket spend (`budget.spent()` deltas around the workflow, or the workflow journal) next to its tier. At the fire, fold these into `calibration` entries in the Library ([LIBRARY.md](LIBRARY.md)) — over a few nights this yields real per-tier costs; use them to sharpen both the reserve numbers and the triage rubric (tickets that consistently blow their tier's reserve were mis-tiered).
 - **No budget set** → the reserve guard is inert, but the journal still records spend; the Watch's minimalism (tiering + one-ticket-at-a-time default) is the economy, not the ceiling.
 
 ## The watch journal
 
-Append one entry per patrol to `nights-watch-journal.md` (repo root, or the path the user configures):
+Append one entry per patrol to `.nights-watch/journal.md` (or the path the user configures — see [LIBRARY.md](LIBRARY.md) for the full `.nights-watch/` layout):
 
 ```md
 ## Patrol <n> — <tickets mustered>/<triaged ready>/<dispatched>
