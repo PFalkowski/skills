@@ -50,8 +50,12 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        - sonnet-tier: the "nightshift" skill's LOOP discipline — TDD Red → Green → Refactor;
          an unresolvable question means return blocked, never guess.
        - opus-tier: run the "sdlc-old-fashioned" skill end to end.
-       Unconditionally: run the "fact-check" skill before any unverified external fact
-       (API behavior, version/compat, copied number) enters code — refuted fact = blocked.
+       Truth before all: at every critical decision moment — a root-cause call, a design
+       fork, before any unverified fact (API behavior, version/compat, copied number)
+       enters code — run the "fact-check" skill: decompose the decision into smaller
+       verifiable sub-claims and prove each (runnable experiment + output, or independent
+       authoritative sources). Unprovable = false. Refuted premise = return blocked with
+       the evidence; proven facts carry their proof into the PR.
        Before opening the PR, run the "code-review-grill" skill on your diff with a FRESH
        reviewer agent (never share your rationale with it); fix confirmed findings, post
        the review to the PR.
