@@ -26,6 +26,7 @@
     "./relay-loop",
     "./restomod",
     "./sdlc-old-fashioned",
+    "./sdlc-workhorse",
     "./signal-verdict",
     "./snapshot-terminal-sessions",
     "./walk-the-dog",
