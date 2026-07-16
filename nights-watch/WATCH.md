@@ -27,8 +27,11 @@ export const meta = {
   description: 'Work triaged AI-ready tickets: bounded worker pool, tiered models, budget-guarded',
   phases: [{ title: 'Rangers' }],
 }
-// args: { tickets: [{id, url, title, tier, effort, repo, brief, process, chroniclePath}],
+// args: { tickets: [{id, url, title, tier, effort, repo, brief, process,
+//                     chroniclePath,          // one FILE — the lone ranger's field notes
+//                     chronicleDir}],         // a DIR — opus only; the workhorse writes one file per agent
 //         libraryIndex: '<repo>/.nights-watch/library/INDEX.md',
+//         workhorsePath: '<abs path to the skills repo>/.claude/workflows/sdlc-workhorse.js',
 //         parallel: 1, maxWorkers: 3, reserve: 60000 }
 const queue = [...args.tickets]
 const results = []
@@ -42,6 +45,33 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
     }
     const t = queue.shift()
     if (!t) break
+
+    // opus-tier: the lifecycle is a Workflow, so the SCRIPT starts it. A ranger cannot:
+    // an agent() inside a Workflow has no Workflow tool. See TRIAGE.md § Process assignment.
+    if (t.tier === 'opus') {
+      if (!args.workhorsePath) {
+        results.push({ id: t.id, blocked: true, reason: 'opus-tier ticket but no workhorsePath configured',
+                       summary: 'cannot dispatch sdlc-workhorse' })
+        continue
+      }
+      try {
+        const wh = await workflow({ scriptPath: args.workhorsePath }, {
+          goal: `${t.title}\n\n${t.brief}\n\nTicket: ${t.url} (repo ${t.repo})`,
+          parallel: 1, reserve: args.reserve,
+          chronicleDir: t.chronicleDir, libraryIndex: args.libraryIndex,
+        })
+        // The workhorse commits but NEVER pushes or opens a PR — that line is enforced by
+        // absence in its script. The watcher opens the PR from its branch (see below).
+        results.push({ id: t.id, via: 'sdlc-workhorse', prUrl: null, needsPr: !!wh.mergeReady,
+          blocked: !wh.mergeReady, reason: wh.mergeReady ? null : (wh.mergeBlockedBy || []).join('; ') || wh.stoppedAt || 'not merge-ready',
+          summary: `workhorse: ${wh.mergeReady ? 'merge-ready' : 'blocked'}`, report: wh })
+      } catch (e) {
+        results.push({ id: t.id, blocked: true, reason: `workhorse dispatch failed: ${String(e && e.message || e)}`,
+                       summary: 'workhorse did not run' })
+      }
+      continue
+    }
+
     const r = await agent(
       `You are a ranger of the Night's Watch working ticket ${t.id} (${t.url}) in repo ${t.repo}.
        Brief: ${t.brief}
@@ -55,7 +85,6 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        - haiku-tier: direct change, verified by build/tests.
        - sonnet-tier: the "nightshift" skill's LOOP discipline — TDD Red → Green → Refactor;
          an unresolvable question means return blocked, never guess.
-       - opus-tier: run the "sdlc-old-fashioned" skill end to end.
        Truth before all: at every critical decision moment — a root-cause call, a design
        fork, before any unverified fact (API behavior, version/compat, copied number)
        enters code — run the "fact-check" skill: decompose the decision into smaller
@@ -90,6 +119,10 @@ Notes on the template:
 - **`model: t.tier`** comes from triage ([TRIAGE.md](TRIAGE.md)), never hardcoded to the session tier. Escalation retries are a *second* `agent()` call by the watcher after reading results — keep the pool itself simple.
 - The queue-shift pool means a fast haiku chore doesn't hold a slot while an opus ticket grinds — workers rebalance naturally.
 - The watcher, not the workers, updates tracker labels/comments from `results` — workers get no tracker-write instructions, which keeps the report step consistent and idempotent.
+- **`opus` tickets take the `workflow()` branch, not the `agent()` one**, because [`sdlc-workhorse`](../sdlc-workhorse/SKILL.md) is a Workflow and a ranger has no `Workflow` tool to start one with. This is the single level of nesting `workflow()` allows — the workhorse script itself calls no `workflow()`, so the budget holds and nothing throws. Both branches share the pool, the queue, and the budget.
+- **`workhorsePath`, not `{name:}`.** Named resolution reads `.claude/workflows/` in the repo the patrol is *running in* — almost never this one. Pass an absolute `scriptPath` to this repo's copy. Without it, opus tickets return blocked rather than silently degrading to a lesser process: an un-run gate is visible, a skipped one is not.
+- **The watcher opens the PR for workhorse tickets.** The workhorse commits but never pushes, publishes, or merges — that line is enforced by absence in its script, and the patrol must not smuggle it back in through the ranger prompt. So a `needsPr` result is the watcher's job: push the branch, open the PR referencing the ticket, then label. Rangers on the other tiers still open their own PRs; only this tier splits the work.
+- **The workhorse's own grill satisfies the review gate.** Its per-slice fresh-agent grill already refute-tests every finding, so don't re-grill by reflex — that's paying twice for the same gate. Add a `code-review-grill` quorum only when its report shows no review ran.
 
 ## Token watching
 
