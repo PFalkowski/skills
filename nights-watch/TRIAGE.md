@@ -27,13 +27,17 @@ Effort follows tier: `low` for haiku-class chores, default for sonnet, `high` on
 
 ## Process assignment (which sworn-brother skills the ranger runs)
 
-Triage assigns not just a tier but a process; the watcher writes it into the ranger's brief.
+Triage assigns not just a tier but a process; the watcher writes it into the ranger's brief — except at `opus`, where the process *is not* a brief but a dispatch (see below).
 
-| Tier | Implementation discipline | Review gate |
-|---|---|---|
-| `haiku` | Direct change, verified by build/grep/tests as applicable | **code-review-grill**, single reviewer |
-| `sonnet` | **nightshift** LOOP discipline: TDD Red → Green → Refactor, Q:/A: deferral (unresolvable → return `blocked`, never guess) | **code-review-grill**, single adversarial reviewer; findings posted to the PR |
-| `opus` | **sdlc-old-fashioned** — the full by-the-book lifecycle (spec → grilled requirements → design review → TDD → refactor → docs); its built-in adversarial review satisfies the gate | **code-review-grill** quorum if the SDLC run didn't already include an equivalent adversarial pass |
+| Tier | Implementation discipline | Dispatched as | Review gate |
+|---|---|---|---|
+| `haiku` | Direct change, verified by build/grep/tests as applicable | ranger `agent()` | **code-review-grill**, single reviewer |
+| `sonnet` | **nightshift** LOOP discipline: TDD Red → Green → Refactor, Q:/A: deferral (unresolvable → return `blocked`, never guess) | ranger `agent()` | **code-review-grill**, single adversarial reviewer; findings posted to the PR |
+| `opus` | **sdlc-workhorse** — the full by-the-book lifecycle (spec → grilled requirements → design review → TDD → refactor → docs), autonomous by construction | **child `workflow()`**, by the patrol script itself — *not* a ranger | its own fresh-agent grill with refute-tested findings satisfies the gate; add a **code-review-grill** quorum only if the run reports none |
+
+**Why `opus` dispatches differently, and why it must.** The other tiers hand a ranger a skill to *follow*. The workhorse is not a runbook — it is a Workflow, and a ranger cannot start one: an `agent()` inside a Workflow has no `Workflow` tool (it holds `Skill`, `Bash`, `Read`/`Write`/`Edit`, `Grep`/`Glob`, `ToolSearch` — verified). A ranger told to "run the sdlc-workhorse skill" would read a SKILL.md whose sole instruction is a tool it cannot call, and would then improvise the lifecycle by hand — the reimplementation the workhorse exists to prevent. So the patrol script calls it directly as a child workflow, which is exactly the one level of nesting `workflow()` permits.
+
+**The attended sibling is the wrong skill here.** `sdlc-old-fashioned` holds its gates with a human standing at each one; a patrol has no human standing anywhere. Pointing an unattended ranger at it guarantees the gates are either improvised past or silently dropped. The workhorse is the same lifecycle with the gates held by control flow — the only variant that survives having nobody in the room.
 
 Cross-cutting and unconditional: **fact-check at every critical decision moment** — gate rule 6 at triage, and inside the ranger at each root-cause call, design fork, or the moment an unverified fact is about to enter code: decompose into verifiable sub-claims, prove each with evidence, treat the unprovable as false. And **no PR is labeled `ai-done` un-grilled**.
 
