@@ -1,70 +1,82 @@
 ---
 name: model-bake-off
-description: 'Run a controlled bake-off to pick the optimal model tier for a *class* of task — write a task-specific rubric first, run the same prompt across candidate models at matched effort, score the outputs blind (verifying load-bearing facts), then rank by ACTUAL DOLLAR COST rather than token count (per-token prices differ several-fold across tiers, so token count alone inverts the true ranking) to produce a quality-per-dollar recommendation. Use when choosing which model/tier to standardise on for a recurring task, comparing models head-to-head, running a model shootout / bake-off / eval, deciding whether a pricier tier earns its premium over a cheaper one, or when the user asks "which model is best/cheapest for this", "is the flagship worth it over the mid tier", or invokes /model-bake-off.'
+description: 'Run a controlled bake-off to pick the optimal model tier for a *class* of task — write a task-specific rubric first, run the same prompt across candidate models at matched effort, score the outputs blind (verifying load-bearing facts), then rank by ACTUAL DOLLAR COST rather than token count (per-token prices differ several-fold across tiers, so token count alone inverts the true ranking) to produce a quality-per-dollar recommendation. Gathers the inputs from the user, then dispatches the `model-bake-off` Workflow, which enforces the ordering (rubric before outputs), the blinding (judges never see the model id), and the pricing arithmetic in code. Use when choosing which model/tier to standardise on for a recurring task, comparing models head-to-head, running a model shootout / bake-off / eval, deciding whether a pricier tier earns its premium over a cheaper one, or when the user asks "which model is best/cheapest for this", "is the flagship worth it over the mid tier", or invokes /model-bake-off.'
 ---
 
 # model-bake-off
 
 Pick the model by **evidence, not vibes or price-tag intuition.** The deliverable is a per-task-class recommendation backed by a rubric score and an **actual-dollar** cost — never a token count, never a guess.
 
+The bake-off itself runs as a **Workflow** (`.claude/workflows/model-bake-off.js`). That is deliberate: three of this skill's rules are structural, not advisory, and prose cannot enforce them.
+
+| Rule | How the workflow enforces it |
+|---|---|
+| Rubric written **before** any output is read | The rubric agent runs in phase 1 and no candidate has been invoked yet. It cannot be anchored by an output that does not exist. |
+| Scoring is **blind** | Judges are handed an alias (`A`, `B`, …) and the output. The script holds the alias→model map and does not unblind until the verdict. |
+| Rank by **dollars**, never tokens | The pricing and value-per-dollar arithmetic is plain JS, so it cannot be eyeballed or rationalised. Rates come from a live `claude-api` lookup, and the run **aborts** if any candidate has no rate. |
+
+Your job is the part a script cannot do: **gather the inputs, then dispatch.**
+
 ## The one rule that flips people's intuition
 
-**Rank by dollars, never by tokens.** Per-token prices differ several-fold across tiers, so the model that emits the *most* tokens is frequently the *cheapest* in dollars — and the one that emits the fewest can be the most expensive. Convert token usage to money at the **current** per-token rates before you rank anything.
+**Rank by dollars, never by tokens.** Per-token prices differ several-fold across tiers, so the model that emits the *most* tokens is frequently the *cheapest* in dollars — and the one that emits the fewest can be the most expensive. The workflow computes both rankings and makes the verdict say so out loud when they disagree.
 
-> Get the current model lineup and per-token input/output rates from the `claude-api` skill (or official pricing). **Never price from memory** — rates and models change, and a stale number silently corrupts the whole verdict.
+## 1. Gather the inputs
 
-## Runbook
+Do not guess these. A bake-off built on a paraphrased prompt or an invented candidate list is unauditable.
 
-Work top to bottom. Don't skip step 2 — a rubric written *after* reading outputs is anchored and worthless.
+- **`taskClass`** — the *kind* of work, not the one instance: planning/triage, mechanical breadth, hard reasoning/debugging, long-horizon agentic execution, creative generation. The recommendation only generalises within the class. If the user gave you one instance, name the class it belongs to and confirm.
+- **`prompt`** — the **exact prompt, verbatim.** Not a paraphrase, not a summary. This is the seed that lets someone re-check the verdict against a tier that ships next year. If you only have a description of the prompt, ask for the real thing.
+- **`candidates`** — `{tier, modelId}` entries that **span tiers** (a small, a mid, a flagship, and the top tier if the task might need the headroom). Get the current lineup and model ids from the `claude-api` skill — **never from memory.**
+- **`effort`** — one setting, applied to every candidate. Matched effort or the comparison is meaningless.
+- **`usage`** *(optional, per candidate)* — `{inputTokens, outputTokens}` if you already have real numbers from a prior run. Supply them and the workflow prices exactly; omit them and it measures output tokens and brackets the unknown input across plausible ratios.
 
-### 1. Name the task *class*, not the one instance
-The optimal model depends on the *kind* of work: planning/triage, mechanical breadth, hard reasoning/debugging, long-horizon agentic execution, creative generation. State which class this is — the recommendation only generalises within it. Pick candidates that **span tiers** (a small, a mid, a flagship, and the top "most-capable" tier if the task might need the headroom).
+## 2. Dispatch
 
-### 2. Write the rubric BEFORE you see any output
-Criteria tuned to what *this class* actually rewards. Two criteria are mandatory on every rubric:
-- **Accuracy / did-it-verify** — fluency ≠ correctness. A confident, well-written wrong answer must score *below* a hedged correct one.
-- **Cost-efficiency (quality ÷ $)** — scored *last*, after pricing.
-
-Score **blind** where you can (hide which model produced which output) to avoid halo/anchoring effects.
-
-### 3. Run the same prompt across all candidates, at matched effort
-Identical prompt, identical effort/verbosity setting. Record each output **and its token usage** — the input/output split if you have it, the total otherwise.
-
-**Record the run so it can be reproduced.** Capture the **exact prompt(s) verbatim** (not a paraphrase), the **model IDs**, the **effort/verbosity setting**, and any harness details needed to re-run it (system prompt, tools, temperature, how models were invoked). A bake-off you cannot re-run cannot be audited, and models change — the verbatim prompt is the seed that lets you re-check the verdict against a new tier later. Paraphrasing the prompt in the write-up quietly destroys reproducibility.
-
-### 4. Score, and verify the load-bearing claims
-Score each output against the rubric. Call out the few **load-bearing moves** that separate a strong answer from a generic one — they are task-specific (e.g. catching that the request is already satisfied, pushing back on a shaky premise, refusing to fabricate a result it lacks data for). Then **verify every fact the answer leans on**: a confident-but-wrong load-bearing claim is worse than an honest "I couldn't confirm X" and should drop that model hard.
-
-### 5. Price it — actual dollars
 ```
-blended $/1M = input_fraction × input_price + output_fraction × output_price
-cost        = tokens_used × blended_$/1M ÷ 1e6
+Workflow({
+  name: 'model-bake-off',
+  args: {
+    taskClass: 'hard reasoning / debugging',
+    prompt: '<<<the exact prompt, verbatim>>>',
+    effort: 'medium',
+    candidates: [
+      { tier: 'haiku',  modelId: 'claude-haiku-4-5-20251001' },
+      { tier: 'sonnet', modelId: 'claude-sonnet-5' },
+      { tier: 'opus',   modelId: 'claude-opus-4-8' },
+    ],
+    harness: 'default workflow subagent, full tools, no custom system prompt',
+  },
+})
 ```
-If you don't have the input/output split, **bracket** it: a floor (treat all tokens as input) and a plausible estimate (e.g. 80/20 input/output for read-heavy agentic runs). If the ranking is identical under every split you try, the conclusion is robust — stop there.
 
-### 6. Deliver the verdict — quality ÷ dollars, per task-class
-Give a **recommendation, not a single winner**:
+Invoking this skill **is** the user's opt-in to multi-agent orchestration — the bake-off cannot be run any other way. It spends real tokens on every candidate, so confirm the candidate list before dispatching.
 
-| Verdict | Meaning |
-|---|---|
-| **Best answer / value** | Top quality at a sane cost — the default pick for this class. |
-| **Budget** | Delivers the actual deliverable for materially less; note what you trade. |
-| **Framing pre-pass** | Cheapest tier; produces structure and the right questions, *not* the final answer — use before handing off to a bigger model. |
-| **Over-provisioned** | Most expensive, no quality edge here — reserve for tasks whose difficulty needs it. |
+> Running the skill from a repo other than this one? Named resolution reads `.claude/workflows/` in the current repo. Elsewhere, pass `scriptPath` pointing at this repo's copy instead of `name`.
+
+## 3. Report the verdict
+
+The workflow returns the verdict, the scored/priced table, both rankings, and a `reproduction` block. Relay:
+
+- The **headline** — which model to standardise on for this class.
+- The **per-model verdicts** (best-value / budget / framing pre-pass / over-provisioned / below-capability-floor) — a recommendation, never a bare "model X wins".
+- **Whether the dollar ranking contradicted the token ranking.** This is the trap the exercise exists to catch; if it fired, lead with it.
+- **Whether the ranking was robust** across input/output splits. If `rankingRobust` is false, say so plainly and state what usage data would settle it — do not declare a winner.
+- Any **refuted load-bearing claims**, and which model made them.
 
 ## Patterns worth naming (they recur across bake-offs)
 
-- **Token count ≠ cost.** The headline trap. Always reprice in dollars; the token ranking and the dollar ranking often point opposite ways.
+- **Token count ≠ cost.** The headline trap. The token ranking and the dollar ranking often point opposite ways.
 - **Capability floor.** Some tasks need a minimum capability to produce the deliverable *at all*. Below it, a model degrades — ideally into *framing + clarifying questions* (graceful) rather than a confident wrong answer.
-- **Graceful degradation > confident error.** A cheap model that *asks* often beats a slightly pricier one that *asserts* something false — weigh the failure mode, not just the score.
+- **Graceful degradation > confident error.** A cheap model that *asks* often beats a slightly pricier one that *asserts* something false — weigh the failure mode, not just the score. The workflow captures this as a `failureMode` on every score.
 - **Over-provisioning is real.** The top tier is built for hard, long-horizon work; on a bounded task it bills a premium for headroom the task never exercises.
-- **Investigation budget is the hidden variable.** When the answer lives in a codebase or docs, a model's willingness to read/search matters more than raw speed — but it also drives token (and dollar) cost. A model that reads one file and asks is cheap but may miss the answer; one that reads ten finds it but costs more. Judge whether the extra reading *paid for itself*.
+- **Investigation budget is the hidden variable.** When the answer lives in a codebase or docs, a model's willingness to read/search matters more than raw speed — but it also drives token (and dollar) cost. Judge whether the extra reading *paid for itself*.
 
 ## Definition of done
 
-- Rubric written **before** any output was read.
-- The **exact prompt(s) recorded verbatim**, with model IDs and effort/harness settings — enough for someone else to reproduce the run.
-- Every candidate scored on the same rubric, blind where feasible.
-- Load-bearing facts in each answer verified — accuracy scored, not just fluency.
-- Cost in **dollars** at current rates (pulled from `claude-api`, not memory), ranking shown robust to the input/output split.
-- Recommendation framed **per task-class** (best / budget / framing pre-pass / over-provisioned), not a bare "model X wins".
+- Rubric written **before** any output was read *(structural — phase 1)*.
+- The **exact prompt recorded verbatim**, with model ids and effort/harness settings *(returned in `reproduction`)*.
+- Every candidate scored on the same rubric, **blind** *(structural — judges see aliases)*.
+- Load-bearing facts in each answer verified against real evidence — accuracy scored, not fluency.
+- Cost in **dollars** at current rates pulled from `claude-api`, ranking shown robust to the input/output split.
+- Recommendation framed **per task-class**, not a bare winner.
