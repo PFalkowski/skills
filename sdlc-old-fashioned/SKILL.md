@@ -93,13 +93,17 @@ The conductor holds the gates and the backlog; it does **not** carry the work. E
 - **Close with reflection.** The run isn't finished at merge; it's finished after the retrospective has evolved what it can and filed what it can't.
 - **Stop-and-confirm** keeps the usual bar: irreversible or outward-facing actions (merge to a shared branch, publishing, schema/data migration, spend) need an explicit human go. Everything reversible: decide and proceed. In **autonomous** mode, reversible questions defer to the backlog (with the chosen answer logged) rather than stopping; irreversible ones still block for a human go.
 
-## Choosing between this and go-go-go
+## Choosing between this, sdlc-workhorse, and go-go-go
 
-| | **sdlc-old-fashioned** | **go-go-go** |
-|---|---|---|
-| Optimises for | correctness, design, paper trail | speed to a raised PR |
-| Starts from | the repo's guardrails, then a problem to specify | whatever state the repo is in |
-| Requirements | grilled until sharp; the plan grilled before code | inferred; ask only on hard ambiguity |
-| Best for | features, subsystems, high-stakes change | fixes, chores, spikes, "just ship it" |
+| | **sdlc-old-fashioned** | **sdlc-workhorse** | **go-go-go** |
+|---|---|---|---|
+| Optimises for | correctness, design, paper trail | the same, unattended | speed to a raised PR |
+| Starts from | the repo's guardrails, then a problem to specify | the same (a red baseline aborts the run) | whatever state the repo is in |
+| Requirements | grilled until sharp; the plan grilled before code | the same, by agents the script keeps fresh | inferred; ask only on hard ambiguity |
+| Gates held by | **you**, at every phase | **the script** — a failed gate is a code path | nothing; four stop conditions |
+| Questions | block until answered | reversible → default + logged; irreversible → stop | decided and noted |
+| Best for | features, subsystems, high-stakes change | the same work when you won't be at the gates | fixes, chores, spikes, "just ship it" |
 
-When in doubt about which to use, ask the user one question: *"proper full lifecycle, or just ship it?"*
+**[`sdlc-workhorse`](../sdlc-workhorse/SKILL.md) is this skill's autonomous counterpart** — the same lifecycle compiled into a Workflow. Reach for it when the work deserves this weight but you're handing it off and walking away; it ends at a merge-ready report rather than a merge, because it has no code path that can cross an irreversible line. Stay here when you want to stand at the gates yourself.
+
+When in doubt, ask the user one question: *"proper full lifecycle, or just ship it?"* — then, if it's the lifecycle: *"are you staying at the gates, or should it run itself?"*
