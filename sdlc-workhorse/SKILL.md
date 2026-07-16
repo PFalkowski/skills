@@ -35,6 +35,31 @@ This is the whole reason it is a workflow. Prose can ask; a script decides.
 | **The retrospective closes every path that produced work** | Including the run that stopped at the design gate — the one that went sideways has the most to teach, so it must not be the path that skips the reflection. If the run hit real failures it applies `postmortem` discipline to them. (A red baseline is the one exception: it aborts before there is anything to reflect on.) |
 | **It cannot cross an irreversible line** | There is **no merge, publish, migrate, or spend code path in the script.** The line is enforced by absence, not by an instruction a tired agent reads past. |
 
+## Skill composition — who owns each phase
+
+The workflow **conducts; it does not solo.** Each phase reaches for the skill that owns it, so a skill's improvement propagates here for free:
+
+| Skill | Where | Why there |
+|---|---|---|
+| `to-prd` | Spec | Owns the spec artifact. |
+| `grill-with-docs` (fallback `grill-me`) | Grill, Plan review | Owns adversarial interrogation against the domain model and the docs. |
+| `fact-check` | Inside **every** refuter, at every gate | Owns the evidence *method* — the strongest-evidence ladder. |
+| `tdd` | Build (RED, then GREEN → REFACTOR) | Owns the red-green-refactor loop. |
+| `code-review-grill` | Review, per slice | Owns the fresh-agent hunk-by-hunk grill and the house-rules read. |
+| `postmortem` | Retrospective, when the run hit real failures | Owns symptom → root-cause → fix → forward-looking rule. |
+| `evolve-skill` / `write-a-skill` | Retrospective | Owns turning a lesson into a durable capability. |
+| `merge-stack` | *After* the run, by a human | Owns landing the PR stack `parallel > 1` produces. |
+
+**The division of labour with `fact-check` is deliberate and worth stating plainly.** The script does *not* delegate the verdict — it counts the votes of three perspective-diverse refuters and applies *unprovable = false* itself. What it delegates to `fact-check` is how each refuter *gathers evidence*. Hand-rolling that ladder inline would fork the method: the day `fact-check` gets sharper, this workflow would silently keep the old copy. So: **the script owns the decision rule, the skill owns the evidence.**
+
+### Composing interactive skills from an autonomous run
+
+Three of these skills are **interactive by design** — `grill-me`/`grill-with-docs` interview a user, and `code-review-grill` has two ALWAYS-ASK gates (Step 0 stance, Step 7 posting). Dropped into an autonomous worker with no human attached, they stall or improvise past their own rules. The workflow handles this explicitly rather than by hoping:
+
+- Every prompt that reaches for one carries a **no-human rule**: a question you'd ask the user is settled by *exploring* instead (`grill-me`'s own rule — if the codebase can answer it, explore rather than ask). What truly needs a human is **recorded, not asked**: reversible → default + logged to the backlog; irreversible → returned as a blocker.
+- `code-review-grill`'s gates are **pre-answered as args**: `reviewStance` (default `single`) settles Step 0, and Step 7 is settled by instruction — *post nothing, return the findings*, because this run has no authority to speak on a PR.
+- **Skipping the skill is never the answer**, and the prompts say so. An agent that can't ask the question is not licensed to abandon the discipline.
+
 ## Inherited from nights-watch
 
 - **Truth before all.** Every critical decision decomposes into verifiable sub-claims proved with real evidence — a runnable experiment and its output, a `path:line`, or independent authoritative sources. Discovering mid-check that the premise is false is a **success** of the process.
@@ -58,6 +83,8 @@ Workflow({
     maxGrillRounds: 3,                 // then unresolved questions defer with their defaults logged
     maxPlanRounds: 2,                  // then it stops rather than build on an unapproved design
     reserve: 60000,                    // output tokens held back per slice
+    reviewStance: 'single',            // pre-answers code-review-grill Step 0; 'quorum' to fan out per concern
+    reviewConcerns: ['correctness', 'documentation'],   // used only when reviewStance is 'quorum'
     backlogPath: 'prompts/sdlc-backlog.md',
     chronicleDir: '.sdlc/chronicles',
     libraryIndex: null,                // set to '.nights-watch/library/INDEX.md' if the repo keeps one

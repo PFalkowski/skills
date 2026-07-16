@@ -31,6 +31,9 @@ const libraryIndex = cfg.libraryIndex || null          // nights-watch Library, 
 const maxGrillRounds = cfg.maxGrillRounds ?? 3
 const maxPlanRounds = cfg.maxPlanRounds ?? 2
 const maxSlices = cfg.maxSlices ?? 12
+// code-review-grill's two ALWAYS-ASK gates, pre-answered — there is no human to ask.
+const reviewStance = cfg.reviewStance || 'single'
+const reviewConcerns = cfg.reviewConcerns || ['correctness', 'documentation']
 const reserve = cfg.reserve ?? 60000                    // output tokens held back per slice
 const parallel = cfg.parallel ?? 1                      // slices in flight; 1 = one branch, one PR
 const maxWorkers = cfg.maxWorkers ?? 3
@@ -63,6 +66,18 @@ const BACKLOG_RULE =
   `default, log the choice and its rationale to ${backlogPath}, and carry on. If it is IRREVERSIBLE (schema/data ` +
   `migration, publish, spend, protected-branch merge, anything outward-facing), do NOT do it — record it as a blocker ` +
   `and return. Out-of-scope work you discover is filed to ${backlogPath} on the spot, never silently absorbed.`
+
+// Several skills this workflow composes are INTERACTIVE by design — grill-me and
+// grill-with-docs interview a user; code-review-grill has two ALWAYS-ASK gates.
+// Invoked from an autonomous worker they would stall or improvise past their own
+// rules, so every prompt that reaches for one says plainly that no human exists
+// and how to satisfy the gate instead. Skipping the skill is NOT the answer.
+const NO_HUMAN_RULE =
+  `There is NO human attached to this run. A skill you invoke that would ask the user something is satisfied by ` +
+  `EXPLORING instead — grill-me's own rule: if the codebase can answer it, explore rather than ask. Settle it from ` +
+  `the repo, the docs, or a runnable experiment. What genuinely needs a human is recorded, never asked: reversible → ` +
+  `pick the sensible default and log it to ${backlogPath}; irreversible → return it as a blocker. Do not skip a ` +
+  `skill merely because you cannot ask its questions.`
 
 // ---------------------------------------------------------------------------
 // Schemas. A gate that returns prose is a gate a model can talk its way past.
@@ -296,8 +311,15 @@ async function proven(claim, whyLoadBearing, phaseName, context) {
       `Claim: ${claim}\nWhy it is load-bearing: ${whyLoadBearing}\n` +
       `${context ? `Context:\n${context}\n` : ''}\n` +
       `Your lens for this attempt: ${lens}\n\n` +
-      `Ground it the strongest way available: run it if it is executable and paste the real output; cite path:line if it ` +
-      `is about this repo; confirm against two independent authoritative sources if it is documentable.`,
+      // The evidence METHOD belongs to the fact-check skill — invoke it rather than
+      // restating it here, or this workflow silently keeps a stale copy of the
+      // method the day fact-check improves. The VERDICT is not delegated: the
+      // caller counts these votes, so no single agent decides what is proven.
+      `Use the "fact-check" skill to ground this. Follow its method — strongest evidence first: executable → run a ` +
+      `minimal script and paste its ACTUAL output; about this codebase → cite the exact path:line; documentable → ` +
+      `confirm across two or more independent authoritative sources. Attach the evidence itself, never your confidence.\n\n` +
+      `Return only your own verdict on this one claim. You are one vote of ${LENSES.length}; do not try to reach a ` +
+      `balanced conclusion on your own — attack the claim from your lens and report what you actually found.`,
       { label: `refute:${i + 1}`, phase: phaseName, model: tiers.verify, schema: REFUTE_SCHEMA }
     )
   ))
@@ -427,7 +449,7 @@ for (let round = 1; round <= maxGrillRounds; round++) {
     `readers implement opposite things and both claim to have followed it? What is asserted about the domain that ` +
     `nobody verified? Resolve each hole you can from the repo and the domain; write acceptance criteria.\n\n` +
     `Use the "grill-with-docs" skill if available (fallback "grill-me"), and record crystallised decisions as ADRs / ` +
-    `CONTEXT.md updates.\n\nRound ${round} of ${maxGrillRounds}.\n\n${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('grill'))}`,
+    `CONTEXT.md updates.\n\n${NO_HUMAN_RULE}\n\nRound ${round} of ${maxGrillRounds}.\n\n${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('grill'))}`,
     { label: `grill:r${round}`, phase: 'Grill', model: tiers.grill, schema: GRILL_SCHEMA }
   )
   if (!grill) break
@@ -474,7 +496,7 @@ for (let round = 1; round <= maxPlanRounds; round++) {
       `Hunt specifically for: hidden coupling; failure modes it does not handle; a wrong abstraction; a materially ` +
       `cheaper path to the same outcome; and the big one — does it actually satisfy the spec, or a nearby easier ` +
       `problem? Mark a finding mustFix only if shipping this plan unchanged would be a defect.\n\n` +
-      `Use the "grill-with-docs" skill if available.\n\n${CHRONICLE_RULE(chronicle('plan-review'))}`,
+      `Use the "grill-with-docs" skill if available.\n\n${NO_HUMAN_RULE}\n\n${CHRONICLE_RULE(chronicle('plan-review'))}`,
       { label: `plan-review:r${round}`, phase: 'Plan review', model: tiers.planReview, schema: PLAN_REVIEW_SCHEMA }
     ),
     () => refutedClaimsIn('plan', planText, 'Plan review'),
@@ -627,8 +649,19 @@ const built = await pipeline(
       `ACCEPTANCE CRITERION: ${slice.acceptanceCriterion}\n\n${pitfallRule}\n\n` +
       `Go hunk by hunk: what must be true for this to be correct? What input breaks it? What caller relied on the old ` +
       `behaviour? Every finding needs a CONCRETE failure scenario — inputs/state → wrong output/crash. A finding ` +
-      `without one is speculation and does not count.\n\nUse the "code-review-grill" skill.\n\n` +
-      `${CHRONICLE_RULE(chronicle(`review-${slice.id}`))}`,
+      `without one is speculation and does not count.\n\n` +
+      // code-review-grill is bookended by two ALWAYS-ASK human gates (Step 0
+      // stance, Step 7 posting). There is no human in this run, so they are
+      // pre-answered here. An autonomous agent left to hit those gates either
+      // stalls or improvises past the skill's own rules.
+      `Use the "code-review-grill" skill, with its two human gates already decided for you — do NOT ask, and do NOT ` +
+      `skip the skill because you cannot ask:\n` +
+      `- Step 0 (stance): ${reviewStance} adversarial reviewer${reviewStance === 'quorum' ? `, concerns: ${reviewConcerns.join(', ')}` : ''}. This is decided; do not prompt.\n` +
+      `- Step 7 (posting): do NOT post anything to any PR, and do not open one. Return your findings as this task's ` +
+      `result instead — the human decides what gets posted, and this run has no authority to speak on a PR.\n` +
+      `Everything else in the skill applies in full — especially Step 4: read this project's own documentation and ` +
+      `distil its house rules first, because the same construct that is right in one architecture is a defect in another.\n\n` +
+      `${NO_HUMAN_RULE}\n\n${CHRONICLE_RULE(chronicle(`review-${slice.id}`))}`,
       { label: `review:${slice.id}`, phase: 'Review', model: tiers.review, schema: REVIEW_SCHEMA }
     )
     const findings = (review && review.findings) || []
