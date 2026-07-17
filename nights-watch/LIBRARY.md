@@ -4,17 +4,30 @@ Two layers, deliberately separate: **chronicles** (per-agent, raw, written as th
 
 ## Layout
 
-All memory lives under `.nights-watch/` at the **main repo root** (configurable; committed to the repo so it survives clones and travels with the project):
+All memory lives under `.nights-watch/` at the **main repo root** (configurable; committed to the repo so it survives clones and travels with the project — with one exception, `hunts/`, noted below):
 
 ```
 .nights-watch/
   journal.md               # patrol logbook (see WATCH.md § The watch journal)
   chronicles/              # per-agent, append-as-you-go, raw — one file per ranger run
     <date>-<ticket-id>.md
+  hunts/                   # the Hunt's state + reports — NOT memory, and NOT here on a public repo
+    state.md               # the watermark: what has already been examined
+    ledger.md              # fingerprints of reported findings, so the horn never blows twice
+    carry.jsonl            # candidates found but not yet refuted — rewritten each hunt, never appended
+    .lock/                 # in-flight marker (a directory — mkdir is atomic)
+    INDEX.md
+    <date>-<n>.md
   library/
     INDEX.md               # one line per entry: - [title](slug.md) — hook
     <slug>.md              # one durable fact per file
 ```
+
+`hunts/` sits beside the Library, not inside it, and the distinction is the one this file is built on. A Library entry is *memory*: written by the fire, read as a hint, and — per § Recall — fair game for a ranger who observes it to be wrong. The watermark and the ledger are *law*: there is nothing to fact-check them against, and an agent "correcting" a watermark silently re-scans or skips a delta. So the Hunt's state is machine-written, machine-read, and never curated. What the Hunt *does* contribute to the Library is what the fire is for: which lenses produce noise on this repo, and what each one costs (`calibration`). See [HUNT.md](HUNT.md).
+
+One consequence worth stating here, because it is the single exception to this file's opening line: on a **public** repo, `hunts/` **is not in the repo at all** — the state root moves to `~/.nights-watch/<repo-slug>/` (or wherever `state=` names). The ledger records the file and severity of live unfixed flaws, and committing that publishes exactly what the Hunt's disclosure rule withheld. Gitignoring it in place is the obvious move and the wrong one — an ignored file still sits in the tree, one `git add -f` from publication, and an ignored file is per-clone, which silently costs the incrementality and dedup the ledger exists for. [HUNT.md](HUNT.md) § Where the state root is has the full trade.
+
+Chronicles and the Library stay committed on every repo: a curated convention is not a vulnerability.
 
 ## Chronicles — each agent dumps as it goes
 
