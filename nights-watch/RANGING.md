@@ -33,7 +33,7 @@ Everything not in this table is unchanged: the Oath, the fact-check discipline a
 
 **3. Claim it.** Tracker ticket → `ai-working` + a comment. Prose ticket → nothing to label; say what you're about to do and get on with it.
 
-**4. Dispatch the lifecycle.** One `Workflow` call to [`sdlc-workhorse`](../sdlc-workhorse/SKILL.md) — the watcher still takes no part in the work (Oath rule 2). On a ranging the watcher *is* the session agent, so it holds the `Workflow` tool and dispatches the workhorse directly; there is no pool and no nesting to worry about. Pass the gated brief as `goal`, keep `parallel: 1`, and point `libraryIndex` at the Library so the run recalls from it and curates back into it.
+**4. Dispatch the lifecycle.** One `Workflow` call to [`sdlc-workhorse`](../sdlc-workhorse/SKILL.md) — the watcher still takes no part in the work (Oath rule 2). On a ranging the watcher *is* the session agent, so it holds the `Workflow` tool and dispatches the workhorse directly; there is no pool and no nesting to worry about. Pass the gated brief as `goal`, keep `parallel: 1`, and point `libraryIndex` at the Library so the run recalls from it and curates back into it. Fold the stealth directive (Oath rule 8) into that same `goal` string — the workhorse's agents never read this skill's Oath, so it only travels if the text carries it: no code comments beyond the repo's own house rules, and nothing in commit messages, PR title, or PR description that names the Watch, nights-watch, or "ranger".
 
 ```
 Workflow({ name: 'sdlc-workhorse', args: { goal: '<the gated brief>', parallel: 1,

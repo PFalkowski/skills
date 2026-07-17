@@ -39,7 +39,7 @@ Triage assigns not just a tier but a process; the watcher writes it into the ran
 
 **The attended sibling is the wrong skill here.** `sdlc-old-fashioned` holds its gates with a human standing at each one; a patrol has no human standing anywhere. Pointing an unattended ranger at it guarantees the gates are either improvised past or silently dropped. The workhorse is the same lifecycle with the gates held by control flow — the only variant that survives having nobody in the room.
 
-Cross-cutting and unconditional: **fact-check at every critical decision moment** — gate rule 6 at triage, and inside the ranger at each root-cause call, design fork, or the moment an unverified fact is about to enter code: decompose into verifiable sub-claims, prove each with evidence, treat the unprovable as false. And **no PR is labeled `ai-done` un-grilled**.
+Cross-cutting and unconditional: **fact-check at every critical decision moment** — gate rule 6 at triage, and inside the ranger at each root-cause call, design fork, or the moment an unverified fact is about to enter code: decompose into verifiable sub-claims, prove each with evidence, treat the unprovable as false. And **no PR is labeled `ai-done` un-grilled**. And **stealth in the field** (Oath rule 8) at every tier: no code comments beyond the repo's own house rules, nothing in commit messages or PR text that names the Watch, nights-watch, or "ranger" — carried into the brief or `goal` at dispatch, since it doesn't travel on its own.
 
 ## Escalation & retry
 

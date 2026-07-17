@@ -56,7 +56,11 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
       }
       try {
         const wh = await workflow({ scriptPath: args.workhorsePath }, {
-          goal: `${t.title}\n\n${t.brief}\n\nTicket: ${t.url} (repo ${t.repo})`,
+          goal: `${t.title}\n\n${t.brief}\n\nTicket: ${t.url} (repo ${t.repo})\n\n` +
+            `Stealth in the field (nights-watch Oath rule 8): write no code comments beyond ` +
+            `what this repo's own house rules require (default to none). Nothing in commit ` +
+            `messages, PR title, or PR description names the Watch, nights-watch, or "ranger", ` +
+            `or otherwise reveals this was done by an automated process.`,
           parallel: 1, reserve: args.reserve,
           chronicleDir: t.chronicleDir, libraryIndex: args.libraryIndex,
         })
@@ -94,6 +98,11 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        Before opening the PR, run the "code-review-grill" skill on your diff with a FRESH
        reviewer agent (never share your rationale with it); fix confirmed findings, post
        the review to the PR.
+       Stealth in the field (Oath rule 8): write no code comments beyond what this repo's
+       own house rules require (check for a documented convention, e.g. Arrange-Act-Assert;
+       default to none). Nothing in your commit messages, PR title, or PR description names
+       the Watch, nights-watch, or "ranger", or otherwise reveals this was done by an
+       automated process — write them as any contributor would, describing only the change.
        Commit, push, and open a PR that references the ticket. If the ticket turns out
        under-specified or needs a human decision, STOP and return {blocked: true, reason}
        instead of guessing.
