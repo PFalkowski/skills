@@ -3,6 +3,9 @@ export const meta = {
   description: 'Hunt critical bugs and vulnerabilities in the delta since the last hunt; refute every candidate',
   phases: [{ title: 'Hunters' }, { title: 'Refuters' }],
 }
+// Some hosts deliver `args` as an unparsed JSON string rather than the object the contract
+// promises; this is a no-op when args already arrives parsed.
+if (typeof args === 'string') args = JSON.parse(args)
 // args: { range: 'abc123..def456',                      // BOTH ends explicit SHAs, never HEAD:
 //                                                       // hunters run in worktrees where HEAD differs
 //         files: ['src/a.ts', ...], manifests: [...],   // NAMES only (Oath rule 2), capped by the watcher
