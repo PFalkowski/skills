@@ -33,6 +33,7 @@ Invoking this skill is the user's explicit opt-in to multi-agent orchestration (
 6. **Watch the tokens.** Track `budget.spent()` across the night; plan each wave so tokens go to tickets, not overhead. If a token target is set, stop claiming new tickets when the remainder wouldn't cover one ([WATCH.md](WATCH.md) § Token watching).
 7. **Report or die trying.** Every claimed ticket ends in exactly one of: a PR + `ai-done`, or a comment explaining the blocker + `ai-blocked`. Never leave a ticket claimed and silent. On a hunt, every wake reports too — including the empty ones, since a quiet hunt and a broken hunt are indistinguishable from the outside.
 8. **Stealth in the field.** A ranger's diff should read like anyone's: no code comments beyond what the repo's own house rules require (e.g., a documented Arrange-Act-Assert convention) — default to none. Nothing in a commit message, PR title, or PR description names the Watch, nights-watch, or "ranger", or otherwise reveals the work was done by this skill; write them as any contributor would, describing only the change itself. This directive doesn't travel on its own — whatever carries the brief to a worker (the ranger prompt, a ranging's gated brief, an opus ticket's `goal`) must restate it, since a worker outside this skill's own prompt never reads the Oath.
+9. **Announce the watch.** A standing patrol claims tickets within minutes of them gaining the ready label, so anyone filing one — human or agent — must be able to discover the Watch is running *before* they watch it happen. On starting a standing watch, publish a durable notice where the tickets live (a pinned tracker issue, or a marker beside the journal) naming the label it claims, its cadence, and how to stand it down; retire it on stand-down. This is board-level transparency, not a byline — it never travels into commits or PRs (rule 8). Unannounced, the `ai-working` → `ai-done` transitions read as a labelling bug and cost the next reader a wasted investigation.
 
 ## One patrol (each wake-up)
 
@@ -85,6 +86,8 @@ The watcher wires these in via the ranger prompt ([WATCH.md](WATCH.md)); triage 
 | `ai-blocked` | Failed the gate or hit a human-decision blocker; comment says why | Watch |
 
 Label names are configurable; the four-state protocol is not. Missing labels? Create them on first patrol (GitHub: `gh label create`).
+
+A running Watch applies these autonomously, often within minutes of a ticket gaining the ready label — announce it (Oath rule 9) so the transitions aren't read as a labelling bug.
 
 ## Stop conditions
 
