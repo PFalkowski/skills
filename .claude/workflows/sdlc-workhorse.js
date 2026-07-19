@@ -20,6 +20,9 @@ export const meta = {
 // Inputs. The skill gathers these; everything here has a defensible default
 // except the goal itself.
 // ---------------------------------------------------------------------------
+// Some hosts deliver `args` as an unparsed JSON string rather than the object the contract
+// promises; this is a no-op when args already arrives parsed.
+if (typeof args === 'string') args = JSON.parse(args)
 const cfg = args || {}
 if (typeof cfg.goal !== 'string' || !cfg.goal.trim()) {
   throw new Error('sdlc-workhorse: args.goal is required — the change to build, in enough detail to specify.')
