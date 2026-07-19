@@ -19,6 +19,7 @@ description: 'The watch that never sleeps — a standing autonomous loop that sc
 /nights-watch ticket="CSV export drops the last row"
 /nights-watch hunt                             # a HUNT — hourly sweep of what changed, for bugs & vulns
 /nights-watch hunt every=15m report=issues     # tighter cadence; findings filed as ai-ready tickets
+/nights-watch hunt for=smells target=repo      # pick prey (security/bugs/smells/warnings) and ground (diff/last-commit/<range>/repo)
 /nights-watch grill                            # a GRILL — cadenced adversarial review of our open PRs
 /nights-watch grill stance=quorum concerns=security,architecture,tests
 ```
