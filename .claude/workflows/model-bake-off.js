@@ -14,6 +14,9 @@ export const meta = {
 // ---------------------------------------------------------------------------
 // Input contract. The skill gathers these from the user and passes them as args.
 // ---------------------------------------------------------------------------
+// Some hosts deliver `args` as an unparsed JSON string rather than the object the contract
+// promises; this is a no-op when args already arrives parsed.
+if (typeof args === 'string') args = JSON.parse(args)
 const cfg = args || {}
 const problems = []
 if (typeof cfg.prompt !== 'string' || !cfg.prompt.trim()) {
