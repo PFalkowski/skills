@@ -24,7 +24,9 @@ const FLAWS = ['unescaped-input-in-query', 'command-injection', 'path-traversal'
   'idor', 'tenant-leak', 'secret-in-source', 'secret-in-logs', 'vulnerable-dependency',
   'malicious-or-typosquat-dependency', 'widened-version-range', 'install-script-execution',
   'unhandled-failure-path', 'race-condition', 'resource-leak', 'broken-invariant', 'data-loss',
-  'widened-permission', 'open-network-surface', 'debug-enabled-in-production', 'other']
+  'widened-permission', 'open-network-surface', 'debug-enabled-in-production',
+  'duplicated-logic', 'dead-code', 'god-function', 'leaky-abstraction', 'tangled-coupling',
+  'compiler-warning', 'lint-warning', 'deprecated-api-usage', 'other']
 const SEVERITIES = ['critical', 'high', 'medium', 'low']
 const CANDIDATES = { type: 'object', properties: { findings: { type: 'array', items: { type: 'object',
   properties: { title: {type:'string'}, file: {type:'string', minLength: 1},

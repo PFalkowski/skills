@@ -12,6 +12,9 @@ The patrol works tickets a human vouched for. The Hunt has no tickets: it wakes 
 /nights-watch hunt severity=all              # report medium/low too (default: critical+high only)
 /nights-watch hunt since=7d                  # override the watermark (first hunt defaults to 7d)
 /nights-watch hunt scope=commits,deps,logs logs="docker logs api --since 1h"
+/nights-watch hunt for=smells,warnings       # prey: security, bugs, smells, warnings (default: security,bugs)
+/nights-watch hunt target=last-commit        # ground: diff (default) | last-commit | <git range> | repo
+/nights-watch hunt target=repo               # whole-repo baseline audit; big repos get a chunked backlog
 /nights-watch hunt once                      # one hunt, no standing loop
 ```
 
@@ -36,7 +39,7 @@ Everything not in this table is unchanged: the Oath, fact-check at every critica
 2. **A finding without a failure path is not a finding.** Every reported item names the inputs or conditions and the bad outcome they produce — proven by a runnable repro with its output, or by the exact source line plus an authoritative reference (CVE/GHSA/spec). "This looks unsafe" is a hypothesis; it dies at the refuters. Unprovable = false (Oath rule 1), and here that rule is what keeps an hourly job from becoming an hourly false-alarm generator the user learns to ignore.
 3. **Never blow the horn twice for the same thing.** Every candidate gets a fingerprint the script derives from a closed vocabulary (§ Fingerprints) and the ledger remembers it. A finding already reported at the same severity is dropped before the refuters — silently, cheaply, no report line. Two exceptions are worth waking someone for, and both are *comparisons*, so the ledger stores severity and status rather than mere membership: the finding's severity **rose** (`known` is a map, not a list — a match at a worse severity is refuted and reported as an escalation, since the drop-on-match filter is otherwise pointed straight at the case this rule exists for), or it **recurs after being fixed** (a `fixed` entry is a regression when it reappears, reported as one, referencing the fix that failed to hold).
 4. **Disclosure is a decision, not a default.** Before writing a finding *anywhere* — the document, a ticket, or the ledger — resolve where "anywhere" is (§ Disclosure). A vulnerability in a public repo must not be published by the tool that found it.
-5. **Scope is what moved.** The Hunt reads the change and what the change touches — not the whole codebase. An hourly full-repo audit is expensive, and by the third hour it is finding the same things it found in the first. (`scope=full` exists for a deliberate one-off baseline; it is not a cadence.)
+5. **Scope is what moved.** The Hunt reads the change and what the change touches — not the whole codebase. An hourly full-repo audit is expensive, and by the third hour it is finding the same things it found in the first. (`target=repo` exists for a deliberate baseline audit — § Prey and ground; it is not a cadence.)
 
 ## Events — what "latest" means, and how it is remembered
 
@@ -117,6 +120,34 @@ First hunt, or a watermark that no longer resolves (`git cat-file -e <sha>` fail
 
 Empty delta → log one line, update nothing, sleep. That is the common case at night and it must cost one `git log`.
 
+## Prey and ground — `for=` and `target=`
+
+Two knobs shape a hunt before any lens is assigned: what kind of prey it hunts (`for=`) and what ground it covers (`target=`).
+
+**`for=`** picks the lens families. Default `security,bugs` — the original party; the other two are opt-in because they widen the report toward things that don't wake anyone:
+
+| Family | Lenses |
+|---|---|
+| `security` | `injection`, `authz`, `secrets`, `supply-chain`, `exposure` |
+| `bugs` | `correctness` |
+| `smells` | `smells` — bad patterns that make the *next* change dangerous |
+| `warnings` | `warnings` — what the toolchain already flags and nobody reads |
+
+The delta still decides which of a family's lenses actually run (§ The hunting party) — `for=` widens what *may* run, never forces a lens the delta can't trigger. Everything downstream is family-blind: refuters, fingerprints, the ledger, the fire. One exception: a family the user **explicitly** named bypasses the severity floor — smells and warnings rarely grade `high`, and asking for them and then filtering every one out produces a "clean" report that lies by omission. Rule 2 still binds in full: a smell without a concrete cost ("this duplication means a fix lands in one copy") is a hypothesis, and it dies at the refuters like any other.
+
+**`target=`** picks the ground. Default `diff` — the standing watermark delta, which is the mode everything above describes:
+
+| `target=` | Hunts | Watermark |
+|---|---|---|
+| `diff` | the delta since the watermark — the standing cadence | advances as § Events |
+| `last-commit` | `HEAD~1..HEAD` | untouched — a spot check, not coverage |
+| `<git range>` | any explicit range (`main..HEAD`, `v1.2..v2.0`) | untouched |
+| `repo` | the whole codebase — a deliberate baseline audit, not a cadence (rule 5) | advances to the audit's pinned sha, **only when every chunk is done** |
+
+`target=repo` is the one target that can outgrow a single hunt, and it must not become an unbudgeted full scan. The watcher sizes it first (`git ls-files`, against `maxFiles`). Within the cap → one hunt, one party. Over it → the watcher writes a **hunt backlog**: `<state root>/backlog.md`, the codebase divided into auditable chunks — grouped by directory, ≤ `maxFiles` files each, one line per chunk (`<chunk> <status>`, status `pending`/`done`) — plus the sha the audit is pinned to, recorded at creation. Each subsequent tick works the next `pending` chunk of the pinned tree instead of the diff, until none remain; then the backlog is retired and the mode falls back to `diff`. A chunk is a muster like any other — names only, capped, the same workflow contract; its `range` runs from git's empty tree to the pinned sha, because a full-tree delta is still a delta with two explicit ends. Commits landing mid-audit are not lost: they are simply the first `diff` delta after the watermark lands on the pinned sha.
+
+The backlog is operational state, beside the watermark and outside the Library for the same reason (§ Events). A stand-down leaves it as-is — the `pending` lines *are* the re-cover list. And the partial-audit rule is this file's one rule applied a fifth time: unhunted chunks hold the watermark, because advancing over unexamined ground is silence, and waste is recoverable.
+
 ## The hunting party — lenses, not headcount
 
 The party fans out over the same range, each hunter with a **different lens**. Diversity is the point: redundancy finds the same bug three times; diversity finds three bugs. Assign only the lenses the delta can plausibly trigger — no auth or SQL touched, no injection lens — and say in the report which lenses ran, so "clean" never overstates itself.
@@ -129,6 +160,8 @@ The party fans out over the same range, each hunter with a **different lens**. D
 | `supply-chain` | new/bumped dependency with a known advisory, a typosquat, a postinstall script, a widened version range |
 | `correctness` | data loss and integrity: unhandled failure paths, races/TOCTOU, resource leaks, an invariant the diff broke |
 | `exposure` | config drift that widens the blast radius: a bucket/endpoint/port opened, CORS or a CI permission widened, debug left on |
+| `smells` | (family `smells`, opt-in) bad patterns with a nameable cost: duplicated logic, dead code, a god function, a leaky abstraction, tangled coupling |
+| `warnings` | (family `warnings`, opt-in) compiler/linter/deprecation warnings the delta introduces — or leaves standing in the files it touched |
 
 Tiers follow the rubric ([TRIAGE.md](TRIAGE.md)), effort follows tier: hunters at **`sonnet`** / default effort; a single lens at `opus` / `high` only when the delta is genuinely cross-cutting (a concurrency change, an auth refactor) — never the whole party.
 
