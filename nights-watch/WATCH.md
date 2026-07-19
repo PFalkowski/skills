@@ -7,6 +7,12 @@
 
 Both are user-configurable per invocation (or in the standing loop's brief); the defaults are the Watch's minimalism, not a technical limit.
 
+**What "in flight" means, exactly.** A ticket holds its worker slot from dispatch until its **grill returns** — implementation and review are one unit of work, not two. So `parallel=1` means one ticket is being *either* implemented or reviewed at any moment, never one of each. This is deliberate: a ticket isn't done until it's grilled, so releasing the slot at the ranger's return would report a throughput the gate hasn't caught up with, and let a second ranger start while the first PR is still unreviewed.
+
+The cost is honest: adding the grill lengthened each slot by roughly the review's share of the ticket (a grill reads a diff where a ranger builds the change — call it 10–25%, and calibrate from your own journal). **The default stays 1.** That cost doesn't justify raising it — a bump to 2 would overcompensate several times over while doubling the concurrent-mutation surface, and Oath rule 5's default is a minimalism choice, not a throughput tuning. Raise `parallel` when *you* want more throughput and the repo tolerates concurrent branches, not to pay for the grill.
+
+At `parallel > 1`, rangers are isolated by `isolation: 'worktree'`; **grills are not, and share the main working tree by design** — a review is a read, and a worktree per grill is waste. That only holds if grills actually stay read-only, so the grill prompt says so explicitly and sends any agent needing a build into its own throwaway worktree. Loosen that instruction and concurrent grills will corrupt each other's checkout.
+
 ## Standing watch (the loop)
 
 The Watch runs as a self-pacing loop (`/loop` dynamic mode / ScheduleWakeup where available; otherwise a cron/scheduled agent, or manual re-invocation with `once`). Pacing:
@@ -144,6 +150,11 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
          authoritative link. Speculation is not a finding; drop it.
          Ticket context (all you get — do not ask the author): ${t.title}
          ${t.brief}
+         READ-ONLY on the working tree, without exception: you share it with other grills.
+         Get the diff with "gh pr diff ${res.prUrl}" and read files where they already are.
+         Do NOT checkout, switch, stash, pull, reset, or write anything in it. If proving a
+         finding needs a build or a test run, make your own worktree
+         (git worktree add <tmp> <branch>), work there, and remove it when done.
          Post the confirmed findings to the PR as an ordinary review. Write as any reviewer
          would: nothing in the review names the Watch, nights-watch, "ranger", the grill, or
          otherwise reveals an automated process (Oath rule 8).
