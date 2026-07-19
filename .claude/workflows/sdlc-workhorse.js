@@ -35,7 +35,10 @@ const maxSlices = cfg.maxSlices ?? 12
 const reviewStance = cfg.reviewStance || 'single'
 const reviewConcerns = cfg.reviewConcerns || ['correctness', 'documentation']
 const reserve = cfg.reserve ?? 60000                    // output tokens held back per slice
-const parallel = cfg.parallel ?? 1                      // slices in flight; 1 = one branch, one PR
+// NOT `parallel` — that is the Workflow-injected fan-out helper this script calls in five
+// places. A top-level `const parallel = <number>` shadows it, and every one of those calls
+// dies (TypeError at runtime, or SyntaxError if the runtime injects helpers as parameters).
+const parallelSlices = cfg.parallel ?? 1                // slices in flight; 1 = one branch, one PR
 const maxWorkers = cfg.maxWorkers ?? 3
 
 // Lowest sufficient tier per phase — never default a worker to the session tier.
@@ -580,7 +583,7 @@ note('Slice', `${slices.length} tracer bullet(s): ${slices.map(s => `${s.id}[${s
 // the lone builder should use the working tree it was dispatched into.
 // ---------------------------------------------------------------------------
 phase('Build')
-const poolSize = Math.max(1, Math.min(parallel, maxWorkers, slices.length))
+const poolSize = Math.max(1, Math.min(parallelSlices, maxWorkers, slices.length))
 const isolate = poolSize > 1
 if (isolate) log(`${poolSize} slices in flight — each gets its own worktree; expect a PR stack (hand it to merge-stack).`)
 
@@ -639,13 +642,16 @@ const built = await pipeline(
     )
     return { ...prev, green }
   },
-  // Stage 3 — a fresh reviewer grills the diff, then findings are refute-tested.
+  // Stage 3 — fresh reviewer(s) grill the diff, then findings are refute-tested.
   async (prev) => {
     if (prev.skipped || !prev.green || !prev.green.passed) return prev
     const { slice } = prev
-    const review = await agent(
+    // One reviewer. `concern` non-null = one lens of a quorum; null = the single stance.
+    const grill = (concern) => agent(
       `Grill the diff for slice "${slice.id}" (${slice.title}). You never saw the author's rationale and you are not ` +
       `here to be agreeable. Read the actual diff from the repo.\n\n` +
+      (concern ? `YOUR LENS: ${concern}. Review ONLY through it — other reviewers cover the other concerns, and a ` +
+                 `finding outside your lens is theirs to make, not yours to guess at.\n\n` : '') +
       `ACCEPTANCE CRITERION: ${slice.acceptanceCriterion}\n\n${pitfallRule}\n\n` +
       `Go hunk by hunk: what must be true for this to be correct? What input breaks it? What caller relied on the old ` +
       `behaviour? Every finding needs a CONCRETE failure scenario — inputs/state → wrong output/crash. A finding ` +
@@ -656,15 +662,39 @@ const built = await pipeline(
       // stalls or improvises past the skill's own rules.
       `Use the "code-review-grill" skill, with its two human gates already decided for you — do NOT ask, and do NOT ` +
       `skip the skill because you cannot ask:\n` +
-      `- Step 0 (stance): ${reviewStance} adversarial reviewer${reviewStance === 'quorum' ? `, concerns: ${reviewConcerns.join(', ')}` : ''}. This is decided; do not prompt.\n` +
+      `- Step 0 (stance): you ARE the single adversarial reviewer for this task${concern ? ` on the "${concern}" concern` : ''}. ` +
+      `Decided; do not prompt. Do NOT try to convene a quorum or spawn reviewer subagents — you have no Agent/Task ` +
+      `tool, and the quorum is already fanned out by the script that dispatched you. Grill the diff yourself.\n` +
       `- Step 7 (posting): do NOT post anything to any PR, and do not open one. Return your findings as this task's ` +
       `result instead — the human decides what gets posted, and this run has no authority to speak on a PR.\n` +
       `Everything else in the skill applies in full — especially Step 4: read this project's own documentation and ` +
       `distil its house rules first, because the same construct that is right in one architecture is a defect in another.\n\n` +
-      `${NO_HUMAN_RULE}\n\n${CHRONICLE_RULE(chronicle(`review-${slice.id}`))}`,
-      { label: `review:${slice.id}`, phase: 'Review', model: tiers.review, schema: REVIEW_SCHEMA }
+      `${NO_HUMAN_RULE}\n\n${CHRONICLE_RULE(chronicle(`review-${slice.id}${concern ? `-${concern}` : ''}`))}`,
+      { label: `review:${slice.id}${concern ? `:${concern}` : ''}`, phase: 'Review',
+        model: tiers.review, schema: REVIEW_SCHEMA }
     )
-    const findings = (review && review.findings) || []
+    // THE QUORUM IS THE SCRIPT'S TO CONVENE. A reviewer agent has no Agent/Task tool,
+    // so telling one "you are a quorum reviewer" got a single agent role-playing several
+    // — the concerns collapse into one pass and the independence that makes a quorum
+    // worth its cost is silently gone. Fan out here instead: one agent per concern, each
+    // blind to the others. Same fix as the nights-watch grill (PFalkowski/skills#46).
+    const reviews = reviewStance === 'quorum'
+      ? (await parallel(reviewConcerns.map(c => () => grill(c).then(r => ({ r, c })))))
+          .filter(Boolean).filter(x => x.r)
+          .flatMap(x => ((x.r.findings) || []).map(f => ({ ...f, concern: x.c })))
+      : (((await grill(null)) || {}).findings || [])
+    // Lenses overlap, so the same defect can arrive more than once. Drop exact restatements
+    // before paying to verify each; paraphrases survive to verification, which is the real
+    // filter anyway — this only avoids obviously duplicated work.
+    const seen = new Set()
+    const findings = reviews.filter(f => {
+      const k = `${f.file || ''}::${String(f.summary || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}`
+      return seen.has(k) ? false : (seen.add(k), true)
+    })
+    if (reviewStance === 'quorum') {
+      log(`slice ${slice.id}: ${reviewConcerns.length} concern(s) reviewed, ` +
+          `${reviews.length} raw finding(s) → ${findings.length} after dedupe`)
+    }
     // Verify before reporting: a plausible-but-wrong finding costs a real fix cycle.
     const verified = await parallel(findings.map(f => () =>
       proven(f.summary, f.failureScenario, 'Review', `Slice: ${slice.title}\nCriterion: ${slice.acceptanceCriterion}`)
