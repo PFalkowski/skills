@@ -11,7 +11,9 @@ Both are user-configurable per invocation (or in the standing loop's brief); the
 
 The cost is honest: adding the grill lengthened each slot by roughly the review's share of the ticket (a grill reads a diff where a ranger builds the change — call it 10–25%, and calibrate from your own journal). **The default stays 1.** That cost doesn't justify raising it — a bump to 2 would overcompensate several times over while doubling the concurrent-mutation surface, and Oath rule 5's default is a minimalism choice, not a throughput tuning. Raise `parallel` when *you* want more throughput and the repo tolerates concurrent branches, not to pay for the grill.
 
-At `parallel > 1`, rangers are isolated by `isolation: 'worktree'`; **grills are not, and share the main working tree by design** — a review is a read, and a worktree per grill is waste. That only holds if grills actually stay read-only, so the grill prompt says so explicitly and sends any agent needing a build into its own throwaway worktree. Loosen that instruction and concurrent grills will corrupt each other's checkout.
+**Rangers are always isolated by `isolation: 'worktree'` — at `parallel=1` too.** `parallel` bounds *tickets in flight*, which is not the same quantity as *writers in the working tree*, and the old rule conflated them: it dropped isolation for a lone ranger on the reasoning that one worker cannot collide with itself. But the ranger shares that tree with a concurrently-running hunt and grill (the modes run at the same time by design — [SKILL.md](SKILL.md)) and with the human whose checkout it is. An unattended ranger switching branches and writing files under someone's open editor at 3am is the messy case, not the safe one. One worktree per ticket is the price; what it buys is that nothing the Watch does at night can touch what you are looking at.
+
+**Grills are not isolated, and share the main working tree by design** — a review is a read, and a worktree per grill is waste. That only holds if grills actually stay read-only, so the grill prompt says so explicitly and sends any agent needing a build into its own throwaway worktree. Loosen that instruction and concurrent grills will corrupt each other's checkout.
 
 ## Standing watch (the loop)
 
@@ -31,13 +33,15 @@ One Workflow per patrol. Concurrency is enforced structurally: `poolSize` worker
 export const meta = {
   name: 'nights-watch-patrol',
   description: 'Work triaged AI-ready tickets: bounded worker pool, tiered models, budget-guarded',
-  phases: [{ title: 'Rangers' }, { title: 'Grill' }],
+  phases: [{ title: 'Premise', model: 'opus' }, { title: 'Rangers' }, { title: 'Grill' }],
 }
 // args: { tickets: [{id, url, title, tier, effort, repo, brief, process,
 //                     chroniclePath,          // one FILE — the lone ranger's field notes
 //                     chronicleDir}],         // a DIR — opus only; the workhorse writes one file per agent
 //         libraryIndex: '<repo>/.nights-watch/library/INDEX.md',
 //         workhorsePath: '<abs path to the skills repo>/.claude/workflows/sdlc-workhorse.js',
+//         lockDir: '<repo>/.nights-watch/locks',   // where claim advertisements live
+//         lockTtlMin: 90,                          // staleness marker written into owner.md
 //         parallel: 1, maxWorkers: 3, reserve: 60000 }
 // Normalize args first: it can arrive as a JSON-encoded STRING rather than an object,
 // in which case `args.tickets` is undefined and the spread below throws before any
@@ -91,7 +95,100 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
       continue
     }
 
-    const r = await agent(
+    // THE PREMISE GATE — opus, always, whatever the ticket's tier. This establishes
+    // what "correct" means BEFORE anyone writes a test, because the TDD loop below
+    // turns the premise into assertions: a wrong premise doesn't fail, it produces a
+    // green suite certifying the wrong behaviour, and every gate after this one
+    // checks conformance to it rather than rechecking it. That is the one error a
+    // cheap tier makes invisible, so the tier is floored here even when the ranger
+    // that follows is haiku. Opus tickets skip it — the workhorse runs its own
+    // premise gates, floored the same way, and paying twice buys nothing.
+    const p = await agent(
+      `Establish what "correct" means for this ticket, for a ranger who will write tests
+       against your answer. You are NOT implementing it and NOT designing it.
+       Ticket ${t.id} (${t.url}) in repo ${t.repo}: ${t.title}
+       ${t.brief}
+       Read the Library index at ${A.libraryIndex} and open what is relevant.
+       MANDATORY — run the "fact-check" skill on EVERY load-bearing claim before you
+       record it. Decompose each into independently verifiable sub-claims and prove each
+       with the strongest evidence available: executable → run it and paste the ACTUAL
+       output; about this codebase → cite the exact path:line; documentable → two or more
+       independent authoritative sources. UNPROVABLE = FALSE. A claim you cannot ground
+       does not get hedged into the premise ("likely", "should be") — it is EXCLUDED and
+       listed as an open question. ONLY CLAIMS YOU PROVED ARE HELD.
+       Discovering the ticket's own premise is wrong is a SUCCESS of this gate: say so,
+       and return heldClaims: [] with the refutation as an openQuestion.
+       Then grill your own output adversarially before returning it: where could two
+       readers build opposite things and both claim to have followed this?
+       Return JSON: {heldClaims:[{claim,evidence}], openQuestions:[], acceptanceCriteria:[]}.`,
+      { label: `premise:${t.id}`, phase: 'Premise', model: 'opus', effort: 'high',
+        schema: { type:'object', properties:{
+          heldClaims: { type:'array', items:{ type:'object',
+            properties:{ claim:{type:'string'}, evidence:{type:'string'} },
+            required:['claim','evidence'] } },
+          openQuestions: { type:'array', items:{type:'string'} },
+          acceptanceCriteria: { type:'array', items:{type:'string'} } },
+          required:['heldClaims','openQuestions','acceptanceCriteria'] } }
+    )
+    // A dead premise agent must not silently degrade into "no premise" — that would
+    // hand the ranger an empty block and let it invent its own, which is the exact
+    // failure this gate exists to prevent. No premise, no ranger.
+    if (!p) {
+      results.push({ id: t.id, blocked: true, reason: 'premise gate did not return',
+                     summary: 'no verified premise — ranger not dispatched' })
+      continue
+    }
+    t.premise = p.heldClaims.length
+      ? p.heldClaims.map(c => `- ${c.claim}\n         evidence: ${c.evidence}`).join('\n')
+        + (p.acceptanceCriteria.length
+            ? `\n       ACCEPTANCE CRITERIA (your tests assert these):\n`
+              + p.acceptanceCriteria.map(a => `         - ${a}`).join('\n') : '')
+        + (p.openQuestions.length
+            ? `\n       OPEN — NOT established, do not build on these:\n`
+              + p.openQuestions.map(q => `         - ${q}`).join('\n') : '')
+      : `NONE. No claim about this ticket survived verification` +
+        `${p.openQuestions.length ? ` — open: ${p.openQuestions.join('; ')}` : ''}.\n` +
+        `       Treat NOTHING as established. If you cannot ground the ticket's premise\n` +
+        `       yourself with "fact-check", return blocked rather than guessing.`
+
+    // THE ADVERTISEMENT — a claim that names who holds it, so a human (or another
+    // mode) finding it later knows what it is and whether it is still live.
+    // Ownership is the SCRIPT's, but the I/O is not: a workflow script has no
+    // filesystem access and no clock (Date.now() throws — it would break resume),
+    // so the ranger stamps the advertisement and a reaper clears it. The script
+    // owns only the guarantee that one of the two always happens.
+    const advert = `${A.lockDir}/ticket-${t.id}`
+    let held = true
+    const release = async (how) => {
+      if (!held) return
+      held = false
+      await agent(
+        `Remove the directory ${advert} and everything in it. It is a stale claim
+         advertisement (${how}). Do not touch anything else. Return {released:true}.`,
+        { label: `release:${t.id}`, phase: 'Rangers', model: 'haiku', effort: 'low',
+          schema: { type:'object', properties:{ released:{type:'boolean'} }, required:['released'] } }
+      ).catch(() => null)   // a failed release must not mask the ticket's own outcome
+    }
+
+    let r = null
+    try {
+      await agent(
+        `Advertise that work is starting, so anyone who looks knows who holds this and when.
+         mkdir -p ${advert} (mkdir is atomic — if it already exists, another worker holds
+         this ticket: return {claimed:false} and change nothing). Then write ${advert}/owner.md:
+           holder:  nights-watch ranger, worker ${w}
+           ticket:  ${t.id} — ${t.title}
+           tier:    ${t.tier}
+           branch:  nw/${t.id}
+           started: <the REAL current UTC time — get it from the shell, e.g. date -u +%FT%TZ>
+           host:    <hostname>
+           note:    released when the ranger returns or the patrol reaps it; stale past ${A.lockTtlMin} min
+         Return {claimed:true}.`,
+        { label: `claim:${t.id}`, phase: 'Rangers', model: 'haiku', effort: 'low',
+          schema: { type:'object', properties:{ claimed:{type:'boolean'} }, required:['claimed'] } }
+      )
+
+      r = await agent(
       `You are a ranger of the Night's Watch working ticket ${t.id} (${t.url}) in repo ${t.repo}.
        Brief: ${t.brief}
        First read the Library index at ${A.libraryIndex} and open ONLY the entries
@@ -100,10 +197,30 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        append field notes THE MOMENT you learn something — a convention discovered, a trap
        hit, a command that finally worked, an assumption that proved false — not at the end.
        Work on a new branch named nw/${t.id}.
+       THE VERIFIED PREMISE — what "correct" means for this ticket. These claims
+       survived adversarial refutation at the Premise gate and are the ONLY ones you
+       may treat as established. Anything else, including the brief above, is
+       unverified: prove it with the "fact-check" skill before you lean on it.
+       ${t.premise}
+       Your tests assert THIS premise. If implementing reveals the premise is wrong,
+       that is a finding, not an inconvenience — return blocked with the evidence.
        Process (assigned at triage — mandatory): ${t.process}
-       - haiku-tier: direct change, verified by build/tests.
+       TDD IS THE ONLY WAY TO WORK HERE, at every tier including haiku. Red → Green →
+       Refactor: write the failing test FIRST, run it, and confirm it fails ON THE
+       ASSERTED BEHAVIOUR — not on a typo, a missing import, or an unbuilt fixture.
+       A test that fails for the wrong reason is not a red; fix it and re-run before
+       writing any production code. Paste the actual failing output into your chronicle.
+       - haiku-tier: TDD as above. The tier buys a cheaper model, never a cheaper process.
        - sonnet-tier: the "nightshift" skill's LOOP discipline — TDD Red → Green → Refactor;
          an unresolvable question means return blocked, never guess.
+       THE ONLY EXEMPTION, and you must EARN it: if the change genuinely has no
+       behavioural surface a test could observe (a dep version bump with no API delta,
+       a doc wording fix, a license header sweep), return noBehaviouralSurface: true
+       with a one-line reason naming what you checked to establish it. Do NOT invent a
+       test to satisfy this rule — a test written to be written is theatre, and it will
+       be read as passing coverage by everyone after you. The grill VERIFIES this claim
+       against your diff; a false exemption fails the gate and comes back to you. If you
+       are unsure whether behaviour changed, it changed: write the test.
          Run LOOP steps 1-6 only. Step 7 (adversarial code review) is NOT yours: it tells
          you to spawn a fresh reviewer subagent, and you have no Agent/Task tool to do it
          with. Do not substitute a self-review — LOOP's own rule "don't review your own
@@ -126,13 +243,21 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        Commit, push, and open a PR that references the ticket. If the ticket turns out
        under-specified or needs a human decision, STOP and return {blocked: true, reason}
        instead of guessing.
-       Return JSON: {id, prUrl|null, blocked, reason|null, summary}.`,
+       Return JSON: {id, prUrl|null, blocked, reason|null, summary,
+       noBehaviouralSurface, exemptionReason|null}.`,
       { label: `ranger:${t.id}`, phase: 'Rangers', model: t.tier, effort: t.effort,
+        // ALWAYS a worktree — not only at parallel > 1. The old condition counted
+        // rangers, but the thing being protected is the WORKING TREE, and a ranger is
+        // never its only user: a concurrent hunt or grill reads it, and the human whose
+        // checkout this is has tabs open in it. A lone ranger editing the shared tree is
+        // the messy case, not the safe one.
         isolation: 'worktree',
         schema: { type: 'object',
           properties: { id: {type:'string'}, prUrl: {type:['string','null']},
-            blocked: {type:'boolean'}, reason: {type:['string','null']}, summary: {type:'string'} },
-          required: ['id','blocked','summary'] } }
+            blocked: {type:'boolean'}, reason: {type:['string','null']}, summary: {type:'string'},
+            noBehaviouralSurface: {type:'boolean'},
+            exemptionReason: {type:['string','null']} },
+          required: ['id','blocked','summary','noBehaviouralSurface'] } }
     )
     const res = r ?? { id: t.id, blocked: true, reason: 'worker died', summary: 'no result' }
     // THE GRILL — a second, script-dispatched agent(). This call is made by the SCRIPT,
@@ -155,6 +280,15 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
          authoritative link. Speculation is not a finding; drop it.
          Ticket context (all you get — do not ask the author): ${t.title}
          ${t.brief}
+         TDD IS MANDATORY HERE — verify it held, and treat a breach as a finding:
+         the diff must contain a test that genuinely exercises the changed behaviour.
+         ${res.noBehaviouralSurface
+           ? `The ranger claimed an exemption: "${res.exemptionReason}". VERIFY THAT CLAIM
+              against the diff. If any hunk changes behaviour a test could observe, the
+              exemption is FALSE — report it as a blocking finding naming the hunk.`
+           : `No exemption was claimed, so a test is required. A change with no
+              accompanying test, or a test that cannot fail if the production change is
+              reverted, is a blocking finding — check by reading what it asserts.`}
          READ-ONLY on the working tree, without exception: you share it with other grills.
          Get the diff with "gh pr diff ${res.prUrl}" and read files where they already are.
          Do NOT checkout, switch, stash, pull, reset, or write anything in it. If proving a
@@ -175,7 +309,15 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
                          summary: 'grill agent died' }
       res.grilled = !!(g && g.reviewed)
     }
-    results.push(res)
+      results.push(res)
+    } finally {
+      // Released on EVERY path: the ranger returned, the ranger died, the grill threw,
+      // the budget stood the worker down, the whole patrol was killed mid-slot. A lock
+      // whose release lives on the happy path is not a lock — it is a lock-shaped way
+      // to strand the next patrol behind a claim nobody holds. The TTL below is the
+      // backstop for the crash that skips even this, not the release mechanism.
+      await release(r ? 'ranger returned' : 'ranger did not return')
+    }
   }
 }))
 const unworked = queue.map(t => t.id)
@@ -185,7 +327,8 @@ return { results, unworked }
 
 Notes on the template:
 
-- **`isolation: 'worktree'`** matters only when `parallel > 1` (workers mutating the same repo concurrently). At the default `parallel=1`, drop it and let the lone ranger use the working tree.
+- **`isolation: 'worktree'` is unconditional — including at `parallel=1`.** The old rule dropped it for a lone ranger, on the reasoning that one worker cannot collide with itself. That counts the wrong thing: what needs protecting is the **working tree**, and the ranger is never its only user. A hunt's refuters and a grill both read it, the modes run concurrently by design ([SKILL.md](SKILL.md)), and the human whose checkout this is has tabs open in it. A lone ranger switching branches and writing files under someone else's editor is the *messy* case, not the safe one — `parallel=1` bounds tickets in flight, never tree users. The cost is one worktree per ticket; the thing it buys is that an unattended 3am ranger can never touch what you are looking at.
+- **The advertisement is identity-bearing, and released on every path.** `mkdir` is atomic, so it doubles as the claim; `owner.md` inside names the holder, ticket, tier, branch, start time, and host — enough for whoever finds it at 9am to know what it is and whether it is still live. Release is in a `finally`, so it survives a dead ranger, a thrown grill, and a budget stand-down; the `lockTtlMin` staleness marker is the backstop for the crash that skips even that, not the mechanism. **The script cannot do this I/O itself** — a workflow script has no filesystem access, and `Date.now()` throws (it would break resume) — so the stamping and the reaping are `haiku` agents the script *orders*. Ownership stays with the script; only the hands are borrowed. A release that fails is swallowed deliberately: it must never mask the ticket's own outcome, and the TTL will catch it.
 - **`model: t.tier`** comes from triage ([TRIAGE.md](TRIAGE.md)), never hardcoded to the session tier. Escalation retries are a *second* `agent()` call by the watcher after reading results — keep the pool itself simple.
 - The queue-shift pool means a fast haiku chore doesn't hold a slot while an opus ticket grinds — workers rebalance naturally.
 - The watcher, not the workers, updates tracker labels/comments from `results` — workers get no tracker-write instructions, which keeps the report step consistent and idempotent.
