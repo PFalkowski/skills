@@ -104,6 +104,11 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        - haiku-tier: direct change, verified by build/tests.
        - sonnet-tier: the "nightshift" skill's LOOP discipline — TDD Red → Green → Refactor;
          an unresolvable question means return blocked, never guess.
+         Run LOOP steps 1-6 only. Step 7 (adversarial code review) is NOT yours: it tells
+         you to spawn a fresh reviewer subagent, and you have no Agent/Task tool to do it
+         with. Do not substitute a self-review — LOOP's own rule "don't review your own
+         diff" is right, and the patrol script runs step 7 for you after you return. Skip
+         its loop-continuation guidance too; you work this one ticket and stop.
        Truth before all: at every critical decision moment — a root-cause call, a design
        fork, before any unverified fact (API behavior, version/compat, copied number)
        enters code — run the "fact-check" skill: decompose the decision into smaller
@@ -190,6 +195,8 @@ Notes on the template:
 - **The workhorse's own grill satisfies the review gate.** Its per-slice fresh-agent grill already refute-tests every finding, so don't re-grill by reflex — that's paying twice for the same gate. Add a `code-review-grill` quorum only when its report shows no review ran. The opus branch `continue`s before the grill stage for exactly this reason: workhorse tickets are grilled inside the child workflow, and passing them through the patrol's grill stage as well would double-pay. (It would also have nothing to grill at that point — the workhorse never pushes, so there is no PR until the watcher opens one at report time.)
 
 - **The grill is dispatched by the script, not by the ranger — and it has to be.** This is the fix for [#46](https://github.com/PFalkowski/skills/issues/46), where 9 rangers across 3 patrols each discovered the same wall independently. An `agent()` running inside a Workflow has **no `Agent`/`Task` tool** — `ToolSearch` from in there surfaces only `TaskStop`/`EnterWorktree`/`SendMessage`/`CronCreate`/`PushNotification` (verified again while writing this). So a ranger told to "grill your diff with a fresh reviewer" cannot comply: the best it can do is review its own diff and disclose the substitution, which is the one thing the gate exists to prevent — an author grading their own work never catches a flaw in their own *reasoning*. The script's own `agent()` calls are not nested spawns, so moving the grill one level up to where the pool already lives costs nothing and restores the real guarantee. Verified: a script-dispatched second-stage agent has no knowledge of the first stage's context, and holds `Skill` (with `code-review-grill` listed) plus `Bash`/`gh` to post the review.
+
+- **Scope the composed skills to what a ranger can actually run.** Removing the grill from the ranger prompt is not enough on its own, because the instruction comes back *transitively*: `nightshift`'s LOOP step 7 is an adversarial code review that says "spawn a FRESH reviewer subagent", and LOOP's rules also say "don't review your own diff". A ranger told to follow that discipline is handed an instruction it cannot obey and a prohibition against the obvious fallback — the same wall as #46, reached through a different door. So the prompt scopes it explicitly: LOOP steps 1–6, step 7 belongs to the script. The general rule when composing any skill into a ranger prompt: **check whether its mechanism is spawning, and if so, name the step and say who really runs it.** A skill whose value is a second pair of eyes always has this shape.
 
 - **Single reviewer, never a quorum, inside the pool.** For the same reason: the grill agent can't spawn subagents either, so `code-review-grill`'s quorum mode is unavailable to it. One adversarial reviewer is the gate at ranger tiers. A quorum needs a caller that holds `Agent` — the watcher itself, after the patrol, on a ticket load-bearing enough to deserve it.
 
