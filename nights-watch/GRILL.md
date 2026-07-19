@@ -2,14 +2,14 @@
 
 > *No PR of ours ships unquestioned.* The Grill hunts open pull requests — by default our own — and puts each through an adversarial `code-review-grill`, on a cadence, unattended. It reviews; it never merges, never fixes, never approves.
 
-The patrol works tickets; the Hunt works the delta; the Grill works the **review queue**. It wakes on a timer, musters open PRs, skips every PR already grilled at its current head sha, and dispatches one grill workflow per PR that moved. Findings that survive adversarial verification are posted back as **inline review threads at the exact problematic line** — everything that survives, nits included.
+The patrol works tickets; the Hunt works the delta; the Grill works the **review queue**. It wakes on a timer — default **45m**, deliberately one tick ahead of the other modes' hourly cadence, so a PR a patrol or hunt raised is grilled before the next wave builds on it — musters open PRs, skips every PR already grilled at its current head sha, and dispatches one grill workflow per PR that moved. Findings that survive adversarial verification are posted back as **inline review threads at the exact problematic line** — everything that survives, nits included.
 
 ```
 /nights-watch grill                          # cadenced; grills open PRs authored by us, once per head sha
 /nights-watch grill prs=all                  # every open PR, not just our own
 /nights-watch grill prs="label:needs-grill"  # explicit gh search query
 /nights-watch grill stance=quorum concerns=security,architecture,tests   # default: single reviewer
-/nights-watch grill every=30m                # cadence (default 1h)
+/nights-watch grill every=30m                # cadence (default 45m — one tick ahead of the hourly modes)
 /nights-watch grill report=document          # logbook only; nothing touches the PR
 /nights-watch grill once                     # one sweep, no standing loop
 ```
@@ -88,6 +88,6 @@ Two guards. **`prs=all` on other people's PRs is outward-facing**: unattended th
 
 ## Pacing and the fire
 
-Cadence, lock, TTL, stand-down: exactly [HUNT.md](HUNT.md) § Pacing — fixed `every` (default 1h), mkdir-atomic lock with `lockTtl` staleness, released on every exit path, skip-and-log on an in-flight tick. One sweep per wake; PRs within a sweep are grilled sequentially by default (`parallel=` raises it under the worker cap, each grill already fans out inside).
+Cadence, lock, TTL, stand-down: exactly [HUNT.md](HUNT.md) § Pacing — fixed `every` (default **45m**, one tick ahead of the hourly modes so the review queue drains just before new work lands on it), mkdir-atomic lock with `lockTtl` staleness, released on every exit path, skip-and-log on an in-flight tick. One sweep per wake; PRs within a sweep are grilled sequentially by default (`parallel=` raises it under the worker cap, each grill already fans out inside).
 
 Every sweep that dispatched a workflow closes at the fire ([LIBRARY.md](LIBRARY.md)): chronicles read, lessons curated. The Grill's own calibration entry is the same one the hunt keeps: **what the verifiers killed**. A concern whose findings die 90% of the time is producing noise — fix its prompt (`evolve-skill`) or stop running it on this repo; a concern that never fires on a repo that plainly has that surface is not evidence of quality. And the ratio of `alreadyPosted` to fresh findings is the re-grill dedup working — if it ever isn't, that shows up here first.
