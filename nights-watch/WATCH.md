@@ -7,6 +7,12 @@
 
 Both are user-configurable per invocation (or in the standing loop's brief); the defaults are the Watch's minimalism, not a technical limit.
 
+**What "in flight" means, exactly.** A ticket holds its worker slot from dispatch until its **grill returns** — implementation and review are one unit of work, not two. So `parallel=1` means one ticket is being *either* implemented or reviewed at any moment, never one of each. This is deliberate: a ticket isn't done until it's grilled, so releasing the slot at the ranger's return would report a throughput the gate hasn't caught up with, and let a second ranger start while the first PR is still unreviewed.
+
+The cost is honest: adding the grill lengthened each slot by roughly the review's share of the ticket (a grill reads a diff where a ranger builds the change — call it 10–25%, and calibrate from your own journal). **The default stays 1.** That cost doesn't justify raising it — a bump to 2 would overcompensate several times over while doubling the concurrent-mutation surface, and Oath rule 5's default is a minimalism choice, not a throughput tuning. Raise `parallel` when *you* want more throughput and the repo tolerates concurrent branches, not to pay for the grill.
+
+At `parallel > 1`, rangers are isolated by `isolation: 'worktree'`; **grills are not, and share the main working tree by design** — a review is a read, and a worktree per grill is waste. That only holds if grills actually stay read-only, so the grill prompt says so explicitly and sends any agent needing a build into its own throwaway worktree. Loosen that instruction and concurrent grills will corrupt each other's checkout.
+
 ## Standing watch (the loop)
 
 The Watch runs as a self-pacing loop (`/loop` dynamic mode / ScheduleWakeup where available; otherwise a cron/scheduled agent, or manual re-invocation with `once`). Pacing:
@@ -25,7 +31,7 @@ One Workflow per patrol. Concurrency is enforced structurally: `poolSize` worker
 export const meta = {
   name: 'nights-watch-patrol',
   description: 'Work triaged AI-ready tickets: bounded worker pool, tiered models, budget-guarded',
-  phases: [{ title: 'Rangers' }],
+  phases: [{ title: 'Rangers' }, { title: 'Grill' }],
 }
 // args: { tickets: [{id, url, title, tier, effort, repo, brief, process,
 //                     chroniclePath,          // one FILE — the lone ranger's field notes
@@ -33,13 +39,22 @@ export const meta = {
 //         libraryIndex: '<repo>/.nights-watch/library/INDEX.md',
 //         workhorsePath: '<abs path to the skills repo>/.claude/workflows/sdlc-workhorse.js',
 //         parallel: 1, maxWorkers: 3, reserve: 60000 }
-const queue = [...args.tickets]
+// Normalize args first: it can arrive as a JSON-encoded STRING rather than an object,
+// in which case `args.tickets` is undefined and the spread below throws before any
+// ranger runs. Parse defensively and fail loudly on a malformed brief — a patrol that
+// proceeds with undefined paths scatters chronicles instead of stopping (see #46).
+const A = typeof args === 'string' ? JSON.parse(args) : args
+if (!A || !Array.isArray(A.tickets)) throw new Error('patrol: args.tickets missing or not an array')
+for (const t of A.tickets) {
+  if (!t.id || !t.repo) throw new Error(`patrol: ticket missing id/repo: ${JSON.stringify(t)}`)
+}
+const queue = [...A.tickets]
 const results = []
-const poolSize = Math.max(1, Math.min(args.parallel ?? 1, args.maxWorkers ?? 3, queue.length))
+const poolSize = Math.max(1, Math.min(A.parallel ?? 1, A.maxWorkers ?? 3, queue.length))
 phase('Rangers')
 await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async () => {
   while (queue.length) {
-    if (budget.total && budget.remaining() < args.reserve) {
+    if (budget.total && budget.remaining() < A.reserve) {
       log(`worker ${w}: standing down, ${Math.round(budget.remaining()/1000)}k left < reserve`)
       break
     }
@@ -49,20 +64,20 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
     // opus-tier: the lifecycle is a Workflow, so the SCRIPT starts it. A ranger cannot:
     // an agent() inside a Workflow has no Workflow tool. See TRIAGE.md § Process assignment.
     if (t.tier === 'opus') {
-      if (!args.workhorsePath) {
+      if (!A.workhorsePath) {
         results.push({ id: t.id, blocked: true, reason: 'opus-tier ticket but no workhorsePath configured',
                        summary: 'cannot dispatch sdlc-workhorse' })
         continue
       }
       try {
-        const wh = await workflow({ scriptPath: args.workhorsePath }, {
+        const wh = await workflow({ scriptPath: A.workhorsePath }, {
           goal: `${t.title}\n\n${t.brief}\n\nTicket: ${t.url} (repo ${t.repo})\n\n` +
             `Stealth in the field (nights-watch Oath rule 8): write no code comments beyond ` +
             `what this repo's own house rules require (default to none). Nothing in commit ` +
             `messages, PR title, or PR description names the Watch, nights-watch, or "ranger", ` +
             `or otherwise reveals this was done by an automated process.`,
-          parallel: 1, reserve: args.reserve,
-          chronicleDir: t.chronicleDir, libraryIndex: args.libraryIndex,
+          parallel: 1, reserve: A.reserve,
+          chronicleDir: t.chronicleDir, libraryIndex: A.libraryIndex,
         })
         // The workhorse commits but NEVER pushes or opens a PR — that line is enforced by
         // absence in its script. The watcher opens the PR from its branch (see below).
@@ -79,7 +94,7 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
     const r = await agent(
       `You are a ranger of the Night's Watch working ticket ${t.id} (${t.url}) in repo ${t.repo}.
        Brief: ${t.brief}
-       First read the Library index at ${args.libraryIndex} and open ONLY the entries
+       First read the Library index at ${A.libraryIndex} and open ONLY the entries
        relevant to this ticket (conventions, gotchas, tooling for this repo).
        Keep a chronicle at ${t.chroniclePath} (absolute path, outside your worktree):
        append field notes THE MOMENT you learn something — a convention discovered, a trap
@@ -89,15 +104,20 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        - haiku-tier: direct change, verified by build/tests.
        - sonnet-tier: the "nightshift" skill's LOOP discipline — TDD Red → Green → Refactor;
          an unresolvable question means return blocked, never guess.
+         Run LOOP steps 1-6 only. Step 7 (adversarial code review) is NOT yours: it tells
+         you to spawn a fresh reviewer subagent, and you have no Agent/Task tool to do it
+         with. Do not substitute a self-review — LOOP's own rule "don't review your own
+         diff" is right, and the patrol script runs step 7 for you after you return. Skip
+         its loop-continuation guidance too; you work this one ticket and stop.
        Truth before all: at every critical decision moment — a root-cause call, a design
        fork, before any unverified fact (API behavior, version/compat, copied number)
        enters code — run the "fact-check" skill: decompose the decision into smaller
        verifiable sub-claims and prove each (runnable experiment + output, or independent
        authoritative sources). Unprovable = false. Refuted premise = return blocked with
        the evidence; proven facts carry their proof into the PR.
-       Before opening the PR, run the "code-review-grill" skill on your diff with a FRESH
-       reviewer agent (never share your rationale with it); fix confirmed findings, post
-       the review to the PR.
+       Do NOT review your own diff for the record — the grill is not your job and you
+       cannot run it (you have no Agent/Task tool to spawn a reviewer with). The patrol
+       script dispatches a fresh reviewer against your PR after you return.
        Stealth in the field (Oath rule 8): write no code comments beyond what this repo's
        own house rules require (check for a documented convention, e.g. Arrange-Act-Assert;
        default to none). Nothing in your commit messages, PR title, or PR description names
@@ -114,7 +134,48 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
             blocked: {type:'boolean'}, reason: {type:['string','null']}, summary: {type:'string'} },
           required: ['id','blocked','summary'] } }
     )
-    results.push(r ?? { id: t.id, blocked: true, reason: 'worker died', summary: 'no result' })
+    const res = r ?? { id: t.id, blocked: true, reason: 'worker died', summary: 'no result' }
+    // THE GRILL — a second, script-dispatched agent(). This call is made by the SCRIPT,
+    // not by the ranger, which is the whole point: a ranger has no Agent/Task tool and
+    // cannot spawn a reviewer, so a grill written into its prompt degrades to self-review.
+    // Dispatched here, the reviewer is genuinely fresh — it never saw the ranger's
+    // rationale, only what this prompt hands it. Skipped for blocked/PR-less results and
+    // for the workhorse branch above (which `continue`s past this, carrying its own grill).
+    if (!res.blocked && res.prUrl) {
+      const g = await agent(
+        `You are a code reviewer. Review the pull request ${res.prUrl} (repo ${t.repo}).
+         You did not write this code and must not assume the author's reasoning was sound.
+         Run the "code-review-grill" skill as a SINGLE adversarial reviewer (you have no
+         Agent tool, so a quorum is not available — do not attempt to spawn one).
+         Read the repo's own docs first (README, docs/adr, contributing/coding guidelines)
+         and judge the diff against THIS project's documented conventions.
+         Grill it hunk by hunk: what must be true for this to be correct? what input breaks
+         it? what caller relied on the old behavior? Verify every finding before reporting
+         it — a runnable snippet with its output, an in-repo citation (path:line), or an
+         authoritative link. Speculation is not a finding; drop it.
+         Ticket context (all you get — do not ask the author): ${t.title}
+         ${t.brief}
+         READ-ONLY on the working tree, without exception: you share it with other grills.
+         Get the diff with "gh pr diff ${res.prUrl}" and read files where they already are.
+         Do NOT checkout, switch, stash, pull, reset, or write anything in it. If proving a
+         finding needs a build or a test run, make your own worktree
+         (git worktree add <tmp> <branch>), work there, and remove it when done.
+         Post the confirmed findings to the PR as an ordinary review. Write as any reviewer
+         would: nothing in the review names the Watch, nights-watch, "ranger", the grill, or
+         otherwise reveals an automated process (Oath rule 8).
+         Return JSON: {reviewed, findingsPosted, blocking, summary}.`,
+        { label: `grill:${t.id}`, phase: 'Grill', model: t.tier, effort: t.effort,
+          schema: { type: 'object',
+            properties: { reviewed: {type:'boolean'}, findingsPosted: {type:'number'},
+              blocking: {type:'boolean'}, summary: {type:'string'} },
+            required: ['reviewed','findingsPosted','blocking','summary'] } }
+      )
+      // An un-run gate must be visible, never assumed: no grill result = not ai-done.
+      res.grill = g ?? { reviewed: false, findingsPosted: 0, blocking: false,
+                         summary: 'grill agent died' }
+      res.grilled = !!(g && g.reviewed)
+    }
+    results.push(res)
   }
 }))
 const unworked = queue.map(t => t.id)
@@ -131,7 +192,17 @@ Notes on the template:
 - **`opus` tickets take the `workflow()` branch, not the `agent()` one**, because [`sdlc-workhorse`](../sdlc-workhorse/SKILL.md) is a Workflow and a ranger has no `Workflow` tool to start one with. This is the single level of nesting `workflow()` allows — the workhorse script itself calls no `workflow()`, so the budget holds and nothing throws. Both branches share the pool, the queue, and the budget.
 - **`workhorsePath`, not `{name:}`.** Named resolution reads `.claude/workflows/` in the repo the patrol is *running in* — almost never this one. Pass an absolute `scriptPath` to this repo's copy. Without it, opus tickets return blocked rather than silently degrading to a lesser process: an un-run gate is visible, a skipped one is not.
 - **The watcher opens the PR for workhorse tickets.** The workhorse commits but never pushes, publishes, or merges — that line is enforced by absence in its script, and the patrol must not smuggle it back in through the ranger prompt. So a `needsPr` result is the watcher's job: push the branch, open the PR referencing the ticket, then label. Rangers on the other tiers still open their own PRs; only this tier splits the work.
-- **The workhorse's own grill satisfies the review gate.** Its per-slice fresh-agent grill already refute-tests every finding, so don't re-grill by reflex — that's paying twice for the same gate. Add a `code-review-grill` quorum only when its report shows no review ran.
+- **The workhorse's own grill satisfies the review gate.** Its per-slice fresh-agent grill already refute-tests every finding, so don't re-grill by reflex — that's paying twice for the same gate. Add a `code-review-grill` quorum only when its report shows no review ran. The opus branch `continue`s before the grill stage for exactly this reason: workhorse tickets are grilled inside the child workflow, and passing them through the patrol's grill stage as well would double-pay. (It would also have nothing to grill at that point — the workhorse never pushes, so there is no PR until the watcher opens one at report time.)
+
+- **The grill is dispatched by the script, not by the ranger — and it has to be.** This is the fix for [#46](https://github.com/PFalkowski/skills/issues/46), where 9 rangers across 3 patrols each discovered the same wall independently. An `agent()` running inside a Workflow has **no `Agent`/`Task` tool** — `ToolSearch` from in there surfaces only `TaskStop`/`EnterWorktree`/`SendMessage`/`CronCreate`/`PushNotification` (verified again while writing this). So a ranger told to "grill your diff with a fresh reviewer" cannot comply: the best it can do is review its own diff and disclose the substitution, which is the one thing the gate exists to prevent — an author grading their own work never catches a flaw in their own *reasoning*. The script's own `agent()` calls are not nested spawns, so moving the grill one level up to where the pool already lives costs nothing and restores the real guarantee. Verified: a script-dispatched second-stage agent has no knowledge of the first stage's context, and holds `Skill` (with `code-review-grill` listed) plus `Bash`/`gh` to post the review.
+
+- **Scope the composed skills to what a ranger can actually run.** Removing the grill from the ranger prompt is not enough on its own, because the instruction comes back *transitively*: `nightshift`'s LOOP step 7 is an adversarial code review that says "spawn a FRESH reviewer subagent", and LOOP's rules also say "don't review your own diff". A ranger told to follow that discipline is handed an instruction it cannot obey and a prohibition against the obvious fallback — the same wall as #46, reached through a different door. So the prompt scopes it explicitly: LOOP steps 1–6, step 7 belongs to the script. The general rule when composing any skill into a ranger prompt: **check whether its mechanism is spawning, and if so, name the step and say who really runs it.** A skill whose value is a second pair of eyes always has this shape.
+
+- **Single reviewer, never a quorum, inside the pool.** For the same reason: the grill agent can't spawn subagents either, so `code-review-grill`'s quorum mode is unavailable to it. One adversarial reviewer is the gate at ranger tiers. A quorum needs a caller that holds `Agent` — the watcher itself, after the patrol, on a ticket load-bearing enough to deserve it.
+
+- **Normalize `args` before touching it, and fail loudly.** `args` can reach the script as a **JSON-encoded string** rather than the object you passed — reproduced live while writing this fix, and the second finding in [#46](https://github.com/PFalkowski/skills/issues/46), where it left `repo`/`base`/`chronicleDir` as the literal `undefined` in every ranger prompt and scattered chronicles across five invented directories. `typeof args === 'string' ? JSON.parse(args) : args` costs one line and makes the template robust either way. The validation that follows is the other half: a patrol that throws on a malformed brief is debuggable, while one that proceeds with `undefined` paths does a night's work into the wrong place and reports success.
+
+- **`grilled` gates `ai-done`.** The watcher labels `ai-done` only for results carrying `grilled: true`. A ticket whose grill agent died comes back with `grilled: false` and a summary saying so — report it as blocked-on-review rather than done, because an un-run gate must be visible. Silence here is exactly the failure #46 describes: a patrol reporting "all grilled" while the gate ran degraded all night.
 
 ## Token watching
 
