@@ -25,6 +25,36 @@ The Watch runs as a self-pacing loop (`/loop` dynamic mode / ScheduleWakeup wher
 
 The watcher carries almost nothing between patrols on purpose: the tracker labels are the state machine, the journal is the logbook, and the Library ([LIBRARY.md](LIBRARY.md)) is the long-term memory. Any fresh context can take the next patrol from those three alone.
 
+## Stamped output — which run said this, and when did it start
+
+Every mode of the Watch runs on its own cadence, unattended, possibly for days, and they run **concurrently** ([SKILL.md](SKILL.md)). So a terminal scrollback holds interleaved output from a patrol, an hourly hunt, and a 45-minute grill, with no way to tell which run any line belongs to — and "was this from the 03:00 hunt or the 04:00 one?" is the first question anyone scrolling back actually has. So **every mode stamps its output**, in one format:
+
+```
+[MM-DD HH:mm] <message>          e.g.  [07-20 09:30] lens injection: 2 candidates
+```
+
+Short by design: the year is noise on a loop you read within the day, and seconds are noise on a cadence measured in minutes.
+
+**The watcher takes the time; the script cannot.** This is not a style preference, it is the only available design: **a workflow script has no clock at all** — `Date.now()` and argless `new Date()` **throw** inside one (they would break resume). So the watcher stamps at dispatch, with a real shell clock, and passes it in:
+
+```powershell
+$stamp = Get-Date -Format 'MM-dd HH:mm'      # bash: date +'%m-%d %H:%M'
+```
+
+Two rules follow from that, and both matter:
+
+1. **The stamp marks the RUN, not the line.** Every line of one dispatch carries the same stamp, because the script cannot observe time passing. That is still the grouping worth having — it answers "which run produced this" — but it must never be presented as a per-line timestamp, because it is not one and nobody can make it one from in there.
+2. **No stamp means no prefix.** When `startedAt` is absent the line is logged bare. The tempting alternative renders `[undefined]`, which reads exactly like a real timestamp to someone scanning a log at 3am — a wrong answer that looks like an answer, which is worse than no answer.
+
+Each mode logs a banner in the CLI at the start and end of every wake, so the boundaries are visible even when the run itself is quiet:
+
+```
+[07-20 09:30] hunt: starting — range abc123..def456, 6 lenses, report=document
+[07-20 09:41] hunt: done — 1 confirmed, 2 refuted, watermark advanced
+```
+
+An empty wake still prints its pair. A quiet run and a dead run are indistinguishable otherwise, which is Oath rule 7 applied to the terminal.
+
 ## Dispatch — the worker pool
 
 One Workflow per patrol. Concurrency is enforced structurally: `poolSize` workers drain a shared queue, so at most that many tickets are ever in flight regardless of muster size. Adapt this template (plain JS, no TS):
@@ -42,6 +72,9 @@ export const meta = {
 //         workhorsePath: '<abs path to the skills repo>/.claude/workflows/sdlc-workhorse.js',
 //         lockDir: '<repo>/.nights-watch/locks',   // where claim advertisements live
 //         lockTtlMin: 90,                          // staleness marker written into owner.md
+//         startedAt: '07-20 09:30',                // the WATCHER's clock at dispatch (MM-DD HH:mm).
+//                                                  // The script has none — Date.now() throws in here.
+//                                                  // See § Stamped output.
 //         parallel: 1, maxWorkers: 3, reserve: 60000 }
 // Normalize args first: it can arrive as a JSON-encoded STRING rather than an object,
 // in which case `args.tickets` is undefined and the spread below throws before any
@@ -53,13 +86,18 @@ for (const t of A.tickets) {
   if (!t.id || !t.repo) throw new Error(`patrol: ticket missing id/repo: ${JSON.stringify(t)}`)
 }
 const queue = [...A.tickets]
+// The watcher's clock, taken at dispatch (§ Stamped output). The script cannot
+// take its own: Date.now() throws inside a workflow. Absent -> log bare, never
+// "[undefined]", which reads like a real time to whoever is scanning at 3am.
+const startedAt = A.startedAt || ''
+const say = (m) => log(startedAt ? `[${startedAt}] ${m}` : m)
 const results = []
 const poolSize = Math.max(1, Math.min(A.parallel ?? 1, A.maxWorkers ?? 3, queue.length))
 phase('Rangers')
 await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async () => {
   while (queue.length) {
     if (budget.total && budget.remaining() < A.reserve) {
-      log(`worker ${w}: standing down, ${Math.round(budget.remaining()/1000)}k left < reserve`)
+      say(`worker ${w}: standing down, ${Math.round(budget.remaining()/1000)}k left < reserve`)
       break
     }
     const t = queue.shift()
@@ -321,7 +359,7 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
   }
 }))
 const unworked = queue.map(t => t.id)
-if (unworked.length) log(`deferred (budget/stand-down): ${unworked.join(', ')}`)
+if (unworked.length) say(`deferred (budget/stand-down): ${unworked.join(', ')}`)
 return { results, unworked }
 ```
 

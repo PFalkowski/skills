@@ -54,6 +54,8 @@ Every agent of the Watch reads the Library's `INDEX.md` before working (rangers 
 
 **The modes run concurrently — expect company on the wall.** A patrol works the tracker while a hunt sweeps the code on its own cadence; that is the intended arrangement, not a collision, and neither session is told about the other. So a patrol will meet artifacts it did not create — most often a `.lock/` directory under the hunt's state root, which means **a hunt is running right now**. Leave it: it is load-bearing, `owner.md` inside names the start, range, and host, and only a lock older than `lockTtl` is stale ([HUNT.md](HUNT.md)). Reporting live state as debris — or worse, clearing it — breaks the exclusion that stops two hunts double-reporting. The same care applies in reverse to `ai-working` tickets a patrol didn't claim.
 
+**Because they run concurrently, every mode stamps its output** — `[MM-DD HH:mm] <message>`, with a start and end banner on every wake, empty wakes included. A scrollback otherwise interleaves a patrol, an hourly hunt and a 45-minute grill with no way to tell which run said what, or whether the line came from this hour's sweep or the last one. The watcher takes the time at dispatch and passes it in as `startedAt`, because **a workflow script has no clock** — `Date.now()` throws inside one. Full convention, and the two rules that follow from having no clock, in [WATCH.md](WATCH.md) § Stamped output.
+
 ## The Ranging — one ticket the user hands over ([RANGING.md](RANGING.md))
 
 `ticket=<id|url|prose>` switches the Watch from patrolling the wall to a single mission beyond it: no muster, no label required, no worker pool, no loop. The user names one ticket; the Watch returns a PR or a precise reason it couldn't.

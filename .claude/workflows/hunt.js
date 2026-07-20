@@ -6,6 +6,23 @@ export const meta = {
 // Some hosts deliver `args` as an unparsed JSON string rather than the object the contract
 // promises; this is a no-op when args already arrives parsed.
 if (typeof args === 'string') args = JSON.parse(args)
+
+// ---------------------------------------------------------------------------
+// Stamped output. Every line this run logs carries WHEN THE RUN STARTED
+// (MM-DD HH:mm), so a scrollback holding several modes on several cadences can
+// still be read back to "which run produced this line, and when did it begin".
+//
+// The stamp is the WATCHER's, taken at dispatch and passed in — the script
+// cannot take its own. Date.now() and argless new Date() THROW inside a
+// workflow (they would break resume), so there is no clock in here at all.
+// What this marks is therefore the RUN, not the line: every line of one
+// dispatch carries the same stamp. That is the grouping worth having, and it
+// is also the only honest one — a per-line time is not available to be
+// printed, so it must not be implied.
+// ---------------------------------------------------------------------------
+const startedAt = args.startedAt || ''
+const say = (m) => log(startedAt ? `[${startedAt}] ${m}` : m)
+
 // args: { range: 'abc123..def456',                      // BOTH ends explicit SHAs, never HEAD:
 //                                                       // hunters run in worktrees where HEAD differs
 //         files: ['src/a.ts', ...], manifests: [...],   // NAMES only (Oath rule 2), capped by the watcher
@@ -93,7 +110,7 @@ const ANGLES = ['reachability: can untrusted input actually reach this, in a rea
 
 const refute = async f => {
   const release = claim(3)
-  if (!release) { deferred.push(f); log(`deferring "${f.title}" unrefuted: under reserve`); return null }
+  if (!release) { deferred.push(f); say(`deferring "${f.title}" unrefuted: under reserve`); return null }
   try {
     const votes = (await parallel(ANGLES.map(angle => () => agent(
       `Refute this finding. Angle — ${angle}
@@ -110,9 +127,9 @@ const refute = async f => {
     // Every refuter agent died — infrastructure, not a verdict. Defer it: an unrefuted candidate
     // is not a refuted one, and treating an API failure as "not real" is how a live vulnerability
     // gets marked fixed by a machine that never looked at it.
-    if (votes.length === 0) { deferred.push(f); log(`deferring "${f.title}": every refuter died`); return null }
+    if (votes.length === 0) { deferred.push(f); say(`deferring "${f.title}": every refuter died`); return null }
     const kills = votes.filter(v => v.refuted).length
-    if (kills >= 2) { refuted.push(f.id); log(`dropped ${f.title} (${kills}/${votes.length} refuted)`); return null }
+    if (kills >= 2) { refuted.push(f.id); say(`dropped ${f.title} (${kills}/${votes.length} refuted)`); return null }
     const survivors = votes.filter(v => !v.refuted)
     return { ...f, severity: worst(survivors.map(v => v.severity)) ?? f.severity,   // refuted votes don't rate it
              repro: survivors.map(v => v.repro).find(Boolean) ?? null,
@@ -138,7 +155,7 @@ for (const f of (args.carry ?? [])) {
   if ((f.attempts ?? 0) >= (args.maxAttempts ?? 3)) {
     dropped.push(`${f.id}: "${f.title}" abandoned after ${f.attempts} attempts — never refuted`)
     droppedIds.push(f.id)
-    log(`carry: abandoning "${f.title}" after ${f.attempts} attempts`); continue
+    say(`carry: abandoning "${f.title}" after ${f.attempts} attempts`); continue
   }
   if (eligible.length >= (args.maxCarry ?? 24)) {
     // Deferred, not dropped — and the distinction is the file's whole point one level down:
@@ -146,7 +163,7 @@ for (const f of (args.carry ?? [])) {
     // re-bank-me candidate in `dropped` would have the fire delete it every hunt while the
     // doc claimed it was banked. It is not refuted this hour; it is not gone.
     deferred.push(f)
-    log(`carry: "${f.title}" over maxCarry — re-banked, not refuted this hunt`)
+    say(`carry: "${f.title}" over maxCarry — re-banked, not refuted this hunt`)
     continue
   }
   eligible.push(f)
@@ -215,7 +232,7 @@ const hunted = await pipeline(
     const triaged = []
     for (const f of (r?.findings ?? [])) {
       const cf = canonFile(f.file)
-      if (cf.malformed) { log(`${lens}: unusable path "${f.file}" on "${f.title}" — reported, unverified`) }
+      if (cf.malformed) { say(`${lens}: unusable path "${f.file}" on "${f.title}" — reported, unverified`) }
       // ORDER IS LOAD-BEARING: canonFile → id → triage. `triage()` reads `f.id`, so assigning the
       // id after it silently disables rule 3 for every hunted finding — no dedup, no escalation,
       // an empty `stillPresent`, and the fire marking live findings fixed. It reads fine and it
@@ -232,7 +249,7 @@ const hunted = await pipeline(
     // carry.jsonl, and the next hunt refutes it from `carry`. Holding the watermark for it would
     // livelock — the same lens would re-find the same overflow every hour, forever.
     if (triaged.length > cap) {
-      log(`lens ${lens}: refuting the ${cap} most severe of ${triaged.length}; ${triaged.length - cap} deferred`)
+      say(`lens ${lens}: refuting the ${cap} most severe of ${triaged.length}; ${triaged.length - cap} deferred`)
       deferred.push(...triaged.slice(cap))
     }
     return (await parallel(triaged.slice(0, cap).map(f => () => refute(f)))).filter(Boolean)

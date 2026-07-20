@@ -59,7 +59,8 @@ Skip list, worth stating because each is tempting: **draft PRs** are skipped by 
 One Workflow per moved PR — [`.claude/workflows/grill.js`](../.claude/workflows/grill.js), tests beside it in [`grill.test.js`](../.claude/workflows/grill.test.js). Dispatch with an absolute `scriptPath` (never `{name:}` — named resolution reads the repo being grilled, [HUNT.md](HUNT.md) § Dispatch); if the script can't be resolved, the PR is reported blocked-on-review and stays out of the ledger.
 
 ```js
-// in:  { pr, title, url,
+// in:  { startedAt: '07-20 09:30',                // watcher's clock at dispatch (WATCH.md § Stamped output)
+//        pr, title, url,
 //        range: 'base..head',              // BOTH explicit SHAs — reviewers run in worktrees
 //        files,                            // names only, capped by the watcher
 //        stance: 'single' | 'quorum', concerns,
