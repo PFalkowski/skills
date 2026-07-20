@@ -34,6 +34,14 @@ const libraryIndex = cfg.libraryIndex || null          // nights-watch Library, 
 const maxGrillRounds = cfg.maxGrillRounds ?? 3
 const maxPlanRounds = cfg.maxPlanRounds ?? 2
 const maxSlices = cfg.maxSlices ?? 12
+// Refuters are the dominant cost of a run — 93 of 103 agents on a measured P3 fix, because every
+// gate refuted every extracted claim with three lenses and each plan round re-proved the last
+// round's claims from scratch. The answer is NOT fewer lenses: three perspective-diverse attacks
+// is what makes a verdict worth having, and thinning it degrades the check on the claims that
+// matter most. It is to spend them on the claims the artifact actually rests on. An extractor
+// handed a verbose spec will happily call fifteen things load-bearing; this bounds how many get
+// the full triple, most-blast-radius first, and says out loud what it dropped.
+const maxClaimsPerGate = cfg.maxClaimsPerGate ?? 5
 // code-review-grill's two ALWAYS-ASK gates, pre-answered — there is no human to ask.
 const reviewStance = cfg.reviewStance || 'single'
 const reviewConcerns = cfg.reviewConcerns || ['correctness', 'documentation']
@@ -148,8 +156,16 @@ const CLAIM_LIST = {
       description: 'Only LOAD-BEARING claims — the ones this artifact collapses without. Empty array is valid and honest.',
       items: {
         type: 'object',
-        required: ['claim', 'whyLoadBearing'],
-        properties: { claim: { type: 'string' }, whyLoadBearing: { type: 'string' } },
+        required: ['claim', 'whyLoadBearing', 'blastRadius'],
+        properties: {
+          claim: { type: 'string' },
+          whyLoadBearing: { type: 'string' },
+          // Ranks the fan-out when there are more claims than budget. 'total' = the artifact is
+          // void if this is false; 'major' = a section has to be redesigned; 'moderate' = a
+          // detail changes. Asked as an explicit field rather than inferred from list order,
+          // because ordering is the first thing a model drops under a long extraction.
+          blastRadius: { type: 'string', enum: ['total', 'major', 'moderate'] },
+        },
       },
     },
   },
@@ -361,7 +377,16 @@ const LENSES = [
   'reproduction — if you actually did what it says, would you observe what it claims?',
 ]
 
+// A claim's truth does not depend on which artifact quoted it, so proving it twice in one run buys
+// nothing. This matters most exactly where it hurt: a second plan round re-extracts most of the
+// first round's claims, and without this it pays the full triple for every one of them again.
+// Scoped to a single run deliberately — across runs the repo has moved, and a git-state fact rots
+// the moment master does.
+const provenMemo = new Map()
+
 async function proven(claim, whyLoadBearing, phaseName, context) {
+  const memoKey = String(claim).trim()
+  if (provenMemo.has(memoKey)) return provenMemo.get(memoKey)
   const votes = await parallel(LENSES.map((lens, i) => () =>
     agent(
       `Try to REFUTE this claim. Default to "refuted" if you cannot establish it — an unprovable claim is false.\n\n` +
@@ -381,14 +406,18 @@ async function proven(claim, whyLoadBearing, phaseName, context) {
     )
   ))
   const valid = votes.filter(Boolean)
+  // Not memoized: no verdict is not a verdict, and a transient agent failure must not pin this
+  // claim as unproven for the rest of the run.
   if (!valid.length) return { proven: false, why: 'no verifier returned a verdict — treated as unproven' }
   const confirmed = valid.filter(v => v.status === 'confirmed')
   const refuted = valid.filter(v => v.status === 'refuted')
-  return {
+  const verdict = {
     proven: confirmed.length > refuted.length && confirmed.length >= Math.ceil(valid.length / 2),
     why: refuted.length ? refuted.map(v => v.evidence).join(' | ') : confirmed.map(v => v.evidence).join(' | '),
     votes: valid,
   }
+  provenMemo.set(memoKey, verdict)
+  return verdict
 }
 
 // Extract an artifact's load-bearing claims and prove each. Returns BOTH sides
@@ -410,13 +439,31 @@ async function adjudicateClaims(artifactName, artifactText, phaseName) {
   )
   const claims = (extracted && extracted.claims) || []
   if (!claims.length) return { held: [], rejected: [], extracted: 0 }
-  const checked = (await parallel(claims.map(c => () =>
+  // Most blast radius first, then cap. Sorting before slicing is the whole point: an arbitrary
+  // five of fifteen would be worse than no cap, because it spends the budget on whatever the
+  // extractor happened to list first.
+  const BLAST = { total: 0, major: 1, moderate: 2 }
+  const ranked = [...claims].sort((a, b) => (BLAST[a.blastRadius] ?? 1) - (BLAST[b.blastRadius] ?? 1))
+  const examined = ranked.slice(0, maxClaimsPerGate)
+  const dropped = ranked.slice(maxClaimsPerGate)
+  // Oath rule 7 applies as hard to a cap as to a crash: an unexamined claim that nobody names
+  // reads downstream as a claim that passed.
+  if (dropped.length) {
+    log(`${artifactName}: ${claims.length} load-bearing claims extracted, refuting the ${examined.length} with the ` +
+      `largest blast radius (maxClaimsPerGate=${maxClaimsPerGate}). NOT examined, and NOT part of the verified premise:\n` +
+      dropped.map(c => `  ? ${c.claim} [${c.blastRadius || 'unranked'}]`).join('\n'))
+  }
+  const checked = (await parallel(examined.map(c => () =>
     proven(c.claim, c.whyLoadBearing, phaseName, artifactText.slice(0, 4000)).then(r => ({ ...c, ...r }))
   ))).filter(Boolean)
   return {
     held: checked.filter(c => c.proven),
+    // Dropped claims are neither held nor rejected — they were never attacked. Counting them as
+    // rejected would block the gate on claims no refuter read; counting them as held would smuggle
+    // unproven assertions into the premise, which is the exact failure this gate exists to prevent.
     rejected: checked.filter(c => !c.proven),
     extracted: claims.length,
+    unexamined: dropped.length,
   }
 }
 
@@ -436,8 +483,9 @@ const premiseBlock = (held) => held.length
 // whether a rejected claim should stop the run — true at the gates whose output
 // everything downstream inherits as fact.
 async function premiseGate(artifactName, artifactText, phaseName) {
-  const { held, rejected, extracted } = await adjudicateClaims(artifactName, artifactText, phaseName)
-  note(phaseName, `${extracted} load-bearing claim(s): ${held.length} held, ${rejected.length} refuted`)
+  const { held, rejected, extracted, unexamined } = await adjudicateClaims(artifactName, artifactText, phaseName)
+  note(phaseName, `${extracted} load-bearing claim(s): ${held.length} held, ${rejected.length} refuted` +
+    (unexamined ? `, ${unexamined} unexamined (over maxClaimsPerGate)` : ''))
   if (rejected.length) {
     log(`${rejected.length} claim(s) in the ${artifactName} did not survive refutation and are NOT part of the premise:\n` +
       rejected.map(c => `  ✗ ${c.claim} — ${c.why}`).join('\n'))
