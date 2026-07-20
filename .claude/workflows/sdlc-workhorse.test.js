@@ -190,9 +190,15 @@ const mkClaimAgent = ({ claims, verdicts }) => {
   const base = mkAgent()
   return async (prompt, opts) => {
     const L = opts.label
-    if (L.startsWith('claims:')) return { claims: claims.map(c => ({ claim: c, whyLoadBearing: 'load-bearing' })) }
+    // Claims default to the largest blast radius so existing cases stay above any cap; pass
+    // {claim, blastRadius} to exercise the ranking.
+    if (L.startsWith('claims:')) {
+      return { claims: claims.map(c => (typeof c === 'string'
+        ? { claim: c, whyLoadBearing: 'load-bearing', blastRadius: 'total' }
+        : { whyLoadBearing: 'load-bearing', ...c })) }
+    }
     if (L.startsWith('refute:')) {
-      const hit = claims.find(c => prompt.includes(c))
+      const hit = claims.map(c => (typeof c === 'string' ? c : c.claim)).find(c => prompt.includes(c))
       return { status: verdicts[hit] || 'confirmed', evidence: `verdict for ${hit}` }
     }
     return base(prompt, opts)
@@ -243,6 +249,53 @@ console.log('\nmandatory fact-check reaches the premise agents themselves, not j
   await t('the spec agent is required to ground its claims before writing them', () => grounded('spec'))
   await t('the grill agent is too', () => grounded('grill:r1'))
   await t('the plan agent is too', () => grounded('plan:r1'))
+}
+
+// ---------------------------------------------------------------------------
+// THE REFUTER FAN-OUT IS BOUNDED, AND WHAT IT DROPS IS NAMED. Refuters were 93
+// of 103 agents on a measured P3 fix. The cap spends the budget on the claims
+// with the largest blast radius rather than thinning the lenses, and a claim
+// already adjudicated is not re-proved when a later round re-extracts it.
+// ---------------------------------------------------------------------------
+console.log('\nthe refuter fan-out is bounded without thinning the lenses:')
+{
+  const r = await runWorkhorse({
+    args: { ...baseArgs(), maxClaimsPerGate: 2 },
+    agentFn: mkClaimAgent({
+      claims: [
+        { claim: 'detail that can change freely', blastRadius: 'moderate' },
+        { claim: 'the whole design rests on this', blastRadius: 'total' },
+        { claim: 'a section would need redesign', blastRadius: 'major' },
+      ],
+      verdicts: {},
+    }),
+  })
+  const refuted = r.calls.filter(c => (c.opts.label || '').startsWith('refute:'))
+  const attacked = s => refuted.some(c => c.prompt.includes(s))
+
+  await t('the largest-blast-radius claim is attacked', () => attacked('the whole design rests on this'))
+  await t('...and the next largest, up to the cap', () => attacked('a section would need redesign'))
+  await t('the lowest-blast-radius claim is dropped, not the lenses',
+    () => !attacked('detail that can change freely'))
+  await t('each examined claim still gets all three perspective-diverse lenses', () => {
+    const perClaim = refuted.filter(c => c.prompt.includes('the whole design rests on this'))
+    return perClaim.length === 3
+  })
+  await t('what the cap dropped is reported, never silently cut',
+    () => (r.logs || []).join('\n').includes('detail that can change freely'))
+}
+
+console.log('\na claim proved once is not re-proved when a later gate re-extracts it:')
+{
+  const shared = 'the same claim both gates lean on'
+  const r = await runWorkhorse({
+    args: baseArgs(),
+    agentFn: mkClaimAgent({ claims: [shared], verdicts: {} }),
+  })
+  const forShared = r.calls.filter(c => (c.opts.label || '').startsWith('refute:') && c.prompt.includes(shared))
+  const gates = r.calls.filter(c => (c.opts.label || '').startsWith('claims:')).length
+  await t('it is extracted at more than one gate', () => gates > 1)
+  await t('...but refuted only once, by three lenses', () => forShared.length === 3)
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)

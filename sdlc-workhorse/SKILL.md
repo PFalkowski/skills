@@ -67,7 +67,7 @@ Three of these skills are **interactive by design** — `grill-me`/`grill-with-d
 
 - **Truth before all.** Every critical decision decomposes into verifiable sub-claims proved with real evidence — a runnable experiment and its output, a `path:line`, or independent authoritative sources. Discovering mid-check that the premise is false is a **success** of the process.
 - **Lowest sufficient tier — with a floor under the premise.** `haiku` for mechanical work and the many cheap refuters, `sonnet` by default. The four **premise phases** (spec, requirements grill, plan, plan review) are pinned at `opus` and **`cfg.tiers` may raise them, never lower them** — the clamp runs after the merge, so a caller passing `{grill: 'haiku'}` gets `opus` anyway and the substitution is logged. This is a floor rather than a default because a cheap premise is not a cheap run: every later phase inherits it as fact — the slicer slices against the plan, the RED test asserts the acceptance criteria, the reviewer judges the diff against the spec — so a wrong premise doesn't fail, it produces a green suite certifying the wrong behaviour. Slices are tiered individually at slice time. Never defaults a worker to the session tier.
-- **Watch the tokens.** A slice is not started unless the remaining budget covers its `reserve`. Deferred slices are logged, never silently dropped.
+- **Watch the tokens.** A slice is not started unless the remaining budget covers its `reserve`. Deferred slices are logged, never silently dropped. **Refuters are the dominant cost of a run** — measured at 93 of 103 agents on a P3 one-file fix — so the premise gates bound the fan-out rather than the depth: at most `maxClaimsPerGate` claims are attacked per gate, largest blast radius first, and a claim already adjudicated is not re-proved when a later round re-extracts it. Three perspective-diverse lenses per claim is never what gets cut; spending them on fifteen claims an extractor merely *called* load-bearing is. Whatever the cap drops is named in the log and joins neither the held premise nor the rejected set — an unexamined claim that nobody names reads downstream as one that passed.
 - **Chronicles.** Every agent appends field notes *as it works*, crash-safe, outside its worktree. The retrospective reads them — that is how a lesson survives an agent that died.
 - **The Library.** Pass `libraryIndex` and the retrospective curates durable lessons into the shared `.nights-watch/library/`, and agents recall from its index leanly.
 
@@ -85,6 +85,7 @@ Workflow({
     maxSlices: 12,
     maxGrillRounds: 3,                 // then unresolved questions defer with their defaults logged
     maxPlanRounds: 2,                  // then it stops rather than build on an unapproved design
+    maxClaimsPerGate: 5,               // claims refuted per premise gate, largest blast radius first
     reserve: 60000,                    // output tokens held back per slice
     reviewStance: 'single',            // pre-answers code-review-grill Step 0; 'quorum' to fan out per concern
     reviewConcerns: ['correctness', 'documentation'],   // used only when reviewStance is 'quorum'
