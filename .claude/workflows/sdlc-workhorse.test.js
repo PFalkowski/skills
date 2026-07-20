@@ -147,6 +147,104 @@ console.log('\na dead reviewer must not take the quorum down with it:')
   await t('...and the run does not throw', () => typeof r.mergeReady === 'boolean')
 }
 
+// ---------------------------------------------------------------------------
+// THE PREMISE FLOOR — the same shape of seam as the quorum above. "opus for
+// design" was a DEFAULT in an Object.assign, so a caller passing
+// cfg.tiers: {grill: 'haiku'} bought an unexamined premise at full price and
+// nothing said so. The rule read fine; it was defeated where it was applied.
+// These assert on the model the script ACTUALLY dispatched, not on the table.
+// ---------------------------------------------------------------------------
+const tierOf = (r, pred) => r.calls.filter(c => pred(c.opts.label)).map(c => c.opts.model)
+const PREMISE = l => l === 'spec' || l.startsWith('grill:') || l.startsWith('plan:') || l.startsWith('plan-review:')
+
+console.log('\nthe premise gates are FLOORED at opus, not merely defaulted to it:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: mkAgent() })
+  await t('spec/grill/plan/plan-review all dispatch at opus by default',
+    () => tierOf(r, PREMISE).length === 4 && tierOf(r, PREMISE).every(m => m === 'opus'))
+}
+{
+  // THE SEAM: a caller trying to buy a cheap premise. Object.assign alone honours this.
+  const r = await runWorkhorse({
+    args: baseArgs({ tiers: { spec: 'haiku', grill: 'haiku', plan: 'haiku', planReview: 'sonnet' } }),
+    agentFn: mkAgent() })
+  await t('cfg.tiers CANNOT lower a premise phase below opus',
+    () => tierOf(r, PREMISE).every(m => m === 'opus'))
+  await t('...and the substitution is logged, never silent',
+    () => r.logs.some(m => /floor/i.test(m) && /opus/.test(m)))
+  await t('...while a NON-premise phase is still freely tunable',
+    () => { const d = tierOf(r, l => l === 'document'); return d.length === 1 && d[0] === 'sonnet' })
+}
+{
+  const r = await runWorkhorse({ args: baseArgs({ tiers: { plan: 'gpt-cheap' } }), agentFn: mkAgent() })
+  await t('an UNRECOGNISED tier name is clamped too (unknown is not evidence of capable)',
+    () => tierOf(r, l => l.startsWith('plan:')).every(m => m === 'opus'))
+}
+
+// ---------------------------------------------------------------------------
+// ONLY PROVEN CLAIMS ARE HELD. The old gate returned just the refuted claims,
+// so the survivors were discarded with the failures and the next phase re-read
+// the raw artifact — inheriting every assertion, including unexamined ones.
+// ---------------------------------------------------------------------------
+const mkClaimAgent = ({ claims, verdicts }) => {
+  const base = mkAgent()
+  return async (prompt, opts) => {
+    const L = opts.label
+    if (L.startsWith('claims:')) return { claims: claims.map(c => ({ claim: c, whyLoadBearing: 'load-bearing' })) }
+    if (L.startsWith('refute:')) {
+      const hit = claims.find(c => prompt.includes(c))
+      return { status: verdicts[hit] || 'confirmed', evidence: `verdict for ${hit}` }
+    }
+    return base(prompt, opts)
+  }
+}
+const promptFor = (r, label) => (r.calls.find(c => c.opts.label === label) || {}).prompt || ''
+
+console.log('\nthe premise is fact-checked and only the survivors are carried forward:')
+{
+  const r = await runWorkhorse({
+    args: baseArgs(),
+    agentFn: mkClaimAgent({
+      claims: ['the API returns 404 on missing', 'the cache is write-through'],
+      verdicts: { 'the cache is write-through': 'refuted' } }) })
+  const planPrompt = promptFor(r, 'plan:r1')
+  const premiseSection = planPrompt.slice(planPrompt.indexOf('VERIFIED PREMISE'), planPrompt.indexOf('<spec>'))
+  await t('a PROVEN claim is handed to the next phase as verified premise',
+    () => premiseSection.includes('the API returns 404 on missing'))
+  await t('a REFUTED claim is NOT carried forward as established',
+    () => !premiseSection.includes('the cache is write-through'))
+  await t('...and its rejection is reported, not swallowed',
+    () => r.logs.some(m => /did not survive refutation/.test(m) && /write-through/.test(m)))
+}
+{
+  // The spec and the requirements grill are premise gates too — previously only
+  // the plan's claims were ever refuted, so the definition of "correct" that
+  // becomes the RED tests reached the build unexamined.
+  const r = await runWorkhorse({
+    args: baseArgs(), agentFn: mkClaimAgent({ claims: ['x is true'], verdicts: {} }) })
+  const extracted = r.calls.filter(c => c.opts.label.startsWith('claims:')).map(c => c.opts.label)
+  await t('the SPEC is adjudicated, not just the plan', () => extracted.includes('claims:spec'))
+  await t('the SHARPENED SPEC (which becomes the acceptance criteria) is adjudicated too',
+    () => extracted.includes('claims:sharpened spec'))
+}
+{
+  const r = await runWorkhorse({
+    args: baseArgs(),
+    agentFn: mkClaimAgent({ claims: ['everything is fine'], verdicts: { 'everything is fine': 'refuted' } }) })
+  await t('when NOTHING survives, the next phase is told so explicitly',
+    () => /VERIFIED PREMISE: none/.test(promptFor(r, 'plan:r1')))
+}
+
+console.log('\nmandatory fact-check reaches the premise agents themselves, not just the refuters:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: mkAgent() })
+  const grounded = l => /MANDATORY/.test(promptFor(r, l)) && /fact-check/.test(promptFor(r, l))
+    && /UNPROVABLE = FALSE/.test(promptFor(r, l))
+  await t('the spec agent is required to ground its claims before writing them', () => grounded('spec'))
+  await t('the grill agent is too', () => grounded('grill:r1'))
+  await t('the plan agent is too', () => grounded('plan:r1'))
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
 })()

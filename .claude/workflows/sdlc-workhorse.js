@@ -47,8 +47,8 @@ const maxWorkers = cfg.maxWorkers ?? 3
 // Lowest sufficient tier per phase — never default a worker to the session tier.
 const tiers = Object.assign({
   baseline: 'haiku',
-  spec: 'sonnet',
-  grill: 'sonnet',
+  spec: 'opus',        // premise gate — floored, see below
+  grill: 'opus',       // premise gate — floored, see below
   plan: 'opus',        // a wrong design costs more than the tokens
   planReview: 'opus',
   slice: 'sonnet',
@@ -58,6 +58,39 @@ const tiers = Object.assign({
   document: 'sonnet',
   retro: 'sonnet',
 }, cfg.tiers || {})
+
+// ---------------------------------------------------------------------------
+// The premise gates are FLOORED, not defaulted. These four phases are where
+// "what correct means" is established, and every later phase inherits their
+// output as fact: the slicer slices against the plan, the RED test asserts the
+// acceptance criteria, the reviewer judges the diff against the spec. A cheap
+// premise is therefore not a cheap run — it is a wrong run that costs full
+// price, and it fails in the one direction nobody catches, because every
+// downstream gate is busy checking conformance to a premise nobody rechecked.
+//
+// `Object.assign` above would let `cfg.tiers: { grill: 'haiku' }` silently buy
+// exactly that. So the floor is applied AFTER the merge and clamps upward only:
+// a caller may raise a premise phase, never lower it. An unrecognised tier name
+// is clamped too — an unknown string is not evidence of a capable model.
+// ---------------------------------------------------------------------------
+const TIER_RANK = { haiku: 0, sonnet: 1, fable: 2, opus: 2 }
+const PREMISE_PHASES = ['spec', 'grill', 'plan', 'planReview']
+const PREMISE_FLOOR = 'opus'
+const tiersFloored = []
+for (const p of PREMISE_PHASES) {
+  const rank = TIER_RANK[tiers[p]]
+  if (rank === undefined || rank < TIER_RANK[PREMISE_FLOOR]) {
+    if (tiers[p] !== PREMISE_FLOOR) tiersFloored.push(`${p}: ${tiers[p]} → ${PREMISE_FLOOR}`)
+    tiers[p] = PREMISE_FLOOR
+  }
+}
+// Say it. A clamp the caller cannot see is a config that lies back to them: they
+// asked for a cheap run, got a correct one, and will size the next budget from a
+// number they never learned the reason for.
+if (tiersFloored.length) {
+  log(`premise gates floored to ${PREMISE_FLOOR} (a premise phase may be raised, never lowered): ` +
+      tiersFloored.join(', '))
+}
 
 const chronicle = (name) => `${chronicleDir}/${name}.md`
 const CHRONICLE_RULE = (path) =>
@@ -72,6 +105,24 @@ const BACKLOG_RULE =
   `default, log the choice and its rationale to ${backlogPath}, and carry on. If it is IRREVERSIBLE (schema/data ` +
   `migration, publish, spend, protected-branch merge, anything outward-facing), do NOT do it — record it as a blocker ` +
   `and return. Out-of-scope work you discover is filed to ${backlogPath} on the spot, never silently absorbed.`
+
+// The premise phases (spec, grill, plan) do not merely *permit* fact-checking —
+// they are where "what correct means" is fixed, so grounding is the work rather
+// than a diligence step available to a careful agent. The refuters downstream
+// are a net, not a substitute: they see only the claims an extractor pulled out
+// of a finished artifact, so an assumption the author never wrote down is
+// invisible to them. It has to be checked by the agent making it, at the moment
+// it is made.
+const FACT_CHECK_RULE =
+  `MANDATORY — run the "fact-check" skill on every load-bearing claim you are about to write down, BEFORE you write ` +
+  `it. This is not optional diligence and not a step you may judge unnecessary: a claim that reaches the artifact ` +
+  `unchecked has already contaminated every phase after this one, because they read your output as established fact. ` +
+  `Decompose each claim into independently verifiable sub-claims and prove each with the strongest evidence ` +
+  `available — executable → run it and paste the ACTUAL output; about this codebase → cite the exact path:line; ` +
+  `documentable → two or more independent authoritative sources. UNPROVABLE = FALSE: a claim you cannot ground does ` +
+  `not go in hedged ("likely", "should be", "appears to"), it does not go in at all. State plainly what you could ` +
+  `not establish and treat it as an open question. Discovering mid-check that your premise is WRONG is a SUCCESS of ` +
+  `this process, not a setback — say so and change the artifact.`
 
 // Several skills this workflow composes are INTERACTIVE by design — grill-me and
 // grill-with-docs interview a user; code-review-grill has two ALWAYS-ASK gates.
@@ -340,20 +391,58 @@ async function proven(claim, whyLoadBearing, phaseName, context) {
   }
 }
 
-// Extract an artifact's load-bearing claims and prove each. Returns the refuted
-// ones — a non-empty result means the gate does not open.
-async function refutedClaimsIn(artifactName, artifactText, phaseName) {
+// Extract an artifact's load-bearing claims and prove each. Returns BOTH sides
+// of the verdict, because the two are used differently and collapsing them was
+// the old bug: `rejected` gates (a non-empty result means the gate does not
+// open), while `held` is the surviving premise — the only claims later phases
+// are allowed to build on.
+//
+// Keeping only `rejected` made "unprovable = false" a veto and nothing more.
+// The claims that SURVIVED were discarded along with the ones that didn't, so
+// the next phase re-read the raw artifact and inherited every unexamined
+// assertion in it — including the ones no refuter had looked at. A gate that
+// only subtracts cannot tell the phase after it what is left standing.
+async function adjudicateClaims(artifactName, artifactText, phaseName) {
   const extracted = await agent(
     `Extract ONLY the load-bearing claims from this ${artifactName} — the facts it leans on, where it collapses if the ` +
     `claim is false. Ignore stylistic assertions and hedged asides.\n\n<${artifactName}>\n${artifactText}\n</${artifactName}>`,
     { label: `claims:${artifactName}`, phase: phaseName, model: tiers.verify, schema: CLAIM_LIST }
   )
   const claims = (extracted && extracted.claims) || []
-  if (!claims.length) return []
-  const checked = await parallel(claims.map(c => () =>
+  if (!claims.length) return { held: [], rejected: [], extracted: 0 }
+  const checked = (await parallel(claims.map(c => () =>
     proven(c.claim, c.whyLoadBearing, phaseName, artifactText.slice(0, 4000)).then(r => ({ ...c, ...r }))
-  ))
-  return checked.filter(Boolean).filter(c => !c.proven)
+  ))).filter(Boolean)
+  return {
+    held: checked.filter(c => c.proven),
+    rejected: checked.filter(c => !c.proven),
+    extracted: claims.length,
+  }
+}
+
+// The verified premise, rendered for the next phase. Only `held` claims appear:
+// a phase downstream of a premise gate reads THIS, not the raw artifact, so an
+// assertion that failed refutation cannot be silently inherited by being left
+// lying in the text it was extracted from.
+const premiseBlock = (held) => held.length
+  ? `VERIFIED PREMISE — these claims survived adversarial refutation and are the ONLY ones you may treat as\n` +
+    `established. Anything else in the artifacts below is unverified: if you need it, prove it yourself with the\n` +
+    `"fact-check" skill before you lean on it.\n` +
+    held.map(c => `- ${c.claim}\n  evidence: ${c.why || 'see votes'}`).join('\n')
+  : `VERIFIED PREMISE: none. No load-bearing claim survived refutation, so you may treat NOTHING in the artifacts\n` +
+    `below as established fact. Prove what you need with the "fact-check" skill before leaning on it.`
+
+// A premise gate: adjudicate, log, and hand back the held set. `blocking` says
+// whether a rejected claim should stop the run — true at the gates whose output
+// everything downstream inherits as fact.
+async function premiseGate(artifactName, artifactText, phaseName) {
+  const { held, rejected, extracted } = await adjudicateClaims(artifactName, artifactText, phaseName)
+  note(phaseName, `${extracted} load-bearing claim(s): ${held.length} held, ${rejected.length} refuted`)
+  if (rejected.length) {
+    log(`${rejected.length} claim(s) in the ${artifactName} did not survive refutation and are NOT part of the premise:\n` +
+      rejected.map(c => `  ✗ ${c.claim} — ${c.why}`).join('\n'))
+  }
+  return { held, rejected }
 }
 
 const record = { phases: [], blockers: [], deferred: [] }
@@ -431,13 +520,20 @@ phase('Spec')
 const spec = await agent(
   `Write the spec for this work. No code, no design — what and why only.\n\nGOAL: ${cfg.goal}\n\n${pitfallRule}\n\n` +
   `Problem, goal, scope, NON-GOALS, and observable success criteria. Save it in the repo and report the path.\n` +
-  `Use the "to-prd" skill if it is available.\n\n${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('spec'))}`,
+  `Use the "to-prd" skill if it is available.\n\n${FACT_CHECK_RULE}\n\n${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('spec'))}`,
   { label: 'spec', phase: 'Spec', model: tiers.spec, schema: SPEC_SCHEMA }
 )
 if (!spec) throw new Error('sdlc-workhorse: spec agent returned nothing.')
 note('Spec', `${spec.scope.length} in scope, ${spec.nonGoals.length} non-goals, ${spec.successCriteria.length} success criteria`)
 
 const specText = JSON.stringify(spec, null, 2)
+
+// The spec is a premise gate: everything downstream treats it as the statement
+// of what correct means, so its load-bearing claims are refuted BEFORE the
+// grill sharpens it. Non-blocking by design — a refuted claim here is exactly
+// what the grill exists to resolve, and stopping the run would deny it the
+// chance. What it must not do is pass silently into the grill as established.
+const specPremise = await premiseGate('spec', specText, 'Spec')
 
 // ---------------------------------------------------------------------------
 // PHASE 3 — Grill the requirements. A fresh agent attacks the spec. It is
@@ -450,12 +546,14 @@ let grill = null
 let sharpSpec = specText
 for (let round = 1; round <= maxGrillRounds; round++) {
   grill = await agent(
-    `Grill this spec. You did NOT write it and you owe it nothing.\n\n<spec>\n${sharpSpec}\n</spec>\n\n${pitfallRule}\n\n` +
+    `Grill this spec. You did NOT write it and you owe it nothing.\n\n${premiseBlock(specPremise.held)}\n\n` +
+    `<spec>\n${sharpSpec}\n</spec>\n\n${pitfallRule}\n\n` +
     `Attack every load-bearing ambiguity: what does this NOT say that someone must know to build it? Where could two ` +
     `readers implement opposite things and both claim to have followed it? What is asserted about the domain that ` +
     `nobody verified? Resolve each hole you can from the repo and the domain; write acceptance criteria.\n\n` +
     `Use the "grill-with-docs" skill if available (fallback "grill-me"), and record crystallised decisions as ADRs / ` +
-    `CONTEXT.md updates.\n\n${NO_HUMAN_RULE}\n\nRound ${round} of ${maxGrillRounds}.\n\n${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('grill'))}`,
+    `CONTEXT.md updates.\n\n${FACT_CHECK_RULE}\n\n${NO_HUMAN_RULE}\n\nRound ${round} of ${maxGrillRounds}.\n\n` +
+    `${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('grill'))}`,
     { label: `grill:r${round}`, phase: 'Grill', model: tiers.grill, schema: GRILL_SCHEMA }
   )
   if (!grill) break
@@ -470,6 +568,16 @@ for (let round = 1; round <= maxGrillRounds; round++) {
 }
 const acceptance = (grill && grill.acceptanceCriteria) || spec.successCriteria
 
+// The grill's output IS the premise the rest of the run builds on — the
+// acceptance criteria become the RED tests, and the sharpened spec is what the
+// reviewer judges the diff against. So it is adjudicated before the plan sees
+// it, and only the surviving claims are carried forward. A criterion that
+// cannot be grounded is worse than a missing one: it becomes a test asserting
+// something nobody established, and a green suite then certifies it.
+const grillPremise = await premiseGate(
+  'sharpened spec', sharpSpec + '\n\nACCEPTANCE CRITERIA:\n' + acceptance.map(a => `- ${a}`).join('\n'), 'Grill')
+const heldPremise = [...specPremise.held, ...grillPremise.held]
+
 // ---------------------------------------------------------------------------
 // PHASES 4–5 — Plan, then have a fresh agent grill it. The cheapest place to
 // kill a design mistake is before the first line of code. The reviewer is a
@@ -481,14 +589,16 @@ const acceptance = (grill && grill.acceptanceCriteria) || spec.successCriteria
 let plan = null
 let planReview = null
 let planFeedback = ''
+let planHeld = []
 for (let round = 1; round <= maxPlanRounds; round++) {
   phase('Plan')
   plan = await agent(
-    `Design the implementation. Still NO code.\n\n<spec>\n${sharpSpec}\n</spec>\n\n` +
+    `Design the implementation. Still NO code.\n\n${premiseBlock(heldPremise)}\n\n<spec>\n${sharpSpec}\n</spec>\n\n` +
     `ACCEPTANCE CRITERIA:\n${acceptance.map(a => `- ${a}`).join('\n')}\n\n${pitfallRule}\n` +
     `${planFeedback ? `\nA previous design round was REJECTED. You must address every point:\n${planFeedback}\n` : ''}\n` +
     `Approach; key components and interfaces; data and control flow; failure modes; alternatives considered and WHY ` +
-    `rejected; the test strategy. Save the plan in the repo and report the path.\n\n${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('plan'))}`,
+    `rejected; the test strategy. Save the plan in the repo and report the path.\n\n${FACT_CHECK_RULE}\n\n` +
+    `${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('plan'))}`,
     { label: `plan:r${round}`, phase: 'Plan', model: tiers.plan, schema: PLAN_SCHEMA }
   )
   if (!plan) throw new Error('sdlc-workhorse: plan agent returned nothing.')
@@ -505,10 +615,11 @@ for (let round = 1; round <= maxPlanRounds; round++) {
       `Use the "grill-with-docs" skill if available.\n\n${NO_HUMAN_RULE}\n\n${CHRONICLE_RULE(chronicle('plan-review'))}`,
       { label: `plan-review:r${round}`, phase: 'Plan review', model: tiers.planReview, schema: PLAN_REVIEW_SCHEMA }
     ),
-    () => refutedClaimsIn('plan', planText, 'Plan review'),
+    () => premiseGate('plan', planText, 'Plan review'),
   ])
   planReview = review
-  const bad = (refuted || []).filter(Boolean)
+  planHeld = (refuted && refuted.held) || []
+  const bad = ((refuted && refuted.rejected) || []).filter(Boolean)
   const mustFix = (review && review.findings.filter(f => f.mustFix)) || []
   note('Plan review', `round ${round}: verdict=${review ? review.verdict : 'none'}, ${mustFix.length} must-fix, ${bad.length} refuted claim(s)`)
 
