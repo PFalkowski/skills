@@ -23,6 +23,28 @@ export const meta = {
 // nesting the Watch budgets is already spent getting here.
 
 const SEVERITIES = ['critical', 'high', 'medium', 'low', 'nit']
+
+// Some hosts deliver `args` as an unparsed JSON string rather than the object the
+// contract promises; this is a no-op when args already arrives parsed. Without it
+// every args.* read below is undefined and the grill reviews nothing, silently.
+if (typeof args === 'string') args = JSON.parse(args)
+
+// ---------------------------------------------------------------------------
+// Stamped output. Every line this run logs carries WHEN THE RUN STARTED
+// (MM-DD HH:mm), so a scrollback holding several modes on several cadences can
+// still be read back to "which run produced this line, and when did it begin".
+//
+// The stamp is the WATCHER's, taken at dispatch and passed in — the script
+// cannot take its own. Date.now() and argless new Date() THROW inside a
+// workflow (they would break resume), so there is no clock in here at all.
+// What this marks is therefore the RUN, not the line: every line of one
+// dispatch carries the same stamp. That is the grouping worth having, and it
+// is also the only honest one — a per-line time is not available to be
+// printed, so it must not be implied.
+// ---------------------------------------------------------------------------
+const startedAt = args.startedAt || ''
+const say = (m) => log(startedAt ? `[${startedAt}] ${m}` : m)
+
 const FINDINGS = { type: 'object', properties: { findings: { type: 'array', items: { type: 'object',
   properties: { title: {type:'string', minLength: 1},
     file: {type:'string', minLength: 1},          // repo-relative, exactly as the diff names it
@@ -79,7 +101,7 @@ const houseRules = await agent(
    at ${args.libraryIndex} and fold in entries about this repo's conventions and gotchas.
    Return a terse rulebook (aim under 40 lines). ${NO_SPAWN}`,
   { label: 'house-rules', phase: 'House rules', model: args.tiers?.docs ?? 'haiku' })
-if (!houseRules) log('house-rules agent died — each reviewer will read the docs itself')
+if (!houseRules) say('house-rules agent died — each reviewer will read the docs itself')
 
 const grillPrompt = concern =>
   `You are a FRESH adversarial reviewer of the Night's Watch — you never saw the author's
@@ -163,7 +185,7 @@ const verified = await parallel(candidates.map(f => () => (async () => {
     // speculation is not a finding) and must not vanish either. It blocks the ledger entry so
     // the next grill re-finds and re-verifies it.
     if (!v) { uncovered.push(`verify:"${f.title}" verifier died — finding unjudged`); return null }
-    if (v.refuted) { refuted.push(`${f.title} — ${v.why}`); log(`refuted: ${f.title}`); return null }
+    if (v.refuted) { refuted.push(`${f.title} — ${v.why}`); say(`refuted: ${f.title}`); return null }
     return { ...f, severity: v.severity ?? f.severity, proof: v.proof ?? f.evidence, key: key(f) }
   } finally { release() }
 })()))

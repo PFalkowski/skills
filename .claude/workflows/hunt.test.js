@@ -237,6 +237,31 @@ console.log('throws — parallel() resolves throwers to null and never rejects:'
   await t('...and holds the watermark', () => sboom.complete === false)
 }
 
+// ---------------------------------------------------------------------------
+// STAMPED OUTPUT. The stamp identifies WHICH RUN a line came from. It is the
+// watcher's clock, passed in — the script has none (Date.now() throws here), so
+// the failures to guard are a line that silently loses its stamp, and an absent
+// stamp rendering as "[undefined]", which reads like a real timestamp.
+// ---------------------------------------------------------------------------
+console.log('')
+console.log('stamped output — every line says which run it belongs to:')
+{
+  mkAgent.i = -1
+  const r = await runHunt({ args: baseArgs({ startedAt: '07-20 09:30' }),
+    agentFn: mkAgent({ findings: [F()], verdicts: [{ refuted: true }, { refuted: true }, { refuted: false }] }) })
+  await t('every logged line is prefixed with the run stamp',
+    () => r.logs.length > 0 && r.logs.every(m => m.startsWith('[07-20 09:30] ')))
+  await t('...and the stamp is not the whole line (the message survives)',
+    () => r.logs.every(m => m.replace('[07-20 09:30] ', '').trim().length > 0))
+}
+{
+  mkAgent.i = -1
+  const r2 = await runHunt({ args: baseArgs(),
+    agentFn: mkAgent({ findings: [F()], verdicts: [{ refuted: true }, { refuted: true }, { refuted: false }] }) })
+  await t('with NO stamp supplied, lines are unprefixed — never "[undefined]"',
+    () => r2.logs.length > 0 && r2.logs.every(m => !m.startsWith('[')))
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
 })()

@@ -24,6 +24,23 @@ export const meta = {
 // promises; this is a no-op when args already arrives parsed.
 if (typeof args === 'string') args = JSON.parse(args)
 const cfg = args || {}
+
+// ---------------------------------------------------------------------------
+// Stamped output. Every line this run logs carries WHEN THE RUN STARTED
+// (MM-DD HH:mm), so a scrollback holding several modes on several cadences can
+// still be read back to "which run produced this line, and when did it begin".
+//
+// The stamp is the WATCHER's, taken at dispatch and passed in — the script
+// cannot take its own. Date.now() and argless new Date() THROW inside a
+// workflow (they would break resume), so there is no clock in here at all.
+// What this marks is therefore the RUN, not the line: every line of one
+// dispatch carries the same stamp. That is the grouping worth having, and it
+// is also the only honest one — a per-line time is not available to be
+// printed, so it must not be implied.
+// ---------------------------------------------------------------------------
+const startedAt = cfg.startedAt || ''
+const say = (m) => log(startedAt ? `[${startedAt}] ${m}` : m)
+
 if (typeof cfg.goal !== 'string' || !cfg.goal.trim()) {
   throw new Error('sdlc-workhorse: args.goal is required — the change to build, in enough detail to specify.')
 }
@@ -96,7 +113,7 @@ for (const p of PREMISE_PHASES) {
 // asked for a cheap run, got a correct one, and will size the next budget from a
 // number they never learned the reason for.
 if (tiersFloored.length) {
-  log(`premise gates floored to ${PREMISE_FLOOR} (a premise phase may be raised, never lowered): ` +
+  say(`premise gates floored to ${PREMISE_FLOOR} (a premise phase may be raised, never lowered): ` +
       tiersFloored.join(', '))
 }
 
@@ -449,7 +466,7 @@ async function adjudicateClaims(artifactName, artifactText, phaseName) {
   // Oath rule 7 applies as hard to a cap as to a crash: an unexamined claim that nobody names
   // reads downstream as a claim that passed.
   if (dropped.length) {
-    log(`${artifactName}: ${claims.length} load-bearing claims extracted, refuting the ${examined.length} with the ` +
+    say(`${artifactName}: ${claims.length} load-bearing claims extracted, refuting the ${examined.length} with the ` +
       `largest blast radius (maxClaimsPerGate=${maxClaimsPerGate}). NOT examined, and NOT part of the verified premise:\n` +
       dropped.map(c => `  ? ${c.claim} [${c.blastRadius || 'unranked'}]`).join('\n'))
   }
@@ -487,14 +504,14 @@ async function premiseGate(artifactName, artifactText, phaseName) {
   note(phaseName, `${extracted} load-bearing claim(s): ${held.length} held, ${rejected.length} refuted` +
     (unexamined ? `, ${unexamined} unexamined (over maxClaimsPerGate)` : ''))
   if (rejected.length) {
-    log(`${rejected.length} claim(s) in the ${artifactName} did not survive refutation and are NOT part of the premise:\n` +
+    say(`${rejected.length} claim(s) in the ${artifactName} did not survive refutation and are NOT part of the premise:\n` +
       rejected.map(c => `  ✗ ${c.claim} — ${c.why}`).join('\n'))
   }
   return { held, rejected }
 }
 
 const record = { phases: [], blockers: [], deferred: [] }
-const note = (phase, detail) => { record.phases.push({ phase, detail }); log(`${phase}: ${detail}`) }
+const note = (phase, detail) => { record.phases.push({ phase, detail }); say(`${phase}: ${detail}`) }
 
 // ---------------------------------------------------------------------------
 // The retrospective, hoisted so it can close EVERY path that produced work —
@@ -554,7 +571,7 @@ if (!baseline.green) {
 note('Baseline', `green across ${baseline.checks.length} check(s); ${baseline.pitfalls.length} repo pitfall(s) catalogued`)
 if (baseline.missingGuardrails.length) {
   record.deferred.push({ what: 'missing guardrails', detail: baseline.missingGuardrails })
-  log(`Missing guardrails filed to ${backlogPath}: ${baseline.missingGuardrails.join('; ')}`)
+  say(`Missing guardrails filed to ${backlogPath}: ${baseline.missingGuardrails.join('; ')}`)
 }
 
 const pitfallRule = baseline.pitfalls.length
@@ -611,7 +628,7 @@ for (let round = 1; round <= maxGrillRounds; round++) {
   sharpSpec = sharpSpec + `\n\nGRILL ROUND ${round} RESOLUTIONS:\n` + JSON.stringify(grill.holes, null, 2)
   if (round === maxGrillRounds && unresolved.length) {
     record.deferred.push({ what: 'unresolved load-bearing questions after grilling', detail: unresolved.map(h => h.question) })
-    log(`${unresolved.length} load-bearing question(s) survived ${maxGrillRounds} rounds — deferred to ${backlogPath} with the chosen defaults.`)
+    say(`${unresolved.length} load-bearing question(s) survived ${maxGrillRounds} rounds — deferred to ${backlogPath} with the chosen defaults.`)
   }
 }
 const acceptance = (grill && grill.acceptanceCriteria) || spec.successCriteria
@@ -679,17 +696,17 @@ for (let round = 1; round <= maxPlanRounds; round++) {
 
   if (review && review.verdict === 'reopens-requirements') {
     record.blockers.push({ what: 'plan review reopened a requirement', detail: planFeedback })
-    log('Plan review reopened a requirement — that is the process working. Deferring rather than looping the whole lifecycle.')
+    say('Plan review reopened a requirement — that is the process working. Deferring rather than looping the whole lifecycle.')
     break
   }
   if (round === maxPlanRounds) {
     record.blockers.push({ what: `plan unapproved after ${maxPlanRounds} design rounds`, detail: planFeedback })
-    log(`Plan still unapproved after ${maxPlanRounds} rounds — proceeding would be building on a design nobody signed off.`)
+    say(`Plan still unapproved after ${maxPlanRounds} rounds — proceeding would be building on a design nobody signed off.`)
   }
 }
 
 if (record.blockers.length) {
-  log('Stopping before any code: the design did not clear its gate. No code before the plan is reviewed.')
+  say('Stopping before any code: the design did not clear its gate. No code before the plan is reviewed.')
   // Still close properly — a design that failed its gate twice is exactly the
   // kind of run whose lessons are worth keeping.
   const retro = await runRetro(0)
@@ -725,7 +742,7 @@ if (!sliced || !sliced.slices.length) throw new Error('sdlc-workhorse: slicing p
 
 let slices = sliced.slices
 if (slices.length > maxSlices) {
-  log(`${slices.length} slices produced, capping at ${maxSlices}. NOT worked this run: ${slices.slice(maxSlices).map(s => s.id).join(', ')} — left in ${backlogPath}.`)
+  say(`${slices.length} slices produced, capping at ${maxSlices}. NOT worked this run: ${slices.slice(maxSlices).map(s => s.id).join(', ')} — left in ${backlogPath}.`)
   record.deferred.push({ what: 'slices deferred past the cap', detail: slices.slice(maxSlices).map(s => s.id) })
   slices = slices.slice(0, maxSlices)
 }
@@ -747,14 +764,14 @@ note('Slice', `${slices.length} tracer bullet(s): ${slices.map(s => `${s.id}[${s
 phase('Build')
 const poolSize = Math.max(1, Math.min(parallelSlices, maxWorkers, slices.length))
 const isolate = poolSize > 1
-if (isolate) log(`${poolSize} slices in flight — each gets its own worktree; expect a PR stack (hand it to merge-stack).`)
+if (isolate) say(`${poolSize} slices in flight — each gets its own worktree; expect a PR stack (hand it to merge-stack).`)
 
 const built = await pipeline(
   slices,
   // Stage 1 — RED, then an independent check that it is a real red.
   async (slice) => {
     if (budget.total && budget.remaining() < reserve) {
-      log(`slice ${slice.id}: not started — ${Math.round(budget.remaining() / 1000)}k left is under the ${Math.round(reserve / 1000)}k reserve.`)
+      say(`slice ${slice.id}: not started — ${Math.round(budget.remaining() / 1000)}k left is under the ${Math.round(reserve / 1000)}k reserve.`)
       return { slice, skipped: 'budget' }
     }
     const red = await agent(
@@ -779,7 +796,7 @@ const built = await pipeline(
     )
     const realRed = red.failedForTheRightReason && redCheck && redCheck.status !== 'refuted'
     if (!realRed) {
-      log(`slice ${slice.id}: FALSE RED rejected — ${redCheck ? redCheck.evidence : 'no independent check'}`)
+      say(`slice ${slice.id}: FALSE RED rejected — ${redCheck ? redCheck.evidence : 'no independent check'}`)
       return { slice, skipped: 'false red', red }
     }
     return { slice, red }
@@ -854,7 +871,7 @@ const built = await pipeline(
       return seen.has(k) ? false : (seen.add(k), true)
     })
     if (reviewStance === 'quorum') {
-      log(`slice ${slice.id}: ${reviewConcerns.length} concern(s) reviewed, ` +
+      say(`slice ${slice.id}: ${reviewConcerns.length} concern(s) reviewed, ` +
           `${reviews.length} raw finding(s) → ${findings.length} after dedupe`)
     }
     // Verify before reporting: a plausible-but-wrong finding costs a real fix cycle.
@@ -863,7 +880,7 @@ const built = await pipeline(
         .then(v => ({ ...f, confirmed: v.proven, evidence: v.why }))
     ))
     const real = verified.filter(Boolean).filter(f => f.confirmed)
-    log(`slice ${slice.id}: ${findings.length} finding(s), ${real.length} survived verification`)
+    say(`slice ${slice.id}: ${findings.length} finding(s), ${real.length} survived verification`)
     return { ...prev, findings: real }
   }
 )
@@ -878,7 +895,7 @@ note('Build', `${done.length}/${slices.length} slice(s) green`)
 
 const blockerFindings = done.flatMap(r => (r.findings || []).filter(f => f.severity === 'blocker' || f.severity === 'major'))
 if (blockerFindings.length) {
-  log(`${blockerFindings.length} verified blocker/major finding(s) — these are real defects, not opinions.`)
+  say(`${blockerFindings.length} verified blocker/major finding(s) — these are real defects, not opinions.`)
 }
 
 // ---------------------------------------------------------------------------
@@ -909,7 +926,7 @@ const docs = done.length ? await agent(
 ) : null
 if (docs && !docs.baselineStillGreen) {
   record.blockers.push({ what: 'baseline regressed', detail: docs.baselineOutput })
-  log('BASELINE REGRESSED — the change broke a check that was green before it. Not merge-ready.');
+  say('BASELINE REGRESSED — the change broke a check that was green before it. Not merge-ready.');
 }
 
 // ---------------------------------------------------------------------------

@@ -259,6 +259,8 @@ Its contract, which is all the watcher needs to know:
 //        known: { '<fingerprint>': 'high' },       // ledger status=reported ONLY — never pending
 //        fixed: ['<fingerprint>'],                 // ledger status=fixed — a reappearance is a regression
 //        carry: [{...finding, id, range, attempts}],   // carry.jsonl — found earlier, still unrefuted
+//        startedAt: '07-20 09:30',                // the watcher's clock at dispatch — the script has
+//                                                 // none (Date.now() throws). WATCH.md § Stamped output
 //        maxFindings: 8, maxCarry: 24, maxAttempts: 3, reserve: 40000, chronicleDir, libraryIndex }
 //
 // out: { confirmed,        // survivors, worst-first, with repro/escalation/regression/corroborated
