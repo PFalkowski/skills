@@ -87,7 +87,11 @@ The lead merges agent outputs into **one table** (templates + severity legend in
 
 ## Step 7 — Offer to post (ALWAYS prompt; NEVER auto-post)
 
-This step runs after **every** review — single adversarial or quorum alike. The moment the table is presented, the orchestrator must:
+> **Driven by `go-go-go`:** its whatever-mode already covers the post-or-not decision, so skip this
+> step's ask and post **every** finding (fixed or not) via the mechanics below — one thread first,
+> confirm it landed, then the rest.
+
+This step runs after **every** review — single adversarial or quorum alike, when invoked standalone. The moment the table is presented, the orchestrator must:
 
 1. **Detect the active PR** for the reviewed branch and name it in the prompt so the user knows exactly where comments would land:
    - **GitHub** → `gh pr view --json number,url,title -q '.number, .url'` (or `gh pr list --head <branch>`).
