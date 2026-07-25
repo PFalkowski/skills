@@ -12,7 +12,7 @@ The patrol works tickets a human vouched for. The Hunt has no tickets: it wakes 
 /nights-watch hunt severity=all              # report medium/low too (default: critical+high only)
 /nights-watch hunt since=7d                  # override the watermark (first hunt defaults to 7d)
 /nights-watch hunt scope=commits,deps,logs logs="docker logs api --since 1h"
-/nights-watch hunt for=smells,warnings       # prey: security, bugs, smells, warnings (default: security,bugs)
+/nights-watch hunt for=smells,warnings       # ADD prey; security+bugs are mandatory, docs/observability/performance/smells/warnings at the watcher's discretion
 /nights-watch hunt target=last-commit        # ground: diff (default) | last-commit | <git range> | repo
 /nights-watch hunt target=repo               # whole-repo baseline audit; big repos get a chunked backlog
 /nights-watch hunt once                      # one hunt, no standing loop
@@ -124,14 +124,36 @@ Empty delta → log one line, update nothing, sleep. That is the common case at 
 
 Two knobs shape a hunt before any lens is assigned: what kind of prey it hunts (`for=`) and what ground it covers (`target=`).
 
-**`for=`** picks the lens families. Default `security,bugs` — the original party; the other two are opt-in because they widen the report toward things that don't wake anyone:
+**`for=`** picks the lens families. **`security` and `bugs` are mandatory** — they run on every hunt, and `for=` can only add to them, never remove them. Those two are what an unattended hourly job exists to catch, and a mode that can be configured to stop looking for them is a mode that eventually will be. The rest the watcher picks per hunt, at its own discretion, from what the delta actually touches:
 
-| Family | Lenses |
+| Family | Mandatory | Lenses |
+|---|---|---|
+| `security` | **yes** | `injection`, `authz`, `authn`, `crypto`, `secrets`, `supply-chain`, `exposure`, `insecure-design`, `audit-logging` |
+| `bugs` | **yes** | `correctness`, `logic` |
+| `docs` | watcher's discretion | `docs` — does the change contradict what an authoritative source says? |
+| `observability` | watcher's discretion | `observability` — can this be operated once it breaks? |
+| `performance` | watcher's discretion | `performance` — work that grows faster than the data |
+| `smells` | watcher's discretion | `smells` — bad patterns that make the *next* change dangerous |
+| `warnings` | watcher's discretion | `warnings` — what the toolchain already flags and nobody reads |
+
+Discretion means chosen from the delta, not from a fixed default: a query-layer change earns `performance`, a framework upgrade or a config change earns `docs`. Of the four, `docs` is the one that most often applies — the same thing `code-review-grill` found for its documentation concern, since nearly every change is subject to some documented rule.
+
+**The security family owes OWASP Top 10 coverage.** Its lenses exist to cover it, and the report says which categories the delta triggered, so "clean" never quietly means "never looked":
+
+| OWASP Top 10 | Lens |
 |---|---|
-| `security` | `injection`, `authz`, `secrets`, `supply-chain`, `exposure` |
-| `bugs` | `correctness` |
-| `smells` | `smells` — bad patterns that make the *next* change dangerous |
-| `warnings` | `warnings` — what the toolchain already flags and nobody reads |
+| A01 Broken access control | `authz` |
+| A02 Cryptographic failures | `crypto` |
+| A03 Injection | `injection` |
+| A04 Insecure design | `insecure-design` |
+| A05 Security misconfiguration | `exposure` |
+| A06 Vulnerable & outdated components | `supply-chain` |
+| A07 Identification & authentication failures | `authn` |
+| A08 Software & data integrity failures | `supply-chain`, `insecure-design` |
+| A09 Security logging & monitoring failures | `audit-logging` |
+| A10 Server-side request forgery | `injection` |
+
+Every category is either covered by a lens this hunt triggered, or **named in the report as not triggered by this delta**. A category with neither is the silent gap the table exists to close. The Top 10 is a floor, not a ceiling: a lens reports what it finds, listed or not.
 
 The delta still decides which of a family's lenses actually run (§ The hunting party) — `for=` widens what *may* run, never forces a lens the delta can't trigger. Everything downstream is family-blind: refuters, fingerprints, the ledger, the fire. One exception: a family the user **explicitly** named bypasses the severity floor — smells and warnings rarely grade `high`, and asking for them and then filtering every one out produces a "clean" report that lies by omission. Rule 2 still binds in full: a smell without a concrete cost ("this duplication means a fix lands in one copy") is a hypothesis, and it dies at the refuters like any other.
 
@@ -156,12 +178,20 @@ The party fans out over the same range, each hunter with a **different lens**. D
 |---|---|
 | `injection` | untrusted input reaching a sink: SQL/command/path/template, deserialization, SSRF |
 | `authz` | missing or wrong access checks, IDOR, tenant/scope leaks, a route that lost its guard |
+| `authn` | who-you-are, not what-you-may-do: unverified tokens, weak/absent session or credential handling, an auth check that can be skipped |
+| `crypto` | broken or missing protection of data: weak/obsolete algorithms, hardcoded IVs or keys, unsalted hashes, plaintext where transit or rest encryption was intended |
 | `secrets` | credentials, tokens, keys entering the repo, the logs, or an error message |
-| `supply-chain` | new/bumped dependency with a known advisory, a typosquat, a postinstall script, a widened version range |
-| `correctness` | data loss and integrity: unhandled failure paths, races/TOCTOU, resource leaks, an invariant the diff broke |
+| `supply-chain` | new/bumped dependency with a known advisory, a typosquat, a postinstall script, a widened version range, an unverified artifact |
 | `exposure` | config drift that widens the blast radius: a bucket/endpoint/port opened, CORS or a CI permission widened, debug left on |
-| `smells` | (family `smells`, opt-in) bad patterns with a nameable cost: duplicated logic, dead code, a god function, a leaky abstraction, tangled coupling |
-| `warnings` | (family `warnings`, opt-in) compiler/linter/deprecation warnings the delta introduces — or leaves standing in the files it touched |
+| `insecure-design` | the flaw is the design, not the line: a missing limit or quota, a trust boundary that was never drawn, a workflow that can be replayed or skipped |
+| `audit-logging` | the failure nobody will see: a security-relevant action with no log, a log that can be forged or dropped, an alert path that goes nowhere |
+| `correctness` | data loss and integrity: unhandled failure paths, races/TOCTOU, resource leaks, an invariant the diff broke |
+| `logic` | the code does what it says and says the wrong thing: an inverted condition, an off-by-one, a wrong operator or branch, a business rule implemented against its spec |
+| `docs` | (family `docs`) the change contradicts an authoritative source — a framework/API's own documentation, or the project's README, ADRs and design records. Every claim of contradiction is deep-linked or cited by path |
+| `observability` | (family `observability`) production code shipped with no way to tell it broke: a new failure path that logs nothing, a scheduled job or background worker with no success/failure signal, an exception swallowed into silence, instrumentation deleted with the code it measured, a health check that cannot fail, an alert routed nowhere. Distinct from `audit-logging`, which asks whether a *security-relevant* action left a trail; this asks whether the thing can be **operated** at all |
+| `performance` | (family `performance`) work that grows faster than the data: N+1 queries, an accidental quadratic, unbounded caches or collections, a whole table read to answer one row |
+| `smells` | (family `smells`) bad patterns with a nameable cost: duplicated logic, dead code, a god function, a leaky abstraction, tangled coupling |
+| `warnings` | (family `warnings`) compiler/linter/deprecation warnings the delta introduces — or leaves standing in the files it touched |
 
 Tiers follow the rubric ([TRIAGE.md](TRIAGE.md)), effort follows tier: hunters at **`sonnet`** / default effort; a single lens at `opus` / `high` only when the delta is genuinely cross-cutting (a concurrency change, an auth refactor) — never the whole party.
 
@@ -169,10 +199,14 @@ Tiers follow the rubric ([TRIAGE.md](TRIAGE.md)), effort follows tier: hunters a
 
 Every candidate goes to **three independent refuters, each prompted to kill it**, before any human reads it. This is `code-review-grill`'s discipline applied to a hunt: the finder is the last to notice its own finding is theatre. **Two or more refutes → dropped**, silently, with a chronicle line. Severity is set by the survivors' consensus, not by the finder's enthusiasm.
 
+**Decompose to atoms first — this is the whole leverage.** A finding is never one claim; it is a chain of them, and it is only as true as its weakest link. `code-review-grill` gets its power from grilling hunk-by-hunk and resolving each thread before moving on, and the Hunt applies that to verification: hunter and refuter alike break the finding into **independently checkable atoms** and prove each one separately with **fact-check** — a runnable experiment and its output, or an authoritative source. "Untrusted input reaches this sink" is not an atom; it is at least four — *this parameter is attacker-controlled*, *no caller constrains it*, *this route is reachable from outside the trust boundary*, *the sink interprets the value*. Graded whole, a finding passes on its most convincing atom. Graded atom by atom, it fails on its weakest, which is the one that decides whether it is real. **Any atom that fails kills the finding**, and the report names the atom that killed it, never a verdict without one.
+
+**An unreachable flaw is not a vulnerability, and reachability is an atom like any other — it must be proven, not assumed.** A hunter reading only source sees a dangerous call and infers exposure; the deployment is where that inference usually dies. So the reachability atom is checked against how the system is *actually deployed* — the IaC and network rules in the repo, private endpoints and VNet/subnet integration, ingress and firewall configuration, the auth level on the route, whether the artifact ships at all. A surface an untrusted party has no route to (private-endpoint-only, VNet-internal, an operator-only local tool, a component not deployed anywhere) is refuted or downgraded, and the report says which. This costs some real findings a severity grade. It buys the only thing that makes an hourly security report worth opening: that the things in it are true.
+
 Give the refuters distinct angles, or they agree for the same reason:
 
-- **reachability** — can untrusted input actually get there? Is the path dead, guarded upstream, or unreachable in any real deployment?
-- **exploitability / blast radius** — granted the flaw is real, what does it actually cost? Does a caller already constrain the input?
+- **reachability** — can untrusted input actually get there, *in the deployment this repo describes*? Prove the route from an untrusted party inward, or refute. Dead path, guarded upstream, network-isolated, never deployed → refuted.
+- **exploitability / blast radius** — granted the flaw is real and reachable, what does it actually cost? Does a caller already constrain the input?
 - **repro** — make it happen. A runnable case with real output, or the exact source lines that prove the claim. This is the one refuter that can *promote* a finding: a working repro is the strongest evidence a report can carry.
 
 Refuters run at **`sonnet`** by default (`tiers.refute` overrides). They are many and cheap-looking, and the workhorse's refuters sit at `haiku` — but that comparison misleads: those re-run a test and read its output, while these must trace reachability through a codebase and stand up a repro. Sonnet is the floor because a refuter that can't follow the call graph refutes nothing and rubber-stamps everything, which is worse than no gate at all — it launders a guess into a "confirmed" finding.
@@ -303,13 +337,17 @@ The Hunt runs on the cadence the user set (`every`, default `1h`) — a `/loop` 
 
 ## The fire
 
-Every hunt that dispatched a party closes with the gathering ([LIBRARY.md](LIBRARY.md)) — chronicles read, durable lessons curated into the Library — plus the Hunt's own five. Only the last is a Library entry; the rest are operational state, and the fire is merely where the write sequence *ends*, not where it starts:
+Every hunt that dispatched a party closes with the gathering ([LIBRARY.md](LIBRARY.md)) — chronicles read, durable lessons curated into the Library — plus the Hunt's own five. Only the last is a Library entry; the rest are operational state, and the fire is merely where the write sequence *ends*, not where it starts.
+
+**Write the state to the state root by absolute path, then confirm each write landed.** Workers run in throwaway worktrees, so a relative path resolves inside a copy of the repo that is deleted minutes later: the ledger is settled, the watermark advanced, the chronicle appended — into a directory that ceases to exist. It fails silently and it fails *completely*, because every one of those writes goes the same way at once. Two consecutive hunts have been lost this way, their settlements computed and reported and never persisted, discovered only when a later hunt read a ledger that was missing everything two fires had put in it — and a ledger missing its entries is rule 3 switched off, which re-reports every open finding as news. So the fire re-reads what it wrote before releasing the lock: a settlement nobody can read afterwards is indistinguishable from a fire that never ran, and the next hunt cannot tell the difference either.
 
 - **The ledger is settled** (`ledger.md`): pending lines written before the report (§ Statuses) become `reported`, and sub-floor findings keep their line so a medium that becomes a critical is recognized as the same flaw.
 - **`carry.jsonl` is rewritten** — survivors only: this hunt's `deferred`, minus anything now refuted, reported, or abandoned. Rewritten, never appended (§ Statuses), because `maxCarry` and `maxAttempts` both read this file and both invert if it accumulates.
 - **`fixed` is *produced*, and only by a positive signal.** A status nothing writes makes rule 3's regression exception dead code that looks alive. But the tempting producer is a trap: *"the lens ran and the fingerprint isn't in `confirmed`"* marks every open finding fixed the moment anything else in its file changes — because rule 3 **drops still-present findings before they can reach `confirmed`** (that is rule 3 working: the hunter just saw it, it is still there). Absence from `confirmed` is not evidence of a fix; the fire would mark it fixed, and the next touch of that file would report a *regression against a fix that never happened*. That is the false-alarm generator rule 2 exists to prevent, assembled out of two rules agreeing with each other. So the workflow returns **`stillPresent`** — the ids it dropped — and the fire uses:
   1. **The channel reported closure back.** The tracker issue carrying the fingerprint was closed (`gh issue list --state closed`), or the advisory was closed/published. This is the only *direct* evidence, and it exists only on `issues` and `advisory`.
-  2. **The lens re-examined and the flaw was gone**: the entry's file was in this delta, its lens **actually ran** (`lensesRun` — recorded from hunters that returned and stages that finished, never inferred from an absence of complaint), and **`!accountedFor.includes(id)`**.
+  2. **The flaw's own code site was re-read and the flaw was gone.** The three cheap conditions — the entry's file was in this delta, its lens **actually ran** (`lensesRun` — recorded from hunters that returned and stages that finished, never inferred from an absence of complaint), and **`!accountedFor.includes(id)`** — only make an entry *eligible* to be checked. They are not the evidence. The fire then **re-reads the entry's `file`+`symbol` and confirms the defect is actually gone**, and writes `fixed` only on that positive read.
+
+  The three conditions cannot stand alone, and the reason is that a hunter is scoped to *the delta and nothing else*: it attends to what changed. A flaw sitting in **untouched lines of a changed file** is not what it is hunting, so its silence about that flaw is not a re-examination of it — the file moved for some unrelated reason and the pre-existing defect was never looked at. Absence then satisfies all three conditions while meaning nothing, which is this section's own **"never infer a fix from silence"** violated by the producer that follows it. This is not hypothetical: a real hunt had two open entries (one `high`) qualify on all three at once — file in the delta, lens ran, id absent — while both defects sat in the code verbatim, and only a direct read of the two code sites kept them from being marked fixed and their next sighting reported as a regression against a fix that never happened. The oldest bug's sixth disguise is the *producer itself*, so the producer is what changed.
 
   That single test is the whole producer, and it is a single test on purpose. There are four distinct ways for an id to be absent from `confirmed` while being anything but fixed — still there (`stillPresent`), not yet judged (`deferred`), judged unreal (`refuted` — *not* fixed; it was never a flaw), or abandoned by a carry bound (`dropped`) — and the arrays holding them carry three different element types, because each also feeds the report: ids, whole candidates, and prose lines a human reads. An agent handed those five arrays and told "the id is in none of them" will reach for `.includes(id)` and get *false* from every array that holds objects or sentences — which reads as "not accounted for", which marks a **live** finding fixed and reports the next sighting as a regression against a fix that never happened. That is not a hypothetical; it is this design's oldest bug wearing its fifth disguise. So the script unions them into `accountedFor` — one flat list of ids — and the fire tests that. **Never infer a fix from silence**, and never ask prose to do set arithmetic across types.
 

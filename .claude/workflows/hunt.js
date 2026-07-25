@@ -42,6 +42,11 @@ const FLAWS = ['unescaped-input-in-query', 'command-injection', 'path-traversal'
   'malicious-or-typosquat-dependency', 'widened-version-range', 'install-script-execution',
   'unhandled-failure-path', 'race-condition', 'resource-leak', 'broken-invariant', 'data-loss',
   'widened-permission', 'open-network-surface', 'debug-enabled-in-production',
+  // OWASP coverage beyond A01/A03/A05/A06: authentication, cryptography, design, audit trail.
+  'broken-authentication', 'weak-cryptography', 'insecure-design', 'insufficient-audit-logging',
+  'logic-error',
+  'n-plus-one-query', 'inefficient-algorithm', 'unbounded-resource-growth',
+  'contradicts-documentation', 'unobservable-failure', 'missing-instrumentation',
   'duplicated-logic', 'dead-code', 'god-function', 'leaky-abstraction', 'tangled-coupling',
   'compiler-warning', 'lint-warning', 'deprecated-api-usage', 'other']
 const SEVERITIES = ['critical', 'high', 'medium', 'low']
@@ -104,8 +109,12 @@ const refuted = []      // killed by 2+ refuters — never real; not fixed eithe
 const dropped = []      // abandoned after maxAttempts — cut, and said out loud, in prose for the report
 const droppedIds = []   // ...and as ids, because the fire needs a set it can test, not a sentence
 const ran = new Set()   // lenses whose hunter actually returned — never inferred from silence
-const ANGLES = ['reachability: can untrusted input actually reach this, in a real deployment?',
-                'blast radius: granted it is real, what does it cost? does a caller already constrain it?',
+const ANGLES = ['reachability: can an untrusted party actually reach this IN THE DEPLOYMENT THIS REPO DESCRIBES? ' +
+                'Read the IaC, network rules, private endpoints/VNet or subnet integration, ingress, firewall ' +
+                'rules and the route\'s auth level — and check the component ships at all. Unreachable is NOT a ' +
+                'vulnerability: private-endpoint-only, VNet-internal, operator-only local tooling, or never ' +
+                'deployed all mean refuted. Prove the route inward or kill it; do not assume exposure',
+                'blast radius: granted it is real and reachable, what does it cost? does a caller already constrain it?',
                 'repro: make it happen — a runnable case with its real output, or the exact lines that prove it']
 
 const refute = async f => {
@@ -117,6 +126,15 @@ const refute = async f => {
        Finding: ${JSON.stringify(f)}
        It was found in the delta ${f.range ?? args.range} — the range it was FOUND in, which for a
        carried candidate is not this hunt's. Read the code yourself; do not trust the summary.
+       DECOMPOSE TO ATOMS FIRST, then grill each one — this is where the verdict is actually decided.
+       Break the finding into the smallest independently-checkable claims (attacker controls this
+       value / no caller constrains it / this route crosses a trust boundary / the sink interprets
+       it / the flaw's effect is what is claimed) and settle each SEPARATELY with the "fact-check"
+       skill: a runnable experiment and its output, or an authoritative source. Resolve one atom
+       before starting the next. Judged whole, a finding survives on its best atom; judged atom by
+       atom, it stands or falls on its weakest — which is the one that matters. ANY atom that fails
+       kills the finding: set refuted:true and name that atom in \`why\`. An unprovable atom counts
+       as failed.
        You are trying to KILL it. Default to refuted:true when the evidence does not hold up;
        a plausible story is not evidence. If you can produce a real repro, do so and set
        refuted:false with the repro and your own severity call.
@@ -193,6 +211,17 @@ const hunted = await pipeline(
          Truth before all: run the "fact-check" skill before any load-bearing claim enters a finding —
          an advisory's affected range, an API's actual behavior, a version fact. Prove it with a runnable
          experiment + output or independent authoritative sources. Unprovable = false, so drop it.
+         DECOMPOSE TO ATOMS — the single highest-leverage thing you do. A finding is a CHAIN of claims
+         and is only as true as its weakest link, so never fact-check it as one lump. Break it into the
+         smallest independently-checkable claims and prove each one on its own, resolving each before
+         you start the next. If ANY atom fails or cannot be proven, the finding does not ship.
+         REACHABILITY IS AN ATOM, and the one hunters most often assume. An unreachable flaw is not a
+         vulnerability. Before reporting exposure, prove the route from an untrusted party inward
+         against how this system is ACTUALLY DEPLOYED — the repo's IaC and network rules, private
+         endpoints, VNet/subnet integration, ingress and firewall config, the route's auth level, and
+         whether the component ships at all. Private-endpoint-only, VNet-internal, operator-only local
+         tooling, or code that is never deployed: say so and drop it, or report it at the severity its
+         real reachability earns.
          A finding needs a FAILURE PATH: the inputs/conditions, and the bad outcome they cause.
          "Looks unsafe" is not a finding. You fix NOTHING — no edits, branches, or commits to the repo.
          Identity fields — these are an IDENTITY, not a description. The same defect must produce the

@@ -21,12 +21,14 @@ Use `–` in an agent's cell when that agent did not flag the row.
 | 🧹 | code-quality | Correctness bugs, error handling, naming, dead code, duplication, readability, idiom. |
 | 📚 | documentation & conventions | **Conformance to the project's house rules** (Step 4): ADRs, coding guidelines, patterns/practices, and the documented architectural style (DDD vs n-tier vs hexagonal vs vertical-slice — layering and dependency direction). Plus doc/comment accuracy, public-API docs, README/changelog drift; **fact-checks claims against authoritative sources** (web). |
 | ⚡ | performance | Hot paths, allocations, N+1 / unbounded queries, sync-over-async, complexity regressions. |
+| 🔭 | observability | Can this be operated once it breaks? A new failure path that logs nothing, a job or worker with no success/failure signal, an exception swallowed into silence, instrumentation deleted with the code it measured, a health check that cannot fail, an alert routed nowhere. |
 | 🧪 | tests | Coverage of the change, missing edge/negative cases, flakiness, assertion strength. |
 
 **Auto-pick heuristic** (when the user picks quorum but names no concerns) — **always include 🧹 code-quality and 📚 documentation & conventions** (the latter is near-mandatory: every diff must be judged against the repo's documented patterns/ADRs/architecture, so this concern fires almost always); add the rest when the diff shows their trigger:
 - 🔒 if it touches auth, SQL/query building, crypto, file/network I/O, deserialization, secrets, or dependencies.
 - 🏛 if it changes public signatures, module boundaries, or has a wide Step-3 ripple set.
 - ⚡ if it touches loops over data, queries, caching, concurrency, or known hot paths.
+- 🔭 if it adds or changes a production code path — a failure mode, a background/scheduled job, an integration point, error handling — or removes instrumentation.
 - 🧪 if it adds/changes behaviour but no tests, or weakens existing tests.
 
 📚 may only be dropped when the orchestrator has confirmed the repo carries **no** README/ADRs/guidelines at all — note that absence in the output. Keep it lean otherwise — one worker per included concern, no more (per [orchestrate](../orchestrate/SKILL.md) effort budgets).
