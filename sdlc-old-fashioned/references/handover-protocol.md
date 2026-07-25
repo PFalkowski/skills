@@ -6,13 +6,13 @@ How the conductor runs each lifecycle phase as its own fresh `claude` process, k
 
 ## File layout
 
-Everything lives in the repo so it survives a cleared session and is reviewable in the PR:
+Durable deliverables live in the repo and travel with the PR; the per-phase run logs under `docs/sdlc/runs/` are **gitignored** — on disk for inspection and cross-session resume, never in the PR:
 
 ```
-prompts/sdlc-backlog.md          # THE live backlog — single source of truth for "what's current"
+prompts/sdlc-backlog.md          # THE live backlog — deleted when the PR is published (Phase 12)
 docs/sdlc/
-  plan.md                        # Phase 4 design artifact (grilled in Phase 5)
-  runs/
+  plan.md                        # Phase 4 design artifact (grilled in Phase 5) — committed
+  runs/                          # GITIGNORED — local only, never committed / in the PR
     01-guardrails.brief.md       # exactly what the phase agent received
     01-guardrails.log            # tee'd, human-readable transcript of the run
     02-specify.brief.md
@@ -23,10 +23,10 @@ docs/sdlc/
     08-impl-S2.log
     ...
   reflections/
-    2026-07-06-retro.md          # Phase 13 output
+    2026-07-06-retro.md          # Phase 13 output — a few lines, committed
 ```
 
-The canonical, replayable transcript is *also* written by the harness itself (see "Transcript capture" below) — the `.log` is the convenience copy.
+Add `docs/sdlc/runs/` to the repo's `.gitignore` in Phase 1. The canonical, replayable transcript is *also* written by the harness itself (see "Transcript capture" below) — the `.log` is the convenience copy.
 
 ## Orient & isolate (Step 0.7)
 
@@ -44,7 +44,7 @@ git worktree list
 git worktree add ../<repo>-<feature> -b <feature-branch>    # or the harness EnterWorktree
 ```
 
-Run the conductor from inside the worktree so every spawned phase process inherits that cwd (or pass `--add-dir <worktree>` explicitly). `docs/sdlc/` and `prompts/sdlc-backlog.md` then live *in the worktree*, get committed on the branch, and travel with the PR.
+Run the conductor from inside the worktree so every spawned phase process inherits that cwd (or pass `--add-dir <worktree>` explicitly). The durable `docs/sdlc/` deliverables (spec, plan, ADRs, retro) and `prompts/sdlc-backlog.md` live in the worktree and get committed on the branch; `docs/sdlc/runs/` is **gitignored** (stays on disk), and the backlog is **deleted when the PR is published** (Phase 12).
 
 **Clean up** once the PR is open and pushed — propose, don't auto-remove:
 
@@ -52,7 +52,7 @@ Run the conductor from inside the worktree so every spawned phase process inheri
 git worktree remove ../<repo>-<feature>                     # after confirming; or ExitWorktree
 ```
 
-Safe because the audit trail is already committed and pushed; the worktree itself is disposable.
+Safe because the durable audit trail (spec, plan, ADRs, retro) is already committed and pushed; the gitignored run logs are disposable along with the tree.
 
 ## The per-phase loop
 
@@ -138,7 +138,7 @@ It checks the gate against those, then advances or loops the phase. **It never r
 
 ## The backlog — schema
 
-`prompts/sdlc-backlog.md`, updated by every phase before it exits:
+`prompts/sdlc-backlog.md`, updated by every phase before it exits — and **deleted in the publishing commit (Phase 12)**, since it's run scaffolding, not a deliverable:
 
 ```markdown
 # SDLC backlog — <feature / epic name>
