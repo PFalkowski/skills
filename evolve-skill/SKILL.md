@@ -19,7 +19,7 @@ Feedback about a skill / MCP / hook / process that just ran — a change request
 2. **Distill** the feedback into the smallest generalized change. Strip private specifics (absolute paths, single-repo issue numbers, sensitive names). Keep the *why*.
 3. **Edit vs. new:** tweak → edit it; a distinct reusable process → new skill (`write-a-skill`); sometimes both.
 4. **Ask permission, showing the change** — file(s), diff summary, and whether it's a local edit / commit / push. Never modify silently.
-5. **Apply** — edit, commit with a clear message; **push only with separate explicit confirmation** (public = outward-facing).
+5. **Apply** — edit, commit with a clear message; **push only with separate explicit confirmation** (public = outward-facing). **Check what branch the skills repo is on before you commit.** It is a working repo like any other and is often mid-task on someone else's feature branch; committing onto whatever is checked out bundles your edit with unrelated pending work and strands it behind that branch's fate. Branch off the default branch, put the edit there, and open a PR.
 
 ## Rules
 - Always ask before modifying; show the change first.
