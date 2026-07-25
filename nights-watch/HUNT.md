@@ -12,7 +12,7 @@ The patrol works tickets a human vouched for. The Hunt has no tickets: it wakes 
 /nights-watch hunt severity=all              # report medium/low too (default: critical+high only)
 /nights-watch hunt since=7d                  # override the watermark (first hunt defaults to 7d)
 /nights-watch hunt scope=commits,deps,logs logs="docker logs api --since 1h"
-/nights-watch hunt for=smells,warnings       # prey: security, bugs, smells, warnings (default: security,bugs)
+/nights-watch hunt for=smells,warnings       # ADD prey; security+bugs are mandatory, docs/performance/smells/warnings at the watcher's discretion
 /nights-watch hunt target=last-commit        # ground: diff (default) | last-commit | <git range> | repo
 /nights-watch hunt target=repo               # whole-repo baseline audit; big repos get a chunked backlog
 /nights-watch hunt once                      # one hunt, no standing loop
