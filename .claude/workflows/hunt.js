@@ -46,7 +46,7 @@ const FLAWS = ['unescaped-input-in-query', 'command-injection', 'path-traversal'
   'broken-authentication', 'weak-cryptography', 'insecure-design', 'insufficient-audit-logging',
   'logic-error',
   'n-plus-one-query', 'inefficient-algorithm', 'unbounded-resource-growth',
-  'contradicts-documentation',
+  'contradicts-documentation', 'unobservable-failure', 'missing-instrumentation',
   'duplicated-logic', 'dead-code', 'god-function', 'leaky-abstraction', 'tangled-coupling',
   'compiler-warning', 'lint-warning', 'deprecated-api-usage', 'other']
 const SEVERITIES = ['critical', 'high', 'medium', 'low']

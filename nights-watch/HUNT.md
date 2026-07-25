@@ -12,7 +12,7 @@ The patrol works tickets a human vouched for. The Hunt has no tickets: it wakes 
 /nights-watch hunt severity=all              # report medium/low too (default: critical+high only)
 /nights-watch hunt since=7d                  # override the watermark (first hunt defaults to 7d)
 /nights-watch hunt scope=commits,deps,logs logs="docker logs api --since 1h"
-/nights-watch hunt for=smells,warnings       # ADD prey; security+bugs are mandatory, docs/performance/smells/warnings at the watcher's discretion
+/nights-watch hunt for=smells,warnings       # ADD prey; security+bugs are mandatory, docs/observability/performance/smells/warnings at the watcher's discretion
 /nights-watch hunt target=last-commit        # ground: diff (default) | last-commit | <git range> | repo
 /nights-watch hunt target=repo               # whole-repo baseline audit; big repos get a chunked backlog
 /nights-watch hunt once                      # one hunt, no standing loop
@@ -131,6 +131,7 @@ Two knobs shape a hunt before any lens is assigned: what kind of prey it hunts (
 | `security` | **yes** | `injection`, `authz`, `authn`, `crypto`, `secrets`, `supply-chain`, `exposure`, `insecure-design`, `audit-logging` |
 | `bugs` | **yes** | `correctness`, `logic` |
 | `docs` | watcher's discretion | `docs` — does the change contradict what an authoritative source says? |
+| `observability` | watcher's discretion | `observability` — can this be operated once it breaks? |
 | `performance` | watcher's discretion | `performance` — work that grows faster than the data |
 | `smells` | watcher's discretion | `smells` — bad patterns that make the *next* change dangerous |
 | `warnings` | watcher's discretion | `warnings` — what the toolchain already flags and nobody reads |
@@ -187,6 +188,7 @@ The party fans out over the same range, each hunter with a **different lens**. D
 | `correctness` | data loss and integrity: unhandled failure paths, races/TOCTOU, resource leaks, an invariant the diff broke |
 | `logic` | the code does what it says and says the wrong thing: an inverted condition, an off-by-one, a wrong operator or branch, a business rule implemented against its spec |
 | `docs` | (family `docs`) the change contradicts an authoritative source — a framework/API's own documentation, or the project's README, ADRs and design records. Every claim of contradiction is deep-linked or cited by path |
+| `observability` | (family `observability`) production code shipped with no way to tell it broke: a new failure path that logs nothing, a scheduled job or background worker with no success/failure signal, an exception swallowed into silence, instrumentation deleted with the code it measured, a health check that cannot fail, an alert routed nowhere. Distinct from `audit-logging`, which asks whether a *security-relevant* action left a trail; this asks whether the thing can be **operated** at all |
 | `performance` | (family `performance`) work that grows faster than the data: N+1 queries, an accidental quadratic, unbounded caches or collections, a whole table read to answer one row |
 | `smells` | (family `smells`) bad patterns with a nameable cost: duplicated logic, dead code, a god function, a leaky abstraction, tangled coupling |
 | `warnings` | (family `warnings`) compiler/linter/deprecation warnings the delta introduces — or leaves standing in the files it touched |
