@@ -124,14 +124,35 @@ Empty delta → log one line, update nothing, sleep. That is the common case at 
 
 Two knobs shape a hunt before any lens is assigned: what kind of prey it hunts (`for=`) and what ground it covers (`target=`).
 
-**`for=`** picks the lens families. Default `security,bugs` — the original party; the other two are opt-in because they widen the report toward things that don't wake anyone:
+**`for=`** picks the lens families. **`security` and `bugs` are mandatory** — they run on every hunt, and `for=` can only add to them, never remove them. Those two are what an unattended hourly job exists to catch, and a mode that can be configured to stop looking for them is a mode that eventually will be. The rest the watcher picks per hunt, at its own discretion, from what the delta actually touches:
 
-| Family | Lenses |
+| Family | Mandatory | Lenses |
+|---|---|---|
+| `security` | **yes** | `injection`, `authz`, `authn`, `crypto`, `secrets`, `supply-chain`, `exposure`, `insecure-design`, `audit-logging` |
+| `bugs` | **yes** | `correctness`, `logic` |
+| `docs` | watcher's discretion | `docs` — does the change contradict what an authoritative source says? |
+| `performance` | watcher's discretion | `performance` — work that grows faster than the data |
+| `smells` | watcher's discretion | `smells` — bad patterns that make the *next* change dangerous |
+| `warnings` | watcher's discretion | `warnings` — what the toolchain already flags and nobody reads |
+
+Discretion means chosen from the delta, not from a fixed default: a query-layer change earns `performance`, a framework upgrade or a config change earns `docs`. Of the four, `docs` is the one that most often applies — the same thing `code-review-grill` found for its documentation concern, since nearly every change is subject to some documented rule.
+
+**The security family owes OWASP Top 10 coverage.** Its lenses exist to cover it, and the report says which categories the delta triggered, so "clean" never quietly means "never looked":
+
+| OWASP Top 10 | Lens |
 |---|---|
-| `security` | `injection`, `authz`, `secrets`, `supply-chain`, `exposure` |
-| `bugs` | `correctness` |
-| `smells` | `smells` — bad patterns that make the *next* change dangerous |
-| `warnings` | `warnings` — what the toolchain already flags and nobody reads |
+| A01 Broken access control | `authz` |
+| A02 Cryptographic failures | `crypto` |
+| A03 Injection | `injection` |
+| A04 Insecure design | `insecure-design` |
+| A05 Security misconfiguration | `exposure` |
+| A06 Vulnerable & outdated components | `supply-chain` |
+| A07 Identification & authentication failures | `authn` |
+| A08 Software & data integrity failures | `supply-chain`, `insecure-design` |
+| A09 Security logging & monitoring failures | `audit-logging` |
+| A10 Server-side request forgery | `injection` |
+
+Every category is either covered by a lens this hunt triggered, or **named in the report as not triggered by this delta**. A category with neither is the silent gap the table exists to close. The Top 10 is a floor, not a ceiling: a lens reports what it finds, listed or not.
 
 The delta still decides which of a family's lenses actually run (§ The hunting party) — `for=` widens what *may* run, never forces a lens the delta can't trigger. Everything downstream is family-blind: refuters, fingerprints, the ledger, the fire. One exception: a family the user **explicitly** named bypasses the severity floor — smells and warnings rarely grade `high`, and asking for them and then filtering every one out produces a "clean" report that lies by omission. Rule 2 still binds in full: a smell without a concrete cost ("this duplication means a fix lands in one copy") is a hypothesis, and it dies at the refuters like any other.
 
@@ -156,12 +177,19 @@ The party fans out over the same range, each hunter with a **different lens**. D
 |---|---|
 | `injection` | untrusted input reaching a sink: SQL/command/path/template, deserialization, SSRF |
 | `authz` | missing or wrong access checks, IDOR, tenant/scope leaks, a route that lost its guard |
+| `authn` | who-you-are, not what-you-may-do: unverified tokens, weak/absent session or credential handling, an auth check that can be skipped |
+| `crypto` | broken or missing protection of data: weak/obsolete algorithms, hardcoded IVs or keys, unsalted hashes, plaintext where transit or rest encryption was intended |
 | `secrets` | credentials, tokens, keys entering the repo, the logs, or an error message |
-| `supply-chain` | new/bumped dependency with a known advisory, a typosquat, a postinstall script, a widened version range |
-| `correctness` | data loss and integrity: unhandled failure paths, races/TOCTOU, resource leaks, an invariant the diff broke |
+| `supply-chain` | new/bumped dependency with a known advisory, a typosquat, a postinstall script, a widened version range, an unverified artifact |
 | `exposure` | config drift that widens the blast radius: a bucket/endpoint/port opened, CORS or a CI permission widened, debug left on |
-| `smells` | (family `smells`, opt-in) bad patterns with a nameable cost: duplicated logic, dead code, a god function, a leaky abstraction, tangled coupling |
-| `warnings` | (family `warnings`, opt-in) compiler/linter/deprecation warnings the delta introduces — or leaves standing in the files it touched |
+| `insecure-design` | the flaw is the design, not the line: a missing limit or quota, a trust boundary that was never drawn, a workflow that can be replayed or skipped |
+| `audit-logging` | the failure nobody will see: a security-relevant action with no log, a log that can be forged or dropped, an alert path that goes nowhere |
+| `correctness` | data loss and integrity: unhandled failure paths, races/TOCTOU, resource leaks, an invariant the diff broke |
+| `logic` | the code does what it says and says the wrong thing: an inverted condition, an off-by-one, a wrong operator or branch, a business rule implemented against its spec |
+| `docs` | (family `docs`) the change contradicts an authoritative source — a framework/API's own documentation, or the project's README, ADRs and design records. Every claim of contradiction is deep-linked or cited by path |
+| `performance` | (family `performance`) work that grows faster than the data: N+1 queries, an accidental quadratic, unbounded caches or collections, a whole table read to answer one row |
+| `smells` | (family `smells`) bad patterns with a nameable cost: duplicated logic, dead code, a god function, a leaky abstraction, tangled coupling |
+| `warnings` | (family `warnings`) compiler/linter/deprecation warnings the delta introduces — or leaves standing in the files it touched |
 
 Tiers follow the rubric ([TRIAGE.md](TRIAGE.md)), effort follows tier: hunters at **`sonnet`** / default effort; a single lens at `opus` / `high` only when the delta is genuinely cross-cutting (a concurrency change, an auth refactor) — never the whole party.
 
@@ -169,10 +197,14 @@ Tiers follow the rubric ([TRIAGE.md](TRIAGE.md)), effort follows tier: hunters a
 
 Every candidate goes to **three independent refuters, each prompted to kill it**, before any human reads it. This is `code-review-grill`'s discipline applied to a hunt: the finder is the last to notice its own finding is theatre. **Two or more refutes → dropped**, silently, with a chronicle line. Severity is set by the survivors' consensus, not by the finder's enthusiasm.
 
+**Decompose to atoms first — this is the whole leverage.** A finding is never one claim; it is a chain of them, and it is only as true as its weakest link. `code-review-grill` gets its power from grilling hunk-by-hunk and resolving each thread before moving on, and the Hunt applies that to verification: hunter and refuter alike break the finding into **independently checkable atoms** and prove each one separately with **fact-check** — a runnable experiment and its output, or an authoritative source. "Untrusted input reaches this sink" is not an atom; it is at least four — *this parameter is attacker-controlled*, *no caller constrains it*, *this route is reachable from outside the trust boundary*, *the sink interprets the value*. Graded whole, a finding passes on its most convincing atom. Graded atom by atom, it fails on its weakest, which is the one that decides whether it is real. **Any atom that fails kills the finding**, and the report names the atom that killed it, never a verdict without one.
+
+**An unreachable flaw is not a vulnerability, and reachability is an atom like any other — it must be proven, not assumed.** A hunter reading only source sees a dangerous call and infers exposure; the deployment is where that inference usually dies. So the reachability atom is checked against how the system is *actually deployed* — the IaC and network rules in the repo, private endpoints and VNet/subnet integration, ingress and firewall configuration, the auth level on the route, whether the artifact ships at all. A surface an untrusted party has no route to (private-endpoint-only, VNet-internal, an operator-only local tool, a component not deployed anywhere) is refuted or downgraded, and the report says which. This costs some real findings a severity grade. It buys the only thing that makes an hourly security report worth opening: that the things in it are true.
+
 Give the refuters distinct angles, or they agree for the same reason:
 
-- **reachability** — can untrusted input actually get there? Is the path dead, guarded upstream, or unreachable in any real deployment?
-- **exploitability / blast radius** — granted the flaw is real, what does it actually cost? Does a caller already constrain the input?
+- **reachability** — can untrusted input actually get there, *in the deployment this repo describes*? Prove the route from an untrusted party inward, or refute. Dead path, guarded upstream, network-isolated, never deployed → refuted.
+- **exploitability / blast radius** — granted the flaw is real and reachable, what does it actually cost? Does a caller already constrain the input?
 - **repro** — make it happen. A runnable case with real output, or the exact source lines that prove the claim. This is the one refuter that can *promote* a finding: a working repro is the strongest evidence a report can carry.
 
 Refuters run at **`sonnet`** by default (`tiers.refute` overrides). They are many and cheap-looking, and the workhorse's refuters sit at `haiku` — but that comparison misleads: those re-run a test and read its output, while these must trace reachability through a codebase and stand up a repro. Sonnet is the floor because a refuter that can't follow the call graph refutes nothing and rubber-stamps everything, which is worse than no gate at all — it launders a guess into a "confirmed" finding.
