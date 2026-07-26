@@ -21,9 +21,10 @@ Old-fashioned doesn't mean one fixed shape. State both choices up front, then ru
 - **Attended** *(default)* — you stop at every gate for the human; an unresolved question blocks until answered. Use for the highest-stakes, hardest-to-reverse work.
 - **Autonomous** — runs the lifecycle unattended, **deferring questions to the backlog file** (nightshift-style) instead of stopping, and pausing only at genuinely irreversible gates (merge to a protected branch, schema/data migration, publish, spend). Drive it with `nightshift` over the Step-6 backlog. Pick this when the user says "run it overnight", "unattended", "autonomous", or hands off and walks away.
 
-**Dial 2 — Execution model: how each phase runs.** All three keep phases honest by isolating context; they differ in how hard the isolation is and how inspectable each step is.
+**Dial 2 — Execution model: how each phase runs.** All four keep phases honest by isolating context; they differ in how hard the isolation is and how inspectable each step is. Whichever you pick, state the **model tier and reasoning effort** per phase up front rather than leaving it to chance — cheap tiers for mechanical phases, the strongest tier for anything adversarial or hard to reverse.
 - **Fresh process per phase** *(recommended default)* — each phase runs as its **own `claude` OS process** the conductor spawns, handed a written brief + the live `backlog.md`, with its **full transcript captured to disk**. The conductor reads back only the phase's short result and the backlog diff — never the whole transcript — so its context stays minimal and every step is independently auditable in its own console log. This is the model the rest of this skill assumes; mechanics in **`references/handover-protocol.md`**.
 - **In-session subagents** — each phase a fresh subagent via the `Agent` tool. Lighter to launch, but transcripts aren't separate inspectable consoles and the orchestrator inherits more of each phase. Use when you don't need per-step process isolation or a standalone audit log.
+- **Dynamic workflow** — the phase sequence is dispatched as a `Workflow` script, one subagent per phase, with model tier and effort set per phase **in code**. The gates become control flow rather than conductor judgement, and independent slices can be pipelined. Use when the lifecycle shape is known up front and you want it enforced deterministically; the conductor still consumes only each phase's `RESULT`.
 - **Single agent** — one context carries every phase. Simplest, but context bloats and phase independence is lost. Reserve it for the smaller end of old-fashioned work.
 
 ## Step 0.7 — Orient, then isolate on a worktree
@@ -77,6 +78,8 @@ The conductor holds the gates and the backlog; it does **not** carry the work. E
 4. **Consume thin** — the conductor reads back **only** that `RESULT` and the backlog diff, checks the gate, and either advances or loops the phase. It never ingests the child's full transcript — that lives on disk for the human and the audit trail.
 
 **Golden rule:** what crosses back into the conductor is a summary and a backlog diff, never a transcript. That is what keeps the working context minimal while every step stays fully inspectable in its own console log.
+
+**Context discipline.** Compress early and often, and hand over to a fresh context whenever one would do the next step better than the current one — a long context is a liability, not an asset, and a phase inherited through a bloated conductor is exactly the failure this protocol exists to prevent. **The exception:** a conductor that is only writing briefs and consuming `RESULT`s accumulates almost nothing, so while it is orchestrating subagents, don't hand over merely because the session is long — measure the bloat, don't assume it.
 
 **Irreversible gates are not delegated to an unattended child.** Phase 12 merge to a protected branch, publish, migration, or spend: the spawned agent stops *at* the gate and hands the action back for the human go (attended) or logs it for the conductor to run under the usual stop-and-confirm. Never let a `--dangerously-skip-permissions` child cross an irreversible line.
 
