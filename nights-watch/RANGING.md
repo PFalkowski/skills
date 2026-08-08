@@ -14,9 +14,9 @@ The Ranging is the Watch's answer to "do this one thing, and do it right." Every
 
 | | Patrol | Ranging |
 |---|---|---|
-| Ticket source | tracker query for the `ai-ready` label | the user, directly — an id, a URL, or prose |
-| Oath rule 3 (only sworn tickets) | the label is the human's vouch | **the user handing it over IS the vouch** — no label required |
-| Gate failure | comment + `ai-blocked`, move on | **ask the user** — they're right there; there is no next ticket to move on to |
+| Ticket source | judged intake over the board, or a selector | the user, directly — an id, a URL, or prose |
+| Oath rule 3 (ready *and* intended) | the judge or the selector answers both | **the user handing it over answers both** |
+| Gate failure | record in the patrol summary, change nothing on the board, move on | **ask the user** — they're right there; there is no next ticket to move on to |
 | Process | assigned by tier rubric | **always the full lifecycle** (see below) — no exceptions for small-looking work |
 | Model tier | haiku / sonnet / opus by rubric | rubric still picks, but with a **floor of `sonnet`** — haiku doesn't run a lifecycle |
 | Concurrency | worker pool, `parallel` / `max-workers` | one lifecycle. No pool — the watcher dispatches `sdlc-workhorse` itself, so no patrol Workflow wraps it |
