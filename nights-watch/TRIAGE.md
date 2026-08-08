@@ -4,7 +4,9 @@ The watcher triages from the **ticket text only** (title, body, comments, linked
 
 ## Readiness gate (all must pass)
 
-A ticket labeled `ai-ready` still fails the gate when any of these is missing. Failing → comment the *specific* missing pieces (so a human can fix the ticket, not guess), label `ai-blocked`, move on.
+A ticket admitted by the selector — labelled, listed, or matched — still fails the gate when any of these is missing. Failing → comment the *specific* missing pieces (so a human can fix the ticket, not guess), label `ai-blocked`, move on.
+
+**Except under a broad selector.** `ai-blocked` is a message to a human who asked for this ticket specifically. Under a list or a narrow label that reading holds. Under a regex or glob that swept in dozens of tickets nobody nominated one-by-one, it does not: labelling forty non-starters `ai-blocked` and commenting on each vandalises the tracker on the Watch's own initiative. So when the selector is broad, a gate failure **drops the ticket silently** and lands in the patrol summary instead — the user reads one list of what was skipped and why, and the board stays theirs.
 
 1. **Observable outcome.** The ticket states what "done" looks like in a checkable way (a behavior, a test, an error that stops happening). "Improve X" without a criterion fails.
 2. **Self-contained.** Everything needed is in the ticket or the repo it points at. No "as discussed in the meeting", no dependency on an unmerged decision, no missing credentials/fixtures.
@@ -12,6 +14,18 @@ A ticket labeled `ai-ready` still fails the gate when any of these is missing. F
 4. **Scope fits one PR.** A ranger works one branch to one PR. An epic-sized ticket fails with a suggestion to split.
 5. **Repo is reachable.** The ticket names (or the tracker implies) a repo the Watch can clone/push to. Verify access before claiming, not after.
 6. **Load-bearing claims are proven, not assumed.** If the ticket (or the triage verdict itself) rests on a claim — an API behaves like X, version Y supports Z, a number copied from docs, "this bug is caused by W" — run the **fact-check** skill on it (mandatory, not optional): decompose it into smaller verifiable sub-claims and prove each with a runnable experiment + output or independent authoritative sources. A claim that can't be proven counts as false. Refuted or unprovable → `ai-blocked` with the evidence; proven → carry the proof (source links / experiment) into the ranger's brief so it lands in the PR. Finding out mid-check that the premise is wrong is the process working, not a failure.
+
+## Judged selection (optional — `judge=haiku`)
+
+Where the user configures a judged filter, each candidate is read by its **own fresh `haiku` agent** — one ticket per agent, in parallel — which returns a boolean plus a one-line reason. It is the readiness gate above, run early and cheap, as a filter rather than a verdict: no new rubric, so there is nothing to keep in sync.
+
+Three constraints, and they are what make it safe:
+
+1. **It only removes.** The judge is handed the candidate set the selector already produced and may reject from it. It is never given the tracker, a search tool, or leave to nominate — narrowing an admitted set is a filter, widening one is the Watch vouching for itself (Oath rule 3).
+2. **Rejection is silent and summarised**, never an `ai-blocked` label — same reasoning as the broad-selector rule above.
+3. **It does not replace the gate.** Survivors still face the full gate before dispatch, at watcher tier. A `haiku` skim is a cheap way to avoid paying for triage on obvious non-starters; it is not evidence a ticket is ready, and the fact-check obligation in gate item 6 is not delegable to it.
+
+Bias the judge toward rejection and tell it so: a false accept costs a dispatched ranger, a wasted branch and a human reading a pointless PR, while a false reject costs one line in the summary that the user can override next patrol.
 
 ## Tier rubric — lowest sufficient model
 
