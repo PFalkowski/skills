@@ -30,6 +30,7 @@
     "./sdlc-workhorse",
     "./signal-verdict",
     "./snapshot-terminal-sessions",
+    "./statusline",
     "./walk-the-dog",
     "./whatever"
   ]
