@@ -8,9 +8,18 @@ description: 'Autonomously implement backlog work overnight using TDD (Red → G
 ## Quick start
 
 ```
-/nightshift                          # uses backlog.md at repo root
-/nightshift backlog=docs/work.md     # custom path
+/nightshift                            # uses backlog.md at repo root
+/nightshift backlog=docs/work.md       # custom path
+/nightshift backlog="docs/backlog/*.md" # glob — every match, concatenated in path order
+/nightshift items=123,456,789          # tracker issues as the backlog
+/nightshift items=label:ready-for-agent # a tracker query as the backlog
 ```
+
+### Where the work comes in
+
+A single `backlog.md` is the default source, not the only one. A **glob** admits several files; **`items=`** takes a list of ticket ids or a tracker query and pulls each issue in. Whatever the source, items are normalised into the schema below *before* pre-flight, and pre-flight then runs against that normalised list exactly as it would against a hand-written file — a ticket that arrives without acceptance criteria specific enough to write a failing test for is not ready merely because a tracker query matched it.
+
+Two consequences worth stating. Ordering is the source's: path order for a glob, the order given for a list, tracker order for a query — so if items build on each other, order them deliberately rather than trusting a query. And a tracker-sourced backlog is a *snapshot* taken at pre-flight; edits made on the tracker mid-run don't reach the loop, so the run's own file stays the record of what was actually worked.
 
 ### Multiple runs on the same date
 
