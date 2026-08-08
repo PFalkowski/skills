@@ -1,6 +1,6 @@
 ---
 name: postmortem
-description: 'Write a structured production-incident postmortem: captures symptom, root-cause chain, fix, and forward-looking rules; appends the entry to LESSONS-LEARNED.md (newest at top); checks for regression tests and testing gaps; verifies fix is committed and pushed; updates project memory if the incident changes architecture or process. Invoke after any non-trivial production failure or incident, or when the user says "/postmortem".'
+description: 'Write a structured production-incident postmortem: captures symptom, root-cause chain, fix, and forward-looking rules; appends the entry to LESSONS-LEARNED.md (newest at top) and updates the index table that keeps the log routable instead of loaded whole; compacts a root-cause class into a single class entry once it reaches three instances; checks for regression tests and testing gaps; verifies fix is committed and pushed; updates project memory if the incident changes architecture or process. Invoke after any non-trivial production failure or incident, or when the user says "/postmortem".'
 ---
 
 # postmortem
@@ -39,7 +39,19 @@ Each rule answers: "what does a future contributor need to know to not re-lay th
 - **Generalised** — strip the incident-specific details; keep what's reusable.
 - **Shortest that's unambiguous.** 2–4 rules is usually right; more than 6 is a smell.
 
-### 4 — Append to LESSONS-LEARNED.md
+### 4 — Append to LESSONS-LEARNED.md, and update its index
+
+**The log is read by agents with finite context, so it must be routable rather than
+loaded whole.** Keep an index table at the very top — one row per entry
+(`Date · Title · Class`, newest first) — and add your row in the same edit as the entry.
+Readers consult the index and open **only** the entries it points them to. A log without
+an index is loaded in full by every consumer, and grows until that is too expensive to do;
+at that point it stops being read at all, which is the failure mode this whole skill exists
+to prevent.
+
+`Class` is the root-cause family, not the component — *silent failure*, *store divergence*,
+*unbounded read*, *config-not-shipped*, *timezone boundary*. Reuse an existing class name
+when one fits; the classes are what make step 4b possible.
 
 Format (newest at top, separator `---` between entries):
 
@@ -66,6 +78,23 @@ Format (newest at top, separator `---` between entries):
 Check that the date header matches the incident date (not today's date if they differ).
 Spell out the root cause chain even for simple incidents — the mechanical chain is what
 makes a LESSONS-LEARNED entry worth re-reading a year later.
+
+### 4b — Compact on the third instance
+
+**When a class reaches three entries, collapse them into one class entry.** State the shared
+invariant once, then list the instances as dated one-liners keeping only what *distinguishes*
+each — the specific API, config key, or boundary that made it a new trap rather than a repeat.
+Everything else is duplication.
+
+Do this as part of writing the third entry, not as separate housekeeping — nobody schedules
+housekeeping on a document that already works. The signal is usually already in the log: a
+title reading "OOM **#3**" or a rule saying "this has now bitten us three times" means the
+class was recognised and the entries were appended anyway.
+
+The point is not saving bytes. **Three separate entries describe three bugs; one class entry
+describes a trap the design keeps laying** — and only the second framing tells a reader what to
+watch for in code that hasn't failed yet. Compaction is where a log of incidents becomes a set
+of invariants.
 
 ### 5 — Check for regression tests
 
@@ -126,3 +155,8 @@ End with a short summary block:
   before writing the root cause chain (see `diagnostic-certainty` memory for this project).
 - Don't omit the root cause chain for "obvious" incidents — the chain is the part that
   generalises.
+- Don't append a third instance of a class you've just recognised as a repeat — that is
+  precisely when to compact (step 4b). Noting "this has bitten us N times" inside a new
+  entry records the pattern without acting on it.
+- Don't treat the log as append-only. An index that isn't updated, or a class that is never
+  compacted, ends with a file too big to load — and an unread log prevents nothing.
