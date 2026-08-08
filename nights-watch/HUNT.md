@@ -22,7 +22,7 @@ The patrol works tickets a human vouched for. The Hunt has no tickets: it wakes 
 
 | | Patrol | Hunt |
 |---|---|---|
-| Work source | tracker query for the `ai-ready` label | **the event streams** since the watermark (§ Events) |
+| Work source | the tracker — judged intake, or a selector | **the event streams** since the watermark (§ Events) |
 | Oath rule 3 (only sworn tickets) | the label is the human's vouch | **no tickets to swear** — the Hunt reads, it never writes code, so nothing needs vouching |
 | Output | a PR per ticket | **findings**, through the configured channel; never a fix |
 | Oath rule 2 (the watcher takes no part) | watcher reads the tracker, never the codebase | unchanged, and it binds harder: the watcher musters **file names, never diffs** (§ Events) |
