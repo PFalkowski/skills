@@ -4,28 +4,31 @@ The watcher triages from the **ticket text only** (title, body, comments, linked
 
 ## Readiness gate (all must pass)
 
-A ticket admitted by the selector — labelled, listed, or matched — still fails the gate when any of these is missing. Failing → comment the *specific* missing pieces (so a human can fix the ticket, not guess), label `ai-blocked`, move on.
-
-**Except under a broad selector.** `ai-blocked` is a message to a human who asked for this ticket specifically. Under a list or a narrow label that reading holds. Under a regex or glob that swept in dozens of tickets nobody nominated one-by-one, it does not: labelling forty non-starters `ai-blocked` and commenting on each vandalises the tracker on the Watch's own initiative. So when the selector is broad, a gate failure **drops the ticket silently** and lands in the patrol summary instead — the user reads one list of what was skipped and why, and the board stays theirs.
+A ticket that survived intake — judged, labelled, listed or matched — still fails the gate when any of these is missing. **Failing changes nothing on the tracker**: no label, no comment, no state. Record the *specific* missing pieces in the patrol summary and move on (Oath rule 7). The Watch reports refusals rather than enacting them, so a wrong call costs a line of text instead of a label somebody else has to undo.
 
 1. **Observable outcome.** The ticket states what "done" looks like in a checkable way (a behavior, a test, an error that stops happening). "Improve X" without a criterion fails.
 2. **Self-contained.** Everything needed is in the ticket or the repo it points at. No "as discussed in the meeting", no dependency on an unmerged decision, no missing credentials/fixtures.
 3. **No human fork in the road.** The work doesn't hinge on a choice only a human can make (public API shape, schema migration, product tradeoff, anything irreversible or outward-facing). Reversible implementation choices are fine — workers decide and note them in the PR.
 4. **Scope fits one PR.** A ranger works one branch to one PR. An epic-sized ticket fails with a suggestion to split.
 5. **Repo is reachable.** The ticket names (or the tracker implies) a repo the Watch can clone/push to. Verify access before claiming, not after.
-6. **Load-bearing claims are proven, not assumed.** If the ticket (or the triage verdict itself) rests on a claim — an API behaves like X, version Y supports Z, a number copied from docs, "this bug is caused by W" — run the **fact-check** skill on it (mandatory, not optional): decompose it into smaller verifiable sub-claims and prove each with a runnable experiment + output or independent authoritative sources. A claim that can't be proven counts as false. Refuted or unprovable → `ai-blocked` with the evidence; proven → carry the proof (source links / experiment) into the ranger's brief so it lands in the PR. Finding out mid-check that the premise is wrong is the process working, not a failure.
+6. **Load-bearing claims are proven, not assumed.** If the ticket (or the triage verdict itself) rests on a claim — an API behaves like X, version Y supports Z, a number copied from docs, "this bug is caused by W" — run the **fact-check** skill on it (mandatory, not optional): decompose it into smaller verifiable sub-claims and prove each with a runnable experiment + output or independent authoritative sources. A claim that can't be proven counts as false. Refuted or unprovable → declined, with the evidence recorded in the summary; proven → carry the proof (source links / experiment) into the ranger's brief so it lands in the PR. Finding out mid-check that the premise is wrong is the process working, not a failure.
 
-## Judged selection (optional — `judge=haiku`)
+## Judged intake (the default — `judge=haiku`, disable with `judge=off`)
 
-Where the user configures a judged filter, each candidate is read by its **own fresh `haiku` agent** — one ticket per agent, in parallel — which returns a boolean plus a one-line reason. It is the readiness gate above, run early and cheap, as a filter rather than a verdict: no new rubric, so there is nothing to keep in sync.
+Each candidate is read by its **own fresh `haiku` agent** — one ticket per agent, in parallel — returning two booleans and a one-line reason. Cheap enough to run over a whole board, which is the point: it is what lets the Watch work a tracker whose label vocabulary it has never seen, or one that has no such convention at all.
 
-Three constraints, and they are what make it safe:
+It answers the two questions of Oath rule 3, and **both must be yes**:
 
-1. **It only removes.** The judge is handed the candidate set the selector already produced and may reject from it. It is never given the tracker, a search tool, or leave to nominate — narrowing an admitted set is a filter, widening one is the Watch vouching for itself (Oath rule 3).
-2. **Rejection is silent and summarised**, never an `ai-blocked` label — same reasoning as the broad-selector rule above.
-3. **It does not replace the gate.** Survivors still face the full gate before dispatch, at watcher tier. A `haiku` skim is a cheap way to avoid paying for triage on obvious non-starters; it is not evidence a ticket is ready, and the fact-check obligation in gate item 6 is not delegable to it.
+1. **Ready** — is this specified well enough for an unattended agent? A compressed read of the gate below: is there an observable outcome, is it self-contained, does it avoid needing a human decision, does it fit one PR.
+2. **Intended** — does the team actually want this built *now*? This is the question a readiness rubric structurally cannot answer, and the reason judged intake is a judge rather than a filter. Reject anything reading as parked, deferred, superseded, "filed so it isn't lost", awaiting a decision, a discussion thread, an epic or umbrella tracking other work, or a question rather than a request. Signals live in labels (`parked`, `blocked`, `wontfix`, `discussion`), in milestone and assignee, and — most often — in the prose: *"not blocking", "when we get to it", "for the record", "someone should eventually"*.
 
-Bias the judge toward rejection and tell it so: a false accept costs a dispatched ranger, a wasted branch and a human reading a pointless PR, while a false reject costs one line in the summary that the user can override next patrol.
+Three constraints:
+
+- **It never writes.** No labels, no comments, no closes — accept or reject, and rejections go to the patrol summary with their reason (Oath rule 7). The summary is also how you calibrate it: read what it declined and why.
+- **It does not replace the gate.** Survivors still face the full gate below at watcher tier. A `haiku` skim is a cheap way to avoid paying for full triage on obvious non-starters; it is not evidence a ticket is ready, and the fact-check obligation in gate item 6 is not delegable to it.
+- **A selector does not switch it off** — the two compose, judge last. `judge=off` is the explicit way to say "trust my selector", appropriate when the selector is an id list you wrote deliberately.
+
+**Bias it toward rejection and say so in the prompt.** The costs are lopsided: a false accept spends a ranger, a branch, a grill and a human's attention on a pull request nobody wanted, and on an *intent* misjudgement that PR may actively contradict a decision the team already made. A false reject costs one line in a summary that the user can override on the next patrol. When the judge is unsure, the answer is no.
 
 ## Tier rubric — lowest sufficient model
 
@@ -66,9 +69,9 @@ Cross-cutting and unconditional: **fact-check at every critical decision moment*
 ## Escalation & retry
 
 - Worker fails or produces garbage at its tier → retry **once**, one tier higher, with the failure summary in the prompt.
-- Fails again → `ai-blocked` with both attempts summarized. Two strikes; past that, human judgment beats more tokens.
-- A worker may also *return early* declaring the ticket under-specified — treat that as a gate failure discovered late: `ai-blocked` + precise comment, no retry.
+- Fails again → stop. Comment both attempts on the ticket, **release the claim**, summarise it. Two strikes; past that, human judgment beats more tokens. These tickets *were* claimed, so unlike a triage refusal they owe the board a comment and a released `ai-working` — silence plus a stuck claim is the one outcome rule 7 forbids.
+- A worker may also *return early* declaring the ticket under-specified — same handling, no retry.
 
 ## Priority within a muster
 
-When the muster exceeds what the budget or the night allows, order by: tracker priority field first, then oldest `ai-ready` first (starvation is a triage bug). Log what was deferred and why — a silent skip reads as "the wall was quiet" when it wasn't.
+When the muster exceeds what the budget or the night allows, order by: tracker priority field first, then oldest ticket first (starvation is a triage bug). Log what was deferred and why — a silent skip reads as "the wall was quiet" when it wasn't.
