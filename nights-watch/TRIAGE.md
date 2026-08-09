@@ -4,28 +4,33 @@ The watcher triages from the **ticket text only** (title, body, comments, linked
 
 ## Readiness gate (all must pass)
 
-A ticket that survived intake — judged, labelled, listed or matched — still fails the gate when any of these is missing. **Failing changes nothing on the tracker**: no label, no comment, no state. Record the *specific* missing pieces in the patrol summary and move on (Oath rule 7). The Watch reports refusals rather than enacting them, so a wrong call costs a line of text instead of a label somebody else has to undo.
+**The bar itself lives in the `triage` skill: [READINESS.md](../triage/READINESS.md).** Both of its questions apply
+here — *ready* (specified well enough) and *intended* (wanted now) — and it is deliberately not restated in this
+file. Three copies of one rubric drift, and the copy a worker reads is never the one that was updated.
 
-1. **Observable outcome.** The ticket states what "done" looks like in a checkable way (a behavior, a test, an error that stops happening). "Improve X" without a criterion fails.
-2. **Self-contained.** Everything needed is in the ticket or the repo it points at. No "as discussed in the meeting", no dependency on an unmerged decision, no missing credentials/fixtures.
-3. **No human fork in the road.** The work doesn't hinge on a choice only a human can make (public API shape, schema migration, product tradeoff, anything irreversible or outward-facing). Reversible implementation choices are fine — workers decide and note them in the PR.
-4. **Scope fits one PR.** A ranger works one branch to one PR. An epic-sized ticket fails with a suggestion to split.
-5. **Repo is reachable.** The ticket names (or the tracker implies) a repo the Watch can clone/push to. Verify access before claiming, not after.
-6. **Load-bearing claims are proven, not assumed.** If the ticket (or the triage verdict itself) rests on a claim — an API behaves like X, version Y supports Z, a number copied from docs, "this bug is caused by W" — run the **fact-check** skill on it (mandatory, not optional): decompose it into smaller verifiable sub-claims and prove each with a runnable experiment + output or independent authoritative sources. A claim that can't be proven counts as false. Refuted or unprovable → declined, with the evidence recorded in the summary; proven → carry the proof (source links / experiment) into the ranger's brief so it lands in the PR. Finding out mid-check that the premise is wrong is the process working, not a failure.
+What this file adds is what is specific to a patrol:
+
+- **The watcher judges from ticket text only** — title, body, comments, linked context. It does not open the
+  codebase; that is the worker's job. If readiness can't be judged from the ticket, the ticket isn't ready.
+- **Failing changes nothing on the tracker.** No label, no comment, no state. Record the *specific* missing
+  pieces in the patrol summary and move on (Oath rule 7).
+- **Item 7 of the bar is discharged with the fact-check skill, and it is mandatory here, not advisory.** Where a
+  ticket or the triage verdict itself rests on a load-bearing claim, decompose it into sub-claims and prove each
+  with a runnable experiment plus output, or independent authoritative sources. Unprovable counts as false →
+  declined, evidence in the summary. Proven → carry the proof into the ranger's brief so it lands in the PR.
 
 ## Judged intake (the default — `judge=haiku`, disable with `judge=off`)
 
 Each candidate is read by its **own fresh `haiku` agent** — one ticket per agent, in parallel — returning two booleans and a one-line reason. Cheap enough to run over a whole board, which is the point: it is what lets the Watch work a tracker whose label vocabulary it has never seen, or one that has no such convention at all.
 
-It answers the two questions of Oath rule 3, and **both must be yes**:
+It answers the two questions of [READINESS.md](../triage/READINESS.md) — **ready** and **intended** — and both must be yes. Give the judge that file; do not paraphrase it into the prompt, or the judge and the gate end up applying different rubrics.
 
-1. **Ready** — is this specified well enough for an unattended agent? A compressed read of the gate below: is there an observable outcome, is it self-contained, does it avoid needing a human decision, does it fit one PR.
-2. **Intended** — does the team actually want this built *now*? This is the question a readiness rubric structurally cannot answer, and the reason judged intake is a judge rather than a filter. Reject anything reading as parked, deferred, superseded, "filed so it isn't lost", awaiting a decision, a discussion thread, an epic or umbrella tracking other work, or a question rather than a request. Signals live in labels (`parked`, `blocked`, `wontfix`, `discussion`), in milestone and assignee, and — most often — in the prose: *"not blocking", "when we get to it", "for the record", "someone should eventually"*.
+The **intended** half is the one to watch, and the reason judged intake is a judge rather than a filter. A readiness rubric structurally cannot answer it: parked, deferred, superseded, "filed so it isn't lost", awaiting-a-decision, umbrella and discussion tickets are all perfectly well specified, so they pass every readiness check and are all wrong to build.
 
 Three constraints:
 
 - **It never writes.** No labels, no comments, no closes — accept or reject, and rejections go to the patrol summary with their reason (Oath rule 7). The summary is also how you calibrate it: read what it declined and why.
-- **It does not replace the gate.** Survivors still face the full gate below at watcher tier. A `haiku` skim is a cheap way to avoid paying for full triage on obvious non-starters; it is not evidence a ticket is ready, and the fact-check obligation in gate item 6 is not delegable to it.
+- **It does not replace the gate.** Survivors still face the full gate at watcher tier. A `haiku` skim is a cheap way to avoid paying for full triage on obvious non-starters; it is not evidence a ticket is ready, and the fact-check obligation is not delegable to it.
 - **A selector does not switch it off** — the two compose, judge last. `judge=off` is the explicit way to say "trust my selector", appropriate when the selector is an id list you wrote deliberately.
 
 **Bias it toward rejection and say so in the prompt.** The costs are lopsided: a false accept spends a ranger, a branch, a grill and a human's attention on a pull request nobody wanted, and on an *intent* misjudgement that PR may actively contradict a decision the team already made. A false reject costs one line in a summary that the user can override on the next patrol. When the judge is unsure, the answer is no.
