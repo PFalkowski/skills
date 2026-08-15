@@ -1,6 +1,6 @@
 ---
 name: prompt-backlog
-description: 'Capture work to do next, later, or keep-in-mind as an ordered, prioritized backlog of ready-to-run prompts — each tagged with the context and the reason it was requested. Use whenever the user defers or plans work: "do this next", "later", "after this", "remind me to", "keep in mind for later", "note for later", "add to the backlog", "queue this up", "we should ... at some point", "follow-up", plus the explicit "prompt backlog", "prompt queue", "agent script", "playbook of prompts", or /prompt-backlog. When adding an item, the agent writes a self-contained prompt from the CURRENT context that a fresh agent could run verbatim to achieve it, plus a Context note: what was happening, who asked, and why. Includes the prompts/ folder convention and init.'
+description: 'Capture deferred work as an ordered backlog of ready-to-run prompts, each self-contained enough for a fresh agent to run verbatim, tagged with what was happening and why it was asked. Use whenever work is deferred: "do this next", "later", "remind me to", "add to the backlog", "queue this up", "we should do X at some point", "follow-up", or /prompt-backlog.'
 ---
 
 # prompt-backlog

@@ -1,6 +1,6 @@
 ---
 name: whatever
-description: 'Decide and proceed on low-stakes, reversible, or conventional choices instead of asking the user. Use before posing a clarifying or decision question mid-task: if the choice is reversible, low-cost, has an obvious default, or is pure housekeeping (which branch, cleanup approach, naming, "should I also do X"), pick the sensible default, state it in one line, and continue. Reserve questions for genuinely consequential, hard-to-reverse, outward-facing, or preference-driven forks where the answer changes the outcome. Triggers on the urge to ask permission — "should I", "do you want me to", "which approach" — or user signals like "just progress", "stop asking", "whatever, just do it".'
+description: 'Decide and proceed on low-stakes, reversible or conventional choices instead of asking. If a mid-task choice is reversible, cheap, or pure housekeeping (branch, naming, cleanup, "should I also do X"), pick the sensible default, state it in one line, and continue. Reserve questions for consequential, hard-to-reverse or preference-driven forks. Triggers on the urge to ask permission, or on "just progress", "stop asking", "whatever, just do it".'
 ---
 
 # whatever

@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: 'Produce a minimal, lossless handover note — ordered action points plus only the state the receiver cannot reconstruct — to carry work across a context boundary. Every line must change what the receiver does next: point at files instead of pasting, carry state not story, resolve every reference. Use when work must move to a fresh session, another agent or model, a subagent, or survive /clear or /compact — when the user says "hand this off", "write a handover", "continue in a new session", "I am switching models", "wrap up before you clear or compact", or context is about to reset mid-task. handoff-check decides whether to hand off; this writes the handover.'
+description: 'Write a minimal, lossless handover note - ordered action points plus only the state the receiver cannot reconstruct - to carry work across a context boundary. Point at files instead of pasting; carry state, not story. Use when work moves to a fresh session, another agent or model, or must survive /clear or /compact: "hand this off", "write a handover", "continue in a new session", "wrap up before you compact".'
 ---
 
 # handoff
