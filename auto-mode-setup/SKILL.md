@@ -66,11 +66,19 @@ Two things to remember when reading its output:
 
 ### 3. Write the user-scope baseline
 
-`~/.claude/settings.json` — the deny list, plus allow rules that are safe in literally any repo.
-Copy the starting sets from [BASELINE.md](BASELINE.md); they are organised by what each rule
-protects against, so you can defend or drop each one individually rather than pasting blind.
+`~/.claude/settings.json` — the deny list, the ask tier, and allow rules that are safe in literally
+any repo. Copy the starting sets from [BASELINE.md](BASELINE.md); they are organised by what each
+rule protects against, so you can defend or drop each one individually rather than pasting blind.
+
+Do not skip the **ask** tier. It is where commands go that are fine under supervision and unsafe
+without it — `terraform apply` being the archetype. Denying those breaks interactive work and gets
+the rule deleted; putting them on `ask` makes an unattended run stall instead of proceed.
 
 Keep `defaultMode: "auto"` here and only here.
+
+Back the file up first and preserve every unrelated key — this file also carries the model,
+status line, effort level, and plugin settings, and clobbering those is a bad trade for a
+permission change.
 
 ### 4. Write per-repo overrides
 
@@ -80,6 +88,19 @@ Anything that builds, tests, deploys, or talks to a paid or shared service goes 
 
 Commit these. They are as much a project artifact as the CI config, and an agent-ready repo should
 stay agent-ready for the next person who clones it.
+
+Three things a real tree will throw at you here, all of which mean *stop and report* rather than
+work around:
+
+- **The repo gitignores `/.claude/*`.** Some do, deliberately. The override still applies locally
+  but will never travel to another machine or another person. Respect the ignore; say so in the
+  report rather than force-adding the file.
+- **The repo is in detached HEAD.** Committing produces an orphaned commit that the next checkout
+  discards silently. Leave the edit in the working tree and flag it.
+- **Existing `settings.local.json` holds hundreds of accumulated "don't ask again" grants.** These
+  are not curated and frequently include `git push`, `git reset`, and prune commands. Do not try to
+  clean them; the baseline's deny and ask rules override them from a higher scope, which is the
+  whole point. Report the overlap so the user knows what changed.
 
 ### 5. Verify before trusting it
 

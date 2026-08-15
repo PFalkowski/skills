@@ -59,21 +59,50 @@ only delisted, and the version number is burned permanently.
 ### Infrastructure and data
 
 ```
-Bash(terraform apply:*)
 Bash(terraform destroy:*)
-Bash(az * delete:*)
+Bash(terragrunt destroy:*)
 Bash(az group delete:*)
-Bash(az sql * delete:*)
+Bash(az sql server delete:*)
+Bash(az sql db delete:*)
+Bash(az postgres flexible-server delete:*)
+Bash(az storage account delete:*)
+Bash(az functionapp delete:*)
 Bash(kubectl delete:*)
-Bash(docker system prune:*)
-Bash(docker volume rm:*)
 Bash(dotnet ef database drop:*)
 ```
 
 `dotnet ef database drop` and `az group delete` are the two that turn a bad night into a bad week.
-Note `Bash(az * delete:*)` is broad on purpose — and because deny cannot carry exceptions, a repo
-that genuinely needs one delete command has to be handled by narrowing this rule, not by adding an
-allow beneath it.
+
+Enumerate the specific `az ... delete` verbs rather than writing `Bash(az * delete:*)`. The broad
+form is tempting, but deny carries no exceptions, so the first repo that legitimately needs one
+delete verb forces you to unpick the whole rule. Listing them costs ten lines and stays surgical.
+
+---
+
+## The ask tier — the one people skip
+
+`ask` is the right home for commands that are legitimate during interactive work but must never
+proceed unwatched. Denying these is too blunt: it breaks the human's own workflow, and the usual
+next step is someone disabling the rule entirely.
+
+```
+Bash(terraform apply:*)
+Bash(terragrunt apply:*)
+Bash(terragrunt force-unlock:*)
+Bash(dotnet ef database update:*)
+Bash(dotnet ef migrations remove:*)
+Bash(docker system prune:*)
+Bash(docker volume rm:*)
+Bash(docker volume prune:*)
+```
+
+The failure mode is the point. In an interactive session these prompt, and you approve them in a
+second. In an unattended run there is nobody to answer, so the agent **stalls instead of applying**
+— exactly the outcome you want from `terraform apply` at 03:00.
+
+Note that `ask` beats `allow` across every scope, so an ask rule here overrides a repo that has
+already granted the same command via "Yes, don't ask again". That is usually what you want, and it
+is the main reason to prefer `ask` over trusting per-repo hygiene.
 
 ### Filesystem
 
