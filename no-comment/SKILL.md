@@ -1,6 +1,6 @@
 ---
 name: no-comment
-description: 'Keeps code free of comments by refactoring until the code says it itself — naming, extraction, types. Any comment that survives must state WHY, not WHAT. Use whenever about to write a comment in code, and when reviewing code that already carries them. Exceptions are listed in ALLOWLIST.md.'
+description: 'Use whenever about to write a comment in code, and when reviewing code that already carries them'
 ---
 
 # no-comment
