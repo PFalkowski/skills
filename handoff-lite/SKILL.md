@@ -1,6 +1,6 @@
 ---
 name: handoff-lite
-description: 'Extract the still-open action points from the current conversation — each with the reason it exists and the risk attached to it, exactly as stated in that conversation — plus the last few user prompts verbatim and a one-line summary of each reply, emitted as ONE block to paste into a fresh agent context. Records only what was actually said: never invents a rationale, a risk, a deadline, or a task that did not appear. Use when work must move to a new context fast — "quick handover", "carry this over", "hand off the todos", "what is left, for a new agent", "paste this into a new session", "context is filling up, give me the remainder", or /handoff-lite. For the fuller note (Goal / Done when / Settled / Map / Watch out) written to a file, use `handoff` instead.'
+description: 'Extract the still-open action points from this conversation - each with the reason and risk exactly as stated - plus the last few user prompts verbatim, as one block to paste into a fresh context. Records only what was actually said; never invents a rationale, risk or task. Use for "quick handover", "carry this over", "what is left for a new agent", "context is filling up", or /handoff-lite. For the fuller note written to a file, use handoff.'
 ---
 
 # handoff-lite

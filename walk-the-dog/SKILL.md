@@ -1,6 +1,6 @@
 ---
 name: walk-the-dog
-description: 'Delegate a task to subagent(s) (the "dog(s)") while the main agent (the "walker") vets every side-effecting action they propose — shell/pwsh commands, file writes — on its own judgment, approving the safe in-scope ones without prompting the human and escalating only genuinely meaningful, assumption-breaking decisions. Use when the user wants a subagent to do the work but not run anything unsafe, wants delegation with an automatic safety gate instead of constant permission prompts, or says "walk the dog" / "keep it on a leash" / "let a subagent do it and you vet what it runs". Also /walk-the-dog.'
+description: 'Delegate work to subagents while the main agent vets every side-effecting action they propose - shell commands and file writes - approving safe in-scope ones without prompting the human and escalating only genuinely consequential decisions. Use when the user wants a subagent to do the work but not run anything unsafe, or says "walk the dog", "keep it on a leash", or /walk-the-dog.'
 ---
 
 # walk-the-dog

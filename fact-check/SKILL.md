@@ -1,6 +1,6 @@
 ---
 name: fact-check
-description: 'Ground any claim you need confidence in before relying on it, using the strongest evidence available — run a quick local experiment (python/node/shell) when the claim is executable (math, code behaviour, regex, data, performance, encoding), or confirm it across two or more independent authoritative sources (official docs, specs, RFCs, primary data) when it is documentable. For a claim about a codebase, cite the exact source line (path:line); decompose a broad or high-abstraction question into independently-verifiable sub-claims, fanning out parallel agents when many. Always attach the evidence: a source link deep-linked to the claim, or the runnable snippet plus its actual output. State confidence and method; say plainly when something cannot be grounded. Use when the user says "fact-check", "is this true", "are you sure", "verify/double-check this", "ground this", before asserting a load-bearing fact / number / API behaviour, or whenever being wrong is costly.'
+description: 'Ground a claim before relying on it: run a local experiment when the claim is executable (math, code behaviour, regex, data, performance), or confirm it across two or more authoritative sources when it is documentable. Cite exact source lines for codebase claims. Always attach the evidence - a deep link, or the snippet and its actual output - and state confidence and method. Use on "fact-check", "is this true", "are you sure", "verify this", before asserting a load-bearing fact, or when being wrong is costly.'
 ---
 
 # fact-check
