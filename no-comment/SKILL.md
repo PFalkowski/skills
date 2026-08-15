@@ -1,7 +1,6 @@
 ---
 name: no-comment
-description: 'Use whenever about to write a comment in code. Default is: do not. Refactor until the code says it — naming, extraction, types. A comment that survives states WHY, never WHAT. Exceptions only from the allowlist below.'
-disable-model-invocation: true
+description: 'Keeps code free of comments by refactoring until the code says it itself — naming, extraction, types. Any comment that survives must state WHY, not WHAT. Use whenever about to write a comment in code, and when reviewing code that already carries them. Exceptions are listed in ALLOWLIST.md.'
 ---
 
 # no-comment
@@ -14,7 +13,8 @@ A comment is usually a failure to say it in code. Fix the code first.
 2. Can an **extracted function** say it? Extract — the name becomes the comment.
 3. Can a **type** say it? Encode it.
 
-Only when all three fail has a comment earned its place.
+Only when all three fail has a comment earned its place — or when it is on the
+[allowlist](ALLOWLIST.md).
 
 ## If one earns its place
 
@@ -29,14 +29,6 @@ retries++;
 // Broker silently drops the 4th concurrent request, so we retry one past their documented limit.
 retries++;
 ```
-
-## Allowlist
-
-Exempt, and the project may extend this list:
-
-- **AAA markers** in unit tests — `// Arrange`, `// Act`, `// Assert`
-- **Hack or hotfix rationale** — why the non-obvious thing was necessary, with a ticket id where one exists
-- Whatever the project's own conventions require: license headers, doc comments on public APIs, lint or pragma suppressions (which must carry their reason)
 
 ## Delete on sight
 
