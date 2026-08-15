@@ -14,6 +14,7 @@
     "./go-go-go",
     "./handoff",
     "./handoff-check",
+    "./housekeeping",
     "./loyal-dog",
     "./merge-stack",
     "./model-bake-off",
