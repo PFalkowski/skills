@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(node scripts/:*)",
+      "Bash(node --check:*)",
+      "Bash(node --test:*)",
+      "Bash(pwsh -File link-skills.ps1:*)",
+      "PowerShell(./link-skills.ps1 *)"
+    ]
+  }
+}
