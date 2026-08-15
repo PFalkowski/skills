@@ -1,6 +1,7 @@
 ---
 name: auto-mode-setup
-description: 'Configure a repository tree for unattended agent runs — auto mode, permission allowlists, and the deny rules that are the actual safety boundary. Mines the machine''s own session transcripts to derive an allowlist from commands really run, rather than guessing at one. Establishes a user-scope baseline (the only layer that reaches every repo) plus per-repo overrides for build/test/deploy commands. Use when setting up a new machine or a fresh OS install for Claude Code, preparing repos for nights-watch / nightshift / go-go-go or any AFK/overnight run, when auto mode still prompts too often, when tightening what an unattended agent may do, or when the user says "auto mode setup", "set up auto mode", "make this repo agent-ready", "stop the permission prompts", "prepare for unattended runs". Also /auto-mode-setup.'
+description: 'Configure a repository tree for unattended agent runs — auto mode, permission allowlists, and the deny rules that are the actual safety boundary. Run once per machine, or when the permission posture needs revisiting. Invoke with /auto-mode-setup.'
+disable-model-invocation: true
 ---
 
 # auto-mode-setup
@@ -106,7 +107,14 @@ work around:
 
 Never declare this done from the settings files alone. Prove it:
 
-- `claude --debug` in a sample repo, confirm the mode and rules that actually loaded.
+- `claude --debug` in a sample repo, confirm the mode and rules that actually loaded. The debug log
+  prints each scope's rules as `Applying permission update: Adding N allow rule(s) to destination
+  'userSettings' / 'projectSettings' / 'localSettings'` — read those lines, not the JSON you wrote.
+- Watch for `Ignoring N permissions.allow entries from .claude/settings.json: this workspace has
+  not been trusted`. Creating a project `settings.json` where none existed re-arms the trust
+  dialog, so brand-new allow rules silently do nothing until a human accepts it once
+  interactively. Deny and ask rules are unaffected. Never flip `hasTrustDialogAccepted` on the
+  user's behalf to skip this — the dialog exists so a person reviews what is being granted.
 - Deliberately trigger one denied command and confirm it is blocked.
 - Confirm the deny list survives from the repo *and* from a worktree of it, since worktree
   resolution is the usual place a rule silently stops applying.
