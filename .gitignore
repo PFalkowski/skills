@@ -3,3 +3,6 @@ Thumbs.db
 *.swp
 .vscode/
 .idea/
+
+# omv-dev-server: the one file holding real host values
+omv-dev-server/scripts/setup.env

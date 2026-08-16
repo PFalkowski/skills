@@ -18,6 +18,7 @@
     "./nights-watch",
     "./nightshift",
     "./no-comment",
+    "./omv-dev-server",
     "./postmortem",
     "./prompt-backlog",
     "./recurring-improvement",
