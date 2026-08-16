@@ -52,8 +52,47 @@ Use `–` in an agent's cell when that agent did not flag the row.
 | **snippet** | executable claim (logic/off-by-one/regex/boundary/encoding/null/overflow/async/perf) | the minimal runnable snippet **or failing test** *verbatim*, the command to run it, and its **actual captured output** — user reproduces by copy-paste |
 | **in-repo** | broken invariant / ripple / dependent | the exact `path:line` of the relying caller, the relevant lines quoted, and the `grep`/command that found them |
 | **source** | doc / API / version / standards claim | a working **deep link** to the authoritative section (≥2 for consequential claims), with the relevant text quoted |
+| **mutation** | any claim about what the **tests** catch or fail to catch | the mutant table — one row per mutant: id, file, the exact find→replace, and `KILLED` / `SURVIVED` / `BUILD-ERROR` — plus the harness command and the suite's own pass/fail line for each run |
+
+`snippet` and `mutation` are both executed, but they answer different questions: `snippet` asks *does the production code misbehave?*, `mutation` asks *would the tests notice if it did?* Never substitute a per-line argument for the latter.
 
 The documentation agent's `source` `detail` must be a working deep link (≥2 for consequential claims) — never "I believe" with no link. When a snippet cannot be made to reproduce the issue, that is itself a result: drop or downgrade the finding.
+
+## Executed mutation harness
+
+Reach for this whenever a finding — yours or the author's rebuttal — turns on **what the tests would catch**. The skill describes the harness rather than shipping one, because the mutation operators and the test command are per-language; the **contract** below is not.
+
+**Contract — a harness that violates any of these produces results you must not report.**
+
+1. **One mutant at a time.** Apply a single find→replace, run the suite, restore. Never stack mutants: two at once cannot tell you which one the suite noticed.
+2. **Restore from a pristine copy, then verify by checksum.** Snapshot every target file *before* the first mutant, restore from that snapshot in a `finally`, and assert the restored file's SHA-256 equals the snapshot's. Do not restore by reversing the replacement — a replacement that matched more sites than intended does not reverse cleanly. A silent restore failure poisons every later result and leaves mutated code in the working tree.
+3. **Three outcomes, not two.** `KILLED` (≥1 test failed — good), `SURVIVED` (suite still green — a real gap, and the finding), `BUILD-ERROR` / `NOT-APPLIED` (the mutant never ran — **not** a kill; either fix the mutant or drop it). Counting a build error as a kill is the most common way a harness flatters a test suite.
+4. **Mutants must be semantically real.** Flip a boundary (`>=`→`>`), invert a condition, drop a guard clause, swap a filter value, change a returned constant, delete a `null` check, reverse two ordered calls. Not: renaming a local, or reformatting.
+5. **Report the surviving mutant verbatim.** The find/replace text is the artifact; "mutation testing showed gaps" is not.
+
+**Watch for tautological survivors.** A mutant that survives because the assertion is satisfied by *both* arms of the change is not a coverage gap — it is a worthless assertion, which is a different (and usually worse) finding. Say which one it is.
+
+**Sketch** — a driver in any scripting language; the shape is what matters:
+
+```python
+# for each mutant: snapshot -> replace -> run suite -> restore -> checksum-assert
+def mutate(label, path, find, repl, pristine):
+    src = read(path)
+    if src.count(find) == 0:
+        return {"id": label, "status": "NOT-APPLIED"}      # never a kill
+    write(path, src.replace(find, repl))
+    try:
+        verdict, failed, passed = run_suite()               # parse the runner's own summary line
+    finally:
+        write_bytes(path, read_bytes(pristine))             # restore from pristine, always
+        assert sha256(path) == sha256(pristine), "RESTORE FAILED " + path
+    if verdict == "BUILD-ERROR":  return {"id": label, "status": "BUILD-ERROR"}
+    return {"id": label, "status": "KILLED" if failed > 0 else "SURVIVED", "failed": failed}
+```
+
+Scope the suite run to the smallest project that covers the mutated file so the loop stays minutes, not hours — but if a mutant survives, re-run it against the **full** suite before reporting, in case the kill lives in another project.
+
+If a real mutation-testing tool exists for the stack (Stryker, mutmut, PIT, cargo-mutants, go-mutesting), prefer it and cite its report; this hand-rolled loop is the fallback for when one is unavailable or too slow to aim at a specific diff.
 
 ## Brief templates
 
