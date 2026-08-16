@@ -1,6 +1,6 @@
 ---
 name: fix-pr
-description: 'Resolve the review comments on a pull request: check out the PR branch, fact-check every comment before acting on it, and work through the confirmed ones one by one with recommended, trade-off-annotated fixes — in interactive, hybrid, or auto mode. Every code change is TDD: a red test proving the comment first, then the fix turns it green, and the test is committed with the change. Pushes one combined commit, then asks before replying to or resolving any thread. Biased toward secure, maintainable, easy-to-understand code. Use when asked to address, fix, or work through PR review comments/feedback, or /fix-pr.'
+description: 'Resolve the review comments on a pull request: check out the PR branch, fact-check every comment before acting on it, and work through the confirmed ones one by one with recommended, trade-off-annotated fixes — in interactive, hybrid, or auto mode. Every code change is TDD: a red test proving the comment first, then the fix turns it green, and the test is committed with the change. Pushes one combined commit, then asks before replying to or resolving any thread. Headless-safe when driven by another skill: coerces to auto, never blocks on a question, and returns a structured report instead of asking. Biased toward secure, maintainable, easy-to-understand code. Use when asked to address, fix, or work through PR review comments/feedback, or /fix-pr.'
 ---
 
 # fix-pr — work a PR's review comments to resolution, truth first
@@ -25,6 +25,8 @@ If the invocation didn't name one, ask: **hybrid** (default), **interactive**, o
 - **interactive** — every confirmed comment is presented to the user with options; the user picks.
 - **hybrid** (default) — mechanical comments (formatting, typos, naming nits, missing `using`/import, obvious null-guard, lint findings) are fixed autonomously by subagents; everything substantive goes through the interactive flow. Only the substantive ones ever reach the user.
 - **auto** — nothing is presented mid-run; every confirmed comment gets the recommended fix. The end-of-run consent gate (Step 4) still applies in every mode.
+
+**Headless invocation** (driven by another skill — e.g. [sdlc-old-fashioned](../sdlc-old-fashioned/SKILL.md), `go-go-go`, `nights-watch` — or any context with no user to answer) is not a fourth mode but a constraint: see [Headless — driven by another skill](#headless--driven-by-another-skill). Detect it when the caller says so, or when the run is a subagent/Workflow with no interactive user; never block a headless run on a question.
 
 ## Step 2 — Fact-check every comment (all modes, no exceptions)
 
@@ -62,10 +64,19 @@ Repeat until the inventory is exhausted.
 ## Step 4 — Combined commit, push, then ask about replies
 
 1. **One combined commit** for the run (or a small series if the fixes are genuinely unrelated), whose message maps comments to resolutions (`Address review: C1 guard null stream, C2 rename per review, …`). The commit contains the new tests together with the fixes they prove — a fix without its red-turned-green test is not ready to commit. Push it to the PR branch — the push is automatic; it is the normal, expected next step of "fix my PR".
-2. **Then stop and ask** — never auto-post to the review conversation:
+2. **Then stop and ask** — never auto-post to the review conversation (headless runs don't ask: they follow the caller's `reply=`/`resolve=` policy, defaulting to draft-only — see [Headless](#headless--driven-by-another-skill)):
    - *Reply to each thread with how it was addressed?* Drafted replies cite the fix commit and, for refuted comments, the refuting evidence (politely: "checked this — see snippet/output; happy to change it anyway if you prefer").
    - *Resolve/close the threads that were fixed?* GitHub → resolve via GraphQL `resolveReviewThread`; Azure DevOps → set thread status `fixed`/`closed` via [azure-devops-pr-review](../azure-devops-pr-review/SKILL.md).
 3. Post only what the user approves; post one reply first, confirm it landed, then the rest. Refuted threads are replied to but left **unresolved** unless the user says otherwise — the reviewer gets to disagree.
+
+## Headless — driven by another skill
+
+When another skill or an unattended context invokes fix-pr, there is no user to pick options or grant consent — the **caller is the principal**, and a question that would block the run is a bug. The rules:
+
+1. **Mode coerces to auto.** Interactive and the interactive half of hybrid are impossible; every confirmed comment gets the recommended fix. All the invariants that don't need a human still hold in full: fact-check gate, ripple trace, TDD red→green with tests committed, house bias.
+2. **What would have been a question becomes a report line.** Unverifiable comments, refuted comments, and confirmed-but-declined items (e.g. a comment asking to weaken security) are **not** silently decided and **not** blocked on — they are skipped with the evidence recorded and returned to the caller as `needs-discussion`, exactly as a human would have received them.
+3. **Posting follows the caller's stated policy, never a guess.** The caller may pass `reply=post|draft` and `resolve=fixed|none`. If the caller specified nothing, the safe default is **draft, post nothing**: pushing the fix commit is still automatic (it is the point of the run), but replies and thread resolution stay as drafted text in the report — "never auto-post to the review conversation" survives headless mode by routing the consent to the principal, not by dropping it.
+4. **Return a structured report** the caller can consume without re-reading the run: per-comment outcome (`C<n> → fixed <option> | refuted <evidence> | needs-discussion <why>`), the fix commit SHA(s), the tests added, the ripple findings handled, and the drafted (or posted) replies. sdlc-old-fashioned-style callers feed this straight into their own review/retrospective steps.
 
 ## The house bias (what "best option" means here)
 
