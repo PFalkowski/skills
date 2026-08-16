@@ -1,6 +1,7 @@
 ---
 name: omv-dev-server
-description: 'Build and run a self-hosted OpenMediaVault box that is both a NAS and an agent-ready dev server: Docker services (Immich) under the OMV Compose plugin, Tailscale for phone and off-LAN access, SSH plus Termius plus tmux for durable mobile shells, and per-repo dev containers whose agents can push and open PRs with no human at a terminal. Every step has a prose runbook and an idempotent script beside it. Use when setting up or repairing a home server, a NAS-hosted dev environment, an OMV box, Immich, Tailscale remote access, or a Docker dev container an unattended agent works inside.'
+description: 'Set up or repair a self-hosted OpenMediaVault server: Docker services, Tailscale remote access, and per-repo dev containers an agent can push from. Paired runbook and idempotent scripts.'
+disable-model-invocation: true
 ---
 
 # OMV dev server
