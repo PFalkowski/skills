@@ -1,6 +1,6 @@
 ---
 name: fix-pr
-description: 'Resolve the review comments on a pull request: check out the PR branch, fact-check every comment before acting on it, and work through the confirmed ones one by one with recommended, trade-off-annotated fixes — in interactive, hybrid, or auto mode. Every code change is TDD: a red test proving the comment first, then the fix turns it green, and the test is committed with the change. Pushes one combined commit, then asks before replying to or resolving any thread. Headless-safe when driven by another skill: coerces to auto, never blocks on a question, and returns a structured report instead of asking. Biased toward secure, maintainable, easy-to-understand code. Use when asked to address, fix, or work through PR review comments/feedback, or /fix-pr.'
+description: 'Resolve the review comments on a pull request, end to end. Use when asked to address, fix, or work through PR review comments or reviewer feedback, when a PR has unresolved threads to act on, when another skill needs a PR''s comments resolved headlessly, or /fix-pr.'
 ---
 
 # fix-pr — work a PR's review comments to resolution, truth first
