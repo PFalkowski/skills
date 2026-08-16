@@ -14,6 +14,7 @@
     "./go-go-go",
     "./handoff",
     "./handoff-check",
+    "./handoff-lite",
     "./housekeeping",
     "./loyal-dog",
     "./merge-stack",
@@ -32,6 +33,7 @@
     "./signal-verdict",
     "./snapshot-terminal-sessions",
     "./statusline",
+    "./triage",
     "./walk-the-dog",
     "./whatever"
   ]
