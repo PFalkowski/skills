@@ -14,6 +14,7 @@
     "./go-go-go",
     "./handoff",
     "./handoff-lite",
+    "./housekeeping",
     "./merge-stack",
     "./nights-watch",
     "./nightshift",
