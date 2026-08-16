@@ -1,6 +1,6 @@
 ---
 name: wrap-up
-description: 'End-of-session closer in three passes: ship (everything committed, pushed, PRed - resolving leftovers with the user item by item), sweep (remove this session''s worktrees and prune its local branches, this project only), account (audit the conversation for unfinished tasks and assumptions, then file them in the house tracker - gh/azdo/jira - or emit a handoff-lite block). Use at the end of a work session: "wrap up", "wrap it up", "close the session", "we''re done here", "tidy up and finish", or /wrap-up.'
+description: 'End-of-session closer in three passes: ship (everything committed, pushed, PRed - resolving leftovers with the user item by item), sweep (remove this session''s worktrees and prune its local branches, this project only), account (audit the conversation for unfinished tasks and assumptions, then file them in the house tracker - gh/azdo/jira - or emit a handoff-lite block, route feedback on skills from this set upstream as an issue or, for contributors, a PR, and refresh persistent memory - fix or drop stale entries, record lessons learned). Use at the end of a work session: "wrap up", "wrap it up", "close the session", "we''re done here", "tidy up and finish", or /wrap-up.'
 ---
 
 # wrap-up
@@ -61,6 +61,33 @@ Route everything open per house rules:
   format — open action points with only stated reasons and risks, plus the recent exchange).
 
 Ordering: the user's stated priority wins; absent one, blockers first.
+
+### Skill evolution
+
+The session is also evidence about the skills it used. If a skill from this set misfired, needed a
+correction mid-run, or drew feedback ("it should also…", "next time do X"), that is an open item —
+route it upstream to the set's home repo, https://github.com/PFalkowski/skills, not into a local
+note that dies with the session:
+
+- **Default**: raise a GitHub issue there — name the skill, the observed behaviour, the desired
+  one, and quote the user's feedback verbatim.
+- **The user is the author or a contributor of that repo**: raise a PR instead — apply the
+  generalized edit to the skill's canonical source and open it (the `evolve-skill` skill defines
+  the discipline: edit the source of truth, strip private specifics, keep it generic).
+
+Same gate as every outward action: show the draft issue or diff first.
+
+### Memory
+
+Persistent memory is part of the ledger. Review the entries this session touched:
+
+- **Relied on and confirmed** — leave it alone.
+- **Contradicted** — the session proved an entry wrong or stale (a renamed flag, a reversed
+  decision, a fact that no longer holds): update or delete it now. A stale memory misleads every
+  future session, which is worse than no memory.
+- **Lesson learned** — the session taught something durable that the repo itself does not record
+  (a user preference, a corrected approach, a constraint): write it, following the house memory
+  discipline (one fact per entry, why + how to apply, indexed).
 
 ## Rules
 
