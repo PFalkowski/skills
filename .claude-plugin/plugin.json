@@ -37,6 +37,7 @@
     "./statusline",
     "./triage",
     "./walk-the-dog",
-    "./whatever"
+    "./whatever",
+    "./wrap-up"
   ]
 }
