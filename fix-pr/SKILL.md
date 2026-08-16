@@ -1,6 +1,6 @@
 ---
 name: fix-pr
-description: 'Resolve the review comments on a pull request: check out the PR branch, fact-check every comment before acting on it, and work through the confirmed ones one by one with recommended, trade-off-annotated fixes — in interactive, hybrid, or auto mode. Pushes one combined commit, then asks before replying to or resolving any thread. Biased toward secure, maintainable, easy-to-understand code. Use when asked to address, fix, or work through PR review comments/feedback, or /fix-pr.'
+description: 'Resolve the review comments on a pull request: check out the PR branch, fact-check every comment before acting on it, and work through the confirmed ones one by one with recommended, trade-off-annotated fixes — in interactive, hybrid, or auto mode. Every code change is TDD: a red test proving the comment first, then the fix turns it green, and the test is committed with the change. Pushes one combined commit, then asks before replying to or resolving any thread. Biased toward secure, maintainable, easy-to-understand code. Use when asked to address, fix, or work through PR review comments/feedback, or /fix-pr.'
 ---
 
 # fix-pr — work a PR's review comments to resolution, truth first
@@ -49,14 +49,18 @@ Work the list **one comment to conclusion, then the next** — no half-open thre
    - **interactive** → present the options (AskUserQuestion fits well: recommended first, trade-offs in the descriptions), implement the user's pick.
    - **hybrid** → mechanical comments go to autonomous fixers — a dynamic [Workflow](../orchestrate/SKILL.md) of Sonnet-tier subagents is the recommended shape (one agent per comment, `isolation: 'worktree'` only if they'd touch the same files concurrently; otherwise a simple sequential pipeline is cheaper). Substantive comments follow the interactive route.
    - **auto** → implement the recommended option. Per-issue dynamic Workflow or synchronous main-context fixes are both legitimate — pick per situation: independent, non-overlapping comments parallelise well; entangled ones (same file, same invariant) are safer sequential in one context.
-4. **Verify the fix**: build and run the nearest tests (or the snippet from the fact-check) so "resolved" means demonstrated, not asserted. A fix that can't be verified is reported as such, not papered over.
+4. **Fix in TDD fashion — always.** Every code change follows red → green, in every mode, including subagent fixers:
+   - **Red first**: write the test that proves the comment's point — it must fail against the current code, for the stated reason, before any production code is touched. The fact-check snippet from Step 2 is usually the seed of this test; promote it into the suite rather than discarding it. A test that passes before the fix proves nothing and is rejected as a false red.
+   - **Green by fixing the code**, not by weakening the test. Run the test again and show it passing.
+   - **Tests are permanent**: the red-turned-green test is preserved and committed alongside the fix — never deleted, skipped, or left out of the commit. It is the regression guard that keeps the reviewer's finding fixed.
+   - The only exemption is a change with no observable behaviour to assert on (pure formatting, comment wording, a rename with no semantic effect) — there, run the existing suite green instead and say so; anything a test *could* distinguish gets one.
 5. Log the outcome per comment: `C<n> → fixed (option chosen, evidence)` / `refuted (evidence)` / `needs-discussion`.
 
 Repeat until the inventory is exhausted.
 
 ## Step 4 — Combined commit, push, then ask about replies
 
-1. **One combined commit** for the run (or a small series if the fixes are genuinely unrelated), whose message maps comments to resolutions (`Address review: C1 guard null stream, C2 rename per review, …`). Push it to the PR branch — the push is automatic; it is the normal, expected next step of "fix my PR".
+1. **One combined commit** for the run (or a small series if the fixes are genuinely unrelated), whose message maps comments to resolutions (`Address review: C1 guard null stream, C2 rename per review, …`). The commit contains the new tests together with the fixes they prove — a fix without its red-turned-green test is not ready to commit. Push it to the PR branch — the push is automatic; it is the normal, expected next step of "fix my PR".
 2. **Then stop and ask** — never auto-post to the review conversation:
    - *Reply to each thread with how it was addressed?* Drafted replies cite the fix commit and, for refuted comments, the refuting evidence (politely: "checked this — see snippet/output; happy to change it anyway if you prefer").
    - *Resolve/close the threads that were fixed?* GitHub → resolve via GraphQL `resolveReviewThread`; Azure DevOps → set thread status `fixed`/`closed` via [azure-devops-pr-review](../azure-devops-pr-review/SKILL.md).
