@@ -20,10 +20,10 @@ description: 'Resolve the review comments on a pull request: check out the PR br
 
 ## Step 1 — Pick the mode
 
-If the invocation didn't name one, ask: **interactive** (default), **hybrid**, or **auto**.
+If the invocation didn't name one, ask: **hybrid** (default), **interactive**, or **auto**.
 
 - **interactive** — every confirmed comment is presented to the user with options; the user picks.
-- **hybrid** — mechanical comments (formatting, typos, naming nits, missing `using`/import, obvious null-guard, lint findings) are fixed autonomously by subagents; everything substantive goes through the interactive flow. Only the substantive ones ever reach the user.
+- **hybrid** (default) — mechanical comments (formatting, typos, naming nits, missing `using`/import, obvious null-guard, lint findings) are fixed autonomously by subagents; everything substantive goes through the interactive flow. Only the substantive ones ever reach the user.
 - **auto** — nothing is presented mid-run; every confirmed comment gets the recommended fix. The end-of-run consent gate (Step 4) still applies in every mode.
 
 ## Step 2 — Fact-check every comment (all modes, no exceptions)
@@ -43,18 +43,19 @@ Verdicts:
 
 Work the list **one comment to conclusion, then the next** — no half-open threads. For each confirmed comment:
 
-1. **Generate 2–3 candidate resolutions**, each with trade-offs stated plainly, exactly one marked **recommended** and the weak ones marked as such with the reason. Rank by the house bias: a fix that closes a security gap beats one that preserves an existing convenience; a boring, readable fix beats a clever one; a fix that leaves the code easier for the next reader beats a smaller diff.
+1. **Generate every honestly good candidate resolution** — all viable, secure, genuinely defensible options, not an artificial shortlist; if the solution space holds five good fixes, present five. Only when there is really no good option does 2–3 become the *lower* limit: present the least-bad 2–3 with their problems stated plainly. Each candidate carries its trade-offs, exactly one is marked **recommended**, and the weak ones are marked as such with the reason. Rank by the house bias: a fix that closes a security gap beats one that preserves an existing convenience; a boring, readable fix beats a clever one; a fix that leaves the code easier for the next reader beats a smaller diff.
 2. **Fact-check every non-obvious candidate** before offering or applying it: verify it is actually implementable here (the API exists at the pinned version, the pattern compiles, the config key is real) *and* that it actually resolves the comment's issue — a plausible fix that doesn't survive a snippet run is not an option, it's a guess.
-3. **Route by mode:**
+3. **Trace ripple effects — always, for every candidate before it is offered or applied.** A fix that is correct at the comment's line can still break the system around it. For anything the candidate would change — a signature, a return/error contract, an invariant, validation behaviour, a config key, timing/ordering — grep the repo for callers and dependents (`git grep`) and check what relies on the current behaviour (mirrors [code-review-grill](../code-review-grill/SKILL.md) Step 3). A candidate with unaddressed ripple is either extended to cover its dependents or demoted to not-recommended with the ripple named; ripple discovered on the chosen fix is handled in the same change, and its dependents get covered by the TDD tests below.
+4. **Route by mode:**
    - **interactive** → present the options (AskUserQuestion fits well: recommended first, trade-offs in the descriptions), implement the user's pick.
    - **hybrid** → mechanical comments go to autonomous fixers — a dynamic [Workflow](../orchestrate/SKILL.md) of Sonnet-tier subagents is the recommended shape (one agent per comment, `isolation: 'worktree'` only if they'd touch the same files concurrently; otherwise a simple sequential pipeline is cheaper). Substantive comments follow the interactive route.
    - **auto** → implement the recommended option. Per-issue dynamic Workflow or synchronous main-context fixes are both legitimate — pick per situation: independent, non-overlapping comments parallelise well; entangled ones (same file, same invariant) are safer sequential in one context.
-4. **Fix in TDD fashion — always.** Every code change follows red → green, in every mode, including subagent fixers:
+5. **Fix in TDD fashion — always.** Every code change follows red → green, in every mode, including subagent fixers:
    - **Red first**: write the test that proves the comment's point — it must fail against the current code, for the stated reason, before any production code is touched. The fact-check snippet from Step 2 is usually the seed of this test; promote it into the suite rather than discarding it. A test that passes before the fix proves nothing and is rejected as a false red.
    - **Green by fixing the code**, not by weakening the test. Run the test again and show it passing.
    - **Tests are permanent**: the red-turned-green test is preserved and committed alongside the fix — never deleted, skipped, or left out of the commit. It is the regression guard that keeps the reviewer's finding fixed.
    - The only exemption is a change with no observable behaviour to assert on (pure formatting, comment wording, a rename with no semantic effect) — there, run the existing suite green instead and say so; anything a test *could* distinguish gets one.
-5. Log the outcome per comment: `C<n> → fixed (option chosen, evidence)` / `refuted (evidence)` / `needs-discussion`.
+6. Log the outcome per comment: `C<n> → fixed (option chosen, evidence)` / `refuted (evidence)` / `needs-discussion`.
 
 Repeat until the inventory is exhausted.
 
