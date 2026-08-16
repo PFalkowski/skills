@@ -1,6 +1,6 @@
 ---
 name: housekeeping
-description: 'Put a repository''s house in order in one pass, docs first: audit every document — READMEs, ADRs, PRDs, runbooks, guides, and the prose comments in the code — against what the code actually does and against the authoritative externals (Confluence, Jira, Azure DevOps, wikis, which are read as source of context and NEVER written to), then close the gaps and sweep the code. Finds three different things and refuses to conflate them: drift (the doc and the code disagree), bloat (the doc is correct but merely restates what the code already says, so it is drift that has not happened yet — a README narrating a function body, a comment repeating the line beneath it), and gaps (behaviour, failure modes or constraints a reader needs and nothing records). Naming the source of truth per claim is a mandatory, human-held gate before anything is deleted — behaviour is the code''s to state, intent is the tracker''s, a decision is the ADR''s, and a guessed source of truth is how a correct document gets deleted. Then it cleans up what the user approved, files the real gaps as GitHub/Azure DevOps/Jira issues (only after the user approves the text), and finally sweeps the code against the now-trustworthy docs — warnings, smells, latent bugs, missing unit/integration/e2e coverage, duplication, two libraries doing one job, drift from the documented DDD/Clean/layering intent, formatting — returning verified, grouped, sized work items the user routes to do-now or to the backlog. Every finding is refute-verified before a human sees it; nothing is deleted, filed, committed or pushed without the user. Use for "housekeeping", "tidy up the repo", "are our docs still true", "documentation audit", "the README is lying", "clean up the docs and then the code", spring-cleaning an inherited codebase, or before an audit, a handover, or pointing autonomous agents at a repo.'
+description: 'Audit a repository''s documentation against the code and against read-only external sources (Confluence, Jira, Azure DevOps). Separates drift (doc and code disagree), bloat (the doc restates code, so it will go stale), and gaps. Names the source of truth per claim; a human approves before anything is deleted or filed. Then sweeps the code — warnings, test gaps, duplication, architecture drift — into verified, sized work items. Use for "housekeeping", "tidy up the repo", "are our docs still true", a documentation audit, or /housekeeping.'
 ---
 
 # Housekeeping
@@ -111,7 +111,7 @@ Workflow({ name: 'housekeeping-sweep', args: {
 
 It returns verified candidates grouped into sized work items with a `now` / `ticket` / `drop`
 recommendation. **The user routes them** — that is the whole point of the step. Do-now items hand
-off to `go-go-go` (one thing, now), `sdlc-workhorse` (load-bearing, unattended), or `nightshift`
+off to `go-go-go` (one thing, now), `nights-watch` in RANGING mode (one item, by the book), or `nightshift`
 (a batch overnight); the rest go through [FILING.md](FILING.md).
 
 ## Reporting
