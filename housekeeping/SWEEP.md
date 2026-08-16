@@ -56,7 +56,7 @@ Two dependencies are not negotiable:
 | Recommendation | Means | Hand it to |
 |---|---|---|
 | `now` | Small, low-risk, self-contained, worth this session | `go-go-go` for one thing; the current session for a genuine `S` |
-| `ticket` | Real work needing its own review, or a judgement this run should not make alone | [FILING.md](FILING.md) — and `sdlc-workhorse` / `nightshift` if an agent will take it |
+| `ticket` | Real work needing its own review, or a judgement this run should not make alone | [FILING.md](FILING.md) — and `nights-watch` / `nightshift` if an agent will take it |
 | `drop` | True, but not worth the churn | Say so out loud. A backlog full of nobody's-doing-that is worse than a short one |
 
 Take the do-now items in dependency order and stop when the user's appetite runs out — a partial
