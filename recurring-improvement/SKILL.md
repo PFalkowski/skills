@@ -52,7 +52,7 @@ This is itself a process row (default: `skill-evolution`) and writes its own `do
    | `code-quality` | `improve-codebase-architecture` / `restomod` |
    | `fix-warnings` | `go-go-go` |
    | `security-audit` | the repo's `security-audit` skill |
-3. Each process writes `docs/<process>/runs/<TODAY>/report.md`, updates its `INDEX.md` (new/closed/regressed, ID movements), and the master `docs/recurring-backlog.md` (last-run, status).
+3. Each process writes `<root>/<process>/runs/<TODAY>/report.md` as **untracked working scratch** (gitignore `<root>/*/runs/`), then updates its `INDEX.md` (new/closed/regressed, ID movements — the row's headline must carry every still-`open` ID, since the row and the PR description are the only durable records) and the master `<root>/recurring-backlog.md` (last-run, status).
 4. **Nothing due → no-op report.** Idempotent: re-running before anything elapses changes nothing.
 
 ## Step 3 — Report
