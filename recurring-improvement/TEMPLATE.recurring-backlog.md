@@ -8,7 +8,7 @@
 > the skill reads them but does **not** register cron jobs — run it manually,
 > or wire one master cron that invokes `/recurring-improvement`.
 >
-> `config.root: docs` — change to `.recurring-improvement` for repos without a `docs/` dir.
+> `config.root: docs` — change to `.agents` to keep AI-process records out of human docs/ (recommended for agent-heavy repos), or `.recurring-improvement` for repos without a `docs/` dir.
 
 | Process | Description | Interval (proposed CRON) | Last run | Status | Records |
 |---|---|---|---|---|---|
