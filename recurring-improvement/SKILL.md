@@ -24,7 +24,7 @@ State lives under `docs/` in the standard house style:
 - **`docs/recurring-backlog.md`** — the master schedule: one row per recurring task with description, **interval (proposed CRON)**, last-run, status, and a link to that task's process folder. This file is the source of truth for due-detection. Seed it from [`TEMPLATE.recurring-backlog.md`](TEMPLATE.recurring-backlog.md) on first run.
 - **`docs/<process>/`** — one folder *per recurring task* (`<process>` is a placeholder — it's whatever process that row drives, e.g. `security-audit`, `test-coverage`). Each follows the convention in [`REFERENCE.md`](REFERENCE.md): `RUNBOOK.md` (the process contract incl. scope calibration) + `INDEX.md` (run-history ledger, newest first) + `runs/YYYY-MM-DD/report.md` + **stable IDs** with **states** (`open`/`accepted`/`wontfix`/`fixed`/`regressed`).
 
-Root is adaptive: if `docs/` exists use `docs/…` (matches most repos); else fall back to `.recurring-improvement/…` at the repo root. Override with `config.root` in the backlog file.
+Root is adaptive — **discover the backlog first**: check `.agents/recurring-backlog.md` (a dedicated AI-process workspace keeping agent artifacts out of human `docs/`), then `docs/recurring-backlog.md`, then `.recurring-improvement/recurring-backlog.md`. Whichever exists owns the root; its `config.root` line is authoritative. On a first-ever run with no backlog anywhere, prefer `.agents/` in repos where agents are heavy contributors, else `docs/`.
 
 **Adopt, don't recreate.** If a process folder already exists (e.g. a repo already runs `docs/security-audit/`), point the backlog row at it and use its existing RUNBOOK/INDEX — never overwrite it.
 
@@ -44,7 +44,7 @@ This is itself a process row (default: `skill-evolution`) and writes its own `do
 
 ## Step 2 — Dispatch what's due (Half B)
 
-1. Parse `docs/recurring-backlog.md`. A row is **due** when `now − last_run ≥ interval` (or never run / >30 days).
+1. Parse `<root>/recurring-backlog.md` (discovery order above). A row is **due** when `now − last_run ≥ interval` (or never run / >30 days).
 2. For each due process, **delegate to its owning skill** and produce **one PR per process** (keeps review focused). Wrap autonomous execution in **`walk-the-dog`** so every side-effecting action is vetted. Suggested owners (degrade gracefully — if a skill isn't installed, do the work by hand to the same standard and say so):
    | Process | Owner skill(s) |
    |---|---|
@@ -52,7 +52,7 @@ This is itself a process row (default: `skill-evolution`) and writes its own `do
    | `code-quality` | `improve-codebase-architecture` / `restomod` |
    | `fix-warnings` | `go-go-go` |
    | `security-audit` | the repo's `security-audit` skill |
-3. Each process writes `docs/<process>/runs/<TODAY>/report.md`, updates its `INDEX.md` (new/closed/regressed, ID movements), and the master `docs/recurring-backlog.md` (last-run, status).
+3. Each process writes `<root>/<process>/runs/<TODAY>/report.md` as **untracked working scratch** (gitignore `<root>/*/runs/`), then updates its `INDEX.md` (new/closed/regressed, ID movements — the row's headline must carry every still-`open` ID, since the row and the PR description are the only durable records) and the master `<root>/recurring-backlog.md` (last-run, status).
 4. **Nothing due → no-op report.** Idempotent: re-running before anything elapses changes nothing.
 
 ## Step 3 — Report
