@@ -1,6 +1,6 @@
 ---
 name: fix-windows-terminal-rendering
-description: 'Repoint the Windows default terminal host from legacy conhost.exe to Windows Terminal by writing the DelegationConsole/DelegationTerminal values under HKCU:\Console\%%Startup. Use when an interactive terminal UI on Windows smashes rows together, redraws over itself, loses its layout on resize, or when Ctrl+L does not clear/repaint the screen — and to undo that change.'
+description: 'Repoint the Windows default terminal host from legacy conhost.exe to Windows Terminal by writing the DelegationConsole/DelegationTerminal values under HKCU:\Console\%%Startup. Use when an interactive terminal UI on Windows smashes rows together, redraws over itself, loses its layout on resize, or when Ctrl+L does not clear/repaint the screen — and to undo that change. Also covers the next suspect when the host is already Windows Terminal and an alternate-screen TUI still corrupts: ConPTY desync, mitigated by the app''s full-repaint switch.'
 ---
 
 # Fix Windows terminal rendering
@@ -44,6 +44,12 @@ incremental diffs — set `CLAUDE_CODE_ALT_SCREEN_FULL_REPAINT=1` (e.g. in the `
 `~/.claude/settings.json`); the conservative fallback is the classic renderer via
 `"tui": "default"`. Other TUIs usually offer an equivalent "full redraw" or
 "no alternate screen" switch.
+
+Verify any such switch against the installed build, not memory — flags get renamed and a wrong
+one silently does nothing. `grep -c CLAUDE_CODE_ALT_SCREEN_FULL_REPAINT <install>/bin/claude.exe`
+proves the flag exists in the running version, and a `claude --debug-to-stderr` run lists it under
+`settingsEnv keys:` once the `env` block loads. Like the registry fix, it only affects sessions
+started after the change.
 
 ## Apply
 
