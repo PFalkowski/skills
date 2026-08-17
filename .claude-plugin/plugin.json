@@ -11,6 +11,7 @@
     "./dump-sessions",
     "./evolve-skill",
     "./fact-check",
+    "./fix-pr",
     "./go-go-go",
     "./handoff",
     "./handoff-check",
@@ -35,6 +36,7 @@
     "./statusline",
     "./triage",
     "./walk-the-dog",
-    "./whatever"
+    "./whatever",
+    "./wrap-up"
   ]
 }
