@@ -33,6 +33,18 @@ It prints both values and the host they resolve to. **Only proceed if it reports
 host is not the cause and changing it will not fix anything — say so and go look elsewhere
 (the terminal's own font/rendering settings, an SSH/tmux layer, or the program itself).
 
+### Already on Windows Terminal and a TUI still corrupts
+
+Windows Terminal's ConPTY layer is known to mis-coalesce the incremental, cursor-positioned
+writes that alternate-screen TUIs emit (microsoft/terminal#15976), leaving stale fragments,
+shattered box-drawing, and duplicated status rows; window resizes make it worse
+(microsoft/terminal#4389). If the misbehaving TUI is Claude Code with the fullscreen renderer
+(`"tui": "fullscreen"`), the documented mitigation is full-frame repaints instead of
+incremental diffs — set `CLAUDE_CODE_ALT_SCREEN_FULL_REPAINT=1` (e.g. in the `env` block of
+`~/.claude/settings.json`); the conservative fallback is the classic renderer via
+`"tui": "default"`. Other TUIs usually offer an equivalent "full redraw" or
+"no alternate screen" switch.
+
 ## Apply
 
 ```powershell
