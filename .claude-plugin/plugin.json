@@ -12,7 +12,7 @@
     "./evolve-skill",
     "./fact-check",
     "./fix-pr",
-    "./fix-windows-terminal-rendering",
+    "./skills/fix-windows-terminal-rendering",
     "./go-go-go",
     "./handoff",
     "./handoff-check",
