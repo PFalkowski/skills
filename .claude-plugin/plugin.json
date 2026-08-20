@@ -8,9 +8,12 @@
     "./auto-mode-setup",
     "./azure-devops-pr-review",
     "./code-review-grill",
+    "./context-reduction",
     "./dump-sessions",
     "./evolve-skill",
     "./fact-check",
+    "./fix-pr",
+    "./fix-windows-terminal-rendering",
     "./go-go-go",
     "./handoff",
     "./handoff-lite",
@@ -19,17 +22,18 @@
     "./nights-watch",
     "./nightshift",
     "./no-comment",
-    "./omv-dev-server",
     "./postmortem",
     "./prompt-backlog",
     "./recurring-improvement",
     "./refresh-nuget-repo",
     "./sdlc-old-fashioned",
     "./signal-verdict",
+    "./skills/omv-dev-server",
     "./snapshot-terminal-sessions",
     "./statusline",
     "./triage",
     "./walk-the-dog",
-    "./whatever"
+    "./whatever",
+    "./wrap-up"
   ]
 }
