@@ -87,6 +87,10 @@ Each skill is a directory at the repo root containing at minimum a `SKILL.md` wi
 
 `.claude-plugin/plugin.json` lists the skills in the plugin — every new skill must be added there alongside its directory. `.claude-plugin/marketplace.json` is the catalog clients add via `/plugin marketplace add`; it points at the repo root (`source: "./"`), so it needs no per-skill edits.
 
+## Issue triage
+
+Issues are groomed with the `triage` skill into three label lanes (category, state, priority). The local label vocabulary — including what `ready-for-agent` and `parked` mean here — is recorded in [docs/triage-labels.md](docs/triage-labels.md).
+
 ## Local development (maintainers)
 
 > Installing or updating these skills as a user? See [Install](#install) and [Updating](#updating) above — you don't need any of this.
