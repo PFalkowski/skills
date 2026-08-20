@@ -42,3 +42,22 @@ A single PR, or independent (non-stacked) PRs — just merge. Stack still under 
 ## Recovery
 - **Child closed** (base deleted first): can't reopen — recreate (`gh pr create --base <base> --head <branch> --body "supersedes #N"`), then rebase.
 - **Rebase pulled phantom files:** wrong drop-point — `git rebase --abort`, recompute `T`, retry.
+
+## GitHub native stacks
+
+If `gh pr edit --base` fails with *"Cannot change the base branch because the pull request is part
+of a stack"*, the chain is a GitHub-native stack — skip this runbook's retarget/rebase
+choreography entirely: after each parent merges, the platform auto-retargets **and** auto-rebases
+the next child (both traps handled upstream). Plain `gh pr merge` is refused too; merge each PR
+with the asynchronous REST API and poll the UUID it returns:
+
+```
+gh api -X PUT repos/{owner}/{repo}/pulls/{n}/merge-async \
+  -f merge_method=squash -f commit_title="…" -f commit_message="…"
+gh api repos/{owner}/{repo}/pulls/{n}/merge-async/{uuid}   # until "status": "merged"
+```
+
+What still applies: bottom-up order, and waiting for CI green per PR (the auto-rebase re-triggers
+checks on each child). What to expect: branch SHAs move under you between merges — the stack
+machinery rebases them — so re-fetch before any local operation and don't treat a moved tip as
+someone else's interference.
