@@ -68,6 +68,13 @@ The conductor uses the `handoff` skill to produce a minimal, lossless brief. Poi
 ## Your job
 Run the **<phase>** phase. Delegate to `/<owning-skill>`.
 GATE you must meet before exiting: <copy the gate text from the lifecycle table>.
+<For code phases 8, 9 and 10 only — copy this line verbatim:>
+Standing quality standard, part of the gate: `/less-is-more` and `/no-comment`. Smallest
+architecturally honest change, no parallel additive path, no abstraction with one caller,
+no comment a name or an extracted function could have replaced.
+<When an optional step's trigger plausibly fires for this phase, name it here:>
+Optional and yours to judge: `/<optional-skill>` — <the trigger, in one line>. Take it or
+skip it; if you skip a trigger that clearly fired, say so in RESULT.
 
 ## Where things stand  (summary of prior phases — the part you can't reconstruct)
 <3–8 lines: decisions taken, what's green/red, gotchas, the one thing that will bite you.>
