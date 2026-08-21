@@ -6,7 +6,7 @@ The patrol works tickets a human vouched for. The Hunt has no tickets: it wakes 
 
 ```
 /nights-watch                                # the default already stands up a hunt beside a patrol
-/nights-watch hunt                           # the hunt ALONE — hourly, since the last hunt, report to a document
+/nights-watch hunt                           # the hunt ALONE — hourly, since the last hunt; reports to the repo's tracker when one is in use, else a document
 /nights-watch hunt every=15m                 # tighter cadence
 /nights-watch hunt report=issues             # file each finding as an ai-ready ticket
 /nights-watch hunt report=advisory           # draft GitHub security advisories (public repos)
@@ -249,10 +249,12 @@ Sub-floor findings are filtered at the **report**, never at the hunt — the led
 
 `report=` picks how findings leave the Hunt. Every channel gets the same body: what, where (`path:symbol`), the failure path, the evidence, severity, fingerprint, which refuters survived, and the lenses that ran.
 
+**The default follows where the team manages work.** A repo whose remote tracker is in active use — triaged GitHub Issues, a Jira board — defaults to `issues`: a finding in a local logbook is invisible to the flow that schedules work, and the user discovers weeks of findings only when they think to ask. `document` is the default only where no such tracker is in use. An explicit `report=` always wins, and the disclosure gate below still overrides both on public repos.
+
 | `report=` | Does | Use when |
 |---|---|---|
-| `document` (default) | Appends a dated hunt to `<state root>/<date>-<n>.md` + `INDEX.md` — the **state root**, which on a public repo is not in the repo (§ Where the state root is) | the normal cadence — a logbook the user skims, nothing pushed at them |
-| `issues` | Files each finding as a tracker ticket, labeled `ai-ready` (§ Handing findings to the patrol) | you want the finding *fixed*, not just known |
+| `document` (default with no active tracker) | Appends a dated hunt to `<state root>/<date>-<n>.md` + `INDEX.md` — the **state root**, which on a public repo is not in the repo (§ Where the state root is) | no remote tracker in use — a logbook the user skims, nothing pushed at them |
+| `issues` (default when the repo manages work in a remote tracker) | Files each finding as a tracker ticket, labeled `ai-ready` (§ Handing findings to the patrol) | you want the finding *fixed*, not just known — which is the normal case on a managed board |
 | `pr` | Opens one PR carrying the hunt document (docs only — Hunt rule 1 stands) | the team reviews security in PRs and wants a comment thread |
 | `advisory` | Drafts a GitHub security advisory (`gh api .../security-advisories`) | the repo is public and the finding is a real vulnerability — see below |
 | `chat` | Returns the findings to the user in-session | `once` runs, or a human is actually watching |
