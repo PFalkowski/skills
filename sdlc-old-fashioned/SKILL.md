@@ -40,7 +40,7 @@ Old-fashioned doesn't mean one fixed shape. State both choices up front, then ru
 | # | Phase | Delegate to | Gate / artifact |
 |---|---|---|---|
 | 1 | **Guardrails & baseline** | read the repo's own docs; run its checks | Repo's known pitfalls catalogued from `LESSONS-LEARNED*`, `docs/adr/`, README, CONTRIBUTING, `CLAUDE.md`. The guardrails the work needs (linter, formatter, unit **and** integration tests, CI that runs them) identified and confirmed present. A **green baseline** captured by running them once — re-run at the Merge gate. Missing guardrails **flagged to the user and evolved** (added as groundwork on a go / in autonomous mode, else filed as an issue). |
-| 2 | **Specify** | `to-prd` (or a written spec doc) | A written spec/PRD: problem, goal, scope, **non-goals**, success criteria. |
+| 2 | **Specify** | `to-prd` (or a written spec doc) | A written spec/PRD: problem, goal, scope, **non-goals**, success criteria. **For bug work this phase is an RCA** — see below. |
 | 3 | **Grill requirements** | `grill-with-docs` (fallback `grill-me`); record crystallised decisions via a `to-adr` subagent | Every load-bearing ambiguity resolved; acceptance criteria written; domain language + ADRs / `CONTEXT.md` updated as decisions crystallise. |
 | 4 | **Plan (design)** | `Plan` agent, or a written `plan.md` / design doc | A written implementation plan: the approach, key components & interfaces, data / control flow, failure modes, **alternatives considered and why rejected**, and the test strategy. Still **no code**. |
 | 5 | **Adversarial plan review** | **fresh process** via `grill-with-docs` (fallback `grill-me`; or `code-review-grill` aimed at the plan doc) | A fresh agent that **didn't write the plan** grills it: hidden coupling, unhandled failure modes, wrong abstraction, a cheaper path, does it actually satisfy the spec? Every hole answered or folded into the plan; unresolved concerns → issues; plan **re-approved before any code**. Reopens a requirement → loop back to 3. |
@@ -75,6 +75,20 @@ They bite at three distinct points. The implementer writes to them (Phase 8). Th
 
 The retrospective's committed output is deliberately **minimal** — a handful of lines naming what was evolved, what was filed as issues, and what's still blocking. The value is in *doing* the evolve/file actions, not in a long write-up; if there's nothing durable to record, a couple of lines is the whole artifact. Don't commit a blow-by-blow narrative.
 
+## Optional phases — the agent's call
+
+The thirteen phases above are mandatory. These five are not. Each carries a **trigger**, and the phase agent decides for itself whether the trigger is met — taking one needs no permission, and skipping one is not a gate failure. If a trigger clearly fires and you skip it anyway, say so in the `RESULT` line so the conductor can disagree.
+
+| Optional step | Slots | Take it when |
+|---|---|---|
+| [`triage`](../triage/SKILL.md) | before Phase 2 | The work arrived as a pile of tickets rather than a stated goal. Sorts them into lanes and applies one bar — specified well enough **and** actually wanted now — so Phase 2 specifies something real. |
+| [`fact-check`](../fact-check/SKILL.md) | during Phases 4–5 | The design rests on a claim that is expensive to be wrong about: a library's actual behaviour, a rate limit, a performance characteristic, a cost, a regex. Ground it by local experiment or two authoritative sources **before** the plan depends on it. Cheapest possible place to kill a wrong assumption. |
+| [`housekeeping`](../housekeeping/SKILL.md) | around Phase 11 | Phase 11 finds the docs have drifted from the code more widely than this change touches. Audits doc-versus-code drift, bloat and gaps rather than patching only what you happened to notice. |
+| [`context-reduction`](../context-reduction/SKILL.md) | after Phase 10 | Phase 9 keeps surfacing prose the code should have carried. This is `no-comment` at repository scale — a gated deletion campaign, not a per-comment decision — so run it as its own work, not inside a slice. |
+| [`postmortem`](../postmortem/SKILL.md) | with Phase 13 | The run involved a production incident, or a bug that had already escaped to users. Appends the entry to `LESSONS-LEARNED.md` — which **Phase 1 reads on the next run**. That is the loop closing, and it is the only optional step that makes future runs better rather than this one. |
+
+**Root-cause analysis — bug work only.** When the change is a fix rather than a feature, Phase 2 is an RCA: establish the actual cause, not the symptom, and let the Phase 7 failing test encode that cause. A fix aimed at a symptom passes its own test and leaves the bug in place. Keep it proportionate — if the RCA needs more than a short stretch of reasoning, it is its own piece of work: run it as a separate phase with its own brief (delegate to `diagnose`, or whatever debugging skill the setup has), rather than inflating Phase 2.
+
 ## The handover protocol — a fresh context per phase
 
 The conductor holds the gates and the backlog; it does **not** carry the work. Every phase in the table is executed by a **fresh Claude process** so no phase inherits another's context and each leaves a standalone, inspectable transcript. The loop is the same for all phases (full mechanics, commands, and templates in `references/handover-protocol.md`):
@@ -99,6 +113,7 @@ The conductor holds the gates and the backlog; it does **not** carry the work. E
 - **Isolate the work.** Default to a dedicated worktree (Step 0.7) so the main checkout stays clean; orient with `pwd` / `git status` / `git worktree list` before you start, and propose removing the worktree once the PR is open — never auto-delete. The committed audit trail survives it.
 - **Context stays minimal.** The conductor holds the gates and the backlog, not the work: it reads phase `RESULT` summaries and backlog diffs, never a child's full transcript. Inspection happens by opening the captured run log on disk, not by carrying it in context.
 - **Every phase leaves an artifact** — phase brief, baseline result, spec, ADR, plan, issue, test, PR comment, commit, docs, run transcript, retro note. The auditable trail *is* the deliverable, not a side effect. The run transcripts under `docs/sdlc/runs/` stay on disk (gitignored); what the *PR* carries is the durable set — spec, plan, ADRs, docs, and the short retro.
+- **Optional means optional.** The five optional steps are the phase agent's call against their stated trigger, not a menu to work through. Ground a load-bearing assumption before the plan leans on it; write the postmortem when a bug reached users. Do not run all five to look thorough.
 - **Conduct, don't solo.** Use the owning skill for each phase; this skill only sequences and holds the gates. If a phase's skill isn't installed, do that phase by hand to the same standard and say so.
 - **Iterate, don't waterfall blindly.** The arrows go forward, but a review or refactor that reopens a requirement sends you back a phase — that's the process working, not failing.
 - **Close with reflection.** The run isn't finished at merge; it's finished after the retrospective has evolved what it can and filed what it can't.
