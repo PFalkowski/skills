@@ -5,7 +5,8 @@
 The patrol works tickets a human vouched for. The Hunt has no tickets: it wakes on a timer, looks at **what changed since it last looked**, hunts critical bugs and vulnerabilities in exactly that, verifies every candidate adversarially, and reports through a channel the user chose. Findings can become `ai-ready` tickets — which is how the Hunt hands work to the patrol and the two modes close the loop.
 
 ```
-/nights-watch hunt                           # hourly, since the last hunt, report to a document
+/nights-watch                                # the default already stands up a hunt beside a patrol
+/nights-watch hunt                           # the hunt ALONE — hourly, since the last hunt, report to a document
 /nights-watch hunt every=15m                 # tighter cadence
 /nights-watch hunt report=issues             # file each finding as an ai-ready ticket
 /nights-watch hunt report=advisory           # draft GitHub security advisories (public repos)
