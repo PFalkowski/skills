@@ -1,6 +1,11 @@
 ---
 name: no-comment
 description: 'Use whenever about to write a comment in code, and when reviewing code that already carries them'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # no-comment

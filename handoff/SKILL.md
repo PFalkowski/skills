@@ -1,6 +1,11 @@
 ---
 name: handoff
 description: 'Write a minimal, lossless handover note - ordered action points plus only the state the receiver cannot reconstruct - to carry work across a context boundary. Point at files instead of pasting; carry state, not story. Use when work moves to a fresh session, another agent or model, or must survive /clear or /compact: "hand this off", "write a handover", "continue in a new session", "wrap up before you compact".'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # handoff

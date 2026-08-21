@@ -1,6 +1,11 @@
 ---
 name: triage
 description: 'Groom an issue tracker so agents can be pointed at it safely. Sorts tickets into label lanes (category, state, priority), records the repo''s label vocabulary, and applies one bar: is this specified well enough AND actually wanted now. Writes agent briefs for tickets that pass, missing-information notes for those that do not, and reports refusals rather than enacting them. Use when triaging or grooming a backlog, deciding whether a ticket is agent-ready, preparing work for an unattended run, or /triage.'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # Triage

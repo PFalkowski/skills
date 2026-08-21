@@ -1,6 +1,11 @@
 ---
 name: model-bake-off
 description: 'Run a controlled bake-off to pick the optimal model tier for a *class* of task — write a task-specific rubric first, run the same prompt across candidate models at matched effort, score the outputs blind (verifying load-bearing facts), then rank by ACTUAL DOLLAR COST rather than token count (per-token prices differ several-fold across tiers, so token count alone inverts the true ranking) to produce a quality-per-dollar recommendation. Gathers the inputs from the user, then dispatches the `model-bake-off` Workflow, which enforces the ordering (rubric before outputs), the blinding (judges never see the model id), and the pricing arithmetic in code. Use when choosing which model/tier to standardise on for a recurring task, comparing models head-to-head, running a model shootout / bake-off / eval, deciding whether a pricier tier earns its premium over a cheaper one, or when the user asks "which model is best/cheapest for this", "is the flagship worth it over the mid tier", or invokes /model-bake-off.'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # model-bake-off

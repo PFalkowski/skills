@@ -1,6 +1,11 @@
 ---
 name: orchestrate
 description: 'Given a task, design and run the SMALLEST agent system that fits it — escalating only as far as the task needs (single call -> workflow -> orchestrator-workers -> autonomous agent), picking the pattern from Anthropic''s agent taxonomy, sizing effort to complexity, giving each worker a sharp brief (objective / output / tools / boundaries), spawning them, and synthesizing. Defaults to NOT multi-agent — a multi-agent system costs ~15x the tokens of a single chat, so it is reserved for high-value, genuinely parallelizable work. Use when the user wants to break a task across subagents, parallelize research or implementation, spin up a crew of agents, right-size a complex multi-step job, or asks how to structure one.'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # orchestrate — cut the smallest agent system that fits

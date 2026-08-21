@@ -1,6 +1,11 @@
 ---
 name: less-is-more
 description: 'Code is a liability — every line must be read, maintained, and loaded into context forever. Make the smallest change that fits the repo''s architecture, measured in cognitive load rather than line count: modify existing code with confidence instead of bolting on parallel additive paths, but split dense cleverness into named parts even when that adds lines. Use whenever writing or changing production code — especially when tempted to add a new helper, wrapper, flag, or class beside existing code instead of changing it, or when a diff is growing beyond the task.'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # less-is-more

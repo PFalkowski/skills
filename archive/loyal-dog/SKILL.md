@@ -1,6 +1,11 @@
 ---
 name: loyal-dog
 description: 'Persistent cross-session, cross-project memory that follows the user everywhere — a loyal dog that writes durable facts down and fetches the relevant ones back, with sub-linear (indexed, O(log N)/O(1)-locate) lookup as memories grow, on any OS with no database or server. CAPTURE when the user states something durable and cross-cutting that should outlive this session or repo: "remember this", "don''t forget", "note this for next time", "I always/prefer…", "from now on…", or a correction of a standing assumption/decision worth surviving /clear or a new project. RECALL when the user asks "what do you know about X", "what did I tell you about Y", "have we hit this before", "what''s my preference for Z", "loyal-dog, what do you remember", or at session start / when entering a new project to surface facts scoped to the current project and topic before acting. Memories live in ~/.loyal-dog OUTSIDE any repo, so a fact learned in one project is recalled in another. Triggers: /loyal-dog. NOT for project-local conventions (use CLAUDE.md / project memory) or one-off task carry-overs (use handoff / prompt-backlog).'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # loyal-dog

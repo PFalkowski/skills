@@ -1,6 +1,11 @@
 ---
 name: fix-pr
 description: 'Resolve the review comments on a pull request, end to end. Use when asked to address, fix, or work through PR review comments or reviewer feedback, when a PR has unresolved threads to act on, when another skill needs a PR''s comments resolved headlessly, or /fix-pr.'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # fix-pr — work a PR's review comments to resolution, truth first

@@ -1,6 +1,11 @@
 ---
 name: walk-the-dog
 description: 'Delegate work to subagents while the main agent vets every side-effecting action they propose - shell commands and file writes - approving safe in-scope ones without prompting the human and escalating only genuinely consequential decisions. Use when the user wants a subagent to do the work but not run anything unsafe, or says "walk the dog", "keep it on a leash", or /walk-the-dog.'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # walk-the-dog

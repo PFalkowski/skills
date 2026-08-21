@@ -1,6 +1,11 @@
 ---
 name: evolve-skill
 description: 'Turn feedback about a skill, MCP, hook or process into a durable improvement of it. Trigger proactively when, shortly after one ran, the user asks to change how it behaves, corrects it, or says "incorporate this", "build this in", "remember to". Asks permission first, edits the capability''s canonical source (usually the skills repo, symlinked so editing the repo edits the live skill), strips private specifics, and commits. Distinct from write-a-skill (new) and update-config (settings). Also /evolve-skill.'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # evolve-skill
