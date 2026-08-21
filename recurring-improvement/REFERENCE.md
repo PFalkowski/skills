@@ -9,13 +9,19 @@ Every recurring task drives one process folder. `<process>` is a placeholder —
 substitute the task's name (`security-audit`, `test-coverage`, …). The shape:
 
 ```
-docs/<process>/
+<root>/<process>/
   RUNBOOK.md            # the process contract: goal, SCOPE CALIBRATION, the cycle, output format
-  INDEX.md              # run-history ledger — chronological table, newest first
-  runs/YYYY-MM-DD/
+  INDEX.md              # run-history ledger — chronological table, newest first. THE durable record.
+  runs/YYYY-MM-DD/      # per-run working scratch — UNTRACKED (gitignore <root>/*/runs/)
     report.md           # what this run found/dispatched; references the previous run
     <artifacts>         # optional supporting files
 ```
+
+Run reports stay out of source control (owner decision, XtbClient #419): tracked
+run artifacts are exactly the derived, drifting layer these processes exist to
+fight. The INDEX row (headline carries every still-`open` ID) and the run's PR
+description are what survive; gate evidence is pasted into the PR/issue, where
+GitHub permalinks it.
 
 - **INDEX.md is the ledger.** One row per run: `Date (→ run) │ New │ Closed │ Regressed │ Headline`. The `Closed`/`Regressed`/`New` columns track movement vs the previous run.
 - **Stable IDs across runs.** Findings/items get persistent IDs (e.g. `RI-0001`, or a process-specific prefix like `SEC-0001`) with a **state**: `open` / `accepted` (out of scope for now, kept for a future run) / `wontfix` / `fixed` / `regressed`. A later run *promotes/closes* existing IDs rather than re-finding them. This is what makes "what were we missing since last run" tractable: an `open` item stays open until addressed.
