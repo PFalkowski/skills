@@ -5,7 +5,8 @@
 The patrol works tickets a human vouched for. The Hunt has no tickets: it wakes on a timer, looks at **what changed since it last looked**, hunts critical bugs and vulnerabilities in exactly that, verifies every candidate adversarially, and reports through a channel the user chose. Findings can become `ai-ready` tickets — which is how the Hunt hands work to the patrol and the two modes close the loop.
 
 ```
-/nights-watch hunt                           # hourly, since the last hunt, report to a document
+/nights-watch                                # the default already stands up a hunt beside a patrol
+/nights-watch hunt                           # the hunt ALONE — hourly, since the last hunt, report to a document
 /nights-watch hunt every=15m                 # tighter cadence
 /nights-watch hunt report=issues             # file each finding as an ai-ready ticket
 /nights-watch hunt report=advisory           # draft GitHub security advisories (public repos)
@@ -25,7 +26,7 @@ The patrol works tickets a human vouched for. The Hunt has no tickets: it wakes 
 | Work source | the tracker — judged intake, or a selector | **the event streams** since the watermark (§ Events) |
 | Oath rule 3 (only sworn tickets) | the label is the human's vouch | **no tickets to swear** — the Hunt reads, it never writes code, so nothing needs vouching |
 | Output | a PR per ticket | **findings**, through the configured channel; never a fix |
-| Oath rule 2 (the watcher takes no part) | watcher reads the tracker, never the codebase | unchanged, and it binds harder: the watcher musters **file names, never diffs** (§ Events) |
+| Oath rule 2 (the watcher takes no part) | watcher reads the tracker, never the codebase | unchanged, and it binds harder: the watcher musters **file names, never diffs** (§ Events), and the hunt itself is never performed on the watcher's context — no dispatch, no hunt |
 | Concurrency | worker pool, one ticket at a time | one hunt per wake; lenses fan out inside it, refuters inside them, both capped in the script |
 | Loop | self-paced, 20–30 min idle ticks | **a fixed cadence the user sets** (`every`, default 1h), with an in-flight lock |
 | Empty wake | empty muster → log, sleep | no new commits → **one `git log`, no workers spawned**, log, sleep |
