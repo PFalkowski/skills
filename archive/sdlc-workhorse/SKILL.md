@@ -1,6 +1,11 @@
 ---
 name: sdlc-workhorse
 description: "The full SDLC as an executable pipeline, run unattended — the autonomous counterpart to sdlc-old-fashioned. Gathers the goal, then dispatches a Workflow that runs the whole lifecycle as code: guardrail baseline (red baseline aborts) → spec → a fresh agent grills the requirements → design → a fresh agent grills the plan → slice into tracer bullets → per-slice TDD where the RED is verified by a second agent → fresh-agent grill of each diff with every finding refute-tested → documentation shipped in the same PR → retrospective that curates durable lessons and runs postmortem discipline on the failures. Truth before all: every load-bearing claim at every gate is decomposed and attacked by perspective-diverse refuters, and an unprovable claim is treated as FALSE. Autonomous like nights-watch: reversible questions defer to the backlog with the chosen default logged, workers run at the lowest sufficient tier, token spend is budget-guarded, and the run NEVER merges, publishes, migrates, or spends — it hands back a merge-ready report. Use when the user wants the full lifecycle run unattended / overnight / autonomously; says 'do it properly but don't babysit me', 'run the whole SDLC on this', 'build this end to end while I'm out'; or wants by-the-book rigor on a load-bearing change without standing at every gate. For the attended variant where a human holds every gate, use sdlc-old-fashioned. For speed over rigor, use go-go-go."
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # sdlc-workhorse — the lifecycle, as a machine

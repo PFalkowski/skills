@@ -1,6 +1,11 @@
 ---
 name: housekeeping
 description: 'Audit a repository''s documentation against the code and against read-only external sources (Confluence, Jira, Azure DevOps). Separates drift (doc and code disagree), bloat (the doc restates code, so it will go stale), and gaps. Names the source of truth per claim; a human approves before anything is deleted or filed. Then sweeps the code — warnings, test gaps, duplication, architecture drift — into verified, sized work items. Use for "housekeeping", "tidy up the repo", "are our docs still true", a documentation audit, or /housekeeping.'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # Housekeeping

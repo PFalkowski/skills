@@ -2,6 +2,11 @@
 name: omv-dev-server
 description: 'Set up or repair a self-hosted OpenMediaVault server: Docker services, Tailscale remote access, and per-repo dev containers an agent can push from. Paired runbook and idempotent scripts.'
 disable-model-invocation: true
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # OMV dev server

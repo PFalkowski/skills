@@ -1,6 +1,11 @@
 ---
 name: research-journal
 description: 'Run an academic research project as a version-controlled journal — every conversation logged verbatim with dates, every claim marked by evidence strength, every idea adjudicated against prior art before it is committed to, all in a git repo synced to a remote. Use when working toward a paper, thesis, literature survey, or any long-lived research effort: "research paper", "IEEE/ACM journal", "write a paper", "survey the field", "literature review", "prior art", "is this novel", "log this conversation", "brainstorm a paper idea", or /research-journal. Distinct from prompt-backlog (deferred work) and handoff (context transfer) — this is the durable scholarly record: field brief, idea ledger with kill-file, per-conversation prompt logs, and novelty verdicts.'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # research-journal

@@ -1,6 +1,11 @@
 ---
 name: whatever
 description: 'Decide and proceed on low-stakes, reversible or conventional choices instead of asking. If a mid-task choice is reversible, cheap, or pure housekeeping (branch, naming, cleanup, "should I also do X"), pick the sensible default, state it in one line, and continue. Reserve questions for consequential, hard-to-reverse or preference-driven forks. Triggers on the urge to ask permission, or on "just progress", "stop asking", "whatever, just do it".'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # whatever

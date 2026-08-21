@@ -1,6 +1,11 @@
 ---
 name: clean-room
 description: 'Reimplement behaviour you have observed but may not copy — from a codebase under an incompatible licence (AGPL/GPL/SSPL/proprietary), a competitor product, prior art owned by a former employer, or an inspected binary — as two separated passes with a written brief as the only thing that crosses between them. A STUDY pass may read the source and produces prose only; a BUILD pass never sees the source and works from the brief; a mechanical leakage screen gates the handoff. Produces a defensible, auditable answer to "how do you know this was not copied?" plus the attribution record. Use when the user says "clean room", "clean-room implementation", "reimplement without copying", "we cannot use their code but we want the idea", "AGPL/GPL contamination", "how do we do this legally", "Chinese wall", when reading a competitor repo before writing a feature, or when a licence audit / IP question is attached to work you are about to start. NOT for permissively licensed code you may simply use and credit (MIT/BSD/Apache — just depend on it), for your own code, or for a one-line borrowing where the ceremony costs more than the risk.'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # clean-room

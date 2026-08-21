@@ -1,6 +1,11 @@
 ---
 name: fact-check
 description: 'Ground a claim before relying on it: run a local experiment when the claim is executable (math, code behaviour, regex, data, performance), or confirm it across two or more authoritative sources when it is documentable. Cite exact source lines for codebase claims. Always attach the evidence - a deep link, or the snippet and its actual output - and state confidence and method. Use on "fact-check", "is this true", "are you sure", "verify this", before asserting a load-bearing fact, or when being wrong is costly.'
+license: MIT
+metadata:
+  author: Piotr Falkowski
+  copyright: "© 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
 ---
 
 # fact-check
