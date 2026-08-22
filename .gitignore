@@ -5,4 +5,4 @@ Thumbs.db
 .idea/
 
 # omv-dev-server: the one file holding real host values
-skills/omv-dev-server/scripts/setup.env
+omv-dev-server/scripts/setup.env
