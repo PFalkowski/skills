@@ -1,10 +1,10 @@
 # skills
 
-Personal Claude Code skills.
+Personal agent skills for Claude Code, Codex, and other Agent Skills-compatible harnesses.
 
 ## Install
 
-### Option A — Claude Code plugin marketplace (recommended)
+### Option A — Claude Code plugin (managed)
 
 Installs the whole set as one Claude Code plugin and keeps it current automatically.
 
@@ -13,31 +13,33 @@ Installs the whole set as one Claude Code plugin and keeps it current automatica
 /plugin install pfalkowski-skills@pfalkowski-skills
 ```
 
-Claude Code copies the plugin into its own managed cache — no symlinks or hand-maintained copies under `~/.claude/skills/`. Skills are namespaced under the plugin (e.g. `pfalkowski-skills:nightshift`).
+Claude Code copies the plugin into its managed cache and keeps it updated. Skills are namespaced under the plugin (e.g. `pfalkowski-skills:nightshift`).
 
-### Option B — `skills` CLI
+### Option B — `skills` CLI (editable; Codex and other agents)
 
-Copies the individual skills into `~/.claude/skills/` and lets you pick which to enable.
+Copies the skills you choose into the agent directories you choose. Use this for Codex, or when you want ordinary files you can edit and update yourself.
 
 ```bash
 npx skills@latest add PFalkowski/skills
 ```
 
-The [`skills`](https://github.com/vercel-labs/skills) CLI reads `.claude-plugin/plugin.json`, walks the listed skill directories, and drops the ones you choose into `~/.claude/skills/`.
+If you already installed the Claude Code plugin, select Codex (or another agent) only. Do not install both options into the same agent: that creates duplicate skills with competing update sources.
+
+The [`skills`](https://github.com/vercel-labs/skills) CLI reads `.claude-plugin/plugin.json`, walks the listed skill directories, and installs the ones you choose for the selected agents.
 
 ## Updating
 
 Pick the line that matches how you installed.
 
 ```text
-# Option A — plugin marketplace: refresh the catalog and pull new versions
+# Option A — Claude Code plugin: refresh the marketplace and pull updates
 /plugin marketplace update
 ```
 
-No `version` is pinned in the manifest, so every push to this repo counts as a new version. Claude Code's background auto-update picks it up on startup; `/plugin marketplace update` just applies it immediately.
+The plugin is managed by Claude Code; it is not a hand-maintained copy under `~/.claude/skills/`.
 
 ```bash
-# Option B — skills CLI: re-pull installed skills
+# Option B — skills CLI: update editable installations
 npx skills update            # all installed skills
 npx skills update <skill>    # a single skill
 ```
@@ -92,7 +94,7 @@ Issues are groomed with the `triage` skill into three label lanes (category, sta
 
 > Installing or updating these skills as a user? See [Install](#install) and [Updating](#updating) above — you don't need any of this.
 
-Link every skill in this repo into `~/.claude/skills/` so Claude Code picks up your in-progress edits live (the link target *is* the repo file — no installer, no copies). **All skills are linked by default**, not just the one you're editing.
+Link every skill in this repo into both `~/.claude/skills/` and `~/.agents/skills/` so Claude Code and Codex-compatible harnesses pick up your in-progress edits live (the link target *is* the repo file — no installer, no copies). **All skills are linked by default**, not just the one you're editing.
 
 ### Windows (PowerShell)
 
@@ -105,7 +107,10 @@ Idempotent and self-healing — run it after adding a skill or to repair a machi
 ### macOS / Linux
 
 ```bash
-for d in */; do s=${d%/}; [ -f "$s/SKILL.md" ] && ln -sfn "$PWD/$s" ~/.claude/skills/"$s"; done
+for dest in ~/.claude/skills ~/.agents/skills; do
+  mkdir -p "$dest"
+  for d in */; do s=${d%/}; [ -f "$s/SKILL.md" ] && ln -sfn "$PWD/$s" "$dest/$s"; done
+done
 ```
 
 Removing a junction/symlink doesn't delete the source — they're pointers, not copies.
@@ -115,7 +120,7 @@ Removing a junction/symlink doesn't delete the source — they're pointers, not 
 1. Create `<skill-name>/SKILL.md` with the required frontmatter (`name`, `description`). **Quote the `description`** in single quotes if it contains a `:` (a bare `key: value` colon breaks YAML and the description silently fails to load).
 2. Split into reference files if SKILL.md would exceed ~100 lines.
 3. Add `"./<skill-name>"` to the `skills` array in `.claude-plugin/plugin.json`.
-4. Run `./link-skills.ps1` to link it into `~/.claude/skills/` (links all skills by default).
+4. Run `./link-skills.ps1` to link it into both local harness directories.
 5. Commit + push.
 
 ## License
