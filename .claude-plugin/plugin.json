@@ -1,6 +1,6 @@
 {
   "name": "pfalkowski-skills",
-  "description": "Skills for Azure DevOps PR review, autonomous overnight backlog runs, dormant NuGet repo refresh, trading/ML signal verdicts, ordered prompt backlogs, stacked-PR merges, fresh-context handoff checks, self-evolving skills, and recurring self-improvement runs.",
+  "description": "Skills for Azure DevOps PR review, autonomous overnight backlog runs, codebase desloppification, dormant NuGet repo refresh, trading/ML signal verdicts, ordered prompt backlogs, stacked-PR merges, fresh-context handoff checks, self-evolving skills, and recurring self-improvement runs.",
   "author": {
     "name": "PFalkowski"
   },
@@ -9,6 +9,7 @@
     "./azure-devops-pr-review",
     "./code-review-grill",
     "./context-reduction",
+    "./desloppify",
     "./dump-sessions",
     "./evolve-skill",
     "./fact-check",
