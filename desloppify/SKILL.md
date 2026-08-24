@@ -1,6 +1,6 @@
 ---
 name: desloppify
-description: "Reduce a codebase's cognitive and context load by removing stale prose, duplication, dead paths, and unnecessary abstractions while preserving behavior and following the repository's own architecture. Use when an autonomous-agent-grown codebase feels bloated, confusing, inconsistent, over-commented, or costly to load; supports scoped audits, cleanup campaigns, and backlog runs with focus, budget, architecture, and apply arguments."
+description: "Reduce a codebase's cognitive and context load by removing stale prose, duplication, dead paths, and unnecessary abstractions while preserving behavior and following the repository's own architecture. Use when an autonomous-agent-grown codebase feels bloated, confusing, inconsistent, over-commented, or costly to load. Distinct from context-reduction (the gated prose-deletion campaign this skill calls for a comment/doc sweep), housekeeping (the docs-then-code audit it calls for a broad pass), and less-is-more (one change, not a campaign); desloppify is the scoped hotspot pass that routes to those."
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -27,9 +27,10 @@ desloppify [scope=<path/glob>] [mode=assess|campaign|item]
 Examples: `desloppify mode=assess focus=comments budget=small max_items=5` or
 `desloppify scope=src/orders mode=item focus=code architecture=repo`.
 
-Defaults are the whole repository, `mode=assess`, `focus=all`, `budget=standard`,
-`architecture=auto`, `apply=report`, and no outward tracker mutation. Treat `ddd` or
-`clean` as a review lens only when the repository or the user calls for it; never add
+Defaults are `scope` = the whole repository, `mode=assess`, `focus=all`, `budget=standard`,
+`architecture=auto`, `apply=report`, `tracker=auto`, and `max_items` = no cap — `budget` bounds
+the run instead. Every argument is bound to the steps that read it in step 1 of
+[RUNBOOK.md](RUNBOOK.md); an argument declared here that no step reads is a bug. Never add
 layers, entities, ports, or value objects merely to make the code look architectural.
 
 ## Non-negotiables
@@ -39,8 +40,9 @@ layers, entities, ports, or value objects merely to make the code look architect
 - Establish document truth before judging code against it. Classify drift, bloat, gaps,
   contradictions, and orphans; name the source of truth per claim.
 - Reduce code and comments together. Apply [no-comment](../no-comment/SKILL.md) to every
-  comment, and [less-is-more](../less-is-more/SKILL.md) to every code change. Delete a
-  superseded path, test, config entry, or abstraction in the same bounded change.
+  comment, and [less-is-more](../less-is-more/SKILL.md) to every code change. Propose deletion
+  of a superseded path, test, config entry, or abstraction in the same bounded change; deletion
+  itself is subject to the approval gate below.
 - Never create a summary, index, knowledge graph, or archive as a substitute for deletion.
   Keep campaign notes untracked; durable truth belongs in code, tests, git history, one ADR,
   or a genuinely necessary user-facing document.
@@ -48,8 +50,8 @@ layers, entities, ports, or value objects merely to make the code look architect
   claims by a minimal run, codebase claims by exact locations, and external claims by
   authoritative sources. Refute before reporting; group symptoms by root cause.
 - Do not delete, change behavior or public contracts, alter architecture, file tickets, or
-  write to external systems until the user approves the exact proposed scope. External systems
-  are read-only while auditing.
+  write to external systems until the user approves each such item by name — approving a scope
+  is not approving its deletions. External systems are read-only while auditing.
 
 ## Workflow
 
