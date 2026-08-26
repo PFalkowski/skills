@@ -10,9 +10,8 @@ metadata:
 
 # desloppify
 
-Make the repository easier to understand for the next human or agent. Optimize for
-the behaviour a reader must hold in context, not for a smaller diff or a lower line
-count. A named extraction can be a reduction; a clever one-liner can be an increase.
+Make the repository easier to understand for the next human or agent. Reduction is measured in
+cognitive load, not line count — see [less-is-more](../less-is-more/SKILL.md).
 
 ## Invocation
 
