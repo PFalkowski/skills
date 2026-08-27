@@ -59,6 +59,10 @@ both read from it.
 Record ignored, generated, inaccessible, and out-of-scope areas as `uncovered`; never imply
 that they are clean.
 
+Check `git status` before applying anything, in every mode. If the working tree is dirty, stop
+and ask: isolate in a worktree, have the user commit or stash first, or run report-only. Never
+edit a file that carries uncommitted user changes.
+
 For `mode=campaign` with `apply=approved`, isolate the work first if the current worktree is not
 already dedicated. Do not overwrite unrelated user changes.
 
@@ -158,8 +162,7 @@ move. Keep each slice behavior-preserving unless the user approved a behavior ch
 
 Never add a wrapper, interface, flag, helper, DDD layer, Clean Architecture layer, or document
 just to make a hotspot appear tidy. Add structure only when it reduces total reader cost and the
-repo's guidance or user intent supports it. Split dense code when names make the behavior easier
-to hold, even if the diff gains lines.
+repo's guidance or user intent supports it — apply [less-is-more](../less-is-more/SKILL.md).
 
 After every slice, run the narrowest relevant tests, then the repository's build/test/lint checks,
 and compare them against the step-1 baseline. For a material diff, invoke code-review-grill's
