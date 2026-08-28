@@ -1,6 +1,6 @@
 ---
 name: housekeeping
-description: 'Audit a repository''s documentation against the code and against read-only external sources (Confluence, Jira, Azure DevOps). Separates drift (doc and code disagree), bloat (the doc restates code, so it will go stale), and gaps. Names the source of truth per claim; a human approves before anything is deleted or filed. Then sweeps the code — warnings, test gaps, duplication, architecture drift — into verified, sized work items. Use for "housekeeping", "tidy up the repo", "are our docs still true", a documentation audit, or /housekeeping. Distinct from context-reduction (the gated prose-deletion campaign; this skill audits without committing to deletion) and desloppify (the scoped hotspot pass that calls this skill for a broad pass).'
+description: 'Audits a repository''s docs against the code and read-only externals (Confluence, Jira, Azure DevOps), then sweeps the code for warnings, gaps, and drift; a human approves before anything is deleted or filed. Use for "housekeeping", "tidy up the repo", "are our docs still true", a documentation audit. Distinct from context-reduction (deletion campaign; this audits without committing to it) and desloppify (the hotspot pass that calls this for a broad pass).'
 license: MIT
 metadata:
   author: Piotr Falkowski

@@ -1,6 +1,6 @@
 ---
 name: dump-sessions
-description: Dump a handover for every recently-active Claude Code session by reading the on-disk transcripts — cwd, git branch, last prompt, last substantive turns, and a live git-risk check (uncommitted/unpushed) per workspace. Works AFTER a crash or power loss, when the live processes are already gone and no process/PEB inspection is possible. Use when the user says "dump all sessions", "handover for all my sessions", "power's about to go / UPS", "I'm moving machines", "what was I working on everywhere", or needs to recover session state across every open repo at once. For one session use handoff; to regenerate the Windows Terminal tabs themselves use snapshot-terminal-sessions.
+description: Dump a handover for every recently-active Claude Code session from on-disk transcripts, working even after a crash or power loss. Use when the user says "dump all sessions", "handover for all my sessions", "power's about to go / UPS", "I'm moving machines", "what was I working on everywhere", or needs session recovery across every open repo. For one session use handoff; for the Windows Terminal tabs themselves use snapshot-terminal-sessions.
 disable-model-invocation: true
 license: MIT
 metadata:

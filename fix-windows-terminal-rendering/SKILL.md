@@ -1,7 +1,7 @@
 ---
 name: fix-windows-terminal-rendering
 disable-model-invocation: true
-description: 'Repoint the Windows default terminal host from legacy conhost.exe to Windows Terminal by writing the DelegationConsole/DelegationTerminal values under HKCU:\Console\%%Startup. Use when an interactive terminal UI on Windows smashes rows together, redraws over itself, loses its layout on resize, or when Ctrl+L does not clear/repaint the screen — and to undo that change. Also covers the next suspect when the host is already Windows Terminal and an alternate-screen TUI still corrupts: ConPTY desync, mitigated by the app''s full-repaint switch.'
+description: 'Repoints the Windows default terminal host from legacy conhost.exe to Windows Terminal, or reverts it. Use when an interactive terminal UI on Windows smashes rows together, redraws over itself, loses its layout on resize, or Ctrl+L does not clear/repaint the screen. Also use when the host is already Windows Terminal and an alternate-screen TUI still corrupts — the next suspect is ConPTY desync, mitigated by the app''s full-repaint switch.'
 license: MIT
 metadata:
   author: Piotr Falkowski

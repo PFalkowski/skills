@@ -1,6 +1,6 @@
 ---
 name: desloppify
-description: "Reduce a codebase's cognitive and context load by removing stale prose, duplication, dead paths, and unnecessary abstractions while preserving behavior and following the repository's own architecture. Use when an autonomous-agent-grown codebase feels bloated, confusing, inconsistent, over-commented, or costly to load. Distinct from context-reduction (the gated prose-deletion campaign this skill calls for a comment/doc sweep), housekeeping (the docs-then-code audit it calls for a broad pass), and less-is-more (one change, not a campaign); desloppify is the scoped hotspot pass that routes to those."
+description: "Cuts a codebase's cognitive and context load: strips stale prose, duplication, dead paths, and unneeded abstractions while preserving behavior and architecture. Use when an autonomous-agent-grown codebase feels bloated, confusing, inconsistent, over-commented, or costly to load. Distinct from context-reduction (prose sweep), housekeeping (docs+code audit), and less-is-more (single change); routes to those for broader campaigns."
 license: MIT
 metadata:
   author: Piotr Falkowski

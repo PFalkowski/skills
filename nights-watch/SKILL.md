@@ -1,6 +1,6 @@
 ---
 name: nights-watch
-description: 'Standing autonomous loop over an issue tracker, the codebase, or open PRs. Four modes: PATROL works tickets that are both ready and actually wanted; RANGING (ticket=<id>) takes one ticket end to end by the book; HUNT (hunt) scans only what changed for bugs and vulnerabilities on a cadence; GRILL (grill) posts adversarial review threads on open PRs. A bare invocation stands up PATROL and HUNT together, each on its own cadence; a mode word narrows it to that one. Never merges, approves, or enacts a refusal. Use when the user wants tickets picked up autonomously, says "night''s watch", "man the wall", "watch the backlog"; wants one ticket done properly/by the book; wants recurring vulnerability scanning of recent changes; or wants open PRs reviewed on a cadence. For speed use go-go-go; for a backlog file use nightshift.'
+description: 'Standing autonomous loop over an issue tracker, codebase, or open PRs that never merges, approves, or enacts a refusal. Use when the user wants tickets picked up autonomously, says "night''s watch", "man the wall", "watch the backlog"; wants one ticket done properly/by the book; wants recurring vulnerability scanning of recent changes; or wants open PRs reviewed on a cadence. For speed use go-go-go; for a backlog file use nightshift.'
 license: MIT
 metadata:
   author: Piotr Falkowski

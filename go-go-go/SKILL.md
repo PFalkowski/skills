@@ -1,6 +1,6 @@
 ---
 name: go-go-go
-description: 'End-to-end "ship it" driver — takes whatever state the repo is in (ideas, uncommitted work, open tasks, stalled PR) and drives forward to a raised PR without stopping for low-stakes decisions. Applies whatever-mode, completes unfinished work via nightshift or a focused loop, picks the cheapest model tier that fits each step, commits, pushes, and opens the PR. Escalates autonomously to extreme mode when needed: ralph-loop as persistence engine with either a farm of parallel Haiku workers (mechanical/breadth tasks) or a sequential Opus chain (hard reasoning/depth tasks) — shape chosen at own discretion. Use when the user says "go go go", "just ship it", "make it happen", "finish and PR this", or wants zero-friction end-to-end delivery.'
+description: 'End-to-end "ship it" driver — takes the repo as-is (ideas, uncommitted work, open tasks, a stalled PR) and drives it to a raised, reviewed PR without stopping for low-stakes decisions. Use when user says "go go go", "just ship it", "make it happen", "finish and PR this", or wants zero-friction end-to-end delivery.'
 disable-model-invocation: true
 license: MIT
 metadata:

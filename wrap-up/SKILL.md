@@ -1,6 +1,6 @@
 ---
 name: wrap-up
-description: 'End-of-session closer in three passes: ship (everything committed, pushed, PRed - resolving leftovers with the user item by item), sweep (remove this session''s worktrees and prune its local branches, this project only), account (audit the conversation for unfinished tasks and assumptions, then file them in the house tracker - gh/azdo/jira - or emit a handoff-lite block, route feedback on skills from this set upstream as an issue or, for contributors, a PR, and refresh persistent memory - fix or drop stale entries, record lessons learned). Use at the end of a work session: "wrap up", "wrap it up", "close the session", "we''re done here", "tidy up and finish", or /wrap-up.'
+description: 'End-of-session closer: ships outstanding work, sweeps session scaffolding, files what''s still open in the tracker or a handoff-lite block, and routes skill feedback and memory updates. Use at the end of a work session: "wrap up", "wrap it up", "close the session", "we''re done here", "tidy up and finish", or /wrap-up.'
 license: MIT
 metadata:
   author: Piotr Falkowski

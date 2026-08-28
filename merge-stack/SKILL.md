@@ -1,6 +1,6 @@
 ---
 name: merge-stack
-description: 'Land a chain of stacked PRs bottom-up without the two traps: squash-merging a parent rewrites its commits so each child phantom-conflicts until rebased, and deleting a merged branch auto-closes the next child PR irrecoverably. Use after building a stack of dependent PRs, or on "merge the stack", "land the chain", "ship the stacked PRs", /merge-stack.'
+description: 'Lands a chain of stacked PRs bottom-up while avoiding the two traps that break the chain: a squash-merged parent phantom-conflicting the next child, and a deleted parent branch auto-closing it. Use after building a stack of dependent PRs, or on "merge the stack", "land the chain", "ship the stacked PRs", /merge-stack.'
 license: MIT
 metadata:
   author: Piotr Falkowski

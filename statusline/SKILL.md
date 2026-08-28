@@ -1,6 +1,6 @@
 ---
 name: statusline
-description: One-time install of a Claude Code status line that shows worktree, branch, model tier, context-window fill, rate-limit burn rate, lines changed, session time, and cost — with rate limits coloured by pace against the window rather than raw percentage. Use when the user wants cost/tokens/metrics in the status line, footer, or status bar; asks to customise or debug their status line; asks why their status line is blank; or asks what fields the status line payload actually contains.
+description: 'Installs a Claude Code status line: worktree, branch, model, tokens, rate limits, cost. Use when the user wants cost/tokens/metrics in the status line, footer, or status bar; asks to customise or debug their status line; asks why their status line is blank; or asks what fields the status line payload actually contains.'
 disable-model-invocation: true
 license: MIT
 metadata:

@@ -1,6 +1,6 @@
 ---
 name: azure-devops-pr-review
-description: 'Review an Azure DevOps pull request (dev.azure.com / visualstudio.com) end to end from the command line: resolve the PR, build a reviewable diff with full repo context, then post findings as inline PR comments. Use when given an Azure DevOps PR URL or id to review, when `az repos` auth or the diffs API misbehaves, or /azure-devops-pr-review.'
+description: 'Review an Azure DevOps pull request (dev.azure.com / visualstudio.com) end to end from the command line, posting findings as inline PR comments. Use when given an Azure DevOps PR URL or id to review, when `az repos` auth or the diffs API misbehaves, or /azure-devops-pr-review.'
 license: MIT
 metadata:
   author: Piotr Falkowski
