@@ -17,9 +17,9 @@ substitute the task's name (`security-audit`, `test-coverage`, …). The shape:
     <artifacts>         # optional supporting files
 ```
 
-Run reports stay out of source control (owner decision, XtbClient #419): tracked
-run artifacts are exactly the derived, drifting layer these processes exist to
-fight. The INDEX row (headline carries every still-`open` ID) and the run's PR
+Run reports stay out of source control (owner decision): tracked run artifacts
+are exactly the derived, drifting layer these processes exist to fight. The
+INDEX row (headline carries every still-`open` ID) and the run's PR
 description are what survive; gate evidence is pasted into the PR/issue, where
 GitHub permalinks it.
 

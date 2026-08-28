@@ -18,10 +18,11 @@ context-window) before anyone reaches the code. The only reduction that is real 
 index, summary-of-docs, "archive" folder. Every derived layer is a second copy of the
 truth with no mechanism keeping it honest; it gets read as authoritative precisely when
 it is most wrong. An archived doc is still in the search path; a graph node still
-answers queries after the code moved on. In the campaign this skill is distilled from
-(XtbClient #392/#419, 2026-08), *every* costly lie lived in a derived layer: an ADR
-summary inside a comment, a config value quoted in prose, a curated fact-library entry
-still asserting a branch was unprotected after protection shipped. None lived in code.
+answers queries after the code moved on. In the campaign this skill is
+distilled from, *every* costly lie lived in a derived layer: an ADR summary
+inside a comment, a config value quoted in prose, a curated fact-library
+entry still asserting a branch was unprotected after protection shipped.
+None lived in code.
 
 **Where truth is allowed to live** (everything else points here or dies):
 
