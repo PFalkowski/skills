@@ -85,6 +85,12 @@ if (!A || !Array.isArray(A.tickets)) throw new Error('patrol: args.tickets missi
 for (const t of A.tickets) {
   if (!t.id || !t.repo) throw new Error(`patrol: ticket missing id/repo: ${JSON.stringify(t)}`)
 }
+// libraryIndex is validated the same way: missing or the literal string 'undefined' (the
+// tell-tale of an unnormalized args string leaking through) fails loudly here rather than
+// letting rangers proceed as if the Library had no entries — see LIBRARY.md § Recall.
+if (!A.libraryIndex || A.libraryIndex === 'undefined') {
+  throw new Error('patrol: args.libraryIndex missing or unresolved — the Watch must not run blind to the Library')
+}
 const queue = [...A.tickets]
 // The watcher's clock, taken at dispatch (§ Stamped output). The script cannot
 // take its own: Date.now() throws inside a workflow. Absent -> log bare, never
@@ -146,7 +152,10 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        against your answer. You are NOT implementing it and NOT designing it.
        Ticket ${t.id} (${t.url}) in repo ${t.repo}: ${t.title}
        ${t.brief}
-       Read the Library index at ${A.libraryIndex} and open what is relevant.
+       Read the Library index at ${A.libraryIndex} and open what is relevant. Confirm the file
+       actually exists and is readable before treating an empty read as "no entries" — if it
+       is missing, unreadable, or the path looks unresolved, say so explicitly in your
+       returned claims rather than proceeding as if the Library were empty.
        READ-ONLY on the working tree: you share it with rangers/grills/other agents
        running concurrently. Do NOT checkout, switch, stash, pull, reset, or write
        anything in it. If proving a claim needs a build or a real checkout, make your
@@ -234,7 +243,10 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
       `You are a ranger of the Night's Watch working ticket ${t.id} (${t.url}) in repo ${t.repo}.
        Brief: ${t.brief}
        First read the Library index at ${A.libraryIndex} and open ONLY the entries
-       relevant to this ticket (conventions, gotchas, tooling for this repo).
+       relevant to this ticket (conventions, gotchas, tooling for this repo). If that path
+       is missing, unreadable, or looks unresolved (e.g. the literal string "undefined"),
+       say so in your returned summary — do not proceed silently as if the Library had
+       nothing for this ticket.
        Keep a chronicle at ${t.chroniclePath} (absolute path, outside your worktree):
        append field notes THE MOMENT you learn something — a convention discovered, a trap
        hit, a command that finally worked, an assumption that proved false — not at the end.
