@@ -80,3 +80,14 @@ Cross-cutting and unconditional: **fact-check at every critical decision moment*
 ## Priority within a muster
 
 When the muster exceeds what the budget or the night allows, order by: tracker priority field first, then oldest ticket first (starvation is a triage bug). Log what was deferred and why — a silent skip reads as "the wall was quiet" when it wasn't.
+
+## Overlap check — before dispatch
+
+Triage judges tickets one at a time; this step judges the wave as a whole, and runs after priority ordering, once the accepted set for this patrol is fixed, but before any of it reaches WATCH.md's dispatch:
+
+1. For each accepted ticket, estimate its touch surface from the brief alone — the files or modules its acceptance criteria imply changing. No codebase access needed; this is the same ticket-text-only judgment as the rest of triage.
+2. Compare touch surfaces across every pair of tickets in the wave.
+3. On a hit — two tickets whose touch surfaces overlap — resolve it before dispatch: **serialize** (dispatch one this wave, hold the other for the next), **stack** (make the second depend on the first's PR), or **merge** (fold both into one ticket). Record which resolution was chosen, and why, in the patrol summary.
+4. **"No overlaps found" is the normal, successful outcome of this step, not a finding to manufacture.** Most waves will report exactly that; say so and move on.
+
+This is a triage-time step, not a runtime guard — it does not lock files or serialize execution itself. If a patrol's findings suggest a script-level guard is also warranted, file that separately.
