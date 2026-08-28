@@ -7,14 +7,14 @@ The mandate is the one paragraph every decision is checked against. It is writte
 | Key | Default | Meaning |
 |---|---|---|
 | `goal="…"` | taken from the ticket / PR / PRD the output concerns | What the work is for and what done looks like. Without it, "aligned" has no referent. |
-| `merge=` | `ask` | `auto`: a PR that is green, independently grilled with findings resolved, and inside the goal merges without a human. `ask`: the same PR is escalated with the recommendation "merge". Merging is consequential and hard to reverse; the mandate is what makes it *determined* (rule 3). |
+| `merge=` | `allow` | `allow`: a PR that is green, independently grilled with findings resolved, and inside the goal merges without a human. `ask`: the same PR is escalated with the recommendation "merge". Merging is consequential and hard to reverse; the mandate is what makes it *determined* (rule 3), and the default hands it to the manager because a PR that has passed every gate is the decision the gates were for. |
 | `post=` | `post` | Whether replies, review threads and decision comments are posted where the work lives, or drafted into the report. Posting on the team's own PRs and tickets is reversible and is how rule 7 is met. |
 | `tickets=` | `file` | Whether deferred work is filed as tracker tickets or drafted. Filing is reversible (a ticket can be closed) and keeps the board the source of truth. |
 | `budget=` | none | Token or money ceiling across everything dispatched under this mandate. Near it, the manager stops dispatching and reports. |
 | `hard="…"` | see below | Extra lines that always escalate. Extends the defaults; cannot shrink them. |
 | `tracker=` | detected | `github` when the remote is github.com, `azdo` for dev.azure.com, `jira` when the repo's docs or `CLAUDE.md` name it or an Atlassian integration is connected. What the repo's own docs say wins over what the remote implies. |
 
-**Default hard lines** — always escalated, with a recommendation, whatever the mandate: publishing or releasing; spending money; deleting data, history or someone else's branch; force-pushing a shared branch; weakening security or removing a guard; contacting people outside the team; any action that breaks a working assumption of the mandate; merging to a protected branch unless `merge=auto`.
+**Default hard lines** — always escalated, with a recommendation, whatever the mandate: publishing or releasing; spending money; deleting data, history or someone else's branch; force-pushing a shared branch; weakening security or removing a guard; contacting people outside the team; any action that breaks a working assumption of the mandate; merging to a protected branch under `merge=ask`.
 
 ## The rubric — in this order, stop at the first that decides
 
@@ -57,7 +57,7 @@ Every line carries its reason and evidence so the agent can push back with facts
 
 ## The journal
 
-`.manager/journal.md`, append-only, one line per decision:
+`.agents/manager/journal.md`, append-only, one line per decision — every skill's run logs belong under `.agents/<skill>/`, so a reader finds them all in one place:
 
 ```
 [MM-DD HH:mm] <subject> <A#> <VERDICT> <ask in ≤12 words> — <reason> [<evidence>] → told <agent/channel>

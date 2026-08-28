@@ -26,13 +26,13 @@ It is not another worker. `walk-the-dog` vets *actions* — this command, this w
 /manager watch                                  # standing: stay on and answer whatever the running work asks
 ```
 
-Mandate keys (all optional): `goal="…"`, `merge=ask|auto`, `post=draft|post`, `tickets=file|draft`, `budget=<tokens|$>`, `hard="<lines that always escalate>"`, `tracker=github|azdo|jira`. Defaults and how they resolve in [DECIDING.md](DECIDING.md).
+Mandate keys (all optional): `goal="…"`, `merge=allow|ask`, `post=draft|post`, `tickets=file|draft`, `budget=<tokens|$>`, `hard="<lines that always escalate>"`, `tracker=github|azdo|jira`. Defaults and how they resolve in [DECIDING.md](DECIDING.md).
 
 ## Rules
 
 1. **Reality, not the report.** An agent's report is a claim. Every decision rests on verified state — the PR's actual checks, the test run's actual output, the ticket's actual status — never on the summary of it. Verify what would *change the decision*; the rest is not worth a token.
 2. **Every ask gets a verdict.** Explicit ("may I push?") or implicit ("PR is ready" means "review or merge it"), each ask ends as exactly one of **APPROVE / REDIRECT / DEFER / ESCALATE / VETO**, with a one-line reason and a pointer to the evidence. An ask left unanswered is the failure this skill exists to remove.
-3. **The mandate settles the third prong.** The `whatever` test asks whether a choice is consequential, hard to reverse, *and* underdetermined. The manager's mandate is what determines it: a green, grilled PR under `merge=auto` is a determined choice, so it merges; the same PR under `merge=ask` is escalated. Nothing outside the hard lines goes to the human because it *feels* big — only because the mandate reserves it.
+3. **The mandate settles the third prong.** The `whatever` test asks whether a choice is consequential, hard to reverse, *and* underdetermined. The manager's mandate is what determines it: a green, grilled PR under the default `merge=allow` is a determined choice, so it merges; the same PR under `merge=ask` is escalated. Nothing outside the hard lines goes to the human because it *feels* big — only because the mandate reserves it.
 4. **Hard lines always escalate.** Whatever the mandate says, these reach the human with a recommendation: publishing or releasing, spending money, deleting data or history, weakening security, contacting people outside the team, and any action that breaks a working assumption of the mandate. `hard=` extends the list; nothing shrinks it.
 5. **The manager does no legwork.** Its context is for judgment and the thread of decisions. Reading a codebase, running a suite, drafting a fix, reviewing a diff — all dispatched, each at the cheapest tier that fits. One shell command to check a fact is fine; a second one is the start of legwork. If the work cannot be dispatched, say so and stop — do not absorb it.
 6. **Higher permission, tighter fence.** The manager runs in the human's session, with the human's permissions, under [auto-mode-setup](../auto-mode-setup/SKILL.md) — its deny rules are the safety boundary, and no manager approval reaches past them. Workers run fenced: read-only tools freely, mutating ones withheld or leashed, so a worker that forgets the protocol still cannot act alone.
@@ -50,7 +50,7 @@ Mandate keys (all optional): `goal="…"`, `merge=ask|auto`, `post=draft|post`, 
 
 **Step 5 — Act and communicate.** Verdicts become work: APPROVE executes or unleashes exactly that step; REDIRECT dispatches the right process from the [routing table](#routing-table) with the [principal brief](PRINCIPAL.md); DEFER files a ticket that meets the [triage](../triage/READINESS.md) bar (a fresh agent could pick it up) and links the origin; ESCALATE goes to the human with a recommendation, never a raw question; VETO tells the agent why and what to do instead. Then **tell the agent** — `SendMessage` to a live subagent, a fresh brief to the next one, a backlog entry for a `claude` process, a comment on the PR — in the verdict format in DECIDING.md. Update the board: state transition, PR linked, decision comment posted.
 
-**Step 6 — Journal and report.** Append each decision to the journal (`.manager/journal.md` by default; on a public repo keep the state root outside the tree). Report to the human in a few lines: verdicts by count, what was dispatched, what is escalated and the recommendation for each. Not a narrative.
+**Step 6 — Journal and report.** Append each decision to the journal (`.agents/manager/journal.md` by default; on a public repo keep the state root outside the tree). Report to the human in a few lines: verdicts by count, what was dispatched, what is escalated and the recommendation for each. Not a narrative.
 
 ## Standing management (`watch`)
 

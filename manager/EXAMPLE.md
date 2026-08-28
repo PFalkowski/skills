@@ -21,7 +21,7 @@ The kind of output this skill exists for: an agent finishes a ticket, opens a PR
 
 ## Step 1 — Mandate
 
-Nothing was passed, so it comes from the ticket the PR closes and the ADR it amends: *restore retry/breaker coverage on every store path without changing the failover routing; production behaviour changes need a pinned test and an ADR note.* Defaults: `merge=ask`, `post=post`, `tickets=file`, tracker = GitHub (remote). Working assumption carried from the ticket: "the ORM store is the only layer that should own resilience."
+Nothing was passed, so it comes from the ticket the PR closes and the ADR it amends: *restore retry/breaker coverage on every store path without changing the failover routing; production behaviour changes need a pinned test and an ADR note.* Defaults: `merge=allow`, `post=post`, `tickets=file`, tracker = GitHub (remote). Working assumption carried from the ticket: "the ORM store is the only layer that should own resilience."
 
 ## Step 2 — Ledger
 
@@ -51,14 +51,14 @@ Nothing was passed, so it comes from the ticket the PR closes and the ADR it ame
 
 ```
 MANAGER VERDICT — PR #515
-Mandate: restore resilience coverage on every store path, routing unchanged · merge=ask post=post tickets=file
+Mandate: restore resilience coverage on every store path, routing unchanged · merge=allow post=post tickets=file
 Verified: 4 claims checked — 4 held (gh pr checks; fact-check on the F1 test and the ADR)
   A1 APPROVE   #5 breaker change (throughput 2, fail-fast) — aligned, reversible (config), pinned, ADR-noted [test + ADR §7]
   A2 APPROVE   #6 resilience owned by the ORM store only — is the working assumption; grill to confirm nothing else lost retry
   A3 REDIRECT  #8 "ready" → code-review-grill first — no independent review yet; a reviewer that never saw the rationale
   A4 DEFER     #9 F5 parity → ticket #531; #10 F7 ShouldHandle → #532; #11 F8 alert → #533 — each with the origin PR and the readiness brief
   A5 DEFER     #12 F9–F18 nits → one ticket #534, Haiku-tier, batched — not worth a PR each
-  A6 ESCALATE  merge → human, recommendation: merge once the grill is clean — merge=ask
+  A6 APPROVE   merge, once the grill is clean and its findings worked — merge=allow; checks green, F1 change verified pinned, ADR noted
   A7 APPROVE   #13 — the manager holds the check itself; no further CI report needed from you
 Next for you (in order):
   1. Stand by for grill findings; work them via fix-pr headless, reply=post resolve=fixed.
@@ -66,15 +66,15 @@ Next for you (in order):
 Report back with: the fix-pr report, or "grill clean".
 ```
 
-Actions taken: `code-review-grill` dispatched on #515 with the principal brief; four tickets filed and linked from a PR comment; the verdict posted as a PR comment; the journal appended; the ticket moved to *In Review*.
+Actions taken: `code-review-grill` dispatched on #515 with the principal brief; the merge queued behind it (the manager merges when the grill returns clean, then moves the ticket to *Done*); four tickets filed and linked from a PR comment; the verdict posted as a PR comment; the journal appended; the ticket moved to *In Review*.
 
 ## Step 6 — Report to the human
 
 ```
-Managed: PR #515. Verdicts: 4 approved, 1 redirected (grill), 2 deferred (#531–#534), 0 vetoed.
-Dispatched: code-review-grill on #515 (opus); fix-pr headless queued behind it.
-Escalated (1): merge #515 — recommend merge once the grill is clean; all checks green, F1 change verified pinned.
-Budget: —. Journal: .manager/journal.md
+Managed: PR #515. Verdicts: 4 approved (incl. merge after grill), 1 redirected (grill), 2 deferred (#531–#534), 0 vetoed.
+Dispatched: code-review-grill on #515 (opus); fix-pr headless and the merge queued behind it.
+Escalated: none.
+Budget: —. Journal: .agents/manager/journal.md
 ```
 
-One line needs an answer. The other thirteen items were decided.
+Nothing needs an answer. All fourteen items were decided; the human reads the merge in the journal and on the PR, not in a prompt.
