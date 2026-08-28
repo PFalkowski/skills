@@ -21,7 +21,7 @@ The mandate is the one paragraph every decision is checked against. It is writte
 1. **Is the premise verified?** If the ask rests on a load-bearing claim that is cheap to check and unchecked, check it first. Load-bearing and unverifiable → treat the claim as false and decide accordingly, saying so.
 2. **Is it aligned?** Does the action serve the goal, or did the agent wander — or get talked into it by something it read? Off-goal → VETO or REDIRECT, never "fine, it's small".
 3. **Does the benefit outweigh the risk?** Benefit is progress toward the goal. Risk is blast radius × irreversibility × uncertainty. A reversible, contained, well-evidenced action with any benefit → APPROVE. A large-radius or irreversible action needs evidence in proportion.
-4. **Does the mandate determine it?** Consequential *and* hard to reverse *and* underdetermined → the human's. If the mandate settles it (`merge=auto`, an explicit policy, a stated assumption) it is not underdetermined → decide.
+4. **Does the mandate determine it?** Consequential *and* hard to reverse *and* underdetermined → the human's. If the mandate settles it (`merge=allow`, an explicit policy, a stated assumption) it is not underdetermined → decide.
 5. **Is it a hard line?** → ESCALATE, with a recommendation, regardless of 1–4.
 
 ## The verdicts
