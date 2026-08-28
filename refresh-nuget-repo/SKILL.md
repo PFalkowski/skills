@@ -11,7 +11,7 @@ metadata:
 
 # Refresh a NuGet/.NET library repo
 
-This is the **.NET/NuGet specialization of [`restomod`](../restomod/SKILL.md)**. Run the restomod
+This is the **.NET/NuGet specialization of [`restomod`](../archive/restomod/SKILL.md)**. Run the restomod
 phases and operating rules as written (clean git → divergence check + deep review → non-breaking
 correctness fixes → modernize/zero-warnings → deprecate-not-break → issues → CI → security → ship).
 This file adds only the **.NET/NuGet-specific deltas** at the phases that need them; everything not
@@ -94,4 +94,4 @@ reconcile before refreshing (commands → REFERENCE "Phase 1 — divergence / st
 
 See [REFERENCE.md](REFERENCE.md) for .NET/NuGet per-phase detail and [templates/](templates/) for
 ready-to-adapt workflow and csproj snippets. Generic phase mechanics live in
-[`restomod`](../restomod/SKILL.md).
+[`restomod`](../archive/restomod/SKILL.md).

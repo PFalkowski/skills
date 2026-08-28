@@ -124,6 +124,8 @@ Removing a junction/symlink doesn't delete the source — they're pointers, not 
 4. Run `./link-skills.ps1` to link it into both local harness directories.
 5. Commit + push.
 
+Moving, renaming, or archiving a skill can break other skills' links to it — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
