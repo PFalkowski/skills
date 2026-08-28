@@ -119,7 +119,7 @@ Removing a junction/symlink doesn't delete the source — they're pointers, not 
 ## Adding a new skill
 
 1. Create `<skill-name>/SKILL.md` with the required frontmatter (`name`, `description`). **Quote the `description`** in single quotes if it contains a `:` (a bare `key: value` colon breaks YAML and the description silently fails to load).
-2. Keep the `description` to one sentence saying what the skill does, followed by when to use it (the trigger phrases and situations). Hard cap 1024 characters; aim for under 320. It is the only text the model sees when choosing a skill, so how the skill works belongs in the body, not here — `evolve-skill` is the shape to copy. `bash scripts/check-descriptions.sh` fails on any description over the cap and warns above the target.
+2. Keep the `description` to one sentence saying what the skill does, followed by when to use it (the trigger phrases and situations). Hard cap 1024 characters; aim for under 320. Every description is loaded into context on every turn for every user, so each word costs tokens forever: how the skill works belongs in the body, not here; never mention the skill's own slash command (`/name` is implied by the name); no "the user says / wants / invokes" scaffolding — list the triggers directly; no trigger that merely restates the skill name. `evolve-skill` is the shape to copy. `bash scripts/check-descriptions.sh` fails on any description over the cap or one that names its own slash command, and warns above the target.
 3. Split into reference files if SKILL.md would exceed ~100 lines.
 4. Add `"./<skill-name>"` to the `skills` array in `.claude-plugin/plugin.json`.
 5. Run `./link-skills.ps1` to link it into both local harness directories.

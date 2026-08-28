@@ -1,6 +1,6 @@
 ---
 name: context-reduction
-description: 'Deletes a repo''s excess prose — comments, docs, agent artifacts — moving truth into code, tests, and git history instead of summaries, indexes, or knowledge graphs. Use on "context reduction", "prune the docs", "too many comments", "the wiki is stale", or a proposed knowledge base / graph DB / doc-summary layer — this skill is the counter-proposal. Distinct from no-comment (the single-comment decision at scale) and housekeeping (audit without deletion).'
+description: 'Shrinks a repo''s prose — comments, docs, agent artifacts — by deleting it after moving the truth into code, tests, and git history, never by layering summaries, indexes, or knowledge graphs on top. Triggers: "context reduction", "prune the docs", "too many comments", "the wiki is stale", or a proposed knowledge base / graph DB / doc-summary layer (this skill is the counter-proposal). Distinct from no-comment (one comment at a time) and housekeeping (audit without deletion).'
 license: MIT
 metadata:
   author: Piotr Falkowski

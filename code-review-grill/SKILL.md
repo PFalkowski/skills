@@ -1,6 +1,6 @@
 ---
 name: code-review-grill
-description: 'Adversarial review of a branch or PR diff by a fresh agent that did not write the code, as a single reviewer or a quorum of concern-based subagents. Use to review a branch, PR or diff, or /code-review-grill.'
+description: 'Adversarial review of a branch or PR diff by a fresh agent that did not write the code, as a single reviewer or a quorum of concern-based subagents. Use to review a branch, PR or diff.'
 license: MIT
 metadata:
   author: Piotr Falkowski

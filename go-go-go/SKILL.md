@@ -1,6 +1,6 @@
 ---
 name: go-go-go
-description: 'End-to-end "ship it" driver — takes the repo as-is (ideas, uncommitted work, open tasks, a stalled PR) and drives it to a raised, reviewed PR without stopping for low-stakes decisions. Use when user says "go go go", "just ship it", "make it happen", "finish and PR this", or wants zero-friction end-to-end delivery.'
+description: 'Drives the repo from its current state — uncommitted work, open tasks, a stalled PR — to a raised, reviewed PR without stopping for low-stakes decisions. Triggers: "go go go", "just ship it", "make it happen", "finish and PR this".'
 disable-model-invocation: true
 license: MIT
 metadata:

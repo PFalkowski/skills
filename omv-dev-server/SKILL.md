@@ -1,6 +1,6 @@
 ---
 name: omv-dev-server
-description: 'Set up or repair a self-hosted OpenMediaVault server: Docker services, Tailscale remote access, and per-repo dev containers an agent can push from. Paired runbook and idempotent scripts.'
+description: 'Sets up or repairs a self-hosted OpenMediaVault server: Docker services, Tailscale remote access, and per-repo dev containers an agent can push from.'
 disable-model-invocation: true
 license: MIT
 metadata:

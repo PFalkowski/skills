@@ -1,6 +1,6 @@
 ---
 name: nightshift
-description: 'Autonomously implements backlog work overnight using TDD (Red → Green → Refactor) per item. Use when the user wants Claude Code to run unattended on a list of work items, mentions "night shift", "overnight run", "autonomous backlog", "ralph wiggum loop", or invokes /nightshift.'
+description: 'Autonomously implements backlog work overnight using TDD (Red → Green → Refactor) per item. Triggers: unattended run on a list of work items, "overnight run", "autonomous backlog", "ralph wiggum loop".'
 license: MIT
 metadata:
   author: Piotr Falkowski

@@ -1,6 +1,6 @@
 ---
 name: signal-verdict
-description: 'Runbook from hypothesis to an honest PROMOTE/PARK verdict on a trading/ML/quant idea, keeping label/objective/verdict separate and judged on a walk-forward, touched-once holdout. Use when testing a new signal, selector, exit/sizing policy, regime filter, or ML model for a strategy; establishing a backtest baseline; building a benchmark harness; or when the user mentions backtesting rigor, walk-forward validation, "does this beat baseline", PROMOTE/PARK, or invokes /signal-verdict.'
+description: 'Runbook from hypothesis to an honest PROMOTE/PARK verdict on a trading/ML/quant idea, keeping label/objective/verdict separate and judged on a walk-forward, touched-once holdout. Use for: testing a new signal, selector, exit/sizing policy, regime filter, or ML model for a strategy; establishing a backtest baseline; building a benchmark harness; backtesting rigor, walk-forward validation, "does this beat baseline", PROMOTE/PARK.'
 disable-model-invocation: true
 license: MIT
 metadata:

@@ -1,6 +1,6 @@
 ---
 name: desloppify
-description: "Cuts a codebase's cognitive and context load: strips stale prose, duplication, dead paths, and unneeded abstractions while preserving behavior and architecture. Use when an autonomous-agent-grown codebase feels bloated, confusing, inconsistent, over-commented, or costly to load. Distinct from context-reduction (prose sweep), housekeeping (docs+code audit), and less-is-more (single change); routes to those for broader campaigns."
+description: 'Strips stale prose, duplication, dead paths, and excess abstraction from a codebase, preserving behavior and architecture. Triggers: bloated, confusing, inconsistent, over-commented, costly-to-load agent-grown code. Distinct from context-reduction (prose), housekeeping (docs+code audit), less-is-more (single change).'
 license: MIT
 metadata:
   author: Piotr Falkowski

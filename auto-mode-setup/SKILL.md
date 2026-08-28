@@ -1,6 +1,6 @@
 ---
 name: auto-mode-setup
-description: 'Configure a repository tree for unattended agent runs — auto mode, permission allowlists, and the deny rules that are the actual safety boundary. Run once per machine, or when the permission posture needs revisiting. Invoke with /auto-mode-setup.'
+description: 'Configures a repository tree for unattended agent runs: sets permission allowlists and the deny rules that are the actual safety boundary. Run once per machine, or when the permission posture needs revisiting.'
 disable-model-invocation: true
 license: MIT
 metadata:

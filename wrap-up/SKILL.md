@@ -1,6 +1,6 @@
 ---
 name: wrap-up
-description: 'End-of-session closer: ships outstanding work, sweeps session scaffolding, files what''s still open in the tracker or a handoff-lite block, and routes skill feedback and memory updates. Use at the end of a work session: "wrap up", "wrap it up", "close the session", "we''re done here", "tidy up and finish", or /wrap-up.'
+description: 'End-of-session closer: ships outstanding work, sweeps session scaffolding, files what''s still open in the tracker or a handoff-lite block, and routes skill feedback and memory updates. Triggers: "wrap it up", "close the session", "we''re done here", "tidy up and finish".'
 license: MIT
 metadata:
   author: Piotr Falkowski

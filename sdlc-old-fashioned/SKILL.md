@@ -1,6 +1,6 @@
 ---
 name: sdlc-old-fashioned
-description: 'Runs a gated lifecycle, delegating each phase to its owning skill. Use for work done properly / by the book / rigorously, the full lifecycle, production-grade or hardened work, spec-first or design-first, "no shortcuts", or a real feature, public API, or load-bearing change. Not for quick fixes, spikes or prototypes - that is go-go-go.'
+description: 'Runs a gated lifecycle, delegating phases to their owning skills. Use for: properly, by the book, rigorous, full-lifecycle, production-grade, hardened, spec-first, or design-first work; "no shortcuts"; real features, public APIs, or load-bearing changes. Not for quick fixes, spikes, or prototypes - use go-go-go.'
 license: MIT
 metadata:
   author: Piotr Falkowski
