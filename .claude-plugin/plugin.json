@@ -20,6 +20,7 @@
     "./handoff-lite",
     "./housekeeping",
     "./less-is-more",
+    "./manager",
     "./merge-stack",
     "./nights-watch",
     "./nightshift",
