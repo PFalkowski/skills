@@ -135,6 +135,6 @@ The conductor holds the gates and the backlog; it does **not** carry the work. E
 | Questions | block until answered | reversible → default + logged; irreversible → stop | decided and noted |
 | Best for | features, subsystems, high-stakes change | the same work when you won't be at the gates | fixes, chores, spikes, "just ship it" |
 
-**[`sdlc-workhorse`](../sdlc-workhorse/SKILL.md) is this skill's autonomous counterpart** — the same lifecycle compiled into a Workflow. Reach for it when the work deserves this weight but you're handing it off and walking away; it ends at a merge-ready report rather than a merge, because it has no code path that can cross an irreversible line. Stay here when you want to stand at the gates yourself.
+**[`sdlc-workhorse`](../archive/sdlc-workhorse/SKILL.md) is this skill's autonomous counterpart** — the same lifecycle compiled into a Workflow. Reach for it when the work deserves this weight but you're handing it off and walking away; it ends at a merge-ready report rather than a merge, because it has no code path that can cross an irreversible line. Stay here when you want to stand at the gates yourself.
 
 When in doubt, ask the user one question: *"proper full lifecycle, or just ship it?"* — then, if it's the lifecycle: *"are you staying at the gates, or should it run itself?"*

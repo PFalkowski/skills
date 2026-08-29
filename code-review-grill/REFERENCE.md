@@ -31,7 +31,7 @@ Use `–` in an agent's cell when that agent did not flag the row.
 - 🔭 if it adds or changes a production code path — a failure mode, a background/scheduled job, an integration point, error handling — or removes instrumentation.
 - 🧪 if it adds/changes behaviour but no tests, or weakens existing tests.
 
-📚 may only be dropped when the orchestrator has confirmed the repo carries **no** README/ADRs/guidelines at all — note that absence in the output. Keep it lean otherwise — one worker per included concern, no more (per [orchestrate](../orchestrate/SKILL.md) effort budgets).
+📚 may only be dropped when the orchestrator has confirmed the repo carries **no** README/ADRs/guidelines at all — note that absence in the output. Keep it lean otherwise — one worker per included concern, no more.
 
 ## Standard finding payload (every agent returns this)
 

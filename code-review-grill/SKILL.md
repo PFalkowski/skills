@@ -27,7 +27,7 @@ Adapted from grill-me's interrogation discipline, applied to code:
 
 Ask the user: **single adversarial agent** or **quorum**?
 - **Single** — one fresh reviewer over the whole diff. Fast, cheap, good default for small/contained changes.
-- **Quorum** — one fresh subagent per concern, run in parallel; this is the orchestrator-workers pattern (see **[orchestrate](../orchestrate/SKILL.md)** for briefs and effort budgets). If the user names concerns, use exactly those; if not, the orchestrator picks the relevant subset from the diff. Concern menu + the auto-pick heuristic live in **[REFERENCE.md](REFERENCE.md)**.
+- **Quorum** — one fresh subagent per concern, run in parallel, each with a sharp brief (objective / output / tools / boundaries) and effort sized to the diff. If the user names concerns, use exactly those; if not, the orchestrator picks the relevant subset from the diff. Concern menu + the auto-pick heuristic live in **[REFERENCE.md](REFERENCE.md)**.
 
 > **Azure DevOps PRs:** delegate the whole resolve → diff → post pipeline to
 > [azure-devops-pr-review](../azure-devops-pr-review/SKILL.md) (its steps 1–5) from the start, not
