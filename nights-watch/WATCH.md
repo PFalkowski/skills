@@ -266,7 +266,8 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        writing any production code. Paste the actual failing output into your chronicle.
        - haiku-tier: TDD as above. The tier buys a cheaper model, never a cheaper process.
        - sonnet-tier: the "nightshift" skill's LOOP discipline — TDD Red → Green → Refactor;
-         an unresolvable question means return blocked, never guess.
+         a question you cannot resolve AND cannot cheaply reverse means return blocked;
+         one you can cheaply reverse you decide and record, never guess and never stall.
        THE ONLY EXEMPTION, and you must EARN it: if the change genuinely has no
        behavioural surface a test could observe (a dep version bump with no API delta,
        a doc wording fix, a license header sweep), return noBehaviouralSurface: true
@@ -294,9 +295,14 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        default to none). Nothing in your commit messages, PR title, or PR description names
        the Watch, nights-watch, or "ranger", or otherwise reveals this was done by an
        automated process — write them as any contributor would, describing only the change.
-       Commit, push, and open a PR that references the ticket. If the ticket turns out
-       under-specified or needs a human decision, STOP and return {blocked: true, reason}
-       instead of guessing.
+       Commit, push, and open a PR that references the ticket. If the ticket leaves a
+       choice open, DECIDE IT YOURSELF unless being wrong is irreversible or grave —
+       run the "whatever" skill, take the sensible default, and state the choice and why
+       in the PR body so a reader can overrule it in one revert. A config value, a wording,
+       a name, a scope call on a sweep: decide. Data loss, money, anything published or sent
+       outside, a schema or public API, or a fork the ticket itself flags as contested:
+       STOP and return {blocked: true, reason} naming the question and the options, instead
+       of guessing. "The ticket did not say" is not by itself a reason to block.
        Return JSON: {id, prUrl|null, blocked, reason|null, summary,
        noBehaviouralSurface, exemptionReason|null}.`,
       { label: `ranger:${t.id}`, phase: 'Rangers', model: t.tier, effort: t.effort,

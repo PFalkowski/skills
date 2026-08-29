@@ -25,6 +25,8 @@ Each candidate is read by its **own fresh `haiku` agent** — one ticket per age
 
 It answers the two questions of [READINESS.md](../triage/READINESS.md) — **ready** and **intended** — and both must be yes. Give the judge that file; do not paraphrase it into the prompt, or the judge and the gate end up applying different rubrics.
 
+An open design fork is **not** by itself a reason to answer no to either question — decide whether the *fork* is cheap to get wrong, and admit the ticket if it is, since the worker will settle it and record the choice (Oath rule 7). Declining a ticket because it leaves something to judgment sends a reversible call to a human queue, which is the slowest and most expensive way to answer it.
+
 The **intended** half is the one to watch, and the reason judged intake is a judge rather than a filter. A readiness rubric structurally cannot answer it: parked, deferred, superseded, "filed so it isn't lost", awaiting-a-decision, umbrella and discussion tickets are all perfectly well specified, so they pass every readiness check and are all wrong to build.
 
 Three constraints:
@@ -54,7 +56,7 @@ Triage assigns not just a tier but a process; the watcher writes it into the ran
 | Tier | Implementation discipline | Dispatched as | Review gate |
 |---|---|---|---|
 | `haiku` | **TDD Red → Green → Refactor** — same discipline, cheaper model. The red must fail on the asserted behaviour | ranger `agent()` | **code-review-grill**, single reviewer — a **second `agent()` dispatched by the patrol script** against the ranger's PR, *not* by the ranger. It also **verifies the TDD claim**, exemption included |
-| `sonnet` | **nightshift** LOOP discipline: TDD Red → Green → Refactor, Q:/A: deferral (unresolvable → return `blocked`, never guess) | ranger `agent()` | as above: a script-dispatched fresh reviewer that never saw the ranger's rationale; findings posted to the PR by the reviewer |
+| `sonnet` | **nightshift** LOOP discipline: TDD Red → Green → Refactor, Q:/A: deferral (irreversible-or-grave → return `blocked`; reversible → decide it and record why, never guess and never stall) | ranger `agent()` | as above: a script-dispatched fresh reviewer that never saw the ranger's rationale; findings posted to the PR by the reviewer |
 | `opus` | **sdlc-workhorse** — the full by-the-book lifecycle (spec → grilled requirements → design review → TDD → refactor → docs), autonomous by construction | **child `workflow()`**, by the patrol script itself — *not* a ranger | its own fresh-agent grill with refute-tested findings satisfies the gate; it skips the patrol's grill stage rather than paying twice. Add a **code-review-grill** quorum only if the run reports no review ran |
 
 **TDD is the process floor at every tier, and the tier cannot buy it down.** The rubric above picks a *model*, never a discipline: `haiku` means the change is mechanical enough for a cheap model to make, not that it may be made without a test proving it. The old wording — "verified by build/grep/tests as applicable" — put the decision in the ranger's hands with the cheapest model holding it, which is precisely backwards: the tier assigned because a ticket looked trivial was the tier most likely to conclude a test was unnecessary, and a build passing is not evidence that behaviour is correct.
@@ -75,7 +77,7 @@ Cross-cutting and unconditional: **fact-check at every critical decision moment*
 
 - Worker fails or produces garbage at its tier → retry **once**, one tier higher, with the failure summary in the prompt.
 - Fails again → stop. Comment both attempts on the ticket, **release the claim**, summarise it. Two strikes; past that, human judgment beats more tokens. These tickets *were* claimed, so unlike a triage refusal they owe the board a comment and a released `ai-working` — silence plus a stuck claim is the one outcome rule 7 forbids.
-- A worker may also *return early* declaring the ticket under-specified — same handling, no retry.
+- A worker may also *return early* declaring the ticket under-specified — same handling, no retry. But an open choice is only under-specification when getting it wrong is irreversible or grave; a reversible fork is the worker's to decide and record (Oath rule 7). A `blocked` return that names a cheap, revertible choice is a **miscall**: send it back once with that instruction rather than releasing it to a human.
 
 ## Priority within a muster
 
