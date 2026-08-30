@@ -1,6 +1,6 @@
 ---
 name: postmortem
-description: 'Write a structured production-incident postmortem: captures symptom, root-cause chain, fix, and forward-looking rules; appends the entry to LESSONS-LEARNED.md (newest at top) and updates the index table that keeps the log routable instead of loaded whole; compacts a root-cause class into a single class entry once it reaches three instances; checks for regression tests and testing gaps; verifies fix is committed and pushed; updates project memory if the incident changes architecture or process. Invoke after any non-trivial production failure or incident, or when the user says "/postmortem".'
+description: 'Writes a structured incident postmortem to LESSONS-LEARNED.md. Triggers: any non-trivial production failure or incident.'
 disable-model-invocation: true
 license: MIT
 metadata:

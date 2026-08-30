@@ -1,6 +1,6 @@
 ---
 name: handoff-lite
-description: 'Extract the still-open action points from this conversation - each with the reason and risk exactly as stated - plus the last few user prompts verbatim, as one block to paste into a fresh context. Records only what was actually said; never invents a rationale, risk or task. Use for "quick handover", "carry this over", "what is left for a new agent", "context is filling up", or /handoff-lite. For the fuller note written to a file, use handoff.'
+description: 'Extracts open action points from the conversation - reason/risk only if stated - plus recent user prompts verbatim in a paste-ready block; never invents a rationale, risk or task. Use for "quick handover", "carry this over", "what is left for a new agent", "context is filling up". For a fuller file note, use handoff.'
 license: MIT
 metadata:
   author: Piotr Falkowski

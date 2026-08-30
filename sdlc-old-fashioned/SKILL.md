@@ -1,6 +1,6 @@
 ---
 name: sdlc-old-fashioned
-description: 'The rigorous by-the-book lifecycle: worktree, guardrails, spec, grilled requirements, adversarially reviewed design, TDD, implementation held to a standing quality standard (less-is-more, no-comment), review, refactor, docs, merge, retrospective. Use when the user wants work done properly / by the book / rigorously, asks for the full lifecycle, production-grade or hardened work, spec-first or design-first, "no shortcuts", or is building a real feature, public API, or load-bearing change. Not for quick fixes, spikes or prototypes - that is go-go-go.'
+description: 'Runs a gated lifecycle, delegating phases to their owning skills. Use for: properly, by the book, rigorous, full-lifecycle, production-grade, hardened, spec-first, or design-first work; "no shortcuts"; real features, public APIs, or load-bearing changes. Not for quick fixes, spikes, or prototypes - use go-go-go.'
 license: MIT
 metadata:
   author: Piotr Falkowski

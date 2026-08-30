@@ -1,6 +1,6 @@
 ---
 name: context-reduction
-description: 'Shrink a repository''s prose — comments, docs, agent artifacts — by DELETING it, not by layering summaries, indexes, or knowledge graphs on top. Real context reduction moves truth into code, tests, and git history, then removes the prose; derived layers are anti-reduction (a second copy that drifts out of sync). Runs as a gated campaign: measure → drift scan → sole-record register → pin with tests → human go → delete-first sweep → executable guard. Use when a repo''s docs/comments have outgrown their value, when someone says "context reduction", "prune the docs", "too many comments", "the wiki is stale", or proposes a knowledge base / graph DB / doc-summary layer to "manage" documentation — this skill is the counter-proposal. Distinct from no-comment (the single-comment decision this skill applies at scale) and housekeeping (audit without the deletion campaign).'
+description: 'Shrinks a repo''s prose — comments, docs, agent artifacts — by deleting it after moving the truth into code, tests, and git history, never by layering summaries, indexes, or knowledge graphs on top. Triggers: "context reduction", "prune the docs", "too many comments", "the wiki is stale", or a proposed knowledge base / graph DB / doc-summary layer (this skill is the counter-proposal). Distinct from no-comment (one comment at a time) and housekeeping (audit without deletion).'
 license: MIT
 metadata:
   author: Piotr Falkowski
