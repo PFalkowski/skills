@@ -38,6 +38,8 @@ Mandate keys (all optional): `goal="…"`, `merge=allow|ask`, `post=draft|post`,
 6. **Higher permission, tighter fence.** The manager runs in the human's session, with the human's permissions, under [auto-mode-setup](../auto-mode-setup/SKILL.md) — its deny rules are the safety boundary, and no manager approval reaches past them. Workers run fenced: read-only tools freely, mutating ones withheld or leashed, so a worker that forgets the protocol still cannot act alone.
 7. **Every decision is written down twice.** Once in the journal, once where the work lives — a comment on the PR or ticket the decision concerns — so a human reviewing later sees what was decided, on what evidence, by the manager and not by them.
 
+8. **Canonical before custom.** New code carries a claim nobody writes down: that it had to be written. The manager tests that claim before approving any implementation — does the language, the framework, or a first-party package the repo already references do this; and does the *next* version of the platform do it by default? That last half is where the answer usually lives, and it is checked against current documentation via [fact-check](../fact-check/SKILL.md), never from a model's recall of the ecosystem, which is precisely what goes stale at a version boundary. Where a canonical solution exists the verdict is **REDIRECT**: adopt it, or take the bespoke path with the reason *and an expiry* recorded on the PR. Duplicating a platform feature is not a neutral choice — the bespoke version is always narrower (it covers the one call site someone remembered, so the next one leaks silently), it is maintained forever, and it becomes dead weight the day the platform version lands.
+
 ## The loop — one pass per output
 
 **Step 1 — Establish the mandate.** From the invocation, else from the ticket or PR the output concerns, else from the repo's own statements of intent (`CONTEXT.md`, the PRD, the ADRs). Write it as one paragraph: the goal, what done looks like, the working assumptions, the hard lines, the budget. Nothing is decided until the goal is written — a decision without a goal is a coin toss with confidence.
@@ -45,6 +47,8 @@ Mandate keys (all optional): `goal="…"`, `merge=allow|ask`, `post=draft|post`,
 **Step 2 — Read the output into a ledger.** Split it into items, each tagged: **claim** (something asserted as true), **decision-made** (a choice the agent already took), **ask** (explicit or implicit), **open item** (work it named but did not do), **promise** ("I will report when…"). Mark which are load-bearing — the ones a wrong answer would change the verdict on. The worked ledger for a real PR report is in [EXAMPLE.md](EXAMPLE.md).
 
 **Step 3 — Verify what is load-bearing.** Cheap facts the manager checks itself in one command (`gh pr checks`, `gh pr view --json state,reviews`, ticket status). Anything deeper — does the test really pin the behaviour, is the ADR amendment consistent with the code, is the number true — goes to a fresh [fact-check](../fact-check/SKILL.md) subagent that never read the report. Unverifiable and load-bearing is treated as **false** for the decision, and said so.
+
+**Add the load-bearing claims the report structurally cannot contain.** Step 2's ledger holds only what the agent *said*, and the most expensive claim in an implementation report is never said out loud: *this had to be built* (Rule 8). No agent writes "I checked whether the framework already does this," so the manager adds that item to the ledger itself and verifies it like any other. The same applies to *this covers every affected call site*, not only the one named in the ticket.
 
 **Step 4 — Decide.** For each ask and each decision-made, run the rubric in [DECIDING.md](DECIDING.md): aligned with the goal → benefit against risk (blast radius × irreversibility × uncertainty) → mandate → hard lines. Record the verdict.
 
@@ -88,6 +92,7 @@ The manager stays on a self-paced `/loop`, waking when dispatched work reports b
 - **Relaying to the human.** If the verdict can be made from the mandate and the evidence, make it. A manager that forwards every ask is a longer permission prompt.
 - **Rubber-stamping a live agent.** The agent is waiting; that is not a reason. Read the command, not its summary.
 - **Absorbing the work.** Reviewing the diff yourself because the reviewer is slow turns the manager into a worker and empties the context that judgment needs.
+- **Approving bespoke code without asking what the platform does.** A diff that works, is tested, and uses a sanctioned extension point still fails Rule 8 if the framework already solves it — or solves it one version up, globally, for every call site instead of the one in the ticket.
 - **Silent drops.** An open item the manager decides not to pursue is DEFERRED or VETOED on the record, never omitted.
 - **Escalating below the bar, or above it.** A reversible choice is the manager's to make; a hard line is not, whatever the mandate says.
 
