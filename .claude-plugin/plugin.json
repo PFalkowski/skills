@@ -17,7 +17,6 @@
     "./fix-windows-terminal-rendering",
     "./go-go-go",
     "./handoff",
-    "./handoff-lite",
     "./housekeeping",
     "./less-is-more",
     "./manager",
