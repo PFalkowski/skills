@@ -1,6 +1,6 @@
 ---
 name: wrap-up
-description: 'End-of-session closer: ships outstanding work, sweeps session scaffolding, files what''s still open in the tracker or a handoff-lite block, and routes skill feedback and memory updates. Triggers: "wrap it up", "close the session", "we''re done here", "tidy up and finish".'
+description: 'End-of-session closer: ships outstanding work, sweeps session scaffolding, files what''s still open in the tracker or a `handoff lite` block, and routes skill feedback and memory updates. Triggers: "wrap it up", "close the session", "we''re done here", "tidy up and finish".'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -62,8 +62,8 @@ Route everything open per house rules:
 - **A tracker is in use** — determined from CLAUDE.md, the remote host, or existing issues
   (GitHub issues / Azure Boards / Jira). Draft one issue per item — title, the context a stranger
   needs, one acceptance line — show the drafts, get a yes, then post.
-- **No tracker, or the user declines**: emit a `handoff-lite` block inline (that skill defines the
-  format — open action points with only stated reasons and risks, plus the recent exchange).
+- **No tracker, or the user declines**: emit a `handoff lite` note inline (the `handoff` skill
+  defines the note; `lite` writes no file).
 
 Ordering: the user's stated priority wins; absent one, blockers first.
 
@@ -101,6 +101,6 @@ Persistent memory is part of the ledger. Review the entries this session touched
 - Other sessions' branches and worktrees stay untouched however stale they look — wrap up only
   work this conversation can account for.
 - Posting issues is outward-facing: drafts first, always. Unattended, post only if house rules
-  name the tracker; otherwise emit the handoff-lite block to the log.
+  name the tracker; otherwise emit the `handoff lite` note to the log.
 - An empty result is a valid result: "everything shipped, nothing to sweep, ledger clear" — one
   line, done.

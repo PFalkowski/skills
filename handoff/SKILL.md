@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: 'Writes a minimal, lossless handover note - ordered action points plus only state the receiver can''t reconstruct - to cross a context boundary. Use for: a fresh session, another agent/model, or /clear or /compact survival; "hand this off", "write a handover", "continue in a new session", "wrap up before you compact".'
+description: 'Writes a minimal, lossless handover note - ordered action points plus only state the receiver can''t reconstruct - to cross a context boundary. Use for: a fresh session, another agent/model, or /clear or /compact survival; "hand this off", "write a handover", "continue in a new session", "wrap up before you compact". Add `lite` ("quick handover", "carry this over", "context is filling up") to skip the file and emit the note inline as one paste-ready block.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -53,7 +53,13 @@ understanding, say so — the work may be too entangled to hand off cleanly (pre
   reset (e.g. `HANDOFF.md` in the repo), then give the user the one command to resume.
   Do not clear or compact for them.
 - **Subagent now** → the note *is* the spawn prompt.
-- **Another agent / model / human** → output the note inline, ready to paste.
+- **Another agent / model / human, or `lite`** → output the note inline as one fenced
+  block, ready to paste in one gesture.
+
+`lite` (`/handoff lite`, "quick handover", "carry this over", "context is filling up")
+forces the inline route: same note, same discipline, **nothing written to disk**, nothing
+cleared or compacted — the user moves the block themselves. If nothing is open, say so in
+one line instead of emitting an empty note.
 
 ## Example
 
