@@ -55,7 +55,7 @@ Status: `pending` | `in_progress` | `done` | `blocked-on-question` | `failed-aft
 
 ## Stop conditions & question deferral
 
-The loop exits when no `pending` items remain, all remaining are `blocked-on-question`/`failed-after-retries`, or an item fails **3** Red→Green attempts (past 3, human judgment beats more tries). Ambiguity it can't resolve from the codebase → append `Q:` to the Run log, then inline `A: chose X because Y` (reversible: variable name, helper, log message) or mark `blocked-on-question` (irreversible: schema, public API, secret, deletion). On exit, prepend a run summary to the backlog. Detail in [LOOP.md](LOOP.md).
+The loop exits when no `pending` items remain, all remaining are `blocked-on-question`/`failed-after-retries`, or an item fails **3** Red→Green attempts (past 3, human judgment beats more tries). Ambiguity it can't resolve from the codebase → append `Q:` to the Run log, then inline `A: chose X because Y` (reversible: a name, a helper, a log message, a config *value*, a doc's wording) or mark `blocked-on-question` (irreversible or grave: schema, public API, secret, deletion, anything published or costing money). Judge by consequence, never by which file the change lands in. On exit, prepend a run summary to the backlog. Detail in [LOOP.md](LOOP.md).
 
 ## Repo discovery (at pre-flight)
 

@@ -86,11 +86,19 @@ The 3-attempt limit is the line where "transient flake" stops being plausible an
 
 When you can't decide from the codebase alone:
 - Append `Q: <specific question>` to the Run log (be concrete — "should X return null or throw on empty input" not "what about errors").
-- Decide reversibility:
-  - **Reversible** (variable name, internal helper, log message, test assertion message) → inline `A: chose X because Y` and proceed.
-  - **Irreversible** (DB schema migration, public API surface, deletion of code that may have hidden callers, anything that touches `*Settings.cs` or `*.appsettings.json`) → mark `blocked-on-question`, move to next item.
+- Decide reversibility **by consequence, not by file path**:
+  - **Reversible** (a variable name, an internal helper, a log message, a test assertion message, a config *value*, a doc's wording, the scope of a sweep) → inline `A: chose X because Y` and proceed.
+  - **Irreversible or grave** (a DB schema migration, a public API surface, a secret, deleting code that may have hidden callers, anything published or sent outside, anything that spends money or destroys data) → mark `blocked-on-question`, move to next item.
 
 Never silently guess. Either log A: with reasoning, or block.
+
+**A settings file is not a schema.** This list used to send anything touching `*Settings.cs` or
+`*.appsettings.json` straight to `blocked-on-question` — a path heuristic standing in for a consequence
+test, and it misfires precisely where unattended runs spend most of their time. Adding a `Subject` key to
+an appsettings file is one revert away; repointing the connection string a production job reads is not,
+and both live in the same file. Ask what happens if the choice turns out wrong, never which file it lands
+in. Blocking on a cheap reversible fork is not caution: the item stalls, a human's turnaround is spent on
+something they would have waved through, and the next run re-derives the same question and stalls again.
 
 ## Context management between items
 
