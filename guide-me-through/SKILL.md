@@ -1,6 +1,6 @@
 ---
 name: guide-me-through
-description: 'Turns "guide me through X" into a committed runbook at docs/runbooks/<slug>.md plus a short chat walk-through, with every step marked as either only-the-user-can-do-this or the-assistant-does-this-once-you-report-back. Use when the user says "guide me through", "walk me through", "how do I do X step by step", or asks to be led through a procedure that touches accounts, consoles, payments, hardware or anything else outside the assistant''s reach.'
+description: 'Turns "guide me through X" into a committed runbook at docs/runbooks/<slug>.md plus a short chat walk-through, each step marked You (only the user can do it) or Assistant (done once the user reports back). Triggers: "guide me through", "walk me through", "how do I do X step by step", any procedure touching accounts, consoles, payments or hardware.'
 license: MIT
 metadata:
   author: Piotr Falkowski
