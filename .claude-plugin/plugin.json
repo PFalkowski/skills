@@ -29,6 +29,7 @@
     "./prompt-backlog",
     "./recurring-improvement",
     "./refresh-nuget-repo",
+    "./runbook",
     "./sdlc-old-fashioned",
     "./signal-verdict",
     "./snapshot-terminal-sessions",
