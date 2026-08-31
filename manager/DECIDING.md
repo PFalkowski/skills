@@ -12,7 +12,7 @@ The mandate is the one paragraph every decision is checked against. It is writte
 | `tickets=` | `file` | Whether deferred work is filed as tracker tickets or drafted. Filing is reversible (a ticket can be closed) and keeps the board the source of truth. |
 | `budget=` | none | Token or money ceiling across everything dispatched under this mandate. Near it, the manager stops dispatching and reports. |
 | `hard="…"` | see below | Extra lines that always escalate. Extends the defaults; cannot shrink them. |
-| `tracker=` | detected | `github` when the remote is github.com, `azdo` for dev.azure.com, `jira` when the repo's docs or `CLAUDE.md` name it or an Atlassian integration is connected. What the repo's own docs say wins over what the remote implies. |
+| `tracker=` | the house tracker | Whatever the repo already files its tickets in, detected rather than asked for: `github` when the remote is github.com, `azdo` for dev.azure.com, `jira` when the repo's docs or `CLAUDE.md` name it or an Atlassian integration is connected. What the repo's own docs say wins over what the remote implies. Pass the key only to override the detection. |
 
 **Default hard lines** — always escalated, with a recommendation, whatever the mandate: publishing or releasing; spending money; deleting data, history or someone else's branch; force-pushing a shared branch; weakening security or removing a guard; contacting people outside the team; any action that breaks a working assumption of the mandate; merging to a protected branch under `merge=ask`.
 

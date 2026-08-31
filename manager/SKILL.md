@@ -26,7 +26,7 @@ It is not another worker. `walk-the-dog` vets *actions* — this command, this w
 /manager watch                                  # standing: stay on and answer whatever the running work asks
 ```
 
-Mandate keys (all optional): `goal="…"`, `merge=allow|ask`, `post=draft|post`, `tickets=file|draft`, `budget=<tokens|$>`, `hard="<lines that always escalate>"`, `tracker=github|azdo|jira`. Defaults and how they resolve in [DECIDING.md](DECIDING.md).
+Mandate keys (all optional): `goal="…"`, `merge=allow|ask`, `post=draft|post`, `tickets=file|draft`, `budget=<tokens|$>`, `hard="<lines that always escalate>"`, `tracker=github|azdo|jira`. Defaults and how they resolve in [DECIDING.md](DECIDING.md). Without `tracker=` the manager uses the house tracker — the one this repo already files its tickets in (GitHub Issues for a github.com remote, Azure Boards for dev.azure.com, Jira when the repo's docs name it) — and never asks which; the board the team already reads is the only one worth keeping current.
 
 ## Rules
 
