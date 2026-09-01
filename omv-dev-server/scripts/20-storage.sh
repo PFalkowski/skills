@@ -5,13 +5,46 @@
 load_env
 
 head_ "data disk"
-if [ -d "$DATA_DISK" ]; then ok "$DATA_DISK exists"
-else bad "$DATA_DISK not found — check 'df -hT | grep /srv' and fix DATA_DISK in setup.env"; finish; fi
+if [ ! -d "$DATA_DISK" ]; then
+  bad "$DATA_DISK not found — check 'df -hT | grep /srv' and fix DATA_DISK in setup.env"; finish
+fi
+# `[ -d ]` is NOT a mounted check: the mount point is a plain directory whether or not the
+# disk is there. On an unmounted disk the naive guard passes and every step below cheerfully
+# rebuilds the whole layout on the OS disk underneath the mount point. A hot replug leaves
+# exactly this state, because nothing re-fires the mount unit when the device reappears.
+if mountpoint -q "$DATA_DISK"; then
+  ok "$DATA_DISK is mounted"
+else
+  bad "$DATA_DISK exists but nothing is mounted there"
+  info "start it:  systemctl start \"\$(systemd-escape -p --suffix=mount $DATA_DISK)\""
+  finish
+fi
 
 # Refuse to put dev data on the OS disk: on many OMV boxes it is small or removable, and
 # keeping dev data off it means an OS reinstall costs nothing.
 if [ "$(stat -c %d /)" = "$(stat -c %d "$DATA_DISK")" ]; then
   warn "$DATA_DISK is on the same filesystem as / — that is the OS disk, not a data disk"
+fi
+
+head_ "removable-disk hardening"
+src="$(findmnt -no SOURCE --target "$DATA_DISK" 2>/dev/null)"
+# TRAN is a property of the whole disk, not the partition, so resolve the parent first —
+# `lsblk -no TRAN /dev/sdX1` is empty and would silently skip every check below.
+parent="$(lsblk -no PKNAME "$src" 2>/dev/null | head -1)"
+tran="$(lsblk -no TRAN "/dev/${parent:-none}" 2>/dev/null | head -1)"
+if [ "$tran" = "usb" ]; then
+  info "$src is USB-attached — see HOST.md 'If the data disk is removable'"
+  # ext4 defaults to Continue, which keeps writing to a filesystem the kernel can no longer
+  # reach. On a disk whose cable can wobble that is silent corruption instead of an outage.
+  eb="$(dumpe2fs -h "$src" 2>/dev/null | sed -n 's/^Errors behavior: *//p')"
+  case "$eb" in
+    "Remount read-only") ok "errors behavior: remount-ro" ;;
+    "")                  info "errors behavior: unreadable (needs root) or not an ext filesystem" ;;
+    *)                   bad "errors behavior: $eb — a link glitch will corrupt silently. Fix: tune2fs -e remount-ro $src" ;;
+  esac
+  info "unmount before unplugging:  systemctl stop \"\$(systemd-escape -p --suffix=mount $DATA_DISK)\""
+else
+  ok "${tran:-internal} transport, not removable"
 fi
 
 head_ "directories"
