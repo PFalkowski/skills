@@ -225,7 +225,8 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
            started: <the REAL current UTC time — get it from the shell, e.g. date -u +%FT%TZ>
            host:    <hostname>
            note:    released when the ranger returns or the patrol reaps it; stale past ${A.lockTtlMin} min
-         Return {claimed:true}.`,
+         Post the holder/tier/host/started lines as a comment on ticket ${t.id} too, so the
+         board shows who holds it and since when. Return {claimed:true}.`,
         { label: `claim:${t.id}`, phase: 'Rangers', model: 'haiku', effort: 'low',
           schema: { type:'object', properties:{ claimed:{type:'boolean'} }, required:['claimed'] } }
       )
