@@ -1,6 +1,6 @@
 ---
 name: desloppify
-description: 'Strips stale prose, duplication, dead paths, and excess abstraction from a codebase, preserving behavior and architecture. Triggers: bloated, confusing, inconsistent, over-commented, costly-to-load agent-grown code. Distinct from context-reduction (prose), housekeeping (docs+code audit), less-is-more (single change).'
+description: 'Strips stale prose, duplication, dead paths, and excess abstraction from a codebase, preserving behavior and architecture. Triggers: bloated, confusing, inconsistent, over-commented, costly-to-load agent-grown code, or documentation an agent generated across a long session (ADRs, plans, tickets, handovers). Distinct from context-reduction (prose), housekeeping (docs+code audit), less-is-more (single change).'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -42,6 +42,10 @@ layers, entities, ports, or value objects merely to make the code look architect
   comment, and [less-is-more](../less-is-more/SKILL.md) to every code change. Propose deletion
   of a superseded path, test, config entry, or abstraction in the same bounded change; deletion
   itself is subject to the approval gate below.
+- **One canonical statement per load-bearing fact.** State it once and reference it; a fact
+  restated in five places costs five edits when it changes and five contradictions when one is
+  missed. When correcting a fact that proved false, find every restatement before calling the
+  correction done.
 - Never create a summary, index, knowledge graph, or archive as a substitute for deletion.
   Keep campaign notes untracked; durable truth belongs in code, tests, git history, one ADR,
   or a genuinely necessary user-facing document.

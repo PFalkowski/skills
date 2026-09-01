@@ -22,6 +22,8 @@ Never assert a load-bearing fact from memory. **Ground it, cite the source, or f
 
 1. **Isolate the exact claim — decompose if it isn't atomic.** Restate it as a single falsifiable proposition with concrete values; a vague claim ("it's pretty fast", "large numbers") can't be grounded — sharpen it first. If the question is high-abstraction, compound, or not directly verifiable, **break it into the smallest independently-verifiable sub-claims**, ground each on its own, then compose them into an answer that is the *exact* response to the original query. When the sub-claims are independent and numerous, **fan them out to parallel agents** (one sub-claim each) and synthesize their evidence — never collapse a broad question into one hand-wavy verdict.
 
+   **A measurement is a claim about a moment; a rate is a claim about a period.** One observation grounds the first and never the second. Before a measured value becomes a premise, check whether it is stable: sample a second point, and when a time series already exists — published artefacts, git history, logs, backups — read that rather than reasoning from the single sample in hand. Recording "n=1" as a caveat does not license using the number as a rate.
+
 2. **Pick the strongest evidence the claim allows:**
    - **Executable → run it.** If the claim can be settled by running code — arithmetic, floating-point, a regex, parsing, a data transform, an algorithm's output, library behaviour, timing/performance, encoding — write a **minimal** script (python / node / shell) and execute it. A reproducible experiment outranks any amount of reading. *Example: to check a complex math expression, write the few lines that evaluate it and run them rather than reasoning it out by hand.*
    - **Documentable → cite primary sources.** For API semantics, version numbers, limits, standards, or historical/scientific facts, consult **authoritative** sources and **confirm across ≥2 independent ones** when the claim is consequential or contested.
@@ -55,5 +57,6 @@ Per claim, tight: **verdict · confidence · method · evidence** — a deep lin
 - Citing the artifact you're checking as its own proof.
 - Laundering training-memory as fact ("I'm confident that…") with no source and no test.
 - Treating one blog / forum / SO answer as authoritative.
+- Generalising a single observation into a rate — then writing the caveat and reasoning past it anyway.
 - A dead or generic link that doesn't resolve to — and actually support — the specific claim.
 - Over-grounding the obvious, or under-grounding something costly. Calibrate to stakes.
