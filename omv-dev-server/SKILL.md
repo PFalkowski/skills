@@ -33,7 +33,7 @@ see whether this skill applies to the machine at all.
 
 | Read | For | Script |
 |---|---|---|
-| [HOST.md](HOST.md) | OMV base, the dev user, groups, storage layout, which disk gets what | `10-dev-user.sh`, `20-storage.sh` |
+| [HOST.md](HOST.md) | OMV base, the dev user, groups, storage layout, which disk gets what, and what changes when that disk is removable | `10-dev-user.sh`, `20-storage.sh` |
 | [REMOTE.md](REMOTE.md) | Tailscale, HTTPS without port-forwarding, SSH hardening, Termius + tmux on a phone | `30-remote-access.sh` |
 | [IMMICH.md](IMMICH.md) | Immich under the OMV Compose plugin — and why you must not hand-edit its compose file | `40-immich.sh` |
 | [DEVCONTAINER.md](DEVCONTAINER.md) | The dev image, the launcher, per-repo containers, agent memory that survives the move | `50-dev-image.sh`, `60-launcher.sh`, `dev` |
@@ -60,7 +60,7 @@ see whether this skill applies to the machine at all.
 Nothing here contains real hostnames, addresses or keys. Substitute:
 
 `<NAS_HOST>` `<NAS_LAN_IP>` `<NAS_TS_NAME>` `<TAILNET>` `<DEV_USER>` `<DISK_UUID>`
-`<GIT_OWNER>` `<REPO>`
+`<DATA_PART>` `<GIT_OWNER>` `<REPO>`
 
 `scripts/setup.env` is the one file that holds your real values, and it is gitignored.
 

@@ -44,6 +44,53 @@ nothing. Rename each directory to the new key as you copy:
 Copy only the `memory/` directories. The rest of `projects/` is session transcripts, which
 on an active machine is three orders of magnitude larger and of no use on the new host.
 
+Transcripts are also where secrets accumulate. A token that only ever lived in one repo's
+`.git/config` ends up quoted in every session that ran `git remote -v`, so copying
+`projects/` wholesale moves the leak onto the NAS along with it. One more reason to take
+`memory/` and nothing else.
+
+**Migrate into the directory the launcher actually mounts.** It is easy to finish with two
+homes — an early hand-rolled launcher pointing at one, the migration filling another — and
+the symptom is an agent that starts with no memory at all while two hundred files sit on disk
+under perfectly correct keys. Settle `DEV_HOME_DIR` first, migrate second, and delete the
+loser rather than leaving it for someone to rediscover.
+
+## Seeding the repos without putting a credential on the box
+
+The repos have to exist at the paths those memory keys encode before any of the memory is
+worth anything. Cloning them *from* the NAS means a credential *on* the NAS — a token in the
+environment, or a key registered with every forge you use. For the initial seed there is a
+better route: your workstation already has the repos, and already has working credentials.
+
+```bash
+# on the workstation, per repo
+git -C <repo> fetch --all
+git -C <repo> bundle create /tmp/<REPO>.bundle --all
+scp /tmp/<REPO>.bundle <DEV_USER>@<NAS_LAN_IP>:/tmp/
+
+# on the NAS, into the exact sub-path the memory key encodes
+dest="$REPO_ROOT/<GIT_OWNER>/<REPO>"
+git clone /tmp/<REPO>.bundle "$dest"
+git -C "$dest" remote set-url origin <real-origin-url>
+```
+
+Why this beats a token for a one-time seed:
+
+- No credential moves, and none is left behind to rotate later.
+- One mechanism for every forge. A `GH_TOKEN` only ever solves GitHub; a bundle moves an
+  Azure DevOps or self-hosted repo with exactly the same two commands.
+- `--all` carries every branch and tag, so this is a real clone, not a shallow snapshot.
+- On a LAN it is quick — a bundle is about the size of the packed history, typically a
+  fraction of the working `.git`.
+
+Two things to correct straight afterwards. `origin` points at the bundle file until you reset
+it, so do that in the same breath. And the clone checks out whichever branch `HEAD` had on
+the workstation, with remote-tracking refs that came from the bundle — one `git fetch`
+reconciles them against the real remote.
+
+The agent still needs a credential to **push**. That is [AGENT-AUTH.md](AGENT-AUTH.md), and
+it stays a separate decision from how the code first arrived.
+
 ## Name containers by path, not by basename
 
 A launcher that names the container `dev_$(basename "$PWD")` collides the moment two repos

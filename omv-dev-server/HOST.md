@@ -45,6 +45,49 @@ all per-project memory — it is the only irreplaceable thing on the box. Back i
 LAN-readable file the moment the directory is shared. If you need files on a workstation,
 copy them out over SSH.
 
+### If the data disk is removable
+
+A USB-attached disk is a removable device that everything above it treats as fixed. That
+mismatch costs you three things, and only the first is obvious.
+
+**Mount it `errors=remount-ro`.** ext4 defaults to `Continue`, which keeps issuing writes to
+a filesystem the kernel can no longer reach. On a disk whose cable can wobble, that turns a
+link glitch into silent corruption rather than a visible outage. One command, reversible:
+
+```bash
+tune2fs -e remount-ro /dev/<DATA_PART>
+dumpe2fs -h /dev/<DATA_PART> | grep -i 'errors behavior'
+```
+
+**Unmount before unplugging.** Pulling a mounted disk aborts the journal mid-write:
+
+```
+Aborting journal on device <DATA_PART>-8.
+Buffer I/O error on dev <DATA_PART>, lost sync page write
+JBD2: I/O error when updating journal superblock for <DATA_PART>-8.
+sd 0:0:0:0: [sdX] Synchronize Cache(10) failed: Result: hostbyte=DID_ERROR
+```
+
+The next mount replays the journal and reconciles the block counts, so an *idle* disk
+survives it. One that was mid-clone or mid-backup does not. Derive the unit name rather than
+typing the escaped form:
+
+```bash
+unit="$(systemd-escape -p --suffix=mount "$DATA_DISK")"
+systemctl stop "$unit"      # before unplugging
+systemctl start "$unit"     # after plugging back in
+```
+
+**A replug does not remount it.** `nofail` in `/etc/fstab` stops a missing disk from blocking
+boot, but nothing re-fires the generated mount unit when the device reappears. The mount
+point stays an empty directory, `repos/` and `dev-home/` look deleted, and the symlinks in
+the dev user's home dangle in silence.
+
+That last one has a corollary worth internalising: **`[ -d "$DATA_DISK" ]` is not a mounted
+check.** The directory exists either way, so the naive guard passes on an unmounted disk and
+the scripts happily rebuild your layout on the OS disk underneath the mount point. Use
+`mountpoint -q`.
+
 ## The dev user
 
 One identity for SSH, the container, and file sharing. Three group memberships matter:
