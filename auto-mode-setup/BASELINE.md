@@ -238,7 +238,8 @@ an ambient standing grant.
 ## Cross-checking a finished setup
 
 ```bash
-claude --debug                     # confirm which files and rules loaded
+claude --debug                     # confirm which files and rules loaded (interactive only —
+                                   # the -p print mode emits no permission lines)
 ```
 
 Then in a sample repo, confirm three things by observation rather than by reading JSON: the session
