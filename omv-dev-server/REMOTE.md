@@ -44,6 +44,29 @@ ssh-keygen -t ed25519 -C "<you>@<device>"
 ssh-copy-id <DEV_USER>@<NAS_TS_NAME>
 ```
 
+### On OMV there are three authorized_keys files, not one
+
+```
+$ sshd -T | grep -i authorizedkeysfile
+authorizedkeysfile  .ssh/authorized_keys .ssh/authorized_keys2 /var/lib/openmediavault/ssh/authorized_keys/%u
+```
+
+The third is OMV's own, written from the SSH-keys field in the user editor. For an
+OMV-managed user that is the better home for a key: it lives in OMV's configuration database
+and travels with its backups, which is the same rule as everywhere else — OMV owns what OMV
+generates. A key placed by hand in `~/.ssh/authorized_keys` works too and is *not*
+overwritten, because OMV only ever writes its own path. But it is a second place to look
+when a key mysteriously does, or does not, work, and it is easy to end up with the same key
+in both.
+
+OMV's datamodel validates each entry as `"format": "sshpubkey-rfc4716"` — a bare public key.
+`command="…"` and the other `authorized_keys` options are not part of that format, so a key
+carrying one belongs in `~/.ssh/authorized_keys` rather than the UI field.
+
+`StrictModes` is on, so a key in either location is ignored in silence unless the home is at
+most `0755`, `~/.ssh` is `0700`, and the file is `0600` and owned by the user. Check
+permissions before suspecting the key.
+
 ### Generating a key from PowerShell
 
 `ssh-keygen -N '""'` on PowerShell does **not** produce an empty passphrase — PowerShell
@@ -120,6 +143,44 @@ Practical notes for a small screen:
   memory stays the same on a laptop.
 - Long agent runs belong in tmux **on the host**, not in a container's foreground — see the
   attach trap in [PITFALLS.md](PITFALLS.md).
+
+### When the client will not run a startup command
+
+Termius keeps startup commands ("Snippets") behind its paid tier, and other clients bury the
+setting or lack it. You do not need it. Force the command from the server instead, on the one
+key that phone uses:
+
+```
+command="tmux new -A -s main" ssh-ed25519 AAAA… <DEV_USER>-phone
+```
+
+Any connection presenting that key now lands in the session regardless of what the client
+asks for, and the client needs no configuration at all.
+
+Restrict it to the **phone's** key and leave your workstation key an ordinary shell. That is
+your recovery path if tmux ever fails to start, and it costs nothing to keep.
+
+Two consequences worth expecting. `Ctrl-b d` now closes the connection rather than dropping
+to a prompt, because the forced command has exited and ssh has nothing left to run — on a
+phone that is what you want. And that key can no longer be used for `scp`, since the forced
+command replaces whatever was requested; keep a second key if you need to copy files.
+
+The tempting alternative, an `exec tmux` line in `~/.bashrc`, applies to *every* login for
+that user rather than to one key, and a mistake in that file locks you out of the account
+altogether. Prefer the key restriction.
+
+### The setting that quietly defeats persistence
+
+Before trusting any of this, confirm that logging out does not take the session with it:
+
+```bash
+loginctl show-session --property=KillUserProcesses
+```
+
+Debian ships `no`, which is what you want — tmux outlives your last logout. Where a system
+sets `yes`, every session dies the moment you disconnect, which is precisely the opposite of
+the point, and you need `loginctl enable-linger <DEV_USER>` to get the behaviour back. Check
+this before debugging anything else about a session that "does not persist".
 
 ## Script
 

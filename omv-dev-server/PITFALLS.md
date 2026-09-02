@@ -9,6 +9,8 @@ investigating; several of these look like a different problem than they are.
 |---|---|---|
 | New user cannot SSH in; looks like a wrong password | `sshd` has `AllowGroups root` / `AllowGroups _ssh`; the user is in neither | Add to `_ssh`. Note the underscore — a group called `ssh` does not exist on Debian 12+ |
 | `command not found` for something in `~/bin`, but the file is there and executable | Home was created with `mkdir`, not seeded from `/etc/skel`, so there is no `~/.profile`. A login shell reads `.profile`, not `.bashrc` — and Debian's `.profile` is what sources `.bashrc` and adds `~/bin` to `PATH` | Copy `/etc/skel/.profile`, `.bashrc`, `.bash_logout` into the home |
+| Same `command not found`, but only for `ssh <host> '<cmd>'` — logging in and typing it works | A non-interactive `ssh host cmd` runs neither `.profile` nor the interactive half of `.bashrc`, so `~/bin` never reaches `PATH`. Nothing is broken | Use an absolute path from scripts, or `ssh host 'bash -lc "<cmd>"'` for a login shell |
+| A launcher meant for the dev user does nothing as `root` | It lives in the dev user's `~/bin` and keys off `$HOME`. As root the repo root resolves to `/root/repos`, which does not exist, so the launcher refuses — correctly | `su - <DEV_USER>` (with the dash, so `.profile` runs). Never run it as root: the whole design rests on `--user "$(id -u):$(id -g)"`, and as root every file it writes into the repo is root-owned |
 | Shell is `/usr/bin/sh` despite choosing bash in the OMV UI | The UI's shell field did not apply | `usermod -s /bin/bash <DEV_USER>` |
 | Server accepts the public key, authentication still fails | The private key has a passphrase. From PowerShell, `ssh-keygen -N '""'` sets the passphrase to the two literal characters `""` | `ssh-keygen -p -P '""' -N '' -f <key>` from bash. The public key is unchanged, so `authorized_keys` stays valid |
 | After a few wrong usernames, *every* connection dies with `kex_exchange_identification: Connection closed by remote host` — including ones that worked a second ago | OpenSSH 9.8+ `PerSourcePenalties`, on by default. Probing usernames earns your whole source IP a timeout (`invaliduser:5`, floor `min:15`, ceiling `max:600` seconds). The client-side message names none of this | Wait it out, then stop guessing usernames — read `getent passwd` or ask. Server side: `journalctl -u ssh \| grep srclimit_penalise` shows the penalty and its length |
@@ -67,6 +69,8 @@ for the three rules these all follow from.
 | `GH_TOKEN` exported in one command is gone in the next | An agent's shell state does not persist between tool calls | Inject it at `docker run` |
 | Auth "works" but pushes still fail | `GH_TOKEN` was passed empty; `gh` treats that as a broken credential rather than falling back | Pass the variable only when it is non-empty |
 | `git ls-remote` succeeds with no credential | The repo is public — anonymous read works | Test against a private repo to prove authentication |
+| `could not read Username for 'https://github.com': terminal prompts disabled` against a repo that is definitely **public**, succeeding on maybe one attempt in six | GitHub throttles *unauthenticated* git and answers with a **401 credential challenge** rather than a 429. The error therefore names a missing password when the real cause is too many anonymous requests. `curl` to the same URL returns 200 throughout, so git, the credential helper and the container all look guilty in turn | `gh auth login`. Anonymous is 60 requests/hour; authenticated is 5000. The tell is intermittency — see the note below on running a fault more than once |
+| An agent in a fresh container cannot clone anything private, and adding a token to the NAS feels like the only way | Cloning *from* the box needs a credential *on* the box. For the initial seed it does not have to | Seed by `git bundle` from a workstation that already has the repos and the credentials — see [DEVCONTAINER.md](DEVCONTAINER.md). No credential moves, and it works for any forge rather than GitHub alone |
 
 ## Immich
 
@@ -84,3 +88,10 @@ for the three rules these all follow from.
 
 Add a row here, and — if the trap is preventable rather than merely survivable — a check in
 `scripts/smoke-test.sh`, so the next person gets a loud failure instead of a rediscovery.
+
+**Run the fault more than once before you write down its cause.** An intermittent failure
+read from a single attempt invents a deterministic explanation, and the next person inherits
+it as fact. The GitHub throttling row above was blamed on the credential helper, and then on
+the global gitconfig, because each was "confirmed" by one run that happened to pass after
+the change. Six identical runs gave `FAIL FAIL FAIL OK FAIL FAIL`, and both explanations
+evaporated. If a change appears to fix something, repeat the *unfixed* case too.
