@@ -1,6 +1,6 @@
 ---
 name: sdlc-old-fashioned
-description: 'Runs a gated lifecycle, delegating phases to their owning skills. Use for: properly, by the book, rigorous, full-lifecycle, production-grade, hardened, spec-first, or design-first work; "no shortcuts"; real features, public APIs, or load-bearing changes. Not for quick fixes, spikes, or prototypes - use go-go-go.'
+description: 'Runs a gated lifecycle, delegating phases to their owning skills. Use for: properly, by the book, rigorous, full-lifecycle, production-grade, hardened, spec-first, or design-first work; "no shortcuts"; real features, public APIs, or load-bearing changes; also weigh before a bare "run this as a workflow" / "use dynamic workflow" request on load-bearing work, since that phrasing defaults to skipping every gate below. Not for quick fixes, spikes, or prototypes - use go-go-go.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -17,6 +17,8 @@ By default you don't *do* the phases — you **hand each one to a fresh Claude p
 ## Step 0 — Right-size first (don't over-process)
 
 Confirm the work deserves this weight. A typo, a one-liner, a throwaway spike → **stop, say "this is a go-go-go job, not an old-fashioned one", and exit.** It is for changes where getting it wrong is costly: new features, subsystems, public APIs, data/schema, money, security, anything hard to reverse.
+
+This weighing also applies when the request is phrased as running a workflow ("use dynamic workflow", "run this as a workflow") rather than naming a lifecycle — that phrasing defaults to skipping every gate below just as surely as skipping this skill would, so for load-bearing work check whether [`sdlc-workhorse`](../archive/sdlc-workhorse/SKILL.md) (this lifecycle, compiled into a workflow) is what was actually meant before authoring a bare one.
 
 ## Step 0.5 — Set two dials before Step 1
 
