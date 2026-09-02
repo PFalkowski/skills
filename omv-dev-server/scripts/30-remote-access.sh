@@ -66,8 +66,32 @@ if command -v tmux >/dev/null; then ok "$(tmux -V)"
 else
   do_ "install tmux" sh -c 'apt-get update -qq && apt-get install -y -qq tmux' || true
 fi
-info "durable mobile shell — set this as the Termius startup command:"
-info "  tmux new -A -s main      (attach if present, create if not; plain 'new -s' fails twice)"
-info "mouse support helps on a phone:  echo 'set -g mouse on' >> ~/.tmux.conf"
+
+# A session that dies on logout is not persistent, and this is the setting that decides it.
+# Check it before anything else: everything below is pointless if it says yes.
+kup="$(loginctl show-session --property=KillUserProcesses 2>/dev/null | cut -d= -f2)"
+case "$kup" in
+  no|"") ok "KillUserProcesses=${kup:-no} — sessions survive logout" ;;
+  yes)   bad "KillUserProcesses=yes — tmux dies at logout. Fix: loginctl enable-linger $DEV_USER" ;;
+esac
+
+home_dir="$(getent passwd "$DEV_USER" | cut -d: -f6)"
+src="$(dirname "$0")/tmux.conf"
+dst="$home_dir/.tmux.conf"
+if [ ! -f "$src" ]; then
+  warn "$src missing — skipping tmux config"
+elif cmp -s "$src" "$dst" 2>/dev/null; then
+  ok "$dst already current"
+else
+  # Never clobber a config someone tuned themselves; keep a dated copy first.
+  [ -f "$dst" ] && do_ "back up existing $dst" cp -a "$dst" "$dst.bak-$(date +%Y%m%d-%H%M%S)"
+  do_ "install $dst" install -o "$DEV_USER" -g users -m 644 "$src" "$dst"
+fi
+
+info "durable mobile shell — attach or create in one idempotent command:"
+info "  tmux new -A -s main      (plain 'new -s' fails on the second connection)"
+info "if your client has no startup-command field, force it on that key instead:"
+info "  command=\"tmux new -A -s main\" ssh-ed25519 AAAA... ${DEV_USER}-phone"
+info "  put it in ~/.ssh/authorized_keys — OMV's UI field validates a bare key only"
 
 finish
