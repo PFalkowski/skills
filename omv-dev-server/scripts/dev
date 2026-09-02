@@ -62,6 +62,33 @@ chmod 700 "$DEV_HOME" "$DEV_HOME/.ssh"
 find "$DEV_HOME/.ssh" -type f -exec chmod 600 {} + 2>/dev/null || true
 [ -f "$DEV_HOME/.gitconfig" ] || cp "$HOME/.gitconfig" "$DEV_HOME/.gitconfig" 2>/dev/null || touch "$DEV_HOME/.gitconfig"
 
+# --- somewhere writable for tools that update themselves ---------------------------------
+# Everything baked into the image is installed as root under /usr, and this container runs
+# as an arbitrary uid, so a tool that tries to update itself in place fails — npm says
+# "no write permission to npm prefix", naming the prefix rather than the reason. Point npm
+# at the one directory that is both writable and persistent: this home. An update then
+# survives `--recreate` and a reboot, where chowning a path inside the image would not.
+#
+# All three are seeded only when absent, so edits of your own are never overwritten.
+if [ ! -f "$DEV_HOME/.npmrc" ]; then
+  # ${HOME} rather than a literal: npm expands it, and the container home is set at runtime.
+  printf 'prefix=${HOME}/.npm-global\n' > "$DEV_HOME/.npmrc"
+fi
+if [ ! -f "$DEV_HOME/.bashrc" ]; then
+  cat > "$DEV_HOME/.bashrc" <<'RC'
+# Prepended, so a self-updated tool here shadows the image's root-owned copy.
+# Delete ~/.npm-global to fall back to the version pinned in the image.
+export PATH="$HOME/.npm-global/bin:$PATH"
+RC
+fi
+if [ ! -f "$DEV_HOME/.profile" ]; then
+  # A login shell reads .profile; an interactive one reads .bashrc. The launcher produces
+  # both shapes, so defer the way Debian's skel does instead of duplicating the PATH line.
+  cat > "$DEV_HOME/.profile" <<'RC'
+[ -n "$BASH_VERSION" ] && [ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
+RC
+fi
+
 # --- a passwd entry for an arbitrary UID -------------------------------------------------
 # `--user 1001:100` hands the container a uid the image has never heard of, and the failure
 # is not cosmetic. Anything calling getpwuid() fails hard instead of degrading: ssh exits

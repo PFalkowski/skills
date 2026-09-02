@@ -151,6 +151,46 @@ every lookup rather than only the missing one.
 A working result still fails to authenticate — `Permission denied (publickey)` — until the
 key is registered. That is the correct error, and it is the one that tells you this is fixed.
 
+### Give self-updating tools somewhere to write
+
+The same root cause, one layer up. Everything baked into the image is installed as root
+under `/usr`, so a tool that updates itself in place has nowhere it may write:
+
+```
+✘ Auto-update failed: no write permission to npm prefix
+```
+
+npm's prefix is `/usr`, and you are not root. The message names the prefix and not the
+reason, so it reads as a broken install.
+
+Chowning a path inside the image is the obvious fix and the wrong one: it lives in the
+container filesystem, so `dev --recreate` or a rebuilt image discards it and the problem
+returns. Point npm at the container **home** instead, which is the one directory that is
+both writable by you and persistent across recreation:
+
+```
+# ~/.npmrc — npm expands ${HOME}, and the home is set at runtime
+prefix=${HOME}/.npm-global
+
+# ~/.bashrc — prepended, so a self-updated tool shadows the image's root-owned copy
+export PATH="$HOME/.npm-global/bin:$PATH"
+```
+
+`dev` seeds both, plus a `.profile` that sources `.bashrc`, and seeds each only when absent
+so your own edits survive. The image's pinned copy stays where it was: delete
+`~/.npm-global` and you fall straight back to it.
+
+**This is a deliberate exception to pinning.** The rule above says pin what you can, because
+an unpinned CLI changing under an unchanged Dockerfile is a nasty regression to trace. An
+agent CLI is the case where being several versions behind on a remote box is the worse
+failure. Decide it per tool rather than by default, and if you would rather hold the pinned
+version, set `DISABLE_AUTOUPDATER=1` and update by rebuilding.
+
+One trap when checking this. `dev` gives you an *interactive non-login* shell, which reads
+`.bashrc`; `bash -l` reads `.profile`. Test both, and give the test a real TTY — an
+interactive shell without one exits before running anything and appears to prove your
+change did nothing.
+
 ## One home directory, never single files
 
 Mount the whole home, not `~/.gitconfig` and `~/.claude.json` individually:
