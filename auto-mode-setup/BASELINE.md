@@ -48,13 +48,17 @@ Bash(npm publish:*)
 Bash(pnpm publish:*)
 Bash(cargo publish:*)
 Bash(gh release create:*)
-Bash(gh pr merge:*)
 Bash(gh repo delete:*)
 Bash(docker push:*)
 ```
 
 Relevant to any tree holding public packages: a mistaken `dotnet nuget push` cannot be withdrawn,
 only delisted, and the version number is burned permanently.
+
+`gh pr merge` is deliberately **not** here. Merging a green, reviewed PR into a branch-protected base
+is not shipping: the protection rules and required checks are the gate, and an agent that cannot
+merge stalls every stacked chain on a human click. It lives in the allow list below. Deny it only
+in a tree whose default branch is unprotected, where the merge itself would be the release.
 
 ### Infrastructure and data
 
@@ -177,6 +181,7 @@ Bash(gh issue list:*)
 Bash(gh run view:*)
 Bash(gh run list:*)
 Bash(gh api:*)
+Bash(gh pr merge:*)
 Bash(docker ps:*)
 Bash(docker images:*)
 Bash(docker inspect:*)
@@ -187,6 +192,14 @@ Bash(dotnet --list-sdks:*)
 
 `gh api` is read-only only by convention — it will happily `-X DELETE`. Narrow it to
 `Bash(gh api -X GET:*)` if the tree contains repos you do not control.
+
+`gh pr merge` is safe here because a protected base enforces its own gate; see the deny-list note.
+Add the PowerShell form (`PowerShell(gh pr merge *)`) on Windows.
+
+An agent cannot grant itself any of these. The auto-mode classifier refuses an agent's edit of its
+own permission rules, by design, so a rule a run turns out to need is typed by the human. Type it
+into the settings file of the environment the session runs in: inside a container that is the
+container's home, not the host's `~`.
 
 ---
 
@@ -264,6 +277,19 @@ Grant here, never in the baseline. Commit the file.
 {
   "permissions": {
     "allow": ["Bash(dotnet run --project tools/:*)", "Bash(npm run:*)"]
+  }
+}
+```
+
+**A repo that uses GitHub-native stacked PRs** — GitHub refuses `gh pr merge` for a PR that is
+part of a stack and requires the asynchronous merge endpoint, which `gh` only reaches through
+`gh api -X PUT`. A bare `Bash(gh api -X PUT:*)` is an arbitrary write to any repository, so scope the
+rule to this repository's pull-request endpoints:
+
+```json
+{
+  "permissions": {
+    "allow": ["Bash(gh api -X PUT repos/<owner>/<repo>/pulls/*)"]
   }
 }
 ```
