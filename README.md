@@ -93,6 +93,10 @@ Each skill is a directory at the repo root containing at minimum a `SKILL.md` wi
 
 Issues are groomed with the `triage` skill into three label lanes (category, state, priority). The local label vocabulary — including what `ready-for-agent` and `parked` mean here — is recorded in [docs/triage-labels.md](docs/triage-labels.md).
 
+## Global CLAUDE.md
+
+The author's global `~/.claude/CLAUDE.md` is versioned verbatim at [docs/claude-md.md](docs/claude-md.md). Install it with `cp docs/claude-md.md ~/.claude/CLAUDE.md`. It sets the PR-by-default delivery rule, the SDLC defaults, and the check that the `Workflow` tool exists before a workflow-based skill is dispatched.
+
 ## Local development (maintainers)
 
 > Installing or updating these skills as a user? See [Install](#install) and [Updating](#updating) above — you don't need any of this.
