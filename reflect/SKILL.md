@@ -1,6 +1,6 @@
 ---
 name: reflect
-description: 'Surface the assumptions a task rests on, rank each by how much of the work it carries, and route it: look it up, verify it, default it and say so, or ask. Fixes both failure modes at once - blocking on trivia while silently guessing the load-bearing detail. Triggers: reading a task before starting; the urge to ask a question; about to proceed on something the request did not state; new information contradicts a prior belief; "reflect", "what are you assuming", "sanity check", "step back".'
+description: 'Enumerate the assumptions a task rests on, rank each by how much work it carries, and route it: look up, verify, default, or ask. Triggers: reading a task before starting; the urge to ask; proceeding on something the request did not state; new information contradicts a belief; "what are you assuming", "sanity check", "step back". Distinct from whatever (the rule for the cheap bucket; this produces the list).'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -63,23 +63,26 @@ coin-flip low-load one still gets defaulted. Agents get this backwards because u
 
 ### Route each item
 
-Work down this list and take the **first** route that applies:
+Load is the first split. **Low load** goes straight to route 3. **High load** works down routes 1, 2, 4, 5
+and takes the first that applies.
 
 1. **Discoverable → go look. Never ask what the repo can answer.** The target framework is in the project
    file. Whether a function has callers is one grep. What the ticket forbids is in the ticket. The house
-   conventions are in the README, CLAUDE.md, or the last ten commits. Most "critical details" agents miss
-   were discoverable; the failure was skipped reading, followed by a guess or a question the code would
-   have answered. Cite the `path:line` in the ledger once found.
+   conventions are in the README, CLAUDE.md, or the last ten commits. The details agents miss are usually
+   the ones nobody looked up: skipped reading, then a guess or a question the code would have answered.
+   Cite the `path:line` in the ledger once found.
 2. **Executable or documentable → [`fact-check`](../fact-check/SKILL.md).** A behaviour, a limit, a version,
    an API contract. Run it or cite it.
-3. **Low load and reversible → decide, state it in one line, keep moving.** This is
-   [`whatever`](../whatever/SKILL.md), applied to exactly the items the ledger marked low load. Do not ask.
-4. **High load, not discoverable, a genuine preference or requirements fork → ask.** Batch every such item
-   into one checkpoint, lead each with a recommendation, and make sure the question cannot be answered by
-   step 1. This should be rare. If it is not rare, you skipped step 1.
-5. **High load and unanswerable now → proceed and flag.** State the assumption explicitly in the deliverable
-   (the PR body, the report, the handover) so a wrong guess is caught at review rather than in production.
-   Do not bury it.
+3. **Low load → decide, state it in one line, keep moving.** This is [`whatever`](../whatever/SKILL.md)'s
+   test with the mapping made explicit: load covers its consequential and hard-to-reverse prongs, and
+   discoverable covers its underdetermined prong. Do not look it up unless the lookup is cheaper than the
+   one-line default. Do not ask.
+4. **High load, not discoverable, a genuine preference or requirements fork, and a human is in the loop →
+   ask.** Batch every such item into one checkpoint, lead each with a recommendation, and make sure the
+   question cannot be answered by step 1. This should be rare. If it is not rare, you skipped step 1.
+5. **High load and no one to ask → proceed and flag.** This is route 4 during an unattended run, or after
+   the user delegated the decision. State the assumption explicitly in the deliverable (the PR body, the
+   report, the handover) so a wrong guess is caught at review rather than in production. Do not bury it.
 
 ### Pre-mortem for the unknown column
 
@@ -91,8 +94,7 @@ You cannot rank an assumption you never wrote down. Two prompts reliably surface
   which environments), constraints (compatibility, public API, performance, security), definition of done
   (tests, docs, migration), and the thing the ticket mentioned in passing that you skimmed.
 
-Then route the new items like the rest. This step is where the "critical detail the agent missed" gets caught,
-and it costs one minute.
+Then route the new items like the rest. This step is where the "critical detail the agent missed" gets caught.
 
 ## Emitting the ledger
 
@@ -109,10 +111,10 @@ Example, high-load case:
 ```
 Assumptions
 - Target is net8.0 (verified: Directory.Build.props:4)
-- `ParseQuote` has no callers outside this assembly (verified: grep, 2 call sites, both updated)
+- `ParseHeader` has no callers outside this assembly (verified: Parser.cs:41, Import.cs:88, both updated)
 - Public API may not change (given: ticket says "internal refactor only")
-- Flagged: existing tests never cover the empty-input path; I am treating current behaviour as intended.
-Defaults: new branch off main, tests alongside the file under test.
+- Flagged: production config sets `MaxRetries` and I cannot read it from here; assuming the default of 3.
+Defaults: new branch off main, commit message wording.
 ```
 
 ## Re-reflect on contradiction
@@ -121,8 +123,8 @@ Mid-task, something you read contradicts a ledger line. The reflex is to reconci
 Instead: stop, mark the line broken, and re-rank. A broken low-load line is a one-line update. A broken
 high-load line means the plan built on it is suspect; the deliverable may be useless, and the honest move is
 to say so and re-route, which may mean asking now what you correctly did not ask before.
-[`walk-the-dog`](../walk-the-dog/SKILL.md) names this moment `ESCALATE` for a subagent; the same rule applies
-to you.
+[`walk-the-dog`](../walk-the-dog/SKILL.md) names the broken-assumption case `ESCALATE` for a subagent; the
+same rule applies to you.
 
 ## `reflect deep`
 
@@ -135,7 +137,7 @@ to a plan instead of a diff. Optional, not the default.
 
 ## Anti-patterns
 
-- **Asking what a grep would answer.** The single most common miss. Step 1 exists to stop it.
+- **Asking what a grep would answer.** Step 1 exists to stop it.
 - **Ranking by confidence.** "I'm fairly sure" is not a status. Load is.
 - **Filling the ledger only with things you already checked.** The inferred column has to contain the
   embarrassing ones, or it is theatre.
@@ -143,8 +145,8 @@ to a plan instead of a diff. Optional, not the default.
 - **Reconciling a contradiction silently.** A broken assumption is news; report it as news.
 - **Paraphrasing a given.** Quote the constraint. Paraphrase is where "do not change the public API" turns
   into "keep it mostly compatible".
-- **Treating "the user said just do it" as permission to stop reflecting.** It lowers the asking threshold
-  (route 4), not the looking threshold (route 1). Routes 1, 2 and 5 still run.
+- **Treating "the user said just do it" as permission to stop reflecting.** `whatever`'s escalation signal
+  lowers the asking threshold (route 4), not the looking threshold (route 1). Routes 1, 2 and 5 still run.
 
 ## Relationship to sibling skills
 
