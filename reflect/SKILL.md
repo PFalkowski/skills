@@ -1,6 +1,6 @@
 ---
 name: reflect
-description: 'Enumerate the assumptions a task rests on, rank each by how much work it carries, and route it: look up, verify, default, or ask. Triggers: reading a task before starting; the urge to ask; proceeding on something unstated; "what are you assuming", "sanity check". Distinct from whatever (the cheap bucket; this makes the list).'
+description: 'Enumerate the assumptions a task rests on, rank each by how much work it carries, and route it: look up, verify, default, or ask; token-box obstacles off the objective and push back on a wrong request. Triggers: before starting; the urge to ask; many steps on one obstacle; "what are you assuming", "sanity check", "is this worth it".'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -32,7 +32,9 @@ grounds a claim once you have one. Neither produces the list. This does.
   the trigger, not a reason to skip it.
 - **When new information contradicts something you believed.** Do not absorb it and carry on; re-rank.
 - **At checkpoints** of long work: before a commit, before a PR, before handing off.
-- On request: "reflect", "what are you assuming", "sanity check", "step back".
+- **When the last several steps were all about one obstacle.** That is the drift signal; see
+  [Are we still going the right way?](#are-we-still-going-the-right-way).
+- On request: "reflect", "what are you assuming", "sanity check", "step back", "is this worth it".
 
 ## The ledger
 
@@ -126,6 +128,44 @@ to say so and re-route, which may mean asking now what you correctly did not ask
 [`walk-the-dog`](../walk-the-dog/SKILL.md) names the broken-assumption case `ESCALATE` for a subagent; the
 same rule applies to you.
 
+## Are we still going the right way?
+
+Assumptions are not the only thing that drifts. Agents drift into **solving a peculiarity**: a flaky test, a
+build quirk, a library edge case, an environment mismatch. Each step is locally reasonable, and after twenty
+of them the session is deep in a problem that the bigger picture never needed solved. The objective did not
+change; the agent's attention did.
+
+At every checkpoint, and whenever the last several steps were all about one obstacle, ask three questions:
+
+1. **What is the objective, in the user's words?** Quote it. If you cannot, that is the first finding.
+2. **Does the thing I am working on now sit on the path to it?** Name the link. "The tests must pass" is a
+   link. "This one test is flaky on CI for reasons unrelated to my change" is not.
+3. **Would the user rather have the objective with this worked around, or wait for this solved?** For a
+   peculiarity, the answer is nearly always the workaround.
+
+### Token-box the obstacle
+
+When an obstacle is off the path, or its relevance is unclear, give it a budget before you continue:
+a fixed number of attempts, or a rough token spend, stated in one line. When the box is spent and the obstacle
+is not solved, **stop solving it and work around it**: skip the flaky test with a note, pin the version, stub
+the environment, narrow the scope, or ship without the piece and flag it. Record the obstacle in the deliverable
+as an open item with what was tried, so it is not lost. Then return to the objective.
+
+The box exists because the sunk cost of twenty steps is what keeps an agent on step twenty-one. The
+decision to stop is made when the box is set, not when it is spent.
+
+### Push back
+
+Reflection sometimes shows the request itself is the wrong move: the premise is false, the constraint given
+conflicts with the code, the fix asked for treats a symptom, or the objective is cheaper to reach another
+way. Say so, in two sentences, before doing the work: what you found, and what you recommend instead. Then do
+one of two things. If the user is present, wait for their answer; that is a route 4 question with a
+recommendation attached. If nobody is there to answer, do what was asked and put the pushback at the top of
+the deliverable, so the reader sees the concern before the diff.
+
+Pushback is not refusal and not re-litigation. Once the user has heard the concern and confirmed the request,
+it is their decision; proceed in full and do not raise it again.
+
 ## `reflect deep`
 
 For load-bearing work (a public API, a migration, a security-sensitive change, anything
@@ -145,6 +185,9 @@ to a plan instead of a diff. Optional, not the default.
 - **Reconciling a contradiction silently.** A broken assumption is news; report it as news.
 - **Paraphrasing a given.** Quote the constraint. Paraphrase is where "do not change the public API" turns
   into "keep it mostly compatible".
+- **Solving a peculiarity.** Twenty reasonable steps into an obstacle the objective never required. The box
+  should have been set at step one.
+- **Swallowing a wrong premise.** If the request rests on something false, say so before building on it.
 - **Treating "the user said just do it" as permission to stop reflecting.** `whatever`'s escalation signal
   lowers the asking threshold (route 4), not the looking threshold (route 1). Routes 1, 2 and 5 still run.
 
