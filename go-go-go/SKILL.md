@@ -1,7 +1,6 @@
 ---
 name: go-go-go
 description: 'Drives the repo from its current state — uncommitted work, open tasks, a stalled PR — to a raised, reviewed PR without stopping for low-stakes decisions. Triggers: "go go go", "just ship it", "make it happen", "finish and PR this".'
-disable-model-invocation: true
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -14,6 +13,8 @@ metadata:
 *"Don't ask, just ship."*
 
 Drive the repo from its current state — uncommitted changes, open tasks, stalled branch, or raw idea — straight to a raised PR. No permission-asking on reversible choices. Stop only at hard blockers (irreversible actions, missing secrets, genuinely ambiguous requirements that would waste real work if guessed wrong).
+
+**Invoked by an agent rather than typed by a human?** Run [`reflect`](../reflect/SKILL.md) first — surface and route load-bearing assumptions before whatever-mode starts deciding on your behalf, since no human is present to catch a bad guess.
 
 ## Step 1 — Take stock (read-only, fast)
 
