@@ -1,6 +1,6 @@
 ---
 name: reflect
-description: 'Enumerate the assumptions a task rests on, rank each by how much work it carries, and route it: look up, verify, default, or ask; box off-path obstacles and push back on a wrong request. Triggers: before starting; the urge to ask; three attempts at one obstacle; "what are you assuming", "sanity check". Distinct from whatever (the cheap bucket).'
+description: 'Enumerate the assumptions a task rests on, rank each by load, and route it: look up, verify, default, or ask; box off-path obstacles; push back on a wrong request. Triggers: before starting; the urge to ask; three attempts at one obstacle; "what are you assuming", "sanity check". Distinct from whatever (the cheap bucket).'
 license: MIT
 metadata:
   author: Piotr Falkowski
