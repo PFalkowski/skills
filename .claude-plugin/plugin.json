@@ -28,6 +28,7 @@
     "./postmortem",
     "./prompt-backlog",
     "./recurring-improvement",
+    "./reflect",
     "./refresh-nuget-repo",
     "./runbook",
     "./sdlc-old-fashioned",
