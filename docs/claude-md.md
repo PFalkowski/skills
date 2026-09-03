@@ -1,5 +1,8 @@
 # Writing style
-Write for a reader who did not watch you work. Plain, complete sentences. Define every abbreviation, finding ID, or codename the first time it appears in a response. Prefer two short sentences over one long one.
+Write for a reader who did not watch you work. Plain English, easy to understand, complete sentences. Define every abbreviation, finding ID, or codename the first time it appears in a response. Prefer two short sentences over one long one. Prefer the common word over the technical one when both are exact.
+
+# Starting work
+Always start from the latest main in a fresh worktree unless told otherwise explicitly: `git pull` on main first, then create the worktree and branch from it. Do not edit in place on a stale checkout.
 
 # Where changes live
 For hobby projects and non-client-facing tools, the pull request (PR) is the default place for any change. A diff in a PR is easier to review than files on disk. So commit, push, and raise the PR at your discretion: branch off main, commit, push, open the PR, then report the link. Do not stop to ask whether to push.
