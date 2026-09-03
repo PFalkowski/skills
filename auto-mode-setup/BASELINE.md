@@ -190,6 +190,55 @@ Bash(dotnet --list-sdks:*)
 
 ---
 
+## The hook — user scope, the prompt that no rule can remove
+
+One prompt survives every allow rule, and it is the one that stalls unattended runs most often:
+
+```
+rg on '-g' after a cd would search a directory that cannot be determined here,
+and a Read() deny rule is configured; only you can approve running it anyway.
+```
+
+The mechanism: once any `Read` deny rule exists (the secrets block above), Claude Code must prove
+that a file-reading Bash command stays clear of the denied paths. After a `cd` it cannot resolve
+the directory the next command reads, so it stops and asks. An allow rule such as `Bash(rg:*)` does
+**not** short-circuit this — the check runs regardless, because deny beats allow. Subagents and
+workflow agents reach for `cd <dir> && rg ... .` constantly, a brief telling them not to does not
+hold, and every occurrence is a human click at 03:00.
+
+Since the deny rules stay (they are the boundary) and no allow rule helps, the fix is a
+`PreToolUse` hook that rejects the shape before it reaches the permission check. The agent gets the
+reason as its tool error and re-runs with an absolute path, which resolves statically and never
+prompts. [scripts/no-cd-chain.mjs](scripts/no-cd-chain.mjs) blocks a `cd`/`Set-Location`/`pushd`
+chained with a file-reading, search or git command, or with an output redirect; `cd dir && npm test`
+still passes. It runs under `node`, so the same file serves Linux, macOS, and Windows.
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/skills/auto-mode-setup/scripts/no-cd-chain.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The path assumes the skills are linked under `~/.claude/skills` (see `link-skills.ps1`). Hook
+decisions never weaken deny or ask rules, so this adds no permission — it only removes a stall.
+Verified on Claude Code 2.1.259: the hook took effect in the same session that wrote it, and its
+first catch was the author's own `cd && git commit`.
+
+---
+
 ## Per-repo overrides — `<repo>/.claude/settings.json`
 
 Grant here, never in the baseline. Commit the file.

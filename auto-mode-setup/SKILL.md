@@ -86,6 +86,14 @@ Back the file up first and preserve every unrelated key — this file also carri
 status line, effort level, and plugin settings, and clobbering those is a bad trade for a
 permission change.
 
+### 3b. Install the no-cd-chain hook
+
+A `cd` chained with a file-reading command prompts a human no matter what the allow list says,
+because the `Read` deny rules make the searched directory unresolvable. Wire
+`scripts/no-cd-chain.mjs` as a user-scope `PreToolUse` hook (snippet in
+[BASELINE.md](BASELINE.md#the-hook--user-scope-the-prompt-that-no-rule-can-remove)); it turns the
+stall into a tool error the agent fixes itself.
+
 ### 4. Write per-repo overrides
 
 Anything that builds, tests, deploys, or talks to a paid or shared service goes in that repo's
