@@ -65,7 +65,6 @@ Stage and commit changed files. Rules:
 - Stage specific files by name — never `git add .` blindly (may catch secrets or binaries).
 - If there are untracked files that look like generated artifacts (`.obj`, `.bin`, build output) → skip them; if they look like source → stage them.
 - Commit message: imperative, ≤72 chars subject, one blank line, brief body if context is non-obvious.
-- Co-author line: `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`
 
 ## Step 5 — Push and raise PR (State C)
 

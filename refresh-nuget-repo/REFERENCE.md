@@ -1,6 +1,6 @@
 # Refresh a NuGet/.NET library — reference
 
-The **.NET/NuGet companion** to the generic [`restomod` reference](../restomod/REFERENCE.md). Per-phase
+The **.NET/NuGet companion** to the generic [`restomod` reference](../archive/restomod/REFERENCE.md). Per-phase
 detail for [SKILL.md](SKILL.md); read the phase you're on. **Generic phase mechanics** (Phase 0 clean
 git, the deprecation-shim pattern, the generic security/ship checklists) live in the restomod reference —
 this file carries only the .NET/NuGet specifics.
@@ -9,7 +9,7 @@ this file carries only the .NET/NuGet specifics.
 
 ## Phase 0 — Clean git state
 
-Generic — see [restomod REFERENCE "Phase 0"](../restomod/REFERENCE.md). (`git status` / `MERGE_HEAD`
+Generic — see [restomod REFERENCE "Phase 0"](../archive/restomod/REFERENCE.md). (`git status` / `MERGE_HEAD`
 check, reconcile, then `git checkout -b refresh/<topic>`; never work on the default branch.)
 
 ---
@@ -220,7 +220,7 @@ and it now *is* the nuget.org package page — so fixing it is part of the refre
 
 Generic strategy (add correct member · keep old name `[Obsolete]` with **unchanged** behavior · move
 internal callers · bump **major** · pin the shim with a suppression-wrapped test) →
-[restomod REFERENCE "Phase 4"](../restomod/REFERENCE.md). The C# specifics: deprecate with
+[restomod REFERENCE "Phase 4"](../archive/restomod/REFERENCE.md). The C# specifics: deprecate with
 `[Obsolete("why; use <new>; removed in a future major")]` and pin the shim under
 `#pragma warning disable CS0618 … restore CS0618`. Always present the options and let the user pick.
 

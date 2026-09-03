@@ -1,0 +1,20 @@
+name: checks
+
+on: [push, pull_request]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run checks
+        run: |
+          set -e
+          bash scripts/check-links.sh
+          bash scripts/check-descriptions.sh
+          for t in .claude/workflows/*.test.js archive/clean-room/screen-brief.test.mjs; do
+            node --test "$t"
+          done
