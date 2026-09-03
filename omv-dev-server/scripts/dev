@@ -62,6 +62,55 @@ chmod 700 "$DEV_HOME" "$DEV_HOME/.ssh"
 find "$DEV_HOME/.ssh" -type f -exec chmod 600 {} + 2>/dev/null || true
 [ -f "$DEV_HOME/.gitconfig" ] || cp "$HOME/.gitconfig" "$DEV_HOME/.gitconfig" 2>/dev/null || touch "$DEV_HOME/.gitconfig"
 
+# --- somewhere writable for tools that update themselves ---------------------------------
+# Everything baked into the image is installed as root under /usr, and this container runs
+# as an arbitrary uid, so a tool that tries to update itself in place fails — npm says
+# "no write permission to npm prefix", naming the prefix rather than the reason. Point npm
+# at the one directory that is both writable and persistent: this home. An update then
+# survives `--recreate` and a reboot, where chowning a path inside the image would not.
+#
+# All three are seeded only when absent, so edits of your own are never overwritten.
+if [ ! -f "$DEV_HOME/.npmrc" ]; then
+  # ${HOME} rather than a literal: npm expands it, and the container home is set at runtime.
+  printf 'prefix=${HOME}/.npm-global\n' > "$DEV_HOME/.npmrc"
+fi
+if [ ! -f "$DEV_HOME/.bashrc" ]; then
+  cat > "$DEV_HOME/.bashrc" <<'RC'
+# Prepended, so a self-updated tool here shadows the image's root-owned copy.
+# Delete ~/.npm-global to fall back to the version pinned in the image.
+export PATH="$HOME/.npm-global/bin:$PATH"
+RC
+fi
+if [ ! -f "$DEV_HOME/.profile" ]; then
+  # A login shell reads .profile; an interactive one reads .bashrc. The launcher produces
+  # both shapes, so defer the way Debian's skel does instead of duplicating the PATH line.
+  cat > "$DEV_HOME/.profile" <<'RC'
+[ -n "$BASH_VERSION" ] && [ -f "$HOME/.bashrc" ] && . "$HOME/.bashrc"
+RC
+fi
+
+# --- a passwd entry for an arbitrary UID -------------------------------------------------
+# `--user 1001:100` hands the container a uid the image has never heard of, and the failure
+# is not cosmetic. Anything calling getpwuid() fails hard instead of degrading: ssh exits
+# with "No user exists for uid 1001" *before* it reads your key, so git-over-SSH is dead and
+# the message names neither the container nor the cause. The only visible hint is the shell
+# prompt reading "I have no name!", which looks like a cosmetic annoyance and is not.
+#
+# Generate a passwd file — the image's own, plus one line for you — and mount it read-only.
+# Read-only is what keeps this clear of the never-bind-mount-a-single-file rule: that rule
+# exists because *writes* land on an inode the host never sees, and nothing writes here.
+# The entry's home is /dev-home because ssh takes the home directory from the passwd entry
+# rather than from $HOME, and /dev-home/.ssh is where the keys are.
+#
+# Regenerated only when the line is missing, so it costs one `docker run` once. If you
+# rebuild the image with new accounts in it, delete this file to pick them up.
+PASSWD_FILE="$DEV_HOME/.container-passwd"
+passwd_line="$(id -un):x:$(id -u):$(id -g):dev container user:/dev-home:/bin/bash"
+if ! grep -qxF "$passwd_line" "$PASSWD_FILE" 2>/dev/null; then
+  { docker run --rm "$IMAGE" cat /etc/passwd && echo "$passwd_line"; } > "$PASSWD_FILE" \
+    || rm -f "$PASSWD_FILE"
+fi
+
 exists()  { docker ps -a --format '{{.Names}}' | grep -qx "$NAME"; }
 running() { docker ps    --format '{{.Names}}' | grep -qx "$NAME"; }
 
@@ -106,6 +155,15 @@ args=(
   --shm-size "$SHM"
   --security-opt no-new-privileges
 )
+
+# Only when the file is non-empty. Docker creates a *directory* at a bind source that does
+# not exist, so a failed generation above would mount a directory over /etc/passwd and break
+# every lookup in the container rather than just the missing one.
+if [ -s "$PASSWD_FILE" ]; then
+  args+=( -v "$PASSWD_FILE:/etc/passwd:ro" )
+else
+  echo "⚠️  no $PASSWD_FILE — ssh in the container will fail with 'No user exists for uid $(id -u)'" >&2
+fi
 
 # Only when non-empty: an empty GH_TOKEN is worse than absent, because gh treats it as a
 # configured-but-broken credential instead of falling back to a stored login. Never baked

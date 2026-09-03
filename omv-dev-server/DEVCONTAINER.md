@@ -115,6 +115,82 @@ image must therefore not assume `/root` or a named account; `HOME` is injected a
 Pass `--user` to `docker exec` too. It defaults to the image's user, not the running
 container's, so an exec into a `--user`-launched container can still land as root.
 
+### Give that UID a passwd entry, or SSH is dead
+
+`--user 1001:100` hands the container a uid the image has never heard of. The prompt says
+`I have no name!`, which reads as cosmetic and is not: anything calling `getpwuid()` fails
+hard rather than degrading, and `ssh` is the one that matters.
+
+```
+$ ssh -T git@github.com
+No user exists for uid 1001
+```
+
+That is `ssh` exiting *before* it reads your key, so every SSH remote is unreachable and the
+message names neither the container nor the cause. Generate a passwd file — the image's own,
+plus one line for you — and mount it read-only:
+
+```bash
+passwd_line="$(id -un):x:$(id -u):$(id -g):dev container user:/dev-home:/bin/bash"
+{ docker run --rm "$IMAGE" cat /etc/passwd && echo "$passwd_line"; } > "$DEV_HOME/.container-passwd"
+args+=( -v "$DEV_HOME/.container-passwd:/etc/passwd:ro" )
+```
+
+Three details carry weight. Start from the **image's** `/etc/passwd` rather than writing one
+line, or you delete `root` and `nobody` and break more than you fixed. Point the entry's home
+at the container `HOME`, because `ssh` takes the home directory from the passwd entry and not
+from `$HOME` — get this wrong and it looks for keys somewhere that does not exist. And mount
+it **read-only**, which is what keeps this clear of the never-mount-a-single-file rule above:
+that rule exists because *writes* land on an inode the host never sees, and nothing writes
+here.
+
+Guard the mount with `[ -s "$file" ]`. Docker creates a *directory* at a bind source that
+does not exist, so a failed generation would put a directory over `/etc/passwd` and break
+every lookup rather than only the missing one.
+
+A working result still fails to authenticate — `Permission denied (publickey)` — until the
+key is registered. That is the correct error, and it is the one that tells you this is fixed.
+
+### Give self-updating tools somewhere to write
+
+The same root cause, one layer up. Everything baked into the image is installed as root
+under `/usr`, so a tool that updates itself in place has nowhere it may write:
+
+```
+✘ Auto-update failed: no write permission to npm prefix
+```
+
+npm's prefix is `/usr`, and you are not root. The message names the prefix and not the
+reason, so it reads as a broken install.
+
+Chowning a path inside the image is the obvious fix and the wrong one: it lives in the
+container filesystem, so `dev --recreate` or a rebuilt image discards it and the problem
+returns. Point npm at the container **home** instead, which is the one directory that is
+both writable by you and persistent across recreation:
+
+```
+# ~/.npmrc — npm expands ${HOME}, and the home is set at runtime
+prefix=${HOME}/.npm-global
+
+# ~/.bashrc — prepended, so a self-updated tool shadows the image's root-owned copy
+export PATH="$HOME/.npm-global/bin:$PATH"
+```
+
+`dev` seeds both, plus a `.profile` that sources `.bashrc`, and seeds each only when absent
+so your own edits survive. The image's pinned copy stays where it was: delete
+`~/.npm-global` and you fall straight back to it.
+
+**This is a deliberate exception to pinning.** The rule above says pin what you can, because
+an unpinned CLI changing under an unchanged Dockerfile is a nasty regression to trace. An
+agent CLI is the case where being several versions behind on a remote box is the worse
+failure. Decide it per tool rather than by default, and if you would rather hold the pinned
+version, set `DISABLE_AUTOUPDATER=1` and update by rebuilding.
+
+One trap when checking this. `dev` gives you an *interactive non-login* shell, which reads
+`.bashrc`; `bash -l` reads `.profile`. Test both, and give the test a real TTY — an
+interactive shell without one exits before running anything and appears to prove your
+change did nothing.
+
 ## One home directory, never single files
 
 Mount the whole home, not `~/.gitconfig` and `~/.claude.json` individually:

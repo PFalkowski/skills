@@ -1,3 +1,9 @@
 * text=auto
 *.js text eol=lf
 *.sh text eol=lf
+
+# Everything under omv-dev-server/scripts/ runs on Linux, and not all of it ends in .sh —
+# the `dev` launcher has no extension at all, and setup.env.example is *sourced* by bash.
+# Checked out CRLF, the first fails with `env: 'bash\r': No such file or directory` and the
+# second silently gives every value a trailing carriage return.
+omv-dev-server/scripts/* text eol=lf
