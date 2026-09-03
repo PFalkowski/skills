@@ -136,11 +136,15 @@ A dev container on a NAS shares the box with services people rely on:
 
 ```bash
 --init                     # reap zombies; node and git leave them and PID 1 will not
---memory 12g               # sized to the box, leaving room for the NAS itself
+--memory 8g                # sized to the box, leaving room for the NAS itself
 --pids-limit 512           # Claude Code spawns a daemon plus pty hosts; 100 is too low
 --shm-size 1g              # headless Chrome dies on Docker's 64m default
 --security-opt no-new-privileges
 ```
+
+`--memory`, `--pids-limit`, and `--shm-size` are `scripts/dev`'s defaults
+(`DEV_MEMORY`, `DEV_PIDS`, `DEV_SHM`); set the matching env var to override
+any of them for a box with different resources.
 
 ## Container lifecycle
 
