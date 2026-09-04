@@ -9,6 +9,7 @@
     "./azure-devops-pr-review",
     "./code-review-grill",
     "./context-reduction",
+    "./dead-branch-guard",
     "./desloppify",
     "./dump-sessions",
     "./evolve-skill",
