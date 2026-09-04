@@ -25,6 +25,33 @@ The Watch runs as a self-pacing loop (`/loop` dynamic mode / ScheduleWakeup wher
 
 The watcher carries almost nothing between patrols on purpose: the tracker labels are the state machine, the journal is the logbook, and the Library ([LIBRARY.md](LIBRARY.md)) is the long-term memory. Any fresh context can take the next patrol from those three alone.
 
+## The notice — one pinned sign per board
+
+Oath rule 9 requires the notice. This is what it looks like, and how a patrol keeps it there. It is the watcher's own work — one `gh` call and at most one write, which is exactly the "one cheap shell command" rule 2 permits on the main context.
+
+**The title carries the mark.** `🐺 Autonomous agents may claim issues here` — the wolf first, the non-liveness wording after it. GitHub pins at most three issues, and they render as three cards competing for one strip above the issue list, most of them a human's; the mark is what makes the Watch's card resolve at a glance instead of on a read, and what makes it re-findable months later by whoever comes to stand the Watch down. This is the one place the Watch signs anything: rule 8's stealth governs commits and PRs, and the notice is the deliberate exception, because a sign nobody can attribute is not transparency.
+
+**Three states, one of which writes.** The muster already lists the board ([SKILL.md](SKILL.md) § One patrol), so ask it for the pin state in the same call and the check costs nothing:
+
+```bash
+gh issue list --state open --json number,title,labels,isPinned
+```
+
+Match the notice on the mark in the returned titles — locally, the way a title regex selector is matched, never as a tracker-side search for an emoji.
+
+| What the board shows | What the watcher does |
+|---|---|
+| The notice, pinned | Nothing. This is the common case and it must stay silent |
+| The notice, not pinned | `gh issue pin <n>` — an earlier watch filed it without pinning, or a human unpinned it |
+| A notice without the mark | `gh issue edit <n> --title '🐺 …'`, then pin it. A one-time correction of an unmarked sign, not a retitle to track status — rule 9 forbids the second, not the first |
+| No notice at all | `gh issue create` with the body rule 9 specifies, then `gh issue pin <n>` |
+
+**Never open a second one.** The board is the state; a patrol that files from memory rather than from that listing duplicates the sign every time a fresh context takes the wall.
+
+**When the three pin slots are full, report — don't evict.** `gh issue pin` fails once three issues are pinned. The pinned strip is the humans' front page, and silently unpinning someone's issue to advertise the Watch is precisely the unasked-for board change rule 7 refuses to enact. So the notice is filed unpinned, and the watcher tells the user in the session report: the notice exists, here is its number, three slots are taken, unpin one and the next patrol will pin it. A refusal reported, not enacted — and the next patrol's check picks it up the moment a slot opens.
+
+**On a tracker without pinning**, use whatever that tracker's equivalent front-and-centre surface is (a Jira board description linking the notice, a wiki banner). If it has none, say so in the report and fall back to the marker beside the journal — but say it, because an unannounced watch is the failure rule 9 exists to prevent, and a fallback nobody was told about reads as an announcement that happened.
+
 ## Stamped output — which run said this, and when did it start
 
 Every mode of the Watch runs on its own cadence, unattended, possibly for days, and they run **concurrently** ([SKILL.md](SKILL.md)). So a terminal scrollback holds interleaved output from a patrol, an hourly hunt, and a 45-minute grill, with no way to tell which run any line belongs to — and "was this from the 03:00 hunt or the 04:00 one?" is the first question anyone scrolling back actually has. So **every mode stamps its output**, in one format:
