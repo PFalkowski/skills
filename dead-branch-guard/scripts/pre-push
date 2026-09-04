@@ -1,30 +1,36 @@
 #!/usr/bin/env bash
-# Refuse a push whose branch's newest PR is MERGED and whose pushed commit does not contain that
-# merge: the commits would sit on a branch no PR tracks. A merged PR on the branch is not itself
-# the signal (one branch may legitimately carry successive PRs); only the missing merge is.
-# Fails open without gh/jq or on gh/network errors. Deliberate bypass: git push --no-verify.
+# Refuse a push whose remote branch has a MERGED PR that the pushed commit does not contain: the
+# commits would sit on a branch no PR tracks. A merged PR on the
+# branch is not itself the signal — one branch may legitimately carry successive PRs — only
+# the missing merge is. Fails open (with one stderr line) when gh cannot answer. Deliberate
+# bypass: --no-verify.
 set -uo pipefail
 
 remote=$1
-command -v gh >/dev/null 2>&1 || exit 0
-command -v jq >/dev/null 2>&1 || exit 0
+for tool in gh jq timeout; do
+  command -v "$tool" >/dev/null 2>&1 || { echo "pre-push: dead-branch guard skipped: $tool not on PATH" >&2; exit 0; }
+done
 
-while read -r local_ref local_oid _remote_ref _remote_oid; do
-  case "$local_ref" in refs/heads/*) branch=${local_ref#refs/heads/} ;; *) continue ;; esac
+while read -r _local_ref local_oid remote_ref _remote_oid; do
+  case "$remote_ref" in refs/heads/*) branch=${remote_ref#refs/heads/} ;; *) continue ;; esac
   [ "$local_oid" != "0000000000000000000000000000000000000000" ] || continue
 
-  json=$(timeout 10 gh pr list --head "$branch" --state all --limit 1 \
-           --json number,state,mergedAt,mergeCommit,baseRefName 2>/dev/null) || continue
-  [ "$(printf '%s' "$json" | jq -r '.[0].state // empty' 2>/dev/null)" = "MERGED" ] || continue
-  oid=$(printf '%s' "$json" | jq -r '.[0].mergeCommit.oid // empty' 2>/dev/null)
-  [ -n "$oid" ] || continue
-  base=$(printf '%s' "$json" | jq -r '.[0].baseRefName // empty' 2>/dev/null)
+  if ! json=$(timeout 10 gh pr list --head "$branch" --state all --limit 10 \
+                --json number,state,mergedAt,mergeCommit,baseRefName 2>/dev/null); then
+    echo "pre-push: dead-branch guard skipped: gh pr list failed for '$branch'" >&2
+    continue
+  fi
+  printf '%s' "$json" | jq -e 'type == "array"' >/dev/null 2>&1 || continue
+  [ "$(printf '%s' "$json" | jq -r '.[0].state // empty')" != "OPEN" ] || continue
 
-  [ "${DEAD_BRANCH_GUARD_NO_FETCH:-}" = "1" ] || [ -z "$base" ] || git fetch -q "$remote" "$base" 2>/dev/null
-  git merge-base --is-ancestor "$oid" "$local_oid" 2>/dev/null && continue
+  dead=$(printf '%s' "$json" | jq -r '.[] | select(.state == "MERGED" and .mergeCommit.oid != null)
+    | "\(.number) \(.mergeCommit.oid) \(.mergedAt) \(.baseRefName)"' \
+    | while read -r num oid at base; do
+        git merge-base --is-ancestor "$oid" "$local_oid" 2>/dev/null || { echo "$num $at $base"; break; }
+      done)
+  [ -n "$dead" ] || continue
 
-  num=$(printf '%s' "$json" | jq -r '.[0].number')
-  at=$(printf '%s' "$json" | jq -r '.[0].mergedAt')
+  read -r num at base <<<"$dead"
   cat >&2 <<EOF
 pre-push: PR #$num for branch '$branch' was MERGED at $at and the commit you are pushing does not
 contain that merge. It would sit on a dead branch that no PR tracks.

@@ -17,20 +17,26 @@ notices by eye. This skill installs the guard that refuses that push.
 
 ## What the hook checks
 
-On every `git push`, for each branch being pushed:
+On every `git push`, for each **remote** branch being pushed (so `git push origin HEAD:x` and
+`git push origin tmp:x` are judged as pushes to `x`):
 
-1. `gh pr list --head <branch> --state all --limit 1` — the branch's newest PR.
-2. If that PR is `MERGED` and its merge commit is **not** an ancestor of the commit being pushed,
-   refuse the push and print the remedy.
+1. `gh pr list --head <branch> --state all --limit 10` — the branch's PRs, newest first.
+2. If the newest PR is `OPEN`, allow: something tracks the push.
+3. Otherwise, if any `MERGED` PR's merge commit is **not** an ancestor of the commit being pushed,
+   refuse the push and print the remedy. A newest PR that was closed unmerged does not hide the
+   merged one behind it.
 
 "The branch has a merged PR" is deliberately not the signal — a repo may reuse one branch across
 successive PRs, and after merging the base branch back the merge commit *is* an ancestor, so that
 push is allowed. Only the missing merge marks a dead branch. Squash merges work the same way: the
 squash commit lands on the base branch, and `merge-base --is-ancestor` finds it once the base is
-merged back.
+merged back. No fetch is needed: a merge commit the local repo has never seen cannot be an
+ancestor of anything local, and `is-ancestor` on an unknown object already says no.
 
-Fails open without `gh` or `jq`, on a network error, or when `gh` returns nothing usable. Tags and
-branch deletions are never checked. The deliberate bypass is `git push --no-verify`.
+Fails open, printing one stderr line, without `gh`, `jq` or `timeout`, or when `gh pr list`
+fails (network, or a second remote without `gh repo set-default`). Garbage from `gh` is treated
+as no PR. Tags and branch deletions are never checked. The deliberate bypass is
+`git push --no-verify`.
 
 ## Install
 
@@ -39,9 +45,17 @@ bash <skill-dir>/scripts/install.sh [repo-dir]
 ```
 
 Copies `pre-push` into `<repo>/.githooks/`, pins LF for that directory in `.gitattributes`, and
-runs `git config core.hooksPath .githooks`. Commit `.githooks/` and `.gitattributes`. Git never
-enables hooks on clone, so every other clone runs the config line once; the setting lives in the
-shared `.git/config`, so all of a clone's worktrees get it. Put that line in the repo's
+sets `core.hooksPath` to the **absolute** path of that directory. Commit `.githooks/` and
+`.gitattributes`. Git never enables hooks on clone, so every other clone runs this once, from its
+main checkout:
+
+```bash
+git config core.hooksPath "$(git rev-parse --show-toplevel)/.githooks"
+```
+
+Trap: a *relative* `core.hooksPath` resolves against each worktree's own top level, so a worktree
+branched before `.githooks/` existed silently runs no hook — git prints nothing. The absolute
+form makes every worktree of the clone run the main checkout's copy. Put the line in the repo's
 contributor or agent docs.
 
 ## Why a git hook, not an agent-side command filter
@@ -69,6 +83,7 @@ push, `gh pr create` for the new commits — or rehome them:
 bash <skill-dir>/scripts/pre-push.test.sh
 ```
 
-Eleven cases against a stubbed `gh` on PATH, with real git ancestry from whatever repo the test
-runs in: the incident shape, the merge taken back, no PR, an open PR, tags, deletions, a
-multi-ref push, `gh` failing, and garbage JSON.
+Sixteen cases against a stubbed `gh` on PATH that answers per `--head` branch, with real git
+ancestry from whatever repo the test runs in: the incident shape, `HEAD:x` and `tmp:x` pushes, the
+rehome recipe, the merge taken back, no PR, a newest open PR, a newest closed PR over a merged
+one, tags, deletions, a multi-ref push, `gh` failing, and garbage JSON.
