@@ -45,6 +45,10 @@ Run only when pass 1 leaves nothing outstanding in scope. Project-only, session-
 - Worktrees this session created, once clean and their branch is pushed or merged:
   `git worktree remove <path>`, then `git worktree prune`. A dirty worktree is a pass-1 escape —
   go back, don't force. Also sweep empty leftover directories under the worktrees root.
+- **Clean is not empty.** Ignored files are invisible to `git status` and die with the tree. List them
+  first (`git status --short --ignored`); anything that is the only copy of something the session
+  relied on — run logs, captured evidence, local experiment output — is copied out and its count
+  verified before the remove, or the tree is not sweepable yet.
 - Local branches whose work has landed: `git branch -d` — the merged-only form. Deleting an
   unmerged branch is the user's call to make explicitly, never a cleanup default.
 - `git fetch --prune` to drop remote-tracking refs of branches deleted on the host.

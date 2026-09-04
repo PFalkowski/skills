@@ -12,7 +12,7 @@ Durable deliverables live in the repo and travel with the PR; the per-phase run 
 prompts/sdlc-backlog.md          # THE live backlog — deleted when the PR is published (Phase 12)
 docs/sdlc/
   plan.md                        # Phase 4 design artifact (grilled in Phase 5) — committed
-  runs/                          # GITIGNORED — local only, never committed / in the PR
+  runs/                          # GITIGNORED — local only; copy out before the worktree goes
     01-guardrails.brief.md       # exactly what the phase agent received
     01-guardrails.log            # tee'd, human-readable transcript of the run
     02-specify.brief.md
@@ -52,7 +52,7 @@ Run the conductor from inside the worktree so every spawned phase process inheri
 git worktree remove ../<repo>-<feature>                     # after confirming; or ExitWorktree
 ```
 
-Safe because the durable audit trail (spec, plan, ADRs, retro) is already committed and pushed; the gitignored run logs are disposable along with the tree.
+Safe only once `docs/sdlc/runs/` has been copied outside the tree and the file count checked. The committed trail (spec, plan, ADRs, retro) survives removal; the gitignored briefs and `.log` files do not, and for a phase that ran as an in-session subagent there is no canonical `.jsonl` you can name — those logs are the only transcript and the only proof each test went RED. `wrap-up`'s sweep runs this check before it removes anything.
 
 ## The per-phase loop
 
@@ -79,6 +79,9 @@ skip it; if you skip a trigger that clearly fired, say so in RESULT.
 ## Where things stand  (summary of prior phases — the part you can't reconstruct)
 <3–8 lines: decisions taken, what's green/red, gotchas, the one thing that will bite you.>
 
+## Assumptions this brief rests on  (falsify them; report what was wrong in RESULT)
+<one line each. A count or inventory carries the filter/command that produced it, never the bare number.>
+
 ## Read these (don't trust this brief alone)
 - Live backlog / current state: prompts/sdlc-backlog.md
 - Spec/PRD: <path>
@@ -90,7 +93,7 @@ skip it; if you skip a trigger that clearly fired, say so in RESULT.
 2. Update prompts/sdlc-backlog.md — item state, phase, the `Current` block, timestamp.
 3. Write your artifacts to <paths>.
 4. Any work outside this slice's scope → file it as an issue / backlog item. Do NOT act on it.
-5. Print a `RESULT` block, ≤10 lines: gate met (y/n), artifacts written, backlog updated, blockers, recommended next phase.
+5. Print a `RESULT` block, ≤10 lines: gate met (y/n), artifacts written, backlog updated, blockers, recommended next phase, and — last, mandatory — what in this brief was wrong ("nothing" is an answer; silence is not).
 ```
 
 Save it to `docs/sdlc/runs/NN-<phase>.brief.md`.
@@ -125,6 +128,7 @@ Notes:
 - `claude -p` reads the prompt from **stdin** when piped, avoiding command-line length/escaping limits.
 - Run **one process at a time**. The gates keep phases sequential, so there's no working-tree contention.
 - Add `--output-format stream-json` (with `--verbose`) if you want to parse the run programmatically; plain text is fine for human inspection.
+- If a phase dies (API error, timeout), re-dispatch changing **one variable at a time** — resume the session first, then a fresh process, then another model — so the cause is learnable rather than asserted. A phase that keeps dying at its write is re-briefed to write the artifact incrementally, so a crash costs a paragraph, not the phase.
 
 ### 3. Transcript capture — two records, both inspectable
 
@@ -141,7 +145,7 @@ The conductor reads back **only**:
 - the child's `RESULT` block (≤10 lines), and
 - the diff of `prompts/sdlc-backlog.md`.
 
-It checks the gate against those, then advances or loops the phase. **It never reads the child's full transcript into its own context** — that would defeat the whole point. The transcript is for the human and the audit trail, on disk.
+It checks the gate against those, writes its decision (scope change, revised figure, deferral) into the backlog's `Decisions / notes`, then advances or loops the phase — the next brief must never carry a figure the backlog doesn't. **It never reads the child's full transcript into its own context** — that would defeat the whole point. The transcript is for the human and the audit trail, on disk.
 
 ## The backlog — schema
 
