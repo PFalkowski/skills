@@ -1,6 +1,6 @@
 ---
 name: dead-branch-guard
-description: 'Installs a versioned git pre-push hook that refuses a push to a branch whose newest PR already merged, unless the pushed commit contains that merge - the commits would otherwise land on a dead branch no PR tracks. Use when: a PR was merged while work continued on its branch, an agent pushed to a merged PR''s branch and nobody noticed, "protect against pushing to a merged branch", setting up a repo for unattended agents that push.'
+description: 'Installs a versioned git pre-push hook that refuses a push to a branch whose PR already merged unless the pushed commit contains that merge, so commits never land on a dead branch no PR tracks. Use when a PR merged while work continued on its branch, "protect against pushing to a merged branch", or setting up a repo for unattended agents that push.'
 license: MIT
 metadata:
   author: Piotr Falkowski
