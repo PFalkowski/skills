@@ -50,7 +50,6 @@ Bash(git push --mirror:*)
 Bash(git push * --mirror)
 Bash(git push * --mirror *)
 Bash(git push * +*)
-Bash(git push * :* *)
 Bash(git reset --hard:*)
 Bash(git clean -fdx:*)
 Bash(git filter-branch:*)
@@ -228,13 +227,16 @@ Bash(dotnet --list-sdks:*)
 `Bash(gh api -X GET:*)` if the tree contains repos you do not control.
 
 `Bash(git push:*)` relies entirely on the deny-list pairs above to stay safe: `--force`, `-f`,
-`--delete`, `-d`, `--mirror`, the `+` force-refspec, and the colon delete-refspec when something
-follows it are all blocked, in both leading and trailing position. Exactly one destructive shape
-gets through: `git push <remote> :<branch>` with the colon delete-refspec as the very last token.
-A pattern ending in `:*` is always read as the ordinary trailing-wildcard suffix, never as a
-literal colon, so no rule written against that ending can match it — this is a real gap in what
-the permission system can express, not an oversight to patch with a cleverer pattern.
-`--force-with-lease` also stays ungated, as noted above, deliberately.
+`--delete`, `-d`, `--mirror`, and the `+` force-refspec are all blocked, in both leading and
+trailing position. The colon delete-refspec is not: `git push <remote> :<branch>` gets through
+whether the colon-refspec is the last token (`git push origin :b1`) or has more after it
+(`git push origin :b1 main`). `:*` is always read as the ordinary trailing-wildcard suffix, never
+as a literal colon, no matter where in the pattern it sits — so a rule like `Bash(git push * :* *)`
+does not narrow the gap to "only when nothing follows the colon", it matches nothing at all and
+blocks nothing. There is no variant of that pattern this permission system can express that
+catches the colon-refspec in any position — this is a real gap in what it can express, not an
+oversight to patch with a cleverer pattern. `--force-with-lease` also stays ungated, as noted
+above, deliberately.
 
 ---
 
