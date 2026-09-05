@@ -1,6 +1,6 @@
 ---
 name: wrap-up
-description: 'End-of-session closer: ships outstanding work, sweeps session scaffolding, files what''s still open in the tracker or a `handoff lite` block, and routes skill feedback and memory updates. Triggers: "wrap it up", "close the session", "we''re done here", "tidy up and finish".'
+description: 'End-of-session closer: ships outstanding work, sweeps session scaffolding, offloads the open ledger to the tracker, prints a `handoff lite` block when anything needs continuing, and routes skill feedback and memory. Triggers: "wrap it up", "close the session", or work left unfinished for a fresh context or machine.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -61,13 +61,22 @@ Re-read the conversation and collect what is still open: tasks requested, promis
 "next we should…"), assumptions stated as future work, items parked in pass 1. An item is done only
 if the transcript shows it verified done — command output, not a claim.
 
-Route everything open per house rules:
+Route everything open per house rules. The two routes **compose** — they are not alternatives:
 
-- **A tracker is in use** — determined from CLAUDE.md, the remote host, or existing issues
-  (GitHub issues / Azure Boards / Jira). Draft one issue per item — title, the context a stranger
-  needs, one acceptance line — show the drafts, get a yes, then post.
-- **No tracker, or the user declines**: emit a `handoff lite` note inline (the `handoff` skill
-  defines the note; `lite` writes no file).
+- **Offload to the tracker** — the board this project already uses, determined from CLAUDE.md, the
+  remote host, or existing issues (GitHub Issues / Azure Boards / Jira). Draft one issue per item —
+  title, the context a stranger needs, one acceptance line — show the drafts, get a yes, then post.
+  Each draft meets the [triage](../triage/READINESS.md) bar or it is not worth filing. **Propose
+  offloading whenever the ledger is more than one fresh context can carry**: several independent
+  threads, or more items than fit on a screen. A note listing fourteen things is not a handoff, it is
+  a backlog with nowhere to live — the receiver acts on the first item and the rest rot in the
+  scrollback. The board holds the set so the note only has to carry the thread.
+- **Carry it in a `handoff lite` note** — whenever anything is still open, whether or not it was also
+  filed. Invoke the `handoff` skill with `lite`: same note, same discipline, printed inline as one
+  paste-ready block, **nothing written to disk**. This is what makes wrap-up the skill for crossing a
+  boundary and not only for ending a day — a fresh context, a `/clear`, another machine — and
+  whoever is on the far side of that boundary has none of this transcript. When the ledger was
+  offloaded, **Next** is the one thread to resume plus the issue numbers, never a copy of them.
 
 Ordering: the user's stated priority wins; absent one, blockers first.
 
@@ -105,6 +114,6 @@ Persistent memory is part of the ledger. Review the entries this session touched
 - Other sessions' branches and worktrees stay untouched however stale they look — wrap up only
   work this conversation can account for.
 - Posting issues is outward-facing: drafts first, always. Unattended, post only if house rules
-  name the tracker; otherwise emit the `handoff lite` note to the log.
+  name the tracker; the `handoff lite` note goes to the log either way.
 - An empty result is a valid result: "everything shipped, nothing to sweep, ledger clear" — one
   line, done.
