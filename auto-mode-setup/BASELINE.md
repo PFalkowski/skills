@@ -48,13 +48,30 @@ Bash(npm publish:*)
 Bash(pnpm publish:*)
 Bash(cargo publish:*)
 Bash(gh release create:*)
-Bash(gh pr merge:*)
 Bash(gh repo delete:*)
 Bash(docker push:*)
 ```
 
 Relevant to any tree holding public packages: a mistaken `dotnet nuget push` cannot be withdrawn,
 only delisted, and the version number is burned permanently.
+
+**`gh pr merge` used to be on this list and is deliberately no longer.** It was the one entry that
+denied a *reversible* action — a merge commit can be reverted, and unlike a published package
+nothing leaves the repository. Keeping it here also made a whole class of run impossible rather
+than merely supervised: the [manager](../manager/SKILL.md) defaults to `merge=allow`, meaning a
+green, independently grilled PR merges without waking anyone, and a deny rule silently made that
+default undeliverable. **Deny is evaluated before ask and allow, and a tool denied at any scope
+cannot be allowed at another**, so there was no way to grant it back for one repo — the rule had to
+go or the feature did.
+
+Removing it from `deny` does not add a grant. With no rule matching, `gh pr merge` prompts like any
+other unlisted command; the repos that should run it unattended opt in per repo, below. What
+replaces the blanket deny is a control the forge enforces and no permission rule can match:
+**branch protection, or a ruleset with bypass disallowed**, on the branches that matter. That holds
+against a human with admin rights and against `gh pr merge --admin`, which prefix matching cannot
+reliably deny anyway — `Bash(gh pr merge --admin:*)` matches `gh pr merge --admin 12` and misses
+`gh pr merge 12 --admin`, the same positional gap catalogued for `git push` in
+[#133](https://github.com/PFalkowski/skills/issues/133).
 
 ### Infrastructure and data
 
@@ -218,6 +235,45 @@ Grant here, never in the baseline. Commit the file.
   }
 }
 ```
+
+**A repo a manager runs in** — the [manager](../manager/SKILL.md) decides on other agents' output
+with no human in the loop, so every decision it makes has to be *executable* or it is only an
+opinion. These are the commands its default mandate implies:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh issue comment:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue edit:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(git worktree add:*)",
+      "Bash(git worktree remove:*)",
+      "Bash(git worktree prune:*)"
+    ]
+  }
+}
+```
+
+Each one maps to a mandate key, and the mapping is the argument for granting it: `post=post` needs
+the two comment verbs, because the manager's rule 7 *requires* a decision comment where the work
+lives and an unpermitted requirement is just a stalled run; `tickets=file` needs `issue create`;
+`cleanup=allow` needs the worktree verbs; `merge=allow` needs `gh pr merge`. Grant only the keys
+you actually want — a repo running with `merge=ask` has no business granting the merge verb.
+
+Two things are deliberately absent. **`git branch -d` needs no rule** — `Bash(git branch:*)` is
+already in the user allow list and the force form is caught by the `Bash(git branch -D:*)` deny, so
+the safe delete is granted and the destructive one is not. And **no remote-branch delete appears
+here**: the merged branch is cleaned up by turning on the repository's own *automatically delete
+head branches* setting (`gh api -X PATCH repos/OWNER/REPO -f delete_branch_on_merge=true`), which
+costs no permission at all, applies to human merges too, and leaves `git push origin --delete`
+denied where it belongs.
+
+**Grant this to repos you own.** These verbs write to a tracker and a branch, and on a public repo
+a comment is publication. That is the reason they live here and not in the baseline.
 
 **An infrastructure repo** — grant the read half only, and leave `apply` to a human:
 
