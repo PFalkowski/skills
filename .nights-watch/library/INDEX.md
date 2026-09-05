@@ -11,7 +11,7 @@ bloats them.
 ## Gotchas — traps that must not cost twice
 
 - [msys-path-conversion-mangles-git-rev-paths](msys-path-conversion-mangles-git-rev-paths.md) — on Windows Git Bash, `git show <ref>:<path>` silently becomes a bogus Windows path; the failure looks like absence
-- [ci-hardcodes-the-clean-room-test-path](ci-hardcodes-the-clean-room-test-path.md) — moving `archive/clean-room/` breaks CI, because `checks.yml` names that test file literally
+- [ci-hardcodes-the-clean-room-test-path](ci-hardcodes-the-clean-room-test-path.md) — a literal path in `checks.yml`'s `set -e` loop broke CI on a rename; fixed in `3b56c40` by switching to a glob
 - [fingerprint-drift-splits-one-defect](fingerprint-drift-splits-one-defect.md) — two lenses found one bug and it was not marked corroborated; check corroboration by hand
 
 ## Calibration — what things actually cost, and where defects actually live
