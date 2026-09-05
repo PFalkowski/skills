@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 # Checks the "Irreversible history loss" deny rules in BASELINE.md against what they actually do,
-# not what they read like they do. Two layers:
+# not what they read like they do. Three layers:
 #
-#   1. A static guard, no dependencies beyond grep: `:*` is documented (see the syntax reminders
-#      near the top of BASELINE.md) as end-of-pattern shorthand, and a live session confirms it is
-#      read that way no matter where in the pattern it sits -- so a rule with `:*` anywhere but the
-#      literal end matches nothing, silently. That shape must never reappear in a `Bash(...)` rule.
-#   2. A live guard: feeds the current deny block plus `Bash(git push:*)` to a real `claude -p`
+#   1. A static shape guard, no dependencies beyond grep: `:*` is documented (see the syntax
+#      reminders near the top of BASELINE.md) as end-of-pattern shorthand -- so a rule with `:*`
+#      anywhere but the literal end is, at minimum, suspect and must never reappear in a
+#      `Bash(...)` rule without the surrounding prose being re-examined (see BASELINE.md's own note
+#      that whether such a rule gates anything is disputed and unresolved, not settled either way).
+#   2. A static presence guard, also no dependencies: the shape check above says nothing about a
+#      load-bearing rule being deleted outright -- e.g. `Bash(git push * --force *)` -- since a
+#      missing line has no ':*' to trip on. Assert every rule the prose relies on is present,
+#      verbatim, in the deny block. This is what would have caught that exact regression.
+#   3. A live guard: feeds the current deny block plus `Bash(git push:*)` to a real `claude -p`
 #      session against a scratch repo with a nonexistent remote host, so a command that reaches
 #      git (git produces its own error or output) is unambiguously distinguishable from one the
 #      permission layer denied outright (no tool call happens at all). Requires the `claude` CLI
-#      and working credentials; skips (not fails) without them, since most CI runners have neither.
+#      and working credentials; skips (not fails) without them, since most CI runners have neither
+#      -- layers 1 and 2 are the ones CI can actually enforce today.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -19,7 +25,7 @@ BASELINE="$ROOT/BASELINE.md"
 fail=0
 total=0
 
-# --- 1. Static guard ------------------------------------------------------------------------
+# --- 1. Static guard: ':*' placement ---------------------------------------------------------
 
 total=$((total + 1))
 bad_lines="$(grep -nE '^Bash\(.*:\*[^)]' "$BASELINE" || true)"
@@ -31,10 +37,51 @@ else
   echo "PASS: no rule places ':*' anywhere but the very end of the pattern"
 fi
 
-# --- 2. Live guard ---------------------------------------------------------------------------
+# Pull the deny rules straight out of the file under test, so a future edit to this block is
+# exactly what both static-presence and live checks exercise -- a revert or a typo shows up here
+# without touching this script.
+rules="$(awk '/^### Irreversible history loss$/{flag=1} flag && /^```$/{c++; if(c==2){exit}; next} flag && c==1 {print}' "$BASELINE")"
+
+# --- 2. Static guard: load-bearing rules present, verbatim ------------------------------------
+
+total=$((total + 1))
+required_rules=(
+  'Bash(git push --force:*)'
+  'Bash(git push * --force)'
+  'Bash(git push * --force *)'
+  'Bash(git push -f:*)'
+  'Bash(git push * -f)'
+  'Bash(git push * -f *)'
+  'Bash(git push --delete:*)'
+  'Bash(git push origin --delete:*)'
+  'Bash(git push * --delete)'
+  'Bash(git push * --delete *)'
+  'Bash(git push -d:*)'
+  'Bash(git push * -d)'
+  'Bash(git push * -d *)'
+  'Bash(git push --mirror:*)'
+  'Bash(git push * --mirror)'
+  'Bash(git push * --mirror *)'
+  'Bash(git push * +*)'
+)
+missing=()
+for rule in "${required_rules[@]}"; do
+  if ! printf '%s\n' "$rules" | grep -qxF "$rule"; then
+    missing+=("$rule")
+  fi
+done
+if [ "${#missing[@]}" -gt 0 ]; then
+  echo "FAIL: the deny block is missing rule(s) BASELINE.md's prose credits with gating git push:"
+  printf '  %s\n' "${missing[@]}"
+  fail=$((fail + 1))
+else
+  echo "PASS: every load-bearing git-push deny rule is present, verbatim, in the deny block"
+fi
+
+# --- 3. Live guard -----------------------------------------------------------------------------
 
 if ! command -v claude >/dev/null 2>&1; then
-  echo "SKIP: 'claude' is not on PATH -- live permission checks not run (static guard above still applies)"
+  echo "SKIP: 'claude' is not on PATH -- live permission checks not run (static guards above still apply)"
   [ "$fail" -eq 0 ]
   exit $?
 fi
@@ -52,10 +99,6 @@ mkdir -p "$REPO"
     && git commit -q --allow-empty -m init \
     && git remote add origin https://example.invalid/nonexistent-remote.git
 ) >/dev/null 2>&1
-
-# Pull the deny rules straight out of the file under test, so a future edit to this block is
-# exactly what gets exercised -- a revert or a typo shows up here without touching this script.
-rules="$(awk '/^### Irreversible history loss$/{flag=1} flag && /^```$/{c++; if(c==2){exit}; next} flag && c==1 {print}' "$BASELINE")"
 
 SETTINGS="$WORK/settings.json"
 {

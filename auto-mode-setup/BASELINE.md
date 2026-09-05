@@ -56,6 +56,12 @@ Bash(git filter-branch:*)
 Bash(git branch -D:*)
 Bash(git tag -d:*)
 Bash(git reflog expire:*)
+Bash(git worktree remove --force:*)
+Bash(git worktree remove * --force)
+Bash(git worktree remove * --force *)
+Bash(git worktree remove -f:*)
+Bash(git worktree remove * -f)
+Bash(git worktree remove * -f *)
 ```
 
 Force-push and `reset --hard` are the two that actually destroy unattended work. `--force-with-lease`
@@ -70,6 +76,16 @@ wildcard — see the syntax reminders at the top of this file. The leading-flag 
 a shape the `* --flag` rules do not match. One destructive shape has no expressible rule at all —
 see the note under the allow list below, where `git push` itself is granted.
 
+The six `git worktree remove` rules exist because the grant below hands out `Bash(git worktree
+remove:*)` for `cleanup=allow`, and that verb accepts a `--force`/`-f` flag that discards a
+worktree's uncommitted changes rather than refusing on them. `:*` only matches trailing text, so the
+flag needs three positions covered per spelling — right after the subcommand, as the last token, and
+mid-command with more after it — the same convention documented in
+[#149](https://github.com/PFalkowski/skills/issues/149). Deny wins over the allow grant regardless of
+scope, so the plain (unforced) form stays usable while every spelling of the force flag is blocked.
+`git worktree remove` accepts no other short flags, so there is no bundled short-option form (e.g.
+`-fx`) to worry about here.
+
 ### Publishing and outward-facing actions
 
 An unattended agent must not ship. These are the ones that reach other people.
@@ -81,13 +97,30 @@ Bash(npm publish:*)
 Bash(pnpm publish:*)
 Bash(cargo publish:*)
 Bash(gh release create:*)
-Bash(gh pr merge:*)
 Bash(gh repo delete:*)
 Bash(docker push:*)
 ```
 
 Relevant to any tree holding public packages: a mistaken `dotnet nuget push` cannot be withdrawn,
 only delisted, and the version number is burned permanently.
+
+**`gh pr merge` used to be on this list and is deliberately no longer.** It was the one entry that
+denied a *reversible* action — a merge commit can be reverted, and unlike a published package
+nothing leaves the repository. Keeping it here also made a whole class of run impossible rather
+than merely supervised: the [manager](../manager/SKILL.md) defaults to `merge=allow`, meaning a
+green, independently grilled PR merges without waking anyone, and a deny rule silently made that
+default undeliverable. **Deny is evaluated before ask and allow, and a tool denied at any scope
+cannot be allowed at another**, so there was no way to grant it back for one repo — the rule had to
+go or the feature did.
+
+Removing it from `deny` does not add a grant. With no rule matching, `gh pr merge` prompts like any
+other unlisted command; the repos that should run it unattended opt in per repo, below. What
+replaces the blanket deny is a control the forge enforces and no permission rule can match:
+**branch protection, or a ruleset with bypass disallowed**, on the branches that matter. That holds
+against a human with admin rights and against `gh pr merge --admin`, which prefix matching cannot
+reliably deny anyway — `Bash(gh pr merge --admin:*)` matches `gh pr merge --admin 12` and misses
+`gh pr merge 12 --admin`, the same positional gap catalogued for `git push` in
+[#133](https://github.com/PFalkowski/skills/issues/133).
 
 ### Infrastructure and data
 
@@ -228,15 +261,23 @@ Bash(dotnet --list-sdks:*)
 
 `Bash(git push:*)` relies entirely on the deny-list pairs above to stay safe: `--force`, `-f`,
 `--delete`, `-d`, `--mirror`, and the `+` force-refspec are all blocked, in both leading and
-trailing position. The colon delete-refspec is not: `git push <remote> :<branch>` gets through
-whether the colon-refspec is the last token (`git push origin :b1`) or has more after it
-(`git push origin :b1 main`). `:*` is always read as the ordinary trailing-wildcard suffix, never
-as a literal colon, no matter where in the pattern it sits — so a rule like `Bash(git push * :* *)`
-does not narrow the gap to "only when nothing follows the colon", it matches nothing at all and
-blocks nothing. There is no variant of that pattern this permission system can express that
-catches the colon-refspec in any position — this is a real gap in what it can express, not an
-oversight to patch with a cleverer pattern. `--force-with-lease` also stays ungated, as noted
-above, deliberately.
+trailing position. The colon delete-refspec is the open question. `git push <remote> :<branch>` as
+the bare, final-token form gets through — that much is settled. What happens when something follows
+the colon-refspec (`git push origin :b1 main`) is **disputed and currently unresolved**: one review
+measured `Bash(git push * :* *)` against a live `claude -p` session and found it inert — the command
+reached git regardless of the rule — and concluded that `:*` is always read as the ordinary
+trailing-wildcard suffix, never a literal colon, no matter where in the pattern it sits. A later
+review, working from Claude Code's own published permission-matching rules rather than a fresh live
+run, derived the opposite for this specific shape: that a `:*` not at the pattern's own end is a
+literal colon followed by an unconstrained wildcard, so `Bash(git push * :* *)` would in fact deny
+`git push origin :b1 main` (though it still would not catch the bare `git push origin :b1`, which
+has no token after the colon for that trailing `*` to match). Neither account has re-run the other's
+method to settle which is right, and no such rule currently sits in the deny block above — it was
+added, judged inert by the live measurement, and removed. Until a live test actually settles this,
+treat **both** shapes of the colon-refspec — bare and with something after it — as ungated; the
+rule's absence from the deny list means the multi-token form must be assumed open, not assumed
+closed on the strength of an argument nobody has run against real git. `--force-with-lease` also
+stays ungated, as noted above, deliberately.
 
 ---
 
@@ -268,6 +309,44 @@ Grant here, never in the baseline. Commit the file.
   }
 }
 ```
+
+**A repo a manager runs in** — the [manager](../manager/SKILL.md) decides on other agents' output
+with no human in the loop, so every decision it makes has to be *executable* or it is only an
+opinion. These are the commands its default mandate implies:
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh issue comment:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(git worktree add:*)",
+      "Bash(git worktree remove:*)",
+      "Bash(git worktree prune:*)"
+    ]
+  }
+}
+```
+
+Each one maps to a mandate key, and the mapping is the argument for granting it: `post=post` needs
+the two comment verbs, because the manager's rule 7 *requires* a decision comment where the work
+lives and an unpermitted requirement is just a stalled run; `tickets=file` needs `issue create`;
+`cleanup=allow` needs the worktree verbs; `merge=allow` needs `gh pr merge`. Grant only the keys
+you actually want — a repo running with `merge=ask` has no business granting the merge verb.
+
+Two things are deliberately absent. **`git branch -d` needs no rule** — `Bash(git branch:*)` is
+already in the user allow list and the force form is caught by the `Bash(git branch -D:*)` deny, so
+the safe delete is granted and the destructive one is not. And **no remote-branch delete appears
+here**: the merged branch is cleaned up by turning on the repository's own *automatically delete
+head branches* setting (`gh api -X PATCH repos/OWNER/REPO -f delete_branch_on_merge=true`), which
+costs no permission at all, applies to human merges too, and leaves `git push origin --delete`
+denied where it belongs.
+
+**Grant this to repos you own.** These verbs write to a tracker and a branch, and on a public repo
+a comment is publication. That is the reason they live here and not in the baseline.
 
 **An infrastructure repo** — grant the read half only, and leave `apply` to a human:
 
