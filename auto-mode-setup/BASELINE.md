@@ -31,11 +31,27 @@ Bash(git tag -d:*)
 Bash(git push --delete:*)
 Bash(git push origin --delete:*)
 Bash(git reflog expire:*)
+Bash(git worktree remove --force:*)
+Bash(git worktree remove * --force)
+Bash(git worktree remove * --force *)
+Bash(git worktree remove -f:*)
+Bash(git worktree remove * -f)
+Bash(git worktree remove * -f *)
 ```
 
 Force-push and `reset --hard` are the two that actually destroy unattended work. `--force-with-lease`
 is deliberately absent from the deny list — it is the safe form, and denying it pushes people toward
 the unsafe one. Add it only if you want no rewriting at all.
+
+The six `git worktree remove` rules exist because the grant below hands out `Bash(git worktree
+remove:*)` for `cleanup=allow`, and that verb accepts a `--force`/`-f` flag that discards a
+worktree's uncommitted changes rather than refusing on them. `:*` only matches trailing text, so the
+flag needs three positions covered per spelling — right after the subcommand, as the last token, and
+mid-command with more after it — the same convention documented in
+[#149](https://github.com/PFalkowski/skills/issues/149). Deny wins over the allow grant regardless of
+scope, so the plain (unforced) form stays usable while every spelling of the force flag is blocked.
+`git worktree remove` accepts no other short flags, so there is no bundled short-option form (e.g.
+`-fx`) to worry about here.
 
 ### Publishing and outward-facing actions
 
@@ -247,7 +263,6 @@ opinion. These are the commands its default mandate implies:
       "Bash(gh issue comment:*)",
       "Bash(gh pr comment:*)",
       "Bash(gh issue create:*)",
-      "Bash(gh issue edit:*)",
       "Bash(gh pr create:*)",
       "Bash(gh pr merge:*)",
       "Bash(git worktree add:*)",
