@@ -114,15 +114,26 @@ removed, so a repo mid-upgrade doesn't silently lose its state.
 
 ## Enforcement
 
-[`scripts/check-state-paths.sh`](../scripts/check-state-paths.sh) scans
-every `*.md` file inside each skill directory (not only `SKILL.md` — a
-skill's own layout prose regularly lives in a sibling file instead) for a
-dot-prefixed directory that is neither `.agents/` nor on its grandfather
-allowlist, and **fails the build** on any match. A check that cannot fail
-is not enforcement: `scripts/check-descriptions.sh`'s 320–1024 character
-warn band currently carries eleven unresolved warnings with no build
-consequence, which is the standing evidence for choosing a failing check
-here.
+[`scripts/check-state-paths.sh`](../scripts/check-state-paths.sh), wired
+into CI and covered by [`scripts/check-state-paths.test.sh`](../scripts/check-state-paths.test.sh),
+enforces three things and **fails the build** on any match. A check that
+cannot fail is not enforcement: `scripts/check-descriptions.sh`'s 320–1024
+character warn band currently carries thirteen unresolved warnings with no
+build consequence, which is the standing evidence for choosing a failing
+check here.
+
+1. It scans every `*.md` file inside each skill directory (not only
+   `SKILL.md` — a skill's own layout prose regularly lives in a sibling
+   file instead) for a dot-prefixed directory that is neither `.agents/`
+   nor on its grandfather allowlist.
+2. It scans the same files for a bare file directly under `.agents/` with
+   no `<slug>/` segment — the violation named in "The directory rule"
+   above — on its own grandfather allowlist (currently just
+   `recurring-improvement`'s `.agents/recurring-backlog.md`, the named
+   migration item).
+3. It checks the repo's own `.gitignore` for the wholesale `.agents/` line
+   the gitignore rule above claims exists, so that claim can't go stale
+   again without failing CI.
 
 The allowlist is a named, commented set of migration TODOs — `.nights-watch/`,
 `.housekeeping/`, `.recurring-improvement/`, `.out-of-scope/`, and (recorded

@@ -57,5 +57,76 @@ elif ! printf '%s' "$out" | grep -q 'SIDECAR.md'; then
   fail=$((fail + 1))
 fi
 
+# A fixture skill that declares a bare file directly under .agents/ (no
+# <slug>/ segment) must be caught -- this is exactly the shape
+# docs/agent-state.md's directory rule names as non-conforming. The one
+# real occurrence today, recurring-improvement's .agents/recurring-backlog.md,
+# is grandfathered as a named migration item (#159); this fixture uses a
+# different filename so the grandfather entry can't be why it's silent.
+FIXTURE_ROOT2=$(mktemp -d)
+trap 'rm -rf "$FIXTURE_ROOT" "$FIXTURE_ROOT2"' EXIT
+mkdir -p "$FIXTURE_ROOT2/bare-file-fixture-skill"
+cat > "$FIXTURE_ROOT2/bare-file-fixture-skill/SKILL.md" <<'EOF'
+---
+name: bare-file-fixture-skill
+description: 'Fixture only, not a real skill.'
+---
+# bare-file-fixture-skill
+
+State lives at `.agents/bare-fixture-state.md`, not under a skill segment.
+EOF
+
+out=$(CHECK_STATE_PATHS_ROOT="$FIXTURE_ROOT2" bash "$CHECK" 2>&1); status=$?
+total=$((total + 1))
+if [ "$status" -eq 0 ]; then
+  echo "FAIL: fixture with a bare file directly under .agents/ should not be green"
+  fail=$((fail + 1))
+elif ! printf '%s' "$out" | grep -q 'bare file directly under'; then
+  echo "FAIL: bare-file-under-.agents/ violation was not named"
+  echo "$out"
+  fail=$((fail + 1))
+fi
+
+# A fixture skill whose .agents/ mentions are all properly nested under a
+# skill segment (the conforming shape) must stay green -- proves the new
+# bare-file check doesn't also flag the pattern it's meant to allow.
+FIXTURE_ROOT3=$(mktemp -d)
+trap 'rm -rf "$FIXTURE_ROOT" "$FIXTURE_ROOT2" "$FIXTURE_ROOT3"' EXIT
+mkdir -p "$FIXTURE_ROOT3/nested-fixture-skill"
+cat > "$FIXTURE_ROOT3/nested-fixture-skill/SKILL.md" <<'EOF'
+---
+name: nested-fixture-skill
+description: 'Fixture only, not a real skill.'
+---
+# nested-fixture-skill
+
+State lives at `.agents/nested-fixture-skill/journal.md`, per convention.
+EOF
+printf '.agents/\n' > "$FIXTURE_ROOT3/.gitignore"
+
+expect_status "fixture with a properly nested .agents/ path is green" 0 \
+  env CHECK_STATE_PATHS_ROOT="$FIXTURE_ROOT3" bash "$CHECK"
+
+# The gitignore rule: docs/agent-state.md claims .agents/ is ignored
+# wholesale by a single .gitignore line. A fixture missing that line must
+# be caught even when every skill's markdown is otherwise conforming --
+# this is what proves the claim is enforced, not just asserted.
+FIXTURE_ROOT4=$(mktemp -d)
+trap 'rm -rf "$FIXTURE_ROOT" "$FIXTURE_ROOT2" "$FIXTURE_ROOT3" "$FIXTURE_ROOT4"' EXIT
+mkdir -p "$FIXTURE_ROOT4/nested-fixture-skill"
+cp "$FIXTURE_ROOT3/nested-fixture-skill/SKILL.md" "$FIXTURE_ROOT4/nested-fixture-skill/SKILL.md"
+# deliberately no .gitignore here
+
+out=$(CHECK_STATE_PATHS_ROOT="$FIXTURE_ROOT4" bash "$CHECK" 2>&1); status=$?
+total=$((total + 1))
+if [ "$status" -eq 0 ]; then
+  echo "FAIL: fixture missing a .gitignore .agents/ line should not be green"
+  fail=$((fail + 1))
+elif ! printf '%s' "$out" | grep -q '\.gitignore'; then
+  echo "FAIL: missing-gitignore-rule violation did not name .gitignore"
+  echo "$out"
+  fail=$((fail + 1))
+fi
+
 echo "$((total - fail))/$total passed"
 [ "$fail" -eq 0 ]
