@@ -62,6 +62,14 @@ Mandate keys (all optional): `goal="…"`, `merge=allow|ask`, `post=draft|post`,
 
 The manager stays on a self-paced `/loop`, waking when dispatched work reports back (a subagent returns, a `Workflow` finishes, a `nights-watch` patrol posts its summary) and on a long fallback otherwise. Each wake is one pass of the loop above over whatever arrived. A `nights-watch` under management is the natural pairing: the Watch *reports* refusals and blockers rather than enacting them, and the manager is the one who reads and decides them. A `sdlc-old-fashioned` run under management sets Dial 1 to autonomous and routes its deferred questions to the backlog file; the manager reads the backlog diff after each phase and answers there. Budget is tracked across everything dispatched; when it is near, the manager stops dispatching and reports, it does not cut corners.
 
+## Maintenance the manager starts itself
+
+The loop above is reactive: it waits for an output to arrive. Some work arrives as nobody's ask — a board no unattended agent could pick work off, a session whose branches and worktrees were never shipped or swept, prose that stopped matching the code. **The manager dispatches the maintenance skills at its own discretion, unasked**: [triage](../triage/SKILL.md) to groom the board, [wrap-up](../wrap-up/SKILL.md) to close out a session's leftovers, `housekeeping` or `desloppify` for drift in the docs and the code. Same terms as everything else — dispatched to a worker (Rule 5), under the mandate, hard lines intact.
+
+Grooming is the one to start early rather than late. The manager files tickets proactively, `nights-watch` and `nightshift` decide what to work by reading the board, and all of them apply the same bar from the same file ([READINESS.md](../triage/READINESS.md)). So an ungroomed board is not untidiness — it is the input to every unattended run being wrong, and a ticket nobody specified is a worker spent on guesswork. Groom when the board's state would change what gets dispatched, not on a schedule.
+
+The mandate still bounds what the maintenance may do. The manager grants the yeses these skills would otherwise hold for a human, but only the reversible ones — filing, committing, pushing, removing a merged worktree. Deleting an unmerged branch, a stash, or untracked work is Rule 4's line and escalates like anything else.
+
 ## Channels through which asks arrive
 
 | Channel | Comes from | Manager's move |
@@ -86,6 +94,7 @@ The manager stays on a self-paced `/loop`, waking when dispatched work reports b
 | stale prose, comments, slop | `desloppify`; a whole-repo audit is `housekeeping` |
 | a backlog to keep draining | `nights-watch`, stood up with the principal brief, managed from `watch` |
 | a board nobody has groomed | `triage` first, so what gets dispatched is both specified and wanted |
+| a session's unshipped branches, worktrees and loose ends | `wrap-up` — ship, sweep, then account for what is still open |
 | work to defer | a tracker ticket under `tickets=file`; `prompt-backlog` when there is no tracker |
 
 ## Anti-patterns
