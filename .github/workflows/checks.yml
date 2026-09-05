@@ -17,6 +17,6 @@ jobs:
           bash scripts/check-descriptions.sh
           bash dead-branch-guard/scripts/pre-push.test.sh
           bash auto-mode-setup/scripts/deny-rules.test.sh
-          for t in .claude/workflows/*.test.js archive/clean-room/screen-brief.test.mjs; do
+          for t in .claude/workflows/*.test.js clean-room/*.test.mjs; do
             node --test "$t"
           done

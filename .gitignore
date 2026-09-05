@@ -6,3 +6,9 @@ Thumbs.db
 
 # omv-dev-server: the one file holding real host values
 omv-dev-server/scripts/setup.env
+
+# Unattended run state: the curated library is tracked, the run logs are not
+.nights-watch/JOURNAL.md
+.nights-watch/chronicles/
+.nights-watch/locks/
+.nights-watch/hunts/
