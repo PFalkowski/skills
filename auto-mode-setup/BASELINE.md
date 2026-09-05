@@ -8,6 +8,18 @@ Rule syntax reminders that bite in practice:
 
 - `:*` is recognised **only at the end** of a pattern. `Bash(git:* push)` matches nothing.
 - `Bash(ls:*)` and `Bash(ls *)` are equivalent forms.
+- A `*` can appear anywhere in a rule — start, middle, or end — not only in trailing position.
+  `Bash(git push * --force)` matches `git push origin main --force` even though the flag is not
+  the token right after the subcommand.
+- A trailing `*` (with a space before it) also matches the bare command, but only when it is the
+  rule's **only** wildcard. Once a rule already has a `*` earlier in the pattern, a trailing `*`
+  requires something to actually follow it — it stops covering the bare form. That is why a flag
+  in trailing position, like `--force`, needs two rules below: one with a trailing `*` and one
+  without.
+- An **allow** rule with a `*` before the subcommand (e.g. `Bash(git * main)`) is flagged at
+  startup and does not auto-approve, because it would also match options inserted at that
+  position. A **deny** rule carries no such warning. Every rule below keeps the `*` after the
+  subcommand for this reason.
 - Deny rules match past a leading environment assignment, so `Bash(rm *)` still catches
   `FOO=bar rm -rf tmp/`. Allow rules do **not** match past an assignment of an unknown variable.
 - `Bash(*)` and a bare `Bash` are the same rule. As a deny, both remove the tool entirely.
@@ -22,20 +34,42 @@ This is the part that matters. Ordered by what it protects.
 
 ```
 Bash(git push --force:*)
+Bash(git push * --force)
+Bash(git push * --force *)
 Bash(git push -f:*)
+Bash(git push * -f)
+Bash(git push * -f *)
+Bash(git push --delete:*)
+Bash(git push origin --delete:*)
+Bash(git push * --delete)
+Bash(git push * --delete *)
+Bash(git push -d:*)
+Bash(git push * -d)
+Bash(git push * -d *)
+Bash(git push --mirror:*)
+Bash(git push * --mirror)
+Bash(git push * --mirror *)
+Bash(git push * +*)
+Bash(git push * :* *)
 Bash(git reset --hard:*)
 Bash(git clean -fdx:*)
 Bash(git filter-branch:*)
 Bash(git branch -D:*)
 Bash(git tag -d:*)
-Bash(git push --delete:*)
-Bash(git push origin --delete:*)
 Bash(git reflog expire:*)
 ```
 
 Force-push and `reset --hard` are the two that actually destroy unattended work. `--force-with-lease`
 is deliberately absent from the deny list — it is the safe form, and denying it pushes people toward
 the unsafe one. Add it only if you want no rewriting at all.
+
+The `git push` rules above come in pairs because the flag can land as the last token of the command
+(`git push origin main --force`) or with more after it (`git push origin main --force --quiet`); a
+single trailing-wildcard rule only covers the second shape once the pattern already has an earlier
+wildcard — see the syntax reminders at the top of this file. The leading-flag rules
+(`Bash(git push --force:*)` and siblings) stay too: they catch the flag written right after `push`,
+a shape the `* --flag` rules do not match. One destructive shape has no expressible rule at all —
+see the note under the allow list below, where `git push` itself is granted.
 
 ### Publishing and outward-facing actions
 
@@ -152,8 +186,12 @@ holds anything worth exfiltrating; skip it where it will just generate friction.
 
 ## The allow list — user scope
 
-Safe in any repo, read-only, and frequent enough in real transcripts to be worth the rule. Anything
-in Claude Code's built-in read-only set is deliberately **omitted** — those never prompt.
+Frequent enough in real transcripts to be worth the rule, and safe in any repo — with one
+exception. `Bash(git push:*)` is the one rule in this block that is not read-only; it is granted
+because the deny-list pairs under "Irreversible history loss" above cover the destructive forms.
+See the note after the block for what that does and does not close off. Everything else here is
+read-only, and anything already in Claude Code's built-in read-only set is deliberately
+**omitted** — those never prompt.
 
 ```
 Bash(git log:*)
@@ -170,6 +208,7 @@ Bash(git cat-file:*)
 Bash(git check-ignore:*)
 Bash(git remote -v:*)
 Bash(git worktree list:*)
+Bash(git push:*)
 Bash(gh pr view:*)
 Bash(gh pr list:*)
 Bash(gh issue view:*)
@@ -187,6 +226,15 @@ Bash(dotnet --list-sdks:*)
 
 `gh api` is read-only only by convention — it will happily `-X DELETE`. Narrow it to
 `Bash(gh api -X GET:*)` if the tree contains repos you do not control.
+
+`Bash(git push:*)` relies entirely on the deny-list pairs above to stay safe: `--force`, `-f`,
+`--delete`, `-d`, `--mirror`, the `+` force-refspec, and the colon delete-refspec when something
+follows it are all blocked, in both leading and trailing position. Exactly one destructive shape
+gets through: `git push <remote> :<branch>` with the colon delete-refspec as the very last token.
+A pattern ending in `:*` is always read as the ordinary trailing-wildcard suffix, never as a
+literal colon, so no rule written against that ending can match it — this is a real gap in what
+the permission system can express, not an oversight to patch with a cleverer pattern.
+`--force-with-lease` also stays ungated, as noted above, deliberately.
 
 ---
 
@@ -228,10 +276,6 @@ Grant here, never in the baseline. Commit the file.
   }
 }
 ```
-
-Deliberately absent everywhere: `git push` in any form. Let the agent commit freely and push
-through the one path you have reviewed — a skill like `go-go-go` or `merge-stack` — rather than as
-an ambient standing grant.
 
 ---
 

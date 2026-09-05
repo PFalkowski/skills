@@ -67,8 +67,8 @@ Two things to remember when reading its output:
 - Claude Code already runs a built-in read-only set without prompting — `ls`, `cat`, `echo`, `pwd`,
   `head`, `tail`, `grep`, `find`, `wc`, `which`, `diff`, `stat`, `du`, `cd`, and read-only `git`
   forms. Allowlisting those buys nothing. Drop them from the output before writing rules.
-- High frequency is not the same as safe. `git push` and `dotnet run` will rank near the top of any
-  real transcript set. Frequency tells you what to *consider*, never what to grant.
+- High frequency is not the same as safe. `docker run` and `dotnet run` will rank near the top of
+  any real transcript set. Frequency tells you what to *consider*, never what to grant.
 
 ### 3. Write the user-scope baseline
 
