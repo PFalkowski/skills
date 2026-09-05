@@ -6,7 +6,7 @@ bloats them.
 
 ## Conventions — house rules of this repo
 
-- [repo-ci-check-surface](repo-ci-check-surface.md) — what CI actually runs, and which of those checks can fail a build (`check-descriptions.sh` only warns)
+- [repo-ci-check-surface](repo-ci-check-surface.md) — what CI actually runs, and which of those checks can fail a build (`check-descriptions.sh` fails on length/quoting/self-naming, only warns in the 320-1024 char band)
 
 ## Gotchas — traps that must not cost twice
 
