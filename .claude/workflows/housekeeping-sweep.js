@@ -11,7 +11,7 @@ export const meta = {
 //         checks: { build: 'dotnet build -warnaserror', test: 'dotnet test', lint: null },
 //         scope: ['src/Billing/**'],             // null → the whole repo
 //         isolate: false,
-//         reserve: 40000, chronicleDir: '.housekeeping/chronicles', libraryIndex: null,
+//         reserve: 40000, chronicleDir: '.agents/housekeeping/chronicles', libraryIndex: null,
 //         tiers: { rules: 'haiku', lens: 'sonnet', verify: 'sonnet', plan: 'sonnet' } }
 //
 // WHY THIS RUNS AFTER THE DOC AUDIT, and not instead of it: half the lenses below judge the code

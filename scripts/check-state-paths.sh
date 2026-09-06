@@ -1,49 +1,39 @@
 #!/usr/bin/env bash
 # Fails when a skill's markdown declares a state root that is not
-# .agents/<skill>/... and is not on the grandfather allowlist below; when a
-# skill declares a bare file directly under .agents/ with no <slug>/
-# segment; or when the repo's .gitignore is missing the wholesale .agents/
-# line docs/agent-state.md's gitignore rule claims exists.
+# .agents/<skill>/... and is not a permanent deliverable exemption below; when
+# a skill declares a bare file directly under .agents/ with no <slug>/
+# segment; when it names a state path this repo has already migrated away
+# from; or when the repo's .gitignore is missing the wholesale .agents/ line
+# docs/agent-state.md's gitignore rule claims exists.
 # See docs/agent-state.md for the convention this enforces.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 cd "${CHECK_STATE_PATHS_ROOT:-.}"
 
-# Grandfathered state roots -- migration TODOs from before this convention,
-# not permanent exemptions. Delete a line here as its skill migrates to
-# .agents/<skill>/... (with the old path still read for at least one release,
-# per docs/agent-state.md). Migration itself is separate follow-up work.
+# Permanent exemptions, not migration TODOs. Each is a deliverable under
+# docs/agent-state.md's logs-vs-deliverables test -- a human is expected to
+# read it later without knowing a run happened -- so it keeps its own
+# human-facing home and never moves under the wholesale-ignored .agents/.
 #
-# Matched by the detector below (dot-prefixed directories):
-#   .nights-watch/            -- tracked layout already split in #145; migration is its own follow-up issue
-#   .housekeeping/
-#   .recurring-improvement/
-#   .out-of-scope/
-# Not matched by the detector (non-dot paths; recorded here for the same
-# migration inventory even though this script's pattern won't catch them --
-# a bare-word match on "prompts/" or "backlog.md" would be too noisy):
-#   docs/sdlc/runs/
-#   prompts/
-#   backlog.md
-#   LESSONS-LEARNED.md
-#   docs/recurring-backlog.md
-grandfather_re='\.nights-watch/|\.housekeeping/|\.recurring-improvement/|\.out-of-scope/'
+#   .out-of-scope/  -- triage's record of rejected requests
+#   .nights-watch/  -- only its tracked library/; every other subpath was run
+#                      state and has migrated, which retired_res enforces
+deliverable_re='\.nights-watch/|\.out-of-scope/'
 
 # Harness, VCS, or sub-path references -- never a skill's own state root.
 infra_re='\.claude-plugin/|\.claude/|\.githooks/|\.github/|\.git/|\.ssh/|\.lock/|\.agents/'
 
-# A bare file directly under .agents/ (no <slug>/ segment) is not
-# conforming (docs/agent-state.md, "The directory rule"). The generic
-# detector above treats .agents/ as infra -- it only ever sees the short
-# ".agents/" token, never what follows it -- so it can never tell a bare
-# file from the conforming .agents/<slug>/... shape. This is a separate
-# pass that captures the segment right after .agents/ and checks whether
-# a "/" follows it (nested under a slug: conforming) or not (bare: not).
-#
-# recurring-improvement/SKILL.md's `.agents/recurring-backlog.md` is a
-# named migration item (#159), not a fresh violation for this check to
-# raise -- grandfathered here the same way the dot-directories above are.
-bare_agents_grandfather_re='\.agents/recurring-backlog\.md'
+# State paths this repo has migrated away from; they must not come back. The
+# generic detector cannot catch these. A non-dot path such as docs/sdlc/runs/
+# never matches its dot-directory pattern, and .nights-watch/ is exempt as a
+# whole because its library/ subpath is a deliverable, which would otherwise
+# let the run-log subpaths beside it return unnoticed. Each entry is
+# "<pattern>;<where the state went instead>".
+retired_res=(
+  '\.nights-watch/([Jj][Oo][Uu][Rr][Nn][Aa][Ll]\.md|chronicles/|locks/|hunts/);.agents/nights-watch/'
+  'docs/sdlc/runs/;.agents/sdlc-old-fashioned/runs/'
+  'prompts/sdlc-backlog\.md;.agents/sdlc-old-fashioned/backlog.md'
+)
 
 offenders=0
 for dir in */; do
@@ -53,14 +43,28 @@ for dir in */; do
     echo "NONCONFORMING $f:$l -> ${match# } (skill state belongs at .agents/$skill/...)"
     offenders=1
   done < <(grep -rnoE '(^|[^A-Za-z0-9_/.~-])\.[a-z][a-z0-9-]*/' --include='*.md' "$dir" \
-             | grep -vE "$grandfather_re" \
+             | grep -vE "$deliverable_re" \
              | grep -vE "$infra_re" || true)
+  # A bare file directly under .agents/ (no <slug>/ segment) is not
+  # conforming (docs/agent-state.md, "The directory rule"). The generic
+  # detector treats .agents/ as infra -- it only ever sees the short
+  # ".agents/" token, never what follows it -- so it can never tell a bare
+  # file from the conforming .agents/<slug>/... shape. This pass captures the
+  # segment right after .agents/ and checks whether a "/" follows it (nested
+  # under a slug: conforming) or not (bare: not).
   while IFS=: read -r f l match; do
     echo "NONCONFORMING $f:$l -> ${match# } (bare file directly under .agents/, no skill segment -- see docs/agent-state.md)"
     offenders=1
   done < <(grep -rnoE '\.agents/[A-Za-z0-9_.-]+/?' --include='*.md' "$dir" \
-             | grep -vE '/$' \
-             | grep -vE "$bare_agents_grandfather_re" || true)
+             | grep -vE '/$' || true)
+  for entry in "${retired_res[@]}"; do
+    pattern="${entry%%;*}"
+    moved_to="${entry##*;}"
+    while IFS=: read -r f l match; do
+      echo "NONCONFORMING $f:$l -> ${match# } (retired state path; it moved to $moved_to)"
+      offenders=1
+    done < <(grep -rnoE "(^|[^A-Za-z0-9_/.~-])($pattern)" --include='*.md' "$dir" || true)
+  done
 done
 
 # The gitignore rule: docs/agent-state.md claims .agents/ is ignored

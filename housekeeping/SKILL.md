@@ -43,7 +43,7 @@ Workflow({ name: 'housekeeping-audit', args: {
   includeComments: true,       // prose comments in code are documentation and drift like it
   externals: [{ name: 'Confluence: Platform space', how: '<MCP tool / CLI / URL>' }],
   maxShards: 6, perShard: 8, reserve: 40000,
-  chronicleDir: '.housekeeping/chronicles',
+  chronicleDir: '.agents/housekeeping/chronicles',
   tiers: { inventory: 'haiku', audit: 'sonnet', verify: 'sonnet', consolidate: 'sonnet' },
 } })
 ```
@@ -81,7 +81,7 @@ Then, out loud: *what the docs will no longer claim, and what will hold each of 
 Workflow({ name: 'housekeeping-cleanup', args: {
   startedAt: '<MM-DD HH:mm>',
   dispositions: [ /* ONLY the approved findings, verbatim ids from step 1 */ ],
-  chronicleDir: '.housekeeping/chronicles',
+  chronicleDir: '.agents/housekeeping/chronicles',
   tiers: { edit: 'sonnet', check: 'sonnet' },
 } })
 ```

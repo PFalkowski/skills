@@ -7,8 +7,13 @@ Thumbs.db
 # omv-dev-server: the one file holding real host values
 omv-dev-server/scripts/setup.env
 
-# Unattended run state: the curated library is tracked, the run logs are not
+# Retired: nights-watch run state moved to .agents/nights-watch/ and is
+# covered by the wholesale line below. These four stay for one release so a
+# clone written by the previous version keeps its logs ignored during the
+# fallback window (docs/agent-state.md, Retired paths). Delete them after.
+# .nights-watch/library/ is a deliverable and stays tracked either way.
 .nights-watch/JOURNAL.md
+.nights-watch/journal.md
 .nights-watch/chronicles/
 .nights-watch/locks/
 .nights-watch/hunts/

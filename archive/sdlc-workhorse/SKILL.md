@@ -95,8 +95,8 @@ Workflow({
     reserve: 60000,                    // output tokens held back per slice
     reviewStance: 'single',            // pre-answers code-review-grill Step 0; 'quorum' to fan out per concern
     reviewConcerns: ['correctness', 'documentation'],   // used only when reviewStance is 'quorum'
-    backlogPath: 'prompts/sdlc-backlog.md',
-    chronicleDir: '.sdlc/chronicles',
+    backlogPath: '.agents/sdlc-workhorse/backlog.md',
+    chronicleDir: '.agents/sdlc-workhorse/chronicles',
     libraryIndex: null,                // set to '.nights-watch/library/INDEX.md' if the repo keeps one
     tiers: { plan: 'opus', build: 'sonnet', verify: 'haiku' },  // per-phase overrides
   },

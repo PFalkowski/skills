@@ -45,8 +45,8 @@ if (typeof cfg.goal !== 'string' || !cfg.goal.trim()) {
   throw new Error('sdlc-workhorse: args.goal is required — the change to build, in enough detail to specify.')
 }
 
-const backlogPath = cfg.backlogPath || 'prompts/sdlc-backlog.md'
-const chronicleDir = cfg.chronicleDir || '.sdlc/chronicles'
+const backlogPath = cfg.backlogPath || '.agents/sdlc-workhorse/backlog.md'
+const chronicleDir = cfg.chronicleDir || '.agents/sdlc-workhorse/chronicles'
 const libraryIndex = cfg.libraryIndex || null          // nights-watch Library, if the repo keeps one
 const maxGrillRounds = cfg.maxGrillRounds ?? 3
 const maxPlanRounds = cfg.maxPlanRounds ?? 2
