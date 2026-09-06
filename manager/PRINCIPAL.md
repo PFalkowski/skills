@@ -32,7 +32,7 @@ Fill every `<…>` from the mandate. A brief with a blank policy is a question t
 
 | Skill | Its autonomous shape | Where its asks come out | What the manager does with them |
 |---|---|---|---|
-| `sdlc-old-fashioned` | Dial 1 = **autonomous**; fresh process per phase | deferred questions in `prompts/sdlc-backlog.md`; the merge gate | answer in the backlog file after each phase's result comes back; hold the merge gate per `merge=` |
+| `sdlc-old-fashioned` | Dial 1 = **autonomous**; fresh process per phase | deferred questions in `.agents/sdlc-old-fashioned/backlog.md`; the merge gate | answer in the backlog file after each phase's result comes back; hold the merge gate per `merge=` |
 | `sdlc-workhorse` (Workflow) | already autonomous, evidence-gated | its `RESULT`; stops at irreversible lines | consume the result; the irreversible lines are the manager's verdicts |
 | `nights-watch` | standing loop; `once` for a single pass | patrol summary: blockers, refusals, `ai-done` PRs | decide each refusal and blocker; grill or merge-escalate each `ai-done` PR; enact on the board what the Watch would not |
 | `nightshift` | autonomous by construction | backlog-file deferrals; end-of-run summary | answer deferrals in the file; verdicts on the summary |

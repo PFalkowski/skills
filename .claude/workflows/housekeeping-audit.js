@@ -8,7 +8,7 @@ export const meta = {
 //         includeComments: true,                 // treat code comments as documentation too
 //         externals: [{ name: 'Confluence: Platform space', how: 'mcp__atlassian__search or the URL' }],
 //         maxShards: 6, perShard: 8, maxFindingsPerShard: 25,
-//         reserve: 40000, chronicleDir: '.housekeeping/chronicles', libraryIndex: null,
+//         reserve: 40000, chronicleDir: '.agents/housekeeping/chronicles', libraryIndex: null,
 //         tiers: { inventory: 'haiku', audit: 'sonnet', verify: 'sonnet', consolidate: 'sonnet' } }
 //
 // THIS SCRIPT IS READ-ONLY BY CONSTRUCTION. There is no edit, delete, commit, or post code path in
@@ -240,7 +240,7 @@ const perShardResults = await pipeline(
            will be refuted, and should be.
 
          ${args.libraryIndex ? `Read the Library index at ${args.libraryIndex} and fold in what it records about this repo's conventions.` : ''}
-         Keep a chronicle at ${args.chronicleDir ?? '.housekeeping/chronicles'}/audit-shard-${i + 1}.md as you go.
+         Keep a chronicle at ${args.chronicleDir ?? '.agents/housekeeping/chronicles'}/audit-shard-${i + 1}.md as you go.
          ${READ_ONLY} ${NO_SPAWN}
          Return {findings: [...]}; empty is a fine answer for documentation that holds up.`,
         { label: `audit:shard-${i + 1}`, phase: 'Audit',

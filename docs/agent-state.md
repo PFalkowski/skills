@@ -23,11 +23,7 @@ lay out `.agents/<slug>/journal.md`, `.agents/<slug>/chronicles/`,
 `.agents/<slug>/locks/`, whatever its own state shape needs.
 
 A bare file directly under `.agents/` (no skill segment) is **not
-conforming**. `recurring-improvement/SKILL.md` currently documents
-`.agents/recurring-backlog.md` as one of its candidate roots — that is a
-named migration item this convention flags, not a pattern to copy. It should
-become `.agents/recurring-improvement/backlog.md` when that skill migrates
-(see Migration, below).
+conforming**, and `scripts/check-state-paths.sh` fails the build on one.
 
 ## The override rule
 
@@ -53,8 +49,24 @@ a run happened, it is a deliverable, and it keeps its existing human-facing
 home — it does not move to `.agents/`.
 
 Named deliverables that do **not** move: `LESSONS-LEARNED.md`, `docs/adr/`,
-`.out-of-scope/`, and the nights-watch Library (`.nights-watch/library/`).
-No deliverable ever lives under `.agents/`.
+`.out-of-scope/`, the nights-watch Library (`.nights-watch/library/`),
+`docs/recurring-backlog.md` (the recurring schedule a human reads to see what
+is due), `prompts/backlog.md` (`prompt-backlog`'s human-authored queue), and
+`nightshift`'s `backlog.md` (its human-authored input). No deliverable ever
+lives under `.agents/`.
+
+The judgement is not always obvious, and two cases are worth recording
+because they went the other way. `sdlc-old-fashioned`'s `sdlc-backlog.md`
+reads like a deliverable and is not: the skill's own text calls it live run
+scaffolding that the tracker and the PR supersede, and it used to need an
+explicit "delete it in the publishing commit" rule precisely because it sat
+in a tracked path. Under the ignored root that rule is unnecessary and has
+been removed. The nights-watch Hunt's watermark and ledger are the mirror
+case: nobody ever reads them, so they are state, but deleting them does lose
+something no commit records — a week of re-auditing and a re-report of every
+open finding. They still live under `.agents/`, and the fix for durability is
+the override rule above, not committing run state (`nights-watch/HUNT.md`
+§ Where the state root is).
 
 ## The gitignore rule
 
@@ -90,33 +102,61 @@ mechanisms coexist: `.agents/` gitignored in-tree is the default for
 ordinary run noise; a root moved outside the repo is what a public,
 sensitive case uses instead.
 
-## `.nights-watch/` is out of scope here
+## Retired paths
 
-PR #145 (merged, `af423a1`) already tracks `.nights-watch/library/` and
-ignores `.nights-watch/JOURNAL.md`, `.nights-watch/chronicles/`,
-`.nights-watch/locks/`, and `.nights-watch/hunts/`. This document does not
-change any of those four `.gitignore` lines, for three reasons:
+Every skill that used to keep state somewhere else has moved. The old paths
+are listed here, in one place, rather than repeated inside each skill: a
+skill directory that names its own retired path fails
+`scripts/check-state-paths.sh`, which is what stops a migration from quietly
+reverting. A skill that needs to describe its fallback points here instead.
 
-1. Migrating existing skills to this convention is explicitly out of scope
-   for the issue that introduced it (#119) — this document establishes the
-   convention, it does not enact it everywhere.
-2. #145's layout is already main: a tracked Library split from ignored run
-   logs. That split is exactly what this convention endorses, not a
-   contradiction of it.
-3. Moving `.nights-watch/` under `.agents/nights-watch/` is real migration
-   work (paths written in prose across several files, a live case mismatch
-   between `journal.md` and `JOURNAL.md`, and a fallback period) that
-   deserves its own PR, not a rider on the convention doc.
+| Retired path | Now | Owner |
+|---|---|---|
+| `.nights-watch/JOURNAL.md` (also `journal.md`) | `.agents/nights-watch/journal.md` | `nights-watch` |
+| `.nights-watch/chronicles/` | `.agents/nights-watch/chronicles/` | `nights-watch` |
+| `.nights-watch/locks/` | `.agents/nights-watch/locks/` | `nights-watch` |
+| `.nights-watch/hunts/` | `.agents/nights-watch/hunts/` | `nights-watch` |
+| `~/.nights-watch/<repo-slug>/` (public-repo Hunt root, outside the repo) | `~/.agents/nights-watch/<repo-slug>/` | `nights-watch` |
+| `.housekeeping/chronicles/` | `.agents/housekeeping/chronicles/` | `housekeeping` |
+| `.recurring-improvement/recurring-backlog.md` | `docs/recurring-backlog.md` | `recurring-improvement` |
+| `.agents/recurring-backlog.md` (bare, non-conforming) | `docs/recurring-backlog.md`, or `.agents/recurring-improvement/backlog.md` where the repo keeps agent artifacts out of `docs/` | `recurring-improvement` |
+| `docs/sdlc/runs/` | `.agents/sdlc-old-fashioned/runs/` | `sdlc-old-fashioned` |
+| `prompts/sdlc-backlog.md` | `.agents/sdlc-old-fashioned/backlog.md` | `sdlc-old-fashioned` |
+| `prompts/sdlc-backlog.md` (workflow default) | `.agents/sdlc-workhorse/backlog.md` | `sdlc-workhorse` |
+| `.sdlc/chronicles/` | `.agents/sdlc-workhorse/chronicles/` | `sdlc-workhorse` |
 
-The migration itself is filed as a follow-up issue. **A migrated skill must
-keep reading its old path for at least one release** before the old path is
-removed, so a repo mid-upgrade doesn't silently lose its state.
+The last two are defaults in `.claude/workflows/`, not prose. The check
+scans markdown only, so a path that lives in code is not protected by it —
+when a workflow's default moves, the value in the script and the example in
+its own header comment both have to move with it.
+
+`.nights-watch/library/` is **not** in this table. It is a deliverable, it
+stays tracked where it is, and only the run state that used to sit beside it
+moved. That is the split PR #145 (`af423a1`) introduced, kept intact.
+
+**A migrated skill must keep reading its old path for at least one release**
+before the old path is removed, so a repo mid-upgrade doesn't silently lose
+its state. Read the new path first; fall back to the retired one only when
+the new path is absent and the old one exists; always write to the new path,
+so a repo migrates by being run, and say in the run's report when the
+fallback fired.
+
+Two traps in that window, both of which have bitten already. **A root outside
+the repo needs the same fallback as one inside it** — the Hunt's public-repo
+root is in the home directory, so no clone or checkout carries it and the
+loss is invisible until the watermark and ledger come back empty. And **the
+nights-watch journal must be tried under both spellings**: existing repos
+have `JOURNAL.md`, the layout documents `journal.md`, and on a case-sensitive
+filesystem looking for only one of them finds nothing and starts a fresh
+journal on top of a real history. The retired `.nights-watch/` lines stay in this repo's
+`.gitignore` for the same window, so a clone written by the previous version
+keeps its logs out of the diff.
 
 ## Enforcement
 
 [`scripts/check-state-paths.sh`](../scripts/check-state-paths.sh), wired
 into CI and covered by [`scripts/check-state-paths.test.sh`](../scripts/check-state-paths.test.sh),
-enforces three things and **fails the build** on any match. A check that
+enforces four things and **fails the build** on any match. A check that
 cannot fail is not enforcement: `scripts/check-descriptions.sh`'s 320–1024
 character warn band currently carries thirteen unresolved warnings with no
 build consequence, which is the standing evidence for choosing a failing
@@ -125,19 +165,23 @@ check here.
 1. It scans every `*.md` file inside each skill directory (not only
    `SKILL.md` — a skill's own layout prose regularly lives in a sibling
    file instead) for a dot-prefixed directory that is neither `.agents/`
-   nor on its grandfather allowlist.
+   nor a listed deliverable.
 2. It scans the same files for a bare file directly under `.agents/` with
    no `<slug>/` segment — the violation named in "The directory rule"
-   above — on its own grandfather allowlist (currently just
-   `recurring-improvement`'s `.agents/recurring-backlog.md`, the named
-   migration item).
-3. It checks the repo's own `.gitignore` for the wholesale `.agents/` line
+   above. There is no exemption to this one.
+3. It scans the same files for any path in the Retired paths table, and
+   names where that state went instead. This is what makes the migration
+   stick: the generic scan in (1) cannot see these, because a non-dot path
+   like `docs/sdlc/runs/` does not match its dot-directory pattern, and
+   `.nights-watch/` is exempt as a whole so its tracked `library/` can
+   stay — which would otherwise let the retired run-log subpaths beside it
+   return unnoticed.
+4. It checks the repo's own `.gitignore` for the wholesale `.agents/` line
    the gitignore rule above claims exists, so that claim can't go stale
    again without failing CI.
 
-The allowlist is a named, commented set of migration TODOs — `.nights-watch/`,
-`.housekeeping/`, `.recurring-improvement/`, `.out-of-scope/`, and (recorded
-for the same inventory, though not matched by the script's dot-directory
-pattern) `docs/sdlc/runs/`, `prompts/`, `backlog.md`, `LESSONS-LEARNED.md`,
-`docs/recurring-backlog.md` — each to be deleted from the script as its
-skill migrates, not a permanent exemption.
+The only exemptions are the two deliverable roots that are dot-directories,
+`.out-of-scope/` and `.nights-watch/`, and they are permanent rather than
+migration TODOs: both are named in "Logs vs. deliverables" above as things
+that never move. The other named deliverables need no entry, because the
+script's dot-directory pattern never matched them in the first place.

@@ -97,7 +97,7 @@ export const meta = {
 //                     chronicleDir}],         // a DIR — opus only; the workhorse writes one file per agent
 //         libraryIndex: '<repo>/.nights-watch/library/INDEX.md',
 //         workhorsePath: '<abs path to the skills repo>/.claude/workflows/sdlc-workhorse.js',
-//         lockDir: '<repo>/.nights-watch/locks',   // where claim advertisements live
+//         lockDir: '<repo>/.agents/nights-watch/locks',   // where claim advertisements live
 //         lockTtlMin: 90,                          // staleness marker written into owner.md
 //         startedAt: '07-20 09:30',                // the WATCHER's clock at dispatch (MM-DD HH:mm).
 //                                                  // The script has none — Date.now() throws in here.
@@ -448,7 +448,7 @@ The Watch treats tokens like the Wall treats firewood: counted, planned, never w
 
 ## The watch journal
 
-Append one entry per patrol to `.nights-watch/journal.md` (or the path the user configures — see [LIBRARY.md](LIBRARY.md) for the full `.nights-watch/` layout):
+Append one entry per patrol to `.agents/nights-watch/journal.md` (or the path the user configures — see [LIBRARY.md](LIBRARY.md) for the full layout, and for the one-release fallback to the old root):
 
 ```md
 ## Patrol <n> — <tickets mustered>/<triaged ready>/<dispatched>

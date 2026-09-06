@@ -7,7 +7,7 @@ export const meta = {
 //         dispositions: [{ id: 'D3', doc: 'README.md', action: 'fix-doc',
 //                          instruction: 'the retry count is 5, not 3 — correct the paragraph',
 //                          sourceOfTruth: 'code', proof: 'src/http.ts:88' }, ...],
-//         reserve: 40000, chronicleDir: '.housekeeping/chronicles',
+//         reserve: 40000, chronicleDir: '.agents/housekeeping/chronicles',
 //         tiers: { edit: 'sonnet', check: 'sonnet' } }
 //
 // THE SECOND HALF of housekeeping-audit.js, and deliberately a SEPARATE DISPATCH: a human
