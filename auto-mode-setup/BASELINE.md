@@ -49,6 +49,9 @@ Bash(git push * -d *)
 Bash(git push --mirror:*)
 Bash(git push * --mirror)
 Bash(git push * --mirror *)
+Bash(git push --prune:*)
+Bash(git push * --prune)
+Bash(git push * --prune *)
 Bash(git push * +*)
 Bash(git reset --hard:*)
 Bash(git clean -fdx:*)
@@ -74,9 +77,11 @@ single trailing-wildcard rule only covers the second shape once the pattern alre
 wildcard — see the syntax reminders at the top of this file. The leading-flag rules
 (`Bash(git push --force:*)` and siblings) stay too: they catch the flag written right after `push`,
 a shape the `* --flag` rules do not match. These pairs cover every **unbundled** spelling of each
-flag. They do not, and cannot, cover a bundled short option like `-fd` or `-df` — see the note
-under the allow list below, where `git push` itself is granted, for the full, measured statement of
-what that leaves open.
+flag, including `--prune` (which deletes remote branches with no local counterpart — the same blast
+radius as `--delete`/`--mirror`, confirmed by direct test against a scratch remote). They do not,
+and cannot, cover a bundled short option like `-fd` or `-df` — see the note under the allow list
+below, where `git push` itself is granted, for the full, measured statement of what that leaves
+open.
 
 The six `git worktree remove` rules exist because the grant below hands out `Bash(git worktree
 remove:*)` for `cleanup=allow`, and that verb accepts a `--force`/`-f` flag that discards a
@@ -264,8 +269,8 @@ Bash(dotnet --list-sdks:*)
 **`Bash(git push:*)` is a deliberate, accepted risk, not an oversight — the repository owner was
 shown the gap below in full and chose to keep the grant anyway.** The deny-list pairs above are a
 real, measured improvement: every **unbundled** destructive spelling — `--force`, `-f`, `--delete`,
-`-d`, `--mirror`, and the `+` force-refspec, in both leading and trailing position — is genuinely
-blocked. `Bash(git push:*)` does not undo any of that.
+`-d`, `--mirror`, `--prune`, and the `+` force-refspec — in both leading and trailing position, is
+genuinely blocked. `Bash(git push:*)` does not undo any of that.
 
 What it does not close off, stated in full rather than as a single shape, because both halves are
 now measured, not modelled:
@@ -291,9 +296,9 @@ Measured live against a scratch repo with a nonexistent remote (so an allowed co
 and fails with git's own "fatal: … does not appear to be a git repository", while a denied one
 produces a `permission_denials` entry and never touches git): `git push -fd origin main` and `git
 push -df origin main` both came back allowed, with no denial recorded, while `git push -f origin
-main`, `git push origin main --force`, `git push --mirror origin`, and `git push origin +a:b` were
-all blocked as their matching deny rules intend. `--force-with-lease` stays ungated too, as noted
-above, deliberately — it is the safe form.
+main`, `git push origin main --force`, `git push --mirror origin`, `git push --prune origin`, `git
+push origin --prune`, and `git push origin +a:b` were all blocked as their matching deny rules
+intend. `--force-with-lease` stays ungated too, as noted above, deliberately — it is the safe form.
 
 **If this risk stops being acceptable, the reversal is one line:** remove `Bash(git push:*)` from
 the allow list. That restores prompting on every `git push` and touches no deny rule — the pairs

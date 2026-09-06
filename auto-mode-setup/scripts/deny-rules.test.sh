@@ -15,9 +15,10 @@
 #      `Bash(git push:*)` grant is fully closed off. Measurement (see #149) proved bundled short
 #      options -- `git push -fd origin main`, `-df` -- reach git untouched, because a Bash rule's
 #      `*` has no character classes and the deny rules only spell out the unbundled long/short
-#      forms. A doc that says "all blocked" or credits the gap as a single shape is the exact
-#      regression this guard exists to catch -- the file must instead state the gap in full and as
-#      an accepted risk, not paper over it.
+#      forms. Scoped to the allow-list section and checked two ways: the exact phrasing this PR's
+#      history produced, plus a broader pattern for a differently-worded future overclaim -- see
+#      the guard's own comment below for why it is scoped and how the qualifier exclusion keeps it
+#      from firing on the accurate claim it is meant to leave alone.
 #   4. A live guard: feeds the current deny block plus `Bash(git push:*)` to a real `claude -p`
 #      session against a scratch repo with a nonexistent remote host, so a command that reaches
 #      git (git produces its own error or output) is unambiguously distinguishable from one the
@@ -69,6 +70,9 @@ required_rules=(
   'Bash(git push --mirror:*)'
   'Bash(git push * --mirror)'
   'Bash(git push * --mirror *)'
+  'Bash(git push --prune:*)'
+  'Bash(git push * --prune)'
+  'Bash(git push * --prune *)'
   'Bash(git push * +*)'
 )
 missing=()
@@ -91,8 +95,23 @@ fi
 # git untouched under Bash(git push:*) -- no finite deny-rule set can cover every bundled-flag
 # spelling, since a rule's `*` is arbitrary-text substitution with no character classes. The doc
 # must never again claim the destructive forms are fully closed off.
+#
+# Scoped to the "allow list" section (between its heading and the next `---`): that is the only
+# place this overclaim can occur, and scoping avoids a false positive on the deny-list's own
+# accurate completeness note for `git worktree remove` ("every spelling of the force flag is
+# blocked" -- true there, since that verb has no bundled-short-flag gap to caveat).
+#
+# Two patterns, not one: the narrow one is the exact phrasing this PR's history produced and is
+# kept so a straight revert is still caught by name; the broad one catches a differently-worded
+# future overclaim ("every destructive form is blocked", "no destructive push reaches git", etc.)
+# that the narrow pattern would silently miss. A line carrying the `unbundled` qualifier is
+# excluded from the broad check -- that word is what makes the current, accurate claim true, and
+# a line that keeps it is not the overclaim this guard exists to catch.
 total=$((total + 1))
-overclaim="$(grep -nE 'all blocked, in both leading and trailing position|destructive shape (has no expressible rule|gets through)' "$BASELINE" || true)"
+allow_section="$(awk '/^## The allow list/{flag=1} flag && /^---$/{exit} flag{print NR": "$0}' "$BASELINE")"
+narrow_overclaim="$(printf '%s\n' "$allow_section" | grep -E 'all blocked, in both leading and trailing position|destructive shape (has no expressible rule|gets through)' || true)"
+broad_overclaim="$(printf '%s\n' "$allow_section" | grep -viE 'unbundled' | grep -iE '\b(all|every|no)\b.{0,60}\b(destructive|force|delete|mirror)\b.{0,60}\b(blocked|denied|closed off|gated|gets through|reaches git)\b' || true)"
+overclaim="$(printf '%s\n%s\n' "$narrow_overclaim" "$broad_overclaim" | grep -v '^$' || true)"
 if [ -n "$overclaim" ]; then
   echo "FAIL: BASELINE.md still claims the git-push deny rules are exhaustive -- they are not:"
   echo "$overclaim"
@@ -173,6 +192,10 @@ check deny "git push -f origin main"
 check deny "git push origin b1 --delete --quiet"
 check deny "git push origin --mirror --quiet"
 check deny "git push origin +main:main"
+check deny "git push --prune origin"
+check deny "git push origin --prune"
+check deny "git push --prune origin main"
+check deny "git push origin --all --prune"
 check allow "git push origin main"
 
 # The documented gap itself: the colon delete-refspec is not blocked in either position. These
