@@ -26,9 +26,11 @@
     see `ln -s` in README.md.
 
     It also offers to install the repo's own CLAUDE.md — the canonical global
-    instruction file — to -ClaudeMdPath. See -ClaudeMd below; this half never
-    blocks an unattended run, unlike the junction half above it never touches
-    a file that already matches, and it always backs up before it writes.
+    instruction file — to -ClaudeMdPath. See -ClaudeMd below; left unset it
+    never prompts and never writes, so this half can never block an
+    unattended run (a caller must pass -ClaudeMd Ask to be prompted at all);
+    like the junction half above it never touches a file that already
+    matches, and it always backs up before it writes.
 #>
 [CmdletBinding()]
 param(
@@ -40,10 +42,15 @@ param(
 
     # How to reconcile the repo's CLAUDE.md with whatever is already at
     # -ClaudeMdPath: Skip, Replace, Append, Merge, or Ask (prompt for one of
-    # the other four). Left unset, the default is Ask when the session is
-    # genuinely interactive and Skip otherwise — a script that hangs waiting
-    # for input in CI is a worse defect than one that never offers the file,
-    # so an explicit -ClaudeMd Ask still falls back to Skip off a real console.
+    # the other four). Left unset, the default is unconditionally Skip —
+    # never Ask — because there is no reliable way to tell from inside the
+    # process whether reading stdin will ever return: a caller can hold a
+    # live console handle while stdin is redirected to a pipe nobody writes
+    # to or closes (the default shape when a .NET/Python/Node/agent caller
+    # spawns this script with stdin redirected but silent), which would make
+    # a guess-based default block forever instead of skipping. Only an
+    # explicit -ClaudeMd Ask enters the prompt branch, and even then it falls
+    # back to Skip off anything that isn't a real interactive console.
     [ValidateSet('Skip', 'Replace', 'Append', 'Merge', 'Ask')]
     [string]$ClaudeMd,
 
@@ -96,12 +103,15 @@ foreach ($destination in $Dest) {
 # merge) rather than by junction, because unlike a skill it is meant to be edited in place once
 # installed — a junction back into this repo would make a user's local edit a commit in this repo.
 
-# True only when a human is actually at the far end of stdin and can answer a prompt: $env:CI is
-# the fast, reliable signal every CI system sets (GitHub Actions included), checked first so nothing
-# below it runs under CI regardless of what a given host's Console/RawUI reports. UserInteractive
-# and RawUI are the finer-grained fallback for a non-CI but still non-interactive invocation (an
-# agent or script running this headlessly): RawUI throws or is unavailable off a real console, which
-# is exactly the case a prompt would otherwise hang against.
+# True only when a human is plausibly at the far end of stdin and can answer a prompt. This is a
+# console-presence check, not a "will reading stdin actually return" check, so it is used only as
+# an extra guard inside the explicit -ClaudeMd Ask path below (never to pick a default): it can
+# still say True for a process holding a live console handle whose stdin is a pipe nobody writes to
+# or closes, which is why the unset-parameter default never routes through this function at all —
+# see the -ClaudeMd parameter comment. $env:CI is the fast, reliable "definitely not interactive"
+# signal every CI system sets (GitHub Actions included), checked first. UserInteractive and RawUI
+# are the finer-grained fallback for a non-CI but still non-interactive invocation (an agent or
+# script running this headlessly): RawUI throws or is unavailable off a real console.
 function Test-ClaudeMdInteractive {
     if ($env:CI) { return $false }
     if (-not [Environment]::UserInteractive) { return $false }
@@ -141,10 +151,11 @@ function Install-ClaudeMd {
     if (-not (Test-Path $repoClaudeMd)) { return }  # nothing to offer
     New-Item -ItemType Directory -Force -Path (Split-Path $ClaudeMdPath -Parent) | Out-Null
 
-    $mode = $ClaudeMd
-    if (-not $mode) {
-        $mode = if (Test-ClaudeMdInteractive) { 'Ask' } else { 'Skip' }
-    }
+    # Unset means Skip, full stop -- never Ask. Console presence can't tell us whether stdin will
+    # ever produce a line (see the -ClaudeMd parameter comment and Test-ClaudeMdInteractive above),
+    # so guessing here is exactly the bug: only a caller who writes -ClaudeMd Ask explicitly reaches
+    # the prompt branch, and even then it still degrades to Skip off anything but a real console.
+    $mode = if ($ClaudeMd) { $ClaudeMd } else { 'Skip' }
     if ($mode -eq 'Ask' -and -not (Test-ClaudeMdInteractive)) {
         "!  CLAUDE.md (non-interactive with -ClaudeMd Ask -- defaulting to Skip)"
         $mode = 'Skip'

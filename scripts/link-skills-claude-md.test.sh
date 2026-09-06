@@ -119,6 +119,29 @@ after="$(cat "$claude_md")"
 check "a non-interactive run with no -ClaudeMd does not hang" [ "$status" -ne 124 ]
 check "a non-interactive run with no -ClaudeMd writes nothing" [ "$before" = "$after" ]
 
+# --- An open-but-silent stdin pipe, with CI unset, must not hang -----------------------------
+# The console-presence checks a script might use to decide "interactive" (a live console handle,
+# $Host.UI.RawUI not throwing) all say yes here, even though nothing will ever write a line to
+# this stdin: it's a pipe held open by a backgrounded coproc, not a real terminal and not a closed
+# file. This is the default shape when a .NET/Python/Node caller spawns this script with
+# stdin=PIPE and never writes or closes it -- exactly the "agents" half of the README's claim.
+# Without CI=true (unlike every other case above), a script that infers "interactive" from console
+# presence alone takes the Ask branch and blocks on Read-Host forever.
+
+claude_md="$WORK/openpipe/CLAUDE.md"
+mkdir -p "$(dirname "$claude_md")"
+fixture "$claude_md"
+before="$(cat "$claude_md")"
+openpipe_log="$WORK/openpipe/out.txt"
+coproc HELD_OPEN { sleep 300; }
+env -u CI timeout 15 pwsh -NoProfile -File "$SCRIPT" -Dest "$SKILL_DEST" -ClaudeMdPath "$claude_md" <&"${HELD_OPEN[0]}" > "$openpipe_log" 2>&1
+status=$?
+kill "$HELD_OPEN_PID" 2>/dev/null
+wait "$HELD_OPEN_PID" 2>/dev/null
+after="$(cat "$claude_md")"
+check "an open, silent stdin pipe with CI unset does not hang" [ "$status" -ne 124 ]
+check "an open, silent stdin pipe with CI unset writes nothing" [ "$before" = "$after" ]
+
 # --- Merge degrades honestly when the 'claude' CLI is unavailable --------------------------
 # Stubs PATH to a directory with no 'claude' binary, regardless of whether this host happens to
 # have one, so the assertion is deterministic rather than dependent on what's installed here.
