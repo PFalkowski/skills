@@ -101,6 +101,10 @@ The lead merges agent outputs into **one table** (templates + severity legend in
 > step's ask and post **every** finding (fixed or not) via the mechanics below — one thread first,
 > confirm it landed, then the rest.
 
+> **Under a standing posting policy** — a `manager` mandate (`post=`), or a `CLAUDE.md` that names who
+> answers this step: the ask goes to that principal instead of the human. Post the findings it selects,
+> by the same mechanics.
+
 This step runs after **every** review — single adversarial or quorum alike, when invoked standalone. The moment the table is presented, the orchestrator must:
 
 1. **Detect the active PR** for the reviewed branch and name it in the prompt so the user knows exactly where comments would land:

@@ -96,7 +96,7 @@ Issues are groomed with the `triage` skill into three label lanes (category, sta
 
 ## Global CLAUDE.md
 
-The author's global `~/.claude/CLAUDE.md` is versioned verbatim at [docs/claude-md.md](docs/claude-md.md). Install it with `cp docs/claude-md.md ~/.claude/CLAUDE.md`. It sets the PR-by-default delivery rule, the SDLC defaults, and the check that the `Workflow` tool exists before a workflow-based skill is dispatched.
+The author's global `~/.claude/CLAUDE.md` is this repo's [CLAUDE.md](CLAUDE.md), which Claude Code also loads for every session here. Install it globally with `cp CLAUDE.md ~/.claude/CLAUDE.md`. It sets one worktree per branch, `sdlc-old-fashioned` under the `manager` as the default process, PR-by-default delivery with an adversarial review and a fix round before the human reviews the PR in the browser, and `less-is-more` plus `no-comment` as the quality gate.
 
 ## Local development (maintainers)
 
