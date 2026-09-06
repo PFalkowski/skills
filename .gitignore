@@ -12,3 +12,7 @@ omv-dev-server/scripts/setup.env
 .nights-watch/chronicles/
 .nights-watch/locks/
 .nights-watch/hunts/
+
+# Skill run logs and operational state (docs/agent-state.md). Wholesale --
+# no deliverable ever lives under .agents/, so no per-path opt-in is needed.
+.agents/
