@@ -1,34 +1,48 @@
 ---
 name: ci-hardcodes-the-clean-room-test-path
-description: "A literal path in checks.yml's set -e loop broke CI on a rename; fixed in 3b56c40 by switching to a glob"
+description: Resolved — checks.yml once named a test file literally inside set -e; the rename it broke is why that list is globs now
 type: gotcha
 ---
 
-`.github/workflows/checks.yml` used to iterate
-`.claude/workflows/*.test.js archive/clean-room/screen-brief.test.mjs`. The first is a glob; the
-second was a literal path, and the whole step runs under `set -e`. Moving or renaming
-`archive/clean-room/` without editing the workflow in the same commit would hand `node --test` a
-path that does not exist and fail the job — reporting a missing file, which reads like
-infrastructure trouble rather than the rename that caused it.
+**Status: fixed on `main`.** Kept because the failure is worth recognising the next time someone
+adds a path to this workflow, not because the hazard is still live.
 
-Verified at `origin/main` (`dfb4d27`) with:
+`.github/workflows/checks.yml` used to iterate:
 
 ```sh
-MSYS_NO_PATHCONV=1 git show "origin/main:.github/workflows/checks.yml"
+for t in .claude/workflows/*.test.js archive/clean-room/screen-brief.test.mjs; do
+  node --test "$t"
+done
 ```
 
-This was live rather than hypothetical: a rename of all four `archive/clean-room/*` files to
-`clean-room/*` was staged in the working index at the time this was written, and `checks.yml` had
-not yet been updated to match:
+The first item is a glob and survives a rename. The second was a **literal path**, inside a
+`set -e` block. So moving `archive/clean-room/` without editing the workflow in the same commit
+handed `node --test` a path that no longer existed.
+
+## It actually fired
+
+PR #143 promoted `clean-room` out of `archive/` and did not touch the workflow. CI went red with:
 
 ```
-R100  archive/clean-room/BRIEF-TEMPLATE.md      clean-room/BRIEF-TEMPLATE.md
-R100  archive/clean-room/SKILL.md               clean-room/SKILL.md
-R100  archive/clean-room/screen-brief.mjs       clean-room/screen-brief.mjs
-R100  archive/clean-room/screen-brief.test.mjs  clean-room/screen-brief.test.mjs
+Could not find 'archive/clean-room/screen-brief.test.mjs'
+##[error]Process completed with exit code 1.
 ```
 
-Commit `3b56c40` (merge of PR #143) landed that rename and fixed the workflow line in the same
-commit, replacing the literal path with `clean-room/*.test.mjs`. The lesson stands: a literal path
-in a `set -e` loop breaks on a rename, where a glob would have degraded gracefully. See
-[[repo-ci-check-surface]].
+The error names a missing file and says nothing about the rename that removed it, which is the
+part that costs time — it reads like infrastructure trouble. Filed as #146; fixed in #143 by
+replacing the literal with a glob. `main` now reads:
+
+```sh
+for t in .claude/workflows/*.test.js clean-room/*.test.mjs; do
+```
+
+## The durable lesson
+
+A literal path in a `set -e` loop is a tripwire for anything that moves files: a glob over the
+directory degrades gracefully, a named file does not. And note the fix is narrower than it looks —
+`clean-room/*.test.mjs` still encodes that directory, so renaming the directory itself would
+reintroduce the same failure. If a third test path is ever added here, prefer discovery over
+naming.
+
+Retrieving this workflow from a ref needs `MSYS_NO_PATHCONV=1` — see
+[[msys-path-conversion-mangles-git-rev-paths]]. See also [[repo-ci-check-surface]].
