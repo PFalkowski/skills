@@ -9,21 +9,22 @@ How the conductor runs each lifecycle phase as its own fresh `claude` process, k
 Durable deliverables live in the repo and travel with the PR; the per-phase run logs under `.agents/sdlc-old-fashioned/runs/` are **gitignored** — on disk for inspection and cross-session resume, never in the PR:
 
 ```
-.agents/sdlc-old-fashioned/backlog.md          # THE live backlog — deleted when the PR is published (Phase 12)
-docs/sdlc/
-  plan.md                        # Phase 4 design artifact (grilled in Phase 5) — committed
-  runs/                          # GITIGNORED — local only; copy out before the worktree goes
-    01-guardrails.brief.md       # exactly what the phase agent received
-    01-guardrails.log            # tee'd, human-readable transcript of the run
+.agents/sdlc-old-fashioned/            # GITIGNORED wholesale, local only
+  backlog.md                           # THE live backlog
+  runs/                                # copy out before the worktree goes
+    01-guardrails.brief.md             # exactly what the phase agent received
+    01-guardrails.log                  # tee'd, human-readable transcript of the run
     02-specify.brief.md
     02-specify.log
     04-plan.brief.md
     05-plan-review.brief.md
-    07-red-S2.brief.md           # per-slice phases carry the slice id
+    07-red-S2.brief.md                 # per-slice phases carry the slice id
     08-impl-S2.log
     ...
+docs/sdlc/
+  plan.md                              # Phase 4 design artifact (grilled in Phase 5) — committed
   reflections/
-    2026-07-06-retro.md          # Phase 13 output — a few lines, committed
+    2026-07-06-retro.md                # Phase 13 output — a few lines, committed
 ```
 
 Confirm the repo's `.gitignore` carries the wholesale `.agents/` line in Phase 1, which covers this whole root. The canonical, replayable transcript is *also* written by the harness itself (see "Transcript capture" below) — the `.log` is the convenience copy.
@@ -149,7 +150,7 @@ It checks the gate against those, writes its decision (scope change, revised fig
 
 ## The backlog — schema
 
-`.agents/sdlc-old-fashioned/backlog.md`, updated by every phase before it exits — and **deleted in the publishing commit (Phase 12)**, since it's run scaffolding, not a deliverable:
+`.agents/sdlc-old-fashioned/backlog.md`, updated by every phase before it exits. It is run scaffolding, not a deliverable, and the ignored state root keeps it out of the merged tree on its own — but it also dies with the worktree, so **its still-open items are filed to the tracker or the PR before Phase 13 sweeps** (see `SKILL.md`, Step 6):
 
 ```markdown
 # SDLC backlog — <feature / epic name>

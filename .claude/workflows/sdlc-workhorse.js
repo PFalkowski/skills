@@ -532,7 +532,7 @@ async function runRetro(sliceCount) {
     `already know next time. Split every finding by what can be acted on NOW:\n` +
     `- evolved-now — anything improvable this session: sharpen a skill ("evolve-skill"), write a missing one ` +
     `("write-a-skill"), fix the docs/ADR/lessons file. DO it, do not just note it.\n` +
-    `- filed-for-human — needs a human decision or a future session. File it to ${backlogPath} so it is not lost.\n` +
+    `- filed-for-human — needs a human decision or a future session. File it to ${backlogPath}, and carry it into the PR description or the tracker too: that path is gitignored and worktree-local, so the backlog alone does not keep it.\n` +
     `- flagged-blocker — blocking, neither evolvable nor plannable. Surface it plainly.\n\n` +
     `${record.blockers.length ? `This run hit real failures. Use the "postmortem" skill's discipline on them: symptom → root-cause chain → fix → forward-looking rule, and check whether a regression test is missing.\n\n` : ''}` +
     `${libraryIndex ? `Curate the durable lessons into the Library at ${libraryIndex} (one fact per file + index): conventions, gotchas, token calibrations, settled decisions, tooling. Noise dies with the chronicle.\n\n` : ''}` +
@@ -571,7 +571,7 @@ if (!baseline.green) {
 note('Baseline', `green across ${baseline.checks.length} check(s); ${baseline.pitfalls.length} repo pitfall(s) catalogued`)
 if (baseline.missingGuardrails.length) {
   record.deferred.push({ what: 'missing guardrails', detail: baseline.missingGuardrails })
-  say(`Missing guardrails filed to ${backlogPath}: ${baseline.missingGuardrails.join('; ')}`)
+  say(`Missing guardrails filed to ${backlogPath} (gitignored — repeat them in the PR): ${baseline.missingGuardrails.join('; ')}`)
 }
 
 const pitfallRule = baseline.pitfalls.length

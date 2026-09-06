@@ -8,9 +8,12 @@ Thumbs.db
 omv-dev-server/scripts/setup.env
 
 # Retired: nights-watch run state moved to .agents/nights-watch/ and is
-# covered by the wholesale line below. These four stay for one release so a
-# clone written by the previous version keeps its logs ignored during the
-# fallback window (docs/agent-state.md, Retired paths). Delete them after.
+# covered by the wholesale line below. These stay for one release so a clone
+# written by the previous version keeps its logs ignored during the fallback
+# window (docs/agent-state.md, Retired paths). Delete them after. Both
+# spellings of the journal are listed because the old line only ever had the
+# uppercase one, which a case-sensitive filesystem would not match against
+# the lowercase name the skill documents.
 # .nights-watch/library/ is a deliverable and stays tracked either way.
 .nights-watch/JOURNAL.md
 .nights-watch/journal.md

@@ -116,6 +116,7 @@ reverting. A skill that needs to describe its fallback points here instead.
 | `.nights-watch/chronicles/` | `.agents/nights-watch/chronicles/` | `nights-watch` |
 | `.nights-watch/locks/` | `.agents/nights-watch/locks/` | `nights-watch` |
 | `.nights-watch/hunts/` | `.agents/nights-watch/hunts/` | `nights-watch` |
+| `~/.nights-watch/<repo-slug>/` (public-repo Hunt root, outside the repo) | `~/.agents/nights-watch/<repo-slug>/` | `nights-watch` |
 | `.housekeeping/chronicles/` | `.agents/housekeeping/chronicles/` | `housekeeping` |
 | `.recurring-improvement/recurring-backlog.md` | `docs/recurring-backlog.md` | `recurring-improvement` |
 | `.agents/recurring-backlog.md` (bare, non-conforming) | `docs/recurring-backlog.md`, or `.agents/recurring-improvement/backlog.md` where the repo keeps agent artifacts out of `docs/` | `recurring-improvement` |
@@ -138,7 +139,16 @@ before the old path is removed, so a repo mid-upgrade doesn't silently lose
 its state. Read the new path first; fall back to the retired one only when
 the new path is absent and the old one exists; always write to the new path,
 so a repo migrates by being run, and say in the run's report when the
-fallback fired. The retired `.nights-watch/` lines stay in this repo's
+fallback fired.
+
+Two traps in that window, both of which have bitten already. **A root outside
+the repo needs the same fallback as one inside it** — the Hunt's public-repo
+root is in the home directory, so no clone or checkout carries it and the
+loss is invisible until the watermark and ledger come back empty. And **the
+nights-watch journal must be tried under both spellings**: existing repos
+have `JOURNAL.md`, the layout documents `journal.md`, and on a case-sensitive
+filesystem looking for only one of them finds nothing and starts a fresh
+journal on top of a real history. The retired `.nights-watch/` lines stay in this repo's
 `.gitignore` for the same window, so a clone written by the previous version
 keeps its logs out of the diff.
 

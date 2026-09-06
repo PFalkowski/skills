@@ -199,8 +199,67 @@ check_retired 'nights-watch hunts' \
   'Watermark in `.nights-watch/hunts/`.' '.agents/nights-watch/'
 check_retired 'sdlc run logs' \
   'Phase logs under `docs/sdlc/runs/`.' '.agents/sdlc-old-fashioned/runs/'
+# This one path has two owners (sdlc-old-fashioned and the sdlc-workhorse
+# workflow default) and so two destinations, which is why its message points
+# at the table rather than naming one and misleading the other's reader.
 check_retired 'sdlc backlog' \
-  'Deferred questions in `prompts/sdlc-backlog.md`.' '.agents/sdlc-old-fashioned/backlog.md'
+  'Deferred questions in `prompts/sdlc-backlog.md`.' 'Retired paths'
+
+# The three dot-roots that migrated. Without an entry of their own they are
+# caught only by the generic dot-directory scan, so one edit re-adding them
+# to the deliverable exemption would re-permit them in silence.
+check_retired 'housekeeping chronicles' \
+  'Chronicles in `.housekeeping/chronicles/`.' '.agents/housekeeping/'
+check_retired 'recurring-improvement root' \
+  'Backlog at `.recurring-improvement/recurring-backlog.md`.' 'docs/recurring-backlog.md'
+check_retired 'sdlc-workhorse chronicles' \
+  'Chronicles in `.sdlc/chronicles/`.' '.agents/sdlc-workhorse/'
+
+# Qualified spellings. A retired path is just as wrong written with a ~/,
+# <repo>/ or ./ prefix, and those are the spellings these skills actually
+# use -- a check that only matched the bare form would let the likeliest
+# regression through while reporting green.
+check_retired 'home-directory Hunt root' \
+  'Public state at `~/.nights-watch/<repo-slug>/hunts/`.' '.agents/nights-watch/'
+check_retired 'repo-prefixed sdlc runs' \
+  'Logs at `<repo>/docs/sdlc/runs/`.' '.agents/sdlc-old-fashioned/runs/'
+check_retired 'dot-slash prefixed journal' \
+  'Logbook at `./.nights-watch/JOURNAL.md`.' '.agents/nights-watch/'
+
+# Only library/ is a deliverable under .nights-watch/. A subpath that did
+# not exist at migration time must not inherit the directory's exemption.
+check_retired 'newly invented nights-watch subpath' \
+  'Reports in `.nights-watch/reports/`.' '.agents/nights-watch/'
+
+# A retired path in a SIBLING file, not SKILL.md. Every check_retired
+# fixture above writes SKILL.md, so narrowing the retired pass to SKILL.md
+# alone would leave them all green -- and a skill's layout prose usually
+# lives in a sibling file, which is the whole reason the generic scan globs
+# *.md. This pins that for the retired pass too.
+total=$((total + 1))
+cat > "$FIXTURE_ROOT5/retired-fixture-skill/SKILL.md" <<'EOF'
+---
+name: retired-fixture-skill
+description: 'Fixture only, not a real skill.'
+---
+# retired-fixture-skill
+No state paths mentioned here.
+EOF
+cat > "$FIXTURE_ROOT5/retired-fixture-skill/LAYOUT.md" <<'EOF'
+# Layout
+
+Phase logs go under `docs/sdlc/runs/`.
+EOF
+out=$(CHECK_STATE_PATHS_ROOT="$FIXTURE_ROOT5" bash "$CHECK" 2>&1); status=$?
+if [ "$status" -eq 0 ]; then
+  echo "FAIL: a retired path in a sibling file should not be green"
+  fail=$((fail + 1))
+elif ! printf '%s' "$out" | grep -q 'LAYOUT.md'; then
+  echo "FAIL: retired path in a sibling file was not attributed to that file"
+  echo "$out"
+  fail=$((fail + 1))
+fi
+rm -f "$FIXTURE_ROOT5/retired-fixture-skill/LAYOUT.md"
 
 # The tracked Library is a deliverable and must stay green: it is the reason
 # .nights-watch/ is exempt as a whole, so a check that flagged it would have
