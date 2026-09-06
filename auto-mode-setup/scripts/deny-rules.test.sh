@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Checks the "Irreversible history loss" deny rules in BASELINE.md against what they actually do,
-# not what they read like they do. Three layers:
+# not what they read like they do. Four layers:
 #
 #   1. A static shape guard, no dependencies beyond grep: `:*` is documented (see the syntax
 #      reminders near the top of BASELINE.md) as end-of-pattern shorthand -- so a rule with `:*`
@@ -11,12 +11,19 @@
 #      load-bearing rule being deleted outright -- e.g. `Bash(git push * --force *)` -- since a
 #      missing line has no ':*' to trip on. Assert every rule the prose relies on is present,
 #      verbatim, in the deny block. This is what would have caught that exact regression.
-#   3. A live guard: feeds the current deny block plus `Bash(git push:*)` to a real `claude -p`
+#   3. A static completeness guard, also no dependencies: BASELINE.md must never again claim the
+#      `Bash(git push:*)` grant is fully closed off. Measurement (see #149) proved bundled short
+#      options -- `git push -fd origin main`, `-df` -- reach git untouched, because a Bash rule's
+#      `*` has no character classes and the deny rules only spell out the unbundled long/short
+#      forms. A doc that says "all blocked" or credits the gap as a single shape is the exact
+#      regression this guard exists to catch -- the file must instead state the gap in full and as
+#      an accepted risk, not paper over it.
+#   4. A live guard: feeds the current deny block plus `Bash(git push:*)` to a real `claude -p`
 #      session against a scratch repo with a nonexistent remote host, so a command that reaches
 #      git (git produces its own error or output) is unambiguously distinguishable from one the
 #      permission layer denied outright (no tool call happens at all). Requires the `claude` CLI
 #      and working credentials; skips (not fails) without them, since most CI runners have neither
-#      -- layers 1 and 2 are the ones CI can actually enforce today.
+#      -- layers 1-3 are the ones CI can actually enforce today.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -78,7 +85,25 @@ else
   echo "PASS: every load-bearing git-push deny rule is present, verbatim, in the deny block"
 fi
 
-# --- 3. Live guard -----------------------------------------------------------------------------
+# --- 3. Static guard: no completeness overclaim about the git-push grant ----------------------
+
+# Measured fact (see #149): bundled short options (-fd, -df) and the colon delete-refspec reach
+# git untouched under Bash(git push:*) -- no finite deny-rule set can cover every bundled-flag
+# spelling, since a rule's `*` is arbitrary-text substitution with no character classes. The doc
+# must never again claim the destructive forms are fully closed off.
+total=$((total + 1))
+overclaim="$(grep -nE 'all blocked, in both leading and trailing position|destructive shape (has no expressible rule|gets through)' "$BASELINE" || true)"
+if [ -n "$overclaim" ]; then
+  echo "FAIL: BASELINE.md still claims the git-push deny rules are exhaustive -- they are not:"
+  echo "$overclaim"
+  echo "  The Bash(git push:*) grant lets bundled short options (-fd, -df) and the colon"
+  echo "  delete-refspec through untouched (see #149). State the gap in full; do not claim it is closed."
+  fail=$((fail + 1))
+else
+  echo "PASS: BASELINE.md does not claim the git-push deny rules are exhaustive"
+fi
+
+# --- 4. Live guard -----------------------------------------------------------------------------
 
 if ! command -v claude >/dev/null 2>&1; then
   echo "SKIP: 'claude' is not on PATH -- live permission checks not run (static guards above still apply)"
@@ -155,6 +180,14 @@ check allow "git push origin main"
 # prose needs updating in the same commit, not just this script.
 check allow "git push origin :b1"
 check allow "git push origin :b1 main"
+
+# The other half of the documented gap, settled by measurement (#149): bundled short options
+# (-fd, -df) are parsed by git itself as force+delete, and no deny rule here matches a bundled
+# spelling -- only the unbundled --force/-f/--delete/-d/--mirror/+ forms in leading or trailing
+# position. These stay `allow` on purpose; if a future rule change makes either `deny`,
+# BASELINE.md's prose needs updating in the same commit, not just this script.
+check allow "git push -fd origin main"
+check allow "git push -df origin main"
 
 echo "$((total - fail))/$total passed"
 [ "$fail" -eq 0 ]

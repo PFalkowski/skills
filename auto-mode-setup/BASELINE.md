@@ -73,8 +73,10 @@ The `git push` rules above come in pairs because the flag can land as the last t
 single trailing-wildcard rule only covers the second shape once the pattern already has an earlier
 wildcard — see the syntax reminders at the top of this file. The leading-flag rules
 (`Bash(git push --force:*)` and siblings) stay too: they catch the flag written right after `push`,
-a shape the `* --flag` rules do not match. One destructive shape has no expressible rule at all —
-see the note under the allow list below, where `git push` itself is granted.
+a shape the `* --flag` rules do not match. These pairs cover every **unbundled** spelling of each
+flag. They do not, and cannot, cover a bundled short option like `-fd` or `-df` — see the note
+under the allow list below, where `git push` itself is granted, for the full, measured statement of
+what that leaves open.
 
 The six `git worktree remove` rules exist because the grant below hands out `Bash(git worktree
 remove:*)` for `cleanup=allow`, and that verb accepts a `--force`/`-f` flag that discards a
@@ -259,25 +261,43 @@ Bash(dotnet --list-sdks:*)
 `gh api` is read-only only by convention — it will happily `-X DELETE`. Narrow it to
 `Bash(gh api -X GET:*)` if the tree contains repos you do not control.
 
-`Bash(git push:*)` relies entirely on the deny-list pairs above to stay safe: `--force`, `-f`,
-`--delete`, `-d`, `--mirror`, and the `+` force-refspec are all blocked, in both leading and
-trailing position. The colon delete-refspec is the open question. `git push <remote> :<branch>` as
-the bare, final-token form gets through — that much is settled. What happens when something follows
-the colon-refspec (`git push origin :b1 main`) is **disputed and currently unresolved**: one review
-measured `Bash(git push * :* *)` against a live `claude -p` session and found it inert — the command
-reached git regardless of the rule — and concluded that `:*` is always read as the ordinary
-trailing-wildcard suffix, never a literal colon, no matter where in the pattern it sits. A later
-review, working from Claude Code's own published permission-matching rules rather than a fresh live
-run, derived the opposite for this specific shape: that a `:*` not at the pattern's own end is a
-literal colon followed by an unconstrained wildcard, so `Bash(git push * :* *)` would in fact deny
-`git push origin :b1 main` (though it still would not catch the bare `git push origin :b1`, which
-has no token after the colon for that trailing `*` to match). Neither account has re-run the other's
-method to settle which is right, and no such rule currently sits in the deny block above — it was
-added, judged inert by the live measurement, and removed. Until a live test actually settles this,
-treat **both** shapes of the colon-refspec — bare and with something after it — as ungated; the
-rule's absence from the deny list means the multi-token form must be assumed open, not assumed
-closed on the strength of an argument nobody has run against real git. `--force-with-lease` also
-stays ungated, as noted above, deliberately.
+**`Bash(git push:*)` is a deliberate, accepted risk, not an oversight — the repository owner was
+shown the gap below in full and chose to keep the grant anyway.** The deny-list pairs above are a
+real, measured improvement: every **unbundled** destructive spelling — `--force`, `-f`, `--delete`,
+`-d`, `--mirror`, and the `+` force-refspec, in both leading and trailing position — is genuinely
+blocked. `Bash(git push:*)` does not undo any of that.
+
+What it does not close off, stated in full rather than as a single shape, because both halves are
+now measured, not modelled:
+
+- **Bundled short options.** `git push -fd origin main` and `git push -df origin main` are parsed
+  by git itself as force *plus* delete in one token, confirmed by direct test against real git (a
+  control flag, `--bogusflag`, is rejected at option-parsing time; `-fd`/`-df` are not — they reach
+  the remote and fail there instead). No deny rule here catches them: per the documented matching
+  rules, `Bash(git push -f:*)` is equivalent to `Bash(git push -f *)`, and the space before a
+  trailing `*` is part of the pattern — the same reason `Bash(ls *)` does not match `lsof`. `-fd`
+  has a `d` where the rule needs a space, so it slips every `-f` and every `-d` rule for exactly
+  that reason, and the same holds for `-df`. **This is not patchable with a cleverer pattern**: a
+  Bash rule's `*` is arbitrary-text substitution with no character classes and no alternation, so
+  no finite rule set covers `-f`, `-fd`, `-df`, and `-xfz` alike. Do not "fix" this later by
+  enumerating more bundled spellings — there is no ceiling on how many exist.
+- **The colon delete-refspec.** `git push <remote> :<branch>` reaches git ungated, both as the
+  bare, final-token form (`git push origin :b1`) and with more after it (`git push origin :b1
+  main`). A candidate deny rule, `Bash(git push * :* *)`, was tried and measured live: it produced
+  no permission denial for either shape, so it was removed rather than left in the file implying
+  protection it does not provide.
+
+Measured live against a scratch repo with a nonexistent remote (so an allowed command reaches git
+and fails with git's own "fatal: … does not appear to be a git repository", while a denied one
+produces a `permission_denials` entry and never touches git): `git push -fd origin main` and `git
+push -df origin main` both came back allowed, with no denial recorded, while `git push -f origin
+main`, `git push origin main --force`, `git push --mirror origin`, and `git push origin +a:b` were
+all blocked as their matching deny rules intend. `--force-with-lease` stays ungated too, as noted
+above, deliberately — it is the safe form.
+
+**If this risk stops being acceptable, the reversal is one line:** remove `Bash(git push:*)` from
+the allow list. That restores prompting on every `git push` and touches no deny rule — the pairs
+above stay exactly as protective as they are today.
 
 ---
 
