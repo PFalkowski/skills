@@ -62,7 +62,7 @@ Every line carries its reason and evidence so the agent can push back with facts
 
 ## The journal
 
-`.agents/manager/journal.md`, append-only, one line per decision — every skill's run logs belong under `.agents/<skill>/`, so a reader finds them all in one place:
+`.agents/manager/journal.md`, append-only, one line per decision — every skill's run logs belong under `.agents/<skill>/` (the full convention, including the override variable, is in [docs/agent-state.md](../docs/agent-state.md)), so a reader finds them all in one place:
 
 ```
 [MM-DD HH:mm] <subject> <A#> <VERDICT> <ask in ≤12 words> — <reason> [<evidence>] → told <agent/channel>
