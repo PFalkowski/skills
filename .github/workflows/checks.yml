@@ -18,6 +18,7 @@ jobs:
           bash scripts/check-state-paths.sh
           bash scripts/check-state-paths.test.sh
           bash dead-branch-guard/scripts/pre-push.test.sh
+          bash auto-mode-setup/scripts/deny-rules.test.sh
           for t in .claude/workflows/*.test.js clean-room/*.test.mjs; do
             node --test "$t"
           done
