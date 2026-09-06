@@ -96,7 +96,9 @@ Issues are groomed with the `triage` skill into three label lanes (category, sta
 
 ## Global CLAUDE.md
 
-The author's global `~/.claude/CLAUDE.md` is this repo's [CLAUDE.md](CLAUDE.md), which Claude Code also loads for every session here. Install it globally with `cp CLAUDE.md ~/.claude/CLAUDE.md`. It sets one worktree per branch, `sdlc-old-fashioned` under the `manager` as the default process, PR-by-default delivery with an adversarial review and a fix round before the human reviews the PR in the browser, and `less-is-more` plus `no-comment` as the quality gate.
+The author's global `~/.claude/CLAUDE.md` is this repo's [CLAUDE.md](CLAUDE.md), which Claude Code also loads for every session here. It sets one worktree per branch, `sdlc-old-fashioned` under the `manager` as the default process, PR-by-default delivery with an adversarial review and a fix round before the human reviews the PR in the browser, and `less-is-more` plus `no-comment` as the quality gate.
+
+On Windows, `./link-skills.ps1` (below) offers to install it for you — pass `-ClaudeMd Replace|Append|Merge` to choose how, or `-ClaudeMd Ask` to be prompted interactively (left unset, it installs nothing). Elsewhere, install it with `cp CLAUDE.md ~/.claude/CLAUDE.md`.
 
 ## Local development (maintainers)
 
@@ -111,6 +113,8 @@ Link every skill in this repo into both `~/.claude/skills/` and `~/.agents/skill
 ```
 
 Idempotent and self-healing — run it after adding a skill or to repair a machine: already-correct links are left alone (`=`), missing ones are created (`+`), and stale copies / wrong targets are replaced with a junction (`~`). Junctions need no admin rights or developer mode.
+
+It also offers to install the repo's [CLAUDE.md](CLAUDE.md) to `~/.claude/CLAUDE.md`: left unset it always does nothing (never prompts, never writes), so it can never block an unattended run — there is no reliable way to detect "interactive" from inside the process, so an unset default is never allowed to guess its way into a prompt. Pass `-ClaudeMd Skip|Replace|Append|Merge` to write directly, or `-ClaudeMd Ask` to be prompted (which itself falls back to doing nothing off anything but a real interactive console). `Merge` shells out to `claude -p` to reconcile the two files and always backs up the existing file first.
 
 ### macOS / Linux
 
