@@ -95,9 +95,24 @@ albums, faces, and all metadata. Back up both, and dump the database rather than
 its files while it runs:
 
 ```bash
-docker exec -t immich_postgres pg_dumpall --clean --if-exists -U "$DB_USERNAME" \
-  | gzip > /srv/dev-disk-by-uuid-<DISK_UUID>/backups/immich-$(date +%F).sql.gz
+BACKUP_ROOT=/srv/dev-disk-by-uuid-<DISK_UUID>
+dump="$BACKUP_ROOT/backups/immich-$(date +%F).sql.gz"
+
+# The destination is removable, and an unmounted mount point is an ordinary directory.
+# Without this the backup writes itself onto the OS disk it exists to protect.
+mountpoint -q "$BACKUP_ROOT" || { echo "backup disk detached" >&2; exit 1; }
+
+# Opening the redirect creates the file whether or not the dump works, so a failed
+# pg_dumpall leaves a few bytes wearing a backup's name. Rename only once it is real.
+docker exec -t immich_postgres pg_dumpall --clean --if-exists -U "$DB_USERNAME"   | gzip > "$dump.partial"
+gzip -t "$dump.partial" && [ "$(stat -c %s "$dump.partial")" -ge 1048576 ]   || { echo "dump failed" >&2; rm -f "$dump.partial"; exit 1; }
+mv "$dump.partial" "$dump"
 ```
+
+Both guards are there because both have fired on a real box. Whatever prunes old dumps must
+run *after* a successful one, or a fortnight of failures takes the last good copy with it.
+And if the library is mirrored with `rsync --delete`, guard the source the same way: "empty
+because its disk went away" is a deletion, and `--delete` will propagate it.
 
 ## Script
 
