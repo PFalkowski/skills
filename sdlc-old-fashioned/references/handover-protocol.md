@@ -27,7 +27,7 @@ docs/sdlc/
     2026-07-06-retro.md                # Phase 13 output — a few lines, committed
 ```
 
-Confirm the repo's `.gitignore` carries the wholesale `.agents/` line in Phase 1, which covers this whole root. The canonical, replayable transcript is *also* written by the harness itself (see "Transcript capture" below) — the `.log` is the convenience copy.
+`docs/sdlc/` is the **default** home for the durable deliverables, not a fixed one: where the repo already names its own home for agent process records (a `CLAUDE.md`/`AGENTS.md` rule, an agent-docs index), Phase 1 finds it and the spec, plan, review notes and retro are written there instead. Confirm the repo's `.gitignore` carries the wholesale `.agents/` line in Phase 1, which covers this whole root. The canonical, replayable transcript is *also* written by the harness itself (see "Transcript capture" below) — the `.log` is the convenience copy.
 
 ## Orient & isolate (Step 0.7)
 
@@ -92,6 +92,9 @@ skip it; if you skip a trigger that clearly fired, say so in RESULT.
 ## Definition of done for THIS run
 1. Meet the GATE above.
 2. Update .agents/sdlc-old-fashioned/backlog.md — item state, phase, the `Current` block, timestamp.
+   <A read-only phase whose output is a PR comment — Phase 9 review, say — still writes its
+   RESULT to the backlog, but is not asked to commit anything: never demand a commit from a
+   phase that has nothing committable.>
 3. Write your artifacts to <paths>.
 4. Any work outside this slice's scope → file it as an issue / backlog item. Do NOT act on it.
 5. Print a `RESULT` block, ≤10 lines: gate met (y/n), artifacts written, backlog updated, blockers, recommended next phase, and — last, mandatory — what in this brief was wrong ("nothing" is an answer; silence is not).
@@ -175,7 +178,7 @@ It checks the gate against those, writes its decision (scope change, revised fig
 - <one-liners a fresh reader needs; link ADRs>
 ```
 
-`state` ∈ `Todo | Doing | Done` (mirror your tracker's columns if it has different names). The **`Current` block is the contract**: any human or freshly-spawned agent reads it first and knows the live state without replaying anything.
+`state` ∈ `Todo | Doing | Done` (mirror your tracker's columns if it has different names). Mark a slice **test-only** or **impl-only** in its title when the plan pairs it with another slice for its RED or its GREEN — not every slice owns both halves of Phase 7/8. The **`Current` block is the contract**: any human or freshly-spawned agent reads it first and knows the live state without replaying anything. Before writing the next brief, **the conductor reads the target slice's row and RESULT, not just the phase number** — a slice already `Done` needs no RED dispatched against it, even when the phase counter says "next is 7".
 
 ## Permissions & safety
 
