@@ -95,9 +95,45 @@ albums, faces, and all metadata. Back up both, and dump the database rather than
 its files while it runs:
 
 ```bash
-docker exec -t immich_postgres pg_dumpall --clean --if-exists -U "$DB_USERNAME" \
-  | gzip > /srv/dev-disk-by-uuid-<DISK_UUID>/backups/immich-$(date +%F).sql.gz
+BACKUP_ROOT=/srv/dev-disk-by-uuid-<DISK_UUID>
+dump="$BACKUP_ROOT/backups/immich-$(date +%F).sql.gz"
+
+# The destination is removable, and an unmounted mount point is an ordinary directory.
+# Without this the backup writes itself onto the OS disk it exists to protect.
+mountpoint -q "$BACKUP_ROOT" || { echo "backup disk detached" >&2; exit 1; }
+
+# No -t. A pty rewrites every LF as CRLF - including inside the COPY ... FROM stdin
+# blocks, whose lines are read literally on restore - and folds stderr into the archive.
+# Opening the redirect also creates the file whether or not the dump works, so write
+# under .partial and rename only once the completion trailer proves it ran to the end.
+docker exec immich_postgres pg_dumpall --clean --if-exists -U "$DB_USERNAME" \
+  | gzip > "$dump.partial"
+gzip -t "$dump.partial" \
+  && gzip -dc "$dump.partial" | tail -5 | grep -q 'database cluster dump complete' \
+  || { echo "dump incomplete" >&2; rm -f "$dump.partial"; exit 1; }
+mv "$dump.partial" "$dump"
 ```
+
+Check the trailer rather than a minimum size: an empty input compresses to a perfectly
+valid 20-byte gzip that `gzip -t` accepts, and a size floor large enough to catch that will
+also fail shut on a freshly restored cluster that is legitimately small.
+
+Whatever prunes old dumps must run *after* a successful one, or a fortnight of failures
+takes the last good copy with it. If the library is mirrored with `rsync --delete`, guard
+the source the same way: "empty because its disk went away" is a deletion, and `--delete`
+will propagate it.
+
+**Restore, and test it.** A dump nobody has restored is a hypothesis. Dumps taken with the
+old `-t` need their line endings stripped on the way in:
+
+```bash
+gzip -dc immich-<date>.sql.gz | tr -d '\r' | docker exec -i immich_postgres psql -U postgres
+```
+
+Both guards are there because both have fired on a real box. Whatever prunes old dumps must
+run *after* a successful one, or a fortnight of failures takes the last good copy with it.
+And if the library is mirrored with `rsync --delete`, guard the source the same way: "empty
+because its disk went away" is a deletion, and `--delete` will propagate it.
 
 ## Script
 
