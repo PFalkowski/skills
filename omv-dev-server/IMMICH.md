@@ -102,10 +102,12 @@ dump="$BACKUP_ROOT/backups/immich-$(date +%F).sql.gz"
 # Without this the backup writes itself onto the OS disk it exists to protect.
 mountpoint -q "$BACKUP_ROOT" || { echo "backup disk detached" >&2; exit 1; }
 
-# No -t. A pty rewrites every LF as CRLF - including inside the COPY ... FROM stdin
-# blocks, whose lines are read literally on restore - and folds stderr into the archive.
-# Opening the redirect also creates the file whether or not the dump works, so write
-# under .partial and rename only once the completion trailer proves it ran to the end.
+# No -t. Its pty folds stderr into stdout, so anything pg_dumpall warns about lands inside
+# the archive. (It also rewrites LF as CRLF, which turns out to be harmless: COPY ... FROM
+# stdin accepts CRLF as an end-of-line and such dumps restore correctly - verified, after
+# being wrongly written up here as corrupt.) Opening the redirect also creates the file
+# whether or not the dump works, so write under .partial and rename only once the
+# completion trailer proves it ran to the end.
 docker exec immich_postgres pg_dumpall --clean --if-exists -U "$DB_USERNAME" \
   | gzip > "$dump.partial"
 gzip -t "$dump.partial" \
@@ -123,12 +125,19 @@ takes the last good copy with it. If the library is mirrored with `rsync --delet
 the source the same way: "empty because its disk went away" is a deletion, and `--delete`
 will propagate it.
 
-**Restore, and test it.** A dump nobody has restored is a hypothesis. Dumps taken with the
-old `-t` need their line endings stripped on the way in:
+**Restore, and test it.** A dump nobody has restored is a hypothesis with a filename. A
+throwaway container settles it and costs nothing:
 
 ```bash
-gzip -dc immich-<date>.sql.gz | tr -d '\r' | docker exec -i immich_postgres psql -U postgres
+img=$(docker inspect immich_postgres --format '{{.Config.Image}}')
+docker run -d --name rt -e POSTGRES_PASSWORD=x "$img"
+gzip -dc immich-<date>.sql.gz | docker exec -i rt psql -U postgres
+docker exec rt psql -U postgres -d immich -tAc 'select count(*) from asset'
+docker rm -f rt
 ```
+
+Compare that count with production before trusting the dump, and never restore into the live
+container to find out.
 
 Both guards are there because both have fired on a real box. Whatever prunes old dumps must
 run *after* a successful one, or a fortnight of failures takes the last good copy with it.
