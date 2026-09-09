@@ -10,18 +10,7 @@ metadata:
 
 # reflect
 
-*"What am I assuming, and which of it would sink the work if wrong?"*
-
-Agents fail this in two directions at once, and both come from one root cause. They stop to ask about a
-branch name or a filename, because a fork they can *see* feels like a decision. Then they build on the wrong
-target framework, delete a function that has callers, or violate a constraint the ticket stated, because an
-assumption they filled in *without noticing* never felt like a decision at all. The visible fork is cheap; the
-invisible one is load-bearing. The agent asks about the first and never ranks the second, because it never
-wrote it down.
-
-`reflect` is the missing upstream step: **enumerate the assumptions, rank them by load, route each.**
-[`whatever`](../whatever/SKILL.md) is the routing rule for the cheap ones. [`fact-check`](../fact-check/SKILL.md)
-grounds a claim once you have one. Neither produces the list. This does.
+**Enumerate the assumptions, rank them by load, route each.**
 
 ## When to reflect
 
@@ -60,8 +49,7 @@ The wrong question is "how sure am I?". The right one is:
 - **Low load**: wrong means a one-line correction from the user. The work merely *touches* it.
 
 Certainty is irrelevant to the ranking. A 95%-confident high-load assumption still needs grounding; a
-coin-flip low-load one still gets defaulted. Agents get this backwards because uncertainty is what they
-*feel*, and load is what they have to *compute*.
+coin-flip low-load one still gets defaulted.
 
 ### Route each item
 
@@ -70,8 +58,7 @@ and takes the first that applies.
 
 1. **Discoverable → go look. Never ask what the repo can answer.** The target framework is in the project
    file. Whether a function has callers is one grep. What the ticket forbids is in the ticket. The house
-   conventions are in the README, CLAUDE.md, or the last ten commits. The details agents miss are usually
-   the ones nobody looked up: skipped reading, then a guess or a question the code would have answered.
+   conventions are in the README, CLAUDE.md, or the last ten commits.
    Cite the `path:line` in the ledger once found.
 2. **Executable or documentable → [`fact-check`](../fact-check/SKILL.md).** A behaviour, a limit, a version,
    an API contract. Run it or cite it.
@@ -88,7 +75,7 @@ and takes the first that applies.
 
 ### Pre-mortem for the unknown column
 
-You cannot rank an assumption you never wrote down. Two prompts reliably surface the missed ones:
+Two prompts reliably surface the missed ones:
 
 - **"The user rejects this work. Why?"** Answer it three times with three different reasons. Each reason is
   an assumption; add it to the ledger and route it.
@@ -96,7 +83,7 @@ You cannot rank an assumption you never wrote down. Two prompts reliably surface
   which environments), constraints (compatibility, public API, performance, security), definition of done
   (tests, docs, migration), and the thing the ticket mentioned in passing that you skimmed.
 
-Then route the new items like the rest. This step is where the "critical detail the agent missed" gets caught.
+Then route the new items like the rest.
 
 ## Emitting the ledger
 
@@ -130,10 +117,8 @@ same rule applies to you.
 
 ## Are we still going the right way?
 
-Assumptions are not the only thing that drifts. Agents drift into **solving a peculiarity**: a flaky test, a
-build quirk, a library edge case, an environment mismatch. Each step is locally reasonable, and after twenty
-of them the session is deep in a problem that the bigger picture never needed solved. The objective did not
-change; the agent's attention did.
+Agents drift into **solving a peculiarity**: a flaky test, a
+build quirk, a library edge case, an environment mismatch.
 
 At every checkpoint, and whenever the last several steps were all about one obstacle, ask three questions:
 
@@ -151,8 +136,7 @@ is not solved, **stop solving it and work around it**: skip the flaky test with 
 the environment, narrow the scope, or ship without the piece and flag it. Record the obstacle in the deliverable
 as an open item with what was tried, so it is not lost. Then return to the objective.
 
-The box exists because the sunk cost of twenty steps is what keeps an agent on step twenty-one. The
-decision to stop is made when the box is set, not when it is spent.
+The decision to stop is made when the box is set, not when it is spent.
 
 ### Push back
 
@@ -172,8 +156,7 @@ For load-bearing work (a public API, a migration, a security-sensitive change, a
 [`sdlc-old-fashioned`](../sdlc-old-fashioned/SKILL.md) would take), the author of a plan is the worst person to
 find its unstated assumptions. Spawn a fresh subagent that never saw the reasoning, hand it only the request
 and the plan, and ask it for the ledger: what is inferred, what is high-load, what the pre-mortem turns up.
-Merge its findings into yours. This is the [`code-review-grill`](../code-review-grill/SKILL.md) stance applied
-to a plan instead of a diff. Optional, not the default.
+Merge its findings into yours. Optional, not the default.
 
 ## Anti-patterns
 

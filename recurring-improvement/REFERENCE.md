@@ -1,8 +1,5 @@
 # recurring-improvement — reference
 
-Details kept out of `SKILL.md`: the `docs/<process>/` convention, the signal
-sources for Half A, the finding→route table, and the default backlog rows.
-
 ## The `docs/<process>/` house style
 
 Every recurring task drives one process folder. `<process>` is a placeholder —
@@ -17,14 +14,13 @@ substitute the task's name (`security-audit`, `test-coverage`, …). The shape:
     <artifacts>         # optional supporting files
 ```
 
-Run reports stay out of source control (owner decision): tracked run artifacts
-are exactly the derived, drifting layer these processes exist to fight. The
+Run reports stay out of source control (owner decision). The
 INDEX row (headline carries every still-`open` ID) and the run's PR
 description are what survive; gate evidence is pasted into the PR/issue, where
 GitHub permalinks it.
 
 - **INDEX.md is the ledger.** One row per run: `Date (→ run) │ New │ Closed │ Regressed │ Headline`. The `Closed`/`Regressed`/`New` columns track movement vs the previous run.
-- **Stable IDs across runs.** Findings/items get persistent IDs (e.g. `RI-0001`, or a process-specific prefix like `SEC-0001`) with a **state**: `open` / `accepted` (out of scope for now, kept for a future run) / `wontfix` / `fixed` / `regressed`. A later run *promotes/closes* existing IDs rather than re-finding them. This is what makes "what were we missing since last run" tractable: an `open` item stays open until addressed.
+- **Stable IDs across runs.** Findings/items get persistent IDs (e.g. `RI-0001`, or a process-specific prefix like `SEC-0001`) with a **state**: `open` / `accepted` (out of scope for now, kept for a future run) / `wontfix` / `fixed` / `regressed`. A later run *promotes/closes* existing IDs rather than re-finding them. An `open` item stays open until addressed.
 - **RUNBOOK carries scope calibration.** State what's IN and OUT of scope for the repo's current stage, so a run doesn't manufacture work (a pre-production repo defers production-grade hardening; a library defers app concerns). The skill reads this before doing the process.
 - **Machine-readable config as data.** Thresholds, path globs, and commands a process needs live as data the user edits (a fenced block in the RUNBOOK or a sibling JSON), not hardcoded in prose.
 

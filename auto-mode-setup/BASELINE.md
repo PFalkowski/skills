@@ -1,8 +1,7 @@
 # Baseline rule sets
 
 Starting points, not a drop-in file. Every rule below carries the reason it exists so you can drop
-the ones that do not apply to the tree in front of you. A rule nobody can justify is a rule that
-gets deleted in six months by someone who assumes it was cargo-culted.
+the ones that do not apply to the tree in front of you.
 
 Rule syntax reminders that bite in practice:
 
@@ -144,8 +143,6 @@ Bash(kubectl delete:*)
 Bash(dotnet ef database drop:*)
 ```
 
-`dotnet ef database drop` and `az group delete` are the two that turn a bad night into a bad week.
-
 Enumerate the specific `az ... delete` verbs rather than writing `Bash(az * delete:*)`. The broad
 form is tempting, but deny carries no exceptions, so the first repo that legitimately needs one
 delete verb forces you to unpick the whole rule. Listing them costs ten lines and stays surgical.
@@ -169,7 +166,7 @@ Bash(docker volume rm:*)
 Bash(docker volume prune:*)
 ```
 
-The failure mode is the point. In an interactive session these prompt, and you approve them in a
+In an interactive session these prompt, and you approve them in a
 second. In an unattended run there is nobody to answer, so the agent **stalls instead of applying**
 — exactly the outcome you want from `terraform apply` at 03:00.
 
@@ -272,8 +269,7 @@ real, measured improvement: every **unbundled** destructive spelling — `--forc
 `-d`, `--mirror`, `--prune`, and the `+` force-refspec — in both leading and trailing position, is
 genuinely blocked. `Bash(git push:*)` does not undo any of that.
 
-What it does not close off, stated in full rather than as a single shape, because both halves are
-now measured, not modelled:
+What it does not close off:
 
 - **Bundled short options.** `git push -fd origin main` and `git push -df origin main` are parsed
   by git itself as force *plus* delete in one token, confirmed by direct test against real git (a
@@ -371,7 +367,7 @@ costs no permission at all, applies to human merges too, and leaves `git push or
 denied where it belongs.
 
 **Grant this to repos you own.** These verbs write to a tracker and a branch, and on a public repo
-a comment is publication. That is the reason they live here and not in the baseline.
+a comment is publication.
 
 **An infrastructure repo** — grant the read half only, and leave `apply` to a human:
 

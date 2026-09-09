@@ -24,7 +24,7 @@ Use `–` in an agent's cell when that agent did not flag the row.
 | 🔭 | observability | Can this be operated once it breaks? A new failure path that logs nothing, a job or worker with no success/failure signal, an exception swallowed into silence, instrumentation deleted with the code it measured, a health check that cannot fail, an alert routed nowhere. |
 | 🧪 | tests | Coverage of the change, missing edge/negative cases, flakiness, assertion strength. |
 
-**Auto-pick heuristic** (when the user picks quorum but names no concerns) — **always include 🧹 code-quality and 📚 documentation & conventions** (the latter is near-mandatory: every diff must be judged against the repo's documented patterns/ADRs/architecture, so this concern fires almost always); add the rest when the diff shows their trigger:
+**Auto-pick heuristic** (when the user picks quorum but names no concerns) — **always include 🧹 code-quality and 📚 documentation & conventions**; add the rest when the diff shows their trigger:
 - 🔒 if it touches auth, SQL/query building, crypto, file/network I/O, deserialization, secrets, or dependencies.
 - 🏛 if it changes public signatures, module boundaries, or has a wide Step-3 ripple set.
 - ⚡ if it touches loops over data, queries, caching, concurrency, or known hot paths.
@@ -53,7 +53,7 @@ Use `–` in an agent's cell when that agent did not flag the row.
 | **in-repo** | broken invariant / ripple / dependent | the exact `path:line` of the relying caller, the relevant lines quoted, and the `grep`/command that found them |
 | **source** | doc / API / version / standards claim | a working **deep link** to the authoritative section (≥2 for consequential claims), with the relevant text quoted |
 
-The documentation agent's `source` `detail` must be a working deep link (≥2 for consequential claims) — never "I believe" with no link. When a snippet cannot be made to reproduce the issue, that is itself a result: drop or downgrade the finding.
+When a snippet cannot be made to reproduce the issue, that is itself a result: drop or downgrade the finding.
 
 ## Brief templates
 

@@ -1,6 +1,6 @@
 # Writing agent briefs
 
-A brief is the contract a worker builds from. The issue body and discussion are context; the brief is the spec.
+The issue body and discussion are context; the brief is the spec.
 
 It may sit unclaimed for weeks while the codebase moves underneath it, so write it to survive that.
 
@@ -67,5 +67,4 @@ Those are three items with different owners. Only the first is agent work — th
 different blast radii, and the third is an investigation that the first one's answer might make unnecessary.
 
 So the brief covers the measurement, states in acceptance criteria that **zero affected rows is a publishable
-result**, and lists the other two under out-of-scope with one line each on why they are held back. The reader
-learns not just what to do but what someone already decided not to ask for.
+result**, and lists the other two under out-of-scope with one line each on why they are held back.

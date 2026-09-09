@@ -1,8 +1,5 @@
 # Immich under the OMV Compose plugin
 
-Immich is a self-hosted photo library. On an OMV box the interesting part is not Immich,
-it is *who owns the compose file*.
-
 ## Use the OMV Compose plugin, and know what it does
 
 Install `openmediavault-compose` from omv-extras, then add Immich as a compose file through
@@ -24,9 +21,7 @@ The header OMV writes into that file is not decoration:
 ```
 
 **Edit the compose through the OMV UI, never on disk.** A hand edit survives until the next
-apply and then vanishes, which produces the worst class of bug: a config that worked
-yesterday, no diff explaining why it stopped, and a service that is now running something
-you did not write. If you need something OMV's field cannot express, use
+apply and then vanishes. If you need something OMV's field cannot express, use
 `compose.override.yml`, which the plugin leaves for exactly this.
 
 Note the symlink pair. `docker compose` looks for `compose.yml` and `.env`; OMV names its
@@ -55,8 +50,7 @@ the database, and `POSTGRES_INITDB_ARGS: '--data-checksums'`. The second only ta
 at *initialisation* — setting it after the cluster exists does nothing, and fixing it later
 means a dump and restore.
 
-Upstream pins the database and redis images **by digest**. Keep the digests. A photo library
-whose vector extension changes version underneath it is not a pleasant afternoon.
+Upstream pins the database and redis images **by digest**. Keep the digests.
 
 Do not copy a `version:` key from an old example. Compose v2 ignores it and warns; upstream
 uses a `name:` key instead.
@@ -129,11 +123,6 @@ old `-t` need their line endings stripped on the way in:
 ```bash
 gzip -dc immich-<date>.sql.gz | tr -d '\r' | docker exec -i immich_postgres psql -U postgres
 ```
-
-Both guards are there because both have fired on a real box. Whatever prunes old dumps must
-run *after* a successful one, or a fortnight of failures takes the last good copy with it.
-And if the library is mirrored with `rsync --delete`, guard the source the same way: "empty
-because its disk went away" is a deletion, and `--delete` will propagate it.
 
 ## Script
 

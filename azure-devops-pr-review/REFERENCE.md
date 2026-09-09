@@ -1,7 +1,6 @@
 # Azure DevOps PR review — reference
 
-Detail behind the [SKILL.md](SKILL.md) workflow: the auth model, the thread/comment JSON schema, and
-how to discover REST resources. All examples use placeholders `<ORG>` `<PROJECT>` `<REPO>` `<PR_ID>`
+All examples use placeholders `<ORG>` `<PROJECT>` `<REPO>` `<PR_ID>`
 and commit shas `<sourceCommit>` (PR head) / `<targetCommit>` (merge target).
 
 ## Auth model — what works, what doesn't
@@ -29,8 +28,7 @@ recognise in redirect URLs); it is not a secret.
 - at `--api-version 6.0/7.0`: `ERROR: --resource and --api-version combination is not correct`
 - at preview versions: `ERROR: could not convert string to float: '7.1.1'` (a version-parse bug).
 
-Cloning and running `git diff <target>...<source>` is both reliable and gives you the full tree to
-read for context. Clean up the temp clone when done.
+Clean up the temp clone when done.
 
 ## Posting comments — thread JSON schema
 

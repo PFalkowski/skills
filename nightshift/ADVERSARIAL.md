@@ -2,7 +2,7 @@
 
 For the minority of backlog items where correctness depends on **claims about the world** rather than on a unit test compiling and passing. Two subagents with no shared context — a generator drafts, a reviewer adversarially re-fetches every cited source.
 
-The default second pass for code items is [CODE-REVIEW.md](CODE-REVIEW.md). Use *this* mode instead when an item's main risk is external-fact accuracy: data copied from web sources or docs, citations supporting numeric claims, version/compatibility facts, or entity attributes that only a fetch can verify. Most items are code and never need this mode.
+The default second pass for code items is [CODE-REVIEW.md](CODE-REVIEW.md). Use *this* mode instead when an item's main risk is external-fact accuracy: data copied from web sources or docs, citations supporting numeric claims, version/compatibility facts, or entity attributes that only a fetch can verify.
 
 ## When to use this mode
 
@@ -228,18 +228,14 @@ A round that lands 3-of-3 accepted with 1 downgrade is a productive round. A rou
 
 ## Fold-back to the rules (mandatory before exit)
 
-The reviewer's "next-cycle prompt-tuning notes" are the active output of this pattern — more important than the per-item accept/reject decisions, because they compound. Each round earns 2-6 concrete proposed rule changes; if they only land in the per-run markdown file, they're read once by the morning reviewer and forgotten by the time the next cycle runs. The next generator and reviewer would re-discover the same lessons from scratch.
-
-**Before the run exits, fold the observations into the right skill file.** This is step 1 of LOOP.md's "Exit + summary" section — restated here because source-verification runs are the most lesson-dense and miss this most often.
+**Before the run exits, fold the observations into the right skill file.** This is step 1 of LOOP.md's "Exit + summary" section.
 
 The split:
 - **Project-specific rules** stay in the project skill (the one whose data shape, source allowlist, or domain conventions the rule references). New numbered rules go in the "Cumulative hard rules" section; sub-bullets clarifying existing rules go under the parent rule.
 - **Project-agnostic rules** go into this generic skill — `SKILL.md` "Source-verification rules that transfer across projects" for top-level lessons, `ADVERSARIAL.md` for mode-specific lessons.
 - **Worked examples** (what failed, how the rule caught it the next round) belong in the project skill's run-history table — they keep the generic skill project-neutral.
 
-The cumulative-rules list grows monotonically. Rules earned from failures don't leave; the generator and reviewer prompts pick them up automatically on the next cycle because the prompts read the SKILL file fresh each time.
-
-A pragmatic test: if your exit summary says "6 tuning observations surfaced this run" but the `Folded into skills` line is empty, you've left 5 of them on the floor. Fold them. It's two file edits and a commit per skill touched.
+The cumulative-rules list grows monotonically. Rules earned from failures don't leave.
 
 ## Backfilling a historical series (when an item is "fill historical data")
 
@@ -263,12 +259,3 @@ Mixing per-period is acceptable: some periods from A, others from B, with each e
 - **Generator over-rates confidence to please the reviewer.** Visible signal: the cycle's downgrade rate climbs above 50%. The fix is in the generator prompt's confidence-ladder section, not the reviewer prompt.
 - **Allowing the generator to "fix" failed proposals by editing the validator or quality-bar doc.** Hard rule: the generator works against the rules as published; only the user changes the rules.
 - **Letting `_rejected.log` reasons drift to "no good".** Each rejection deserves a specific reason — that text is the next cycle's generator prompt input.
-
-## Layering project-specific rules
-
-The project-agnostic rules in this file are the base. A project that runs
-this pattern keeps its own rules — data-source allowlists, entity-typing
-conventions, field-vs-derived distinctions, and similar domain specifics —
-in a "Cumulative hard rules" section of that project's own SKILL.md,
-layered on top. Keep the two tiers separate so this file stays
-transferable across projects.

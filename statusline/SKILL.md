@@ -52,7 +52,7 @@ down to just the model name.
 ## Rate limits are coloured by pace, not percentage
 
 30% of a weekly quota spent on day 1 projects to 210% and is an emergency; the same 30%
-on day 7 is fine. Raw-percentage colouring paints both green and tells you nothing.
+on day 7 is fine.
 
 `resets_at` is a unix timestamp and the windows are exactly 5h and 7d, so elapsed
 fraction is `(length − remaining) / length` and the projection is `used% ÷ elapsed`.
@@ -82,7 +82,7 @@ Do **not** reverse the payload shape out of the compiled binary — its string t
 keys non-adjacently, and reading adjacency as structure invents fields that do not exist
 while hiding ones that do. Capture ground truth instead: add
 `fs.writeFileSync('<path>', raw)` to the stdin handler, let one render fire, read the
-JSON, remove the probe. Seconds, and exact.
+JSON, remove the probe.
 
 Verified against Claude Code 2.1.221:
 

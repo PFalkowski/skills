@@ -11,18 +11,12 @@ metadata:
 
 # auto-mode-setup
 
-Unattended runs fail in two directions. Too few permissions and the agent stalls on a prompt at
-02:00 with nobody watching. Too many and it force-pushes over a week of work. This skill sets both
-edges deliberately, from evidence rather than guesswork.
-
 ## The one thing to get right first
 
 **In auto mode the allowlist is a convenience. The deny list is the safety boundary.**
 
 Auto mode hands the approve/reject decision to a classifier instead of a human. Anything you have
-not denied may therefore be approved without you. So the deny list is the only part of this setup
-that is load-bearing, and it is the part to write first. An allowlist merely saves latency on
-commands the classifier would have waved through anyway.
+not denied may therefore be approved without you. Write the deny list first.
 
 Do this in the order below, not the reverse.
 
@@ -94,8 +88,7 @@ Anything that builds, tests, deploys, or talks to a paid or shared service goes 
 `.claude/settings.json` — never in the baseline. One repo's `dotnet test` is another repo's
 `terraform apply`.
 
-Commit these. They are as much a project artifact as the CI config, and an agent-ready repo should
-stay agent-ready for the next person who clones it.
+Commit these.
 
 Three things a real tree will throw at you here, all of which mean *stop and report* rather than
 work around:
@@ -139,7 +132,7 @@ Report which repos were configured, which were skipped, and what remains prompti
 
 ## Where deny rules do not save you
 
-State this plainly when handing the setup over; it is the gap people assume is covered.
+State this plainly when handing the setup over.
 
 `Read` and `Edit` deny rules cover Claude's own file tools and the file commands it recognises in
 Bash (`cat`, `head`, `sed`). **They do not cover a subprocess that opens files itself** — a Python

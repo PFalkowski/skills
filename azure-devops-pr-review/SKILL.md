@@ -10,7 +10,7 @@ metadata:
 
 # Review an Azure DevOps pull request
 
-> Mechanics only — the plumbing (auth, diff API, console encoding) has sharp edges; this encodes the path that works. Apply your normal review judgement (or run `/code-review`) on the diff it produces.
+> Mechanics only. Apply your normal review judgement (or run `/code-review`) on the diff it produces.
 
 ## Prerequisites
 - `az` CLI with the **azure-devops** extension (`az extension add --name azure-devops`).
@@ -39,7 +39,7 @@ Record the **source** (PR head) and **target** commits, and the repo/project ids
 
 ## 3. Get a reviewable diff (clone — don't fight the diffs API)
 The REST `diffs` resource is unreliable through the extension (a version-parse bug — see REFERENCE).
-Clone and diff locally; this also gives you whole-file context to read, not just hunks:
+Clone and diff locally:
 ```bash
 git clone --no-checkout https://dev.azure.com/<ORG>/<PROJECT>/_git/<REPO> repo && cd repo
 git fetch origin <sourceCommit> <targetCommit>
@@ -47,9 +47,6 @@ git diff --stat <targetCommit>...<sourceCommit>   # 3-dot = changes since the me
 git diff       <targetCommit>...<sourceCommit>
 git checkout <sourceCommit> -- .                   # read files AT PR head for context
 ```
-The three-dot form diffs from `git merge-base <target> <source>`, so you see the PR's own changes,
-not unrelated target-branch drift.
-
 **Resolving an unfamiliar path or symbol** (before, or instead of, the full clone above): both
 `git ls-tree -r <ref> --name-only | grep -i <keyword>` and `git grep <pattern> <ref>` search a remote
 ref directly, no clone/checkout/archive needed. Don't guess a file's path from a class/symbol name

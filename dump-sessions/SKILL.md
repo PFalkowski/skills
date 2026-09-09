@@ -12,11 +12,10 @@ metadata:
 # Dump sessions
 
 Write a single handover covering **every** recently-active Claude Code session, not just the
-current one. The trick: a session agent can only see its own context, but Claude Code flushes
-each session to disk as `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl` on every message.
-Those files are the only part of a session that survives the machine going down — so this reads
-them directly instead of inspecting live processes. It therefore works **after** a crash or
-power cut, when the `claude.exe` processes (and any PEB-based cwd detection) are already gone.
+current one. Claude Code flushes each session to disk as
+`~/.claude/projects/<encoded-cwd>/<session-id>.jsonl` on every message. It works **after** a
+crash or power cut, when the `claude.exe` processes (and any PEB-based cwd detection) are
+already gone.
 
 ## Quick start
 
@@ -71,5 +70,5 @@ file as sensitive.
   can only read them from disk.
 - **snapshot-terminal-sessions** — regenerates the Windows Terminal *tabs* (which repos had a
   session open, how to relaunch them) by inspecting live processes. That recovers the layout;
-  this recovers the *content/state*. They are complementary and neither needs the other — but
-  snapshot only works while the machine is still up, whereas this also works after a crash.
+  this recovers the *content/state*. Snapshot only works while the machine is still up,
+  whereas this also works after a crash.

@@ -1,7 +1,5 @@
 # DOC-TRIAGE — what is true, who says so, and what to do about it
 
-The doctrine behind step 2. The audit proposes; this decides.
-
 ## The source of truth is per *claim*, not per *document*
 
 The most common mistake is picking a winner between two documents. Ask instead what **kind of
@@ -88,7 +86,6 @@ but it is still the user's call. Deletion is invisible to the reader who needed 
 
 ## Close the loop: what stops it drifting again?
 
-A cleanup that does not answer this buys a quarter. For each area you touched, name the mechanism —
-generate it, make a test assert it, move the claim next to the code that would break it, add a CI
-check on the link, or **accept that it will drift and delete it now**. The consolidation phase of
-the audit reports the *pattern* precisely so this can be answered once instead of per document.
+For each area you touched, name the mechanism — generate it, make a test assert it, move the claim
+next to the code that would break it, add a CI check on the link, or **accept that it will drift
+and delete it now**.

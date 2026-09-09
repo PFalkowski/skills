@@ -11,29 +11,25 @@ metadata:
 
 # clean-room
 
-**Two passes. One brief. Nothing else crosses.**
-
-A clean-room implementation is not a promise that you did not copy — it is a **process that makes copying impossible and the absence of copying provable**. The proof is the artefact. If the only evidence is "I read it, then I wrote my own version, trust me", you have a clean-room *intention*, not a clean room.
-
 ## When to reach for this
 
 Use it when **all three** hold:
 
 1. You have (or want) access to a source you may **not** incorporate — incompatible licence, a competitor, an ex-employer's prior art, a decompiled or network-inspected binary.
-2. You want the **behaviour, design, or method**, not the text. Copyright protects expression; ideas, methods and systems are free. This skill is how you stay on the free side and can show it.
+2. You want the **behaviour, design, or method**, not the text. Copyright protects expression; ideas, methods and systems are free.
 3. Someone could later ask *"how do you know this wasn't copied?"* — a licence audit, an acquirer's diligence, a contributor agreement, opposing counsel, or your own future self.
 
 **Skip it** when:
 
 - The source is permissive (MIT/BSD/Apache-2.0) and you can just depend on it or vendor it with attribution. Reimplementing permissive code is usually waste.
 - It is your own code, or code you already have rights to.
-- The borrowing is one idea, one convention, one paragraph of a published methodology. Declare the tier, write the attribution line, move on. A two-pass ceremony for a one-line borrowing is theatre, and theatre devalues the real thing.
+- The borrowing is one idea, one convention, one paragraph of a published methodology. Declare the tier, write the attribution line, move on.
 
 The dividing question is not size. It is: **would the answer to "how do you know?" be an artefact, or a claim?**
 
 ## Tiers — decide this before anything else
 
-Not every borrowing needs a clean room; some are outright forbidden and no process fixes them. Classify first:
+Classify first:
 
 | Tier | What | Verdict |
 |---|---|---|
@@ -42,7 +38,7 @@ Not every borrowing needs a clean room; some are outright forbidden and no proce
 | **C — Re-derive from the primary source** | A curated list, catalogue, table, dataset or coefficient set | Do not copy it, even though facts are free — curated compilations attract database rights (EU *sui generis*; and selection/arrangement can carry copyright elsewhere). Go to the upstream authority. **Frequently produces a better artefact than the intermediary's copy.** |
 | **D — Needs a licence** | Any source file, snippet, asset, generated artefact, config, fixture, or the project's name/logo | **Stop.** No process makes this clean. Take the licence, negotiate terms, or drop the feature. |
 
-If the answer is D, say so plainly and stop. A clean room applied to Tier D is laundering, and it is worse than copying openly because it also destroys the credibility of every legitimate clean room you run.
+If the answer is D, say so plainly and stop. A clean room applied to Tier D is laundering.
 
 ## The shape
 
@@ -54,7 +50,7 @@ If the answer is D, say so plainly and stop. A clean room applied to Tier D is l
              may NOT write code                 writes all the code
 ```
 
-Two roles, and the boundary between them is the whole skill:
+Two roles:
 
 - **Study (contaminated).** Reads the source, the docs, the running product. Writes **prose only**. May not touch the clean repository.
 - **Build (source-denied).** Never opens the source, never sees a screenshot of it, never reads a study transcript. Works from the brief, the primary sources, and the clean repository.
@@ -73,7 +69,7 @@ Write the contract first, in the run directory (see §Run ledger), **before open
 - **Clean root** — the repository/paths the build pass may write to.
 - **Deny list** — tokens that must never appear in the brief: the source's package name, distinctive identifiers, internal path prefixes.
 
-**The order is load-bearing.** A goal written after reading the source is a goal shaped by their implementation — you will "need" the thing they happened to build, in the shape they built it. Declaring blind is what keeps the requirement yours.
+**The order is load-bearing.** A goal written after reading the source is a goal shaped by their implementation.
 
 If you cannot state the goal without looking, that is the finding: you do not yet know what you want, and the honest next step is to ask the user, not to go browsing.
 
@@ -88,7 +84,7 @@ Runs in its **own session**. Rules:
 The brief describes **behaviour and contracts, not construction**:
 
 - What it does, from the outside — inputs, outputs, ordering, units, error surfaces.
-- The **decisions** and their reasons — why a cap here, why a floor there, what failure mode a guard exists for. *Reasons are the highest-value thing you can carry across, and they carry no expression.*
+- The **decisions** and their reasons — why a cap here, why a floor there, what failure mode a guard exists for.
 - Edge cases and failure modes, as prose.
 - Acceptance criteria, written as sentences a test could later assert.
 - Open questions the build pass will hit.
@@ -97,7 +93,7 @@ It must **not** contain: source code in any language, pseudocode shaped like the
 
 > **Test for a good brief:** could a competent engineer who has never heard of the source build the thing from it — and would their result differ from the source in every incidental choice while matching it in every behaviour you actually need? If the answer to the first is no, the brief is too thin. If the answer to the second is no, the brief is contaminated.
 
-Note the asymmetry: **a brief that is too thin is a cost; a brief that is too rich is a defect.** When unsure, cut.
+**A brief that is too thin is a cost; a brief that is too rich is a defect.** When unsure, cut.
 
 ### 2. Screen the brief — mechanically, then by judgement
 
@@ -123,8 +119,6 @@ Runs in a **fresh session** (or a subagent whose context contains the brief and 
 
 **When the brief is insufficient — and it will be — do not peek.** Raise a gap in the ledger and either decide it yourself from first principles (usually correct: your incidental choices *should* differ) or commission a **new study pass** to answer that specific question and amend the brief through the same screen.
 
-The peek is the single failure mode that destroys the whole exercise, and it always feels justified in the moment because you are five minutes from done.
-
 ### 4. Refocus — audit against the declared scope
 
 At natural checkpoints (and always before merge), compare what was built against the preflight goal:
@@ -135,7 +129,7 @@ At natural checkpoints (and always before merge), compare what was built against
 
 ### 5. Attribution and the record
 
-Copyright rarely obliges attribution for Tier B. Attribute anyway — it is what converts a private claim into a public, checkable one:
+Copyright rarely obliges attribution for Tier B. Attribute anyway:
 
 - A **prior-art entry** in the repo (`ATTRIBUTIONS.md`, `NOTICE`, or the ADR/decision record that borrowed the idea): project, author, licence, URL, and *what specifically* was learned.
 - A one-line pointer from the decision record to the run ledger.
@@ -158,8 +152,6 @@ Lives **outside the clean repository** — a sibling directory, never a subdirec
 Keep it. Its whole value is being producible on demand, years later, by someone who was not there.
 
 ## Named failure modes
-
-Learn these by name — naming is what makes them visible in the moment.
 
 - **The peek.** Build pass opens the source "just to check one thing". Every clean room dies this way. The rule is absolute precisely because the exception is always reasonable.
 - **Goal-shaped-by-source.** Preflight written after browsing. The requirement quietly becomes "what they built", and you will never notice because it feels like discovery.

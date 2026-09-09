@@ -1,6 +1,6 @@
 # Worked example — a worker's end-of-run PR report
 
-The kind of output this skill exists for: an agent finishes a ticket, opens a PR, and hands back a dense, confident, low-level report. Someone has to decide what happens next. Names and numbers below are generic.
+An agent finishes a ticket, opens a PR, and hands back a dense, confident, low-level report. Names and numbers below are generic.
 
 ## The output
 
@@ -76,5 +76,3 @@ Dispatched: code-review-grill on #515 (opus); fix-pr headless and the merge queu
 Escalated: none.
 Budget: —. Journal: .agents/manager/journal.md
 ```
-
-Nothing needs an answer. All fourteen items were decided; the human reads the merge in the journal and on the PR, not in a prompt.

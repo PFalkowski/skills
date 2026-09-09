@@ -2,14 +2,12 @@
 
 Used by step 4 (documentation gaps) and step 5 (sweep work items). One rule above all others:
 
-> **No script in this skill files anything.** Posting is outward-facing — other people read the
-> board, get notified, and act on it. The conductor asks, the user approves the exact text, and only
-> then does it go up.
+> **No script in this skill files anything.** The conductor asks, the user approves the exact text,
+> and only then does it go up.
 
 ## Before writing a single ticket: search the board
 
-A duplicate is worse than a missing ticket. It splits the discussion, and it teaches people that the
-board is noise.
+A duplicate is worse than a missing ticket.
 
 ```bash
 gh issue list --search "<key terms>" --state all --limit 30           # GitHub
@@ -41,13 +39,11 @@ Write for a stranger reading it in three months, with none of this context:
 
 - **What is wrong**, in one sentence, as a claim that can be falsified.
 - **Evidence**: `path:line`, the command and its real output, or the quoted authoritative source.
-  This is what separates a ticket from an opinion, and it is what stops it being closed as stale.
 - **Why it matters**: the cost. A defect it permits, an hour it adds, a rule it breaks. Never
   "cleanliness".
 - **Suggested fix**, as a sketch. Say if it is one of several approaches.
 - **Size and risk**, honestly — `S/M/L/XL` and what could break.
-- **Provenance**: "found by a housekeeping run on `<date>`, from `<the doc or lens>`". Whoever picks
-  it up should know it was machine-found and human-approved, not reported by a user hitting it.
+- **Provenance**: "found by a housekeeping run on `<date>`, from `<the doc or lens>`".
 
 ## If an agent may pick it up
 

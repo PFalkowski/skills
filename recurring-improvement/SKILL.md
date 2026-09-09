@@ -11,7 +11,7 @@ metadata:
 
 # recurring-improvement
 
-*"Mind the process, not just the product."* A conductor for a repo's **recurring** maintenance and self-improvement — the periodic counterpart to `neat` (which conducts one feature's SDLC) and `go-go-go` (which ships one thing now). It does **no legwork itself**: it sequences recurring *processes*, holds the schedule, and keeps the paper trail.
+It does **no legwork itself**: it sequences recurring *processes*, holds the schedule, and keeps the paper trail.
 
 Two things happen on a run:
 
@@ -37,7 +37,7 @@ On a first-ever run with no backlog anywhere, prefer `docs/`. The schedule is a 
 
 ## Step 1 — Reflect & evolve (Half A)
 
-This is itself a process row (default: `skill-evolution`) and writes its own `docs/skill-evolution/` records, but it **runs every time** regardless of interval, because it's how the toolbox compounds.
+This is itself a process row (default: `skill-evolution`) and writes its own `docs/skill-evolution/` records, but it **runs every time** regardless of interval.
 
 1. **Window.** `now − last_run`, or the last **30 days** if never run.
 2. **Gather signals in the window** (see [REFERENCE.md](REFERENCE.md) for the full source list): project memory (esp. `feedback_*` entries), lessons-learned / ADRs / postmortems / reflections, and git history (commits, merged PRs, reverts, repeated review comments, `TODO/FIXME/HACK`).
@@ -52,7 +52,7 @@ This is itself a process row (default: `skill-evolution`) and writes its own `do
 ## Step 2 — Dispatch what's due (Half B)
 
 1. Parse `<root>/recurring-backlog.md` (discovery order above). A row is **due** when `now − last_run ≥ interval` (or never run / >30 days).
-2. For each due process, **delegate to its owning skill** and produce **one PR per process** (keeps review focused). Wrap autonomous execution in **`walk-the-dog`** so every side-effecting action is vetted. Suggested owners (degrade gracefully — if a skill isn't installed, do the work by hand to the same standard and say so):
+2. For each due process, **delegate to its owning skill** and produce **one PR per process**. Wrap autonomous execution in **`walk-the-dog`** so every side-effecting action is vetted. Suggested owners (degrade gracefully — if a skill isn't installed, do the work by hand to the same standard and say so):
    | Process | Owner skill(s) |
    |---|---|
    | `test-coverage` | `tdd` + `go-go-go` / `nightshift` |

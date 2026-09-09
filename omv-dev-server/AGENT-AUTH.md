@@ -1,15 +1,10 @@
 # Letting an agent push and open a PR
 
-An agent finishes the work, commits it, and cannot push. Every blocker is in the image, not
-the code — and the five error messages look like five unrelated problems.
-
 The premise that makes this hard: **the agent has no terminal**. Every interactive fallback
 is a hang rather than an error, and its shell state does not persist between tool calls, so
 `export GH_TOKEN=…` is gone by the next command. Authentication has to be already there.
 
 ## Check egress first
-
-One command saves an hour of investigating the wrong thing:
 
 ```bash
 curl -sI https://api.github.com | head -1      # HTTP/2 200
@@ -31,8 +26,8 @@ directory, and it avoids writing to a `~/.gitconfig` that may be mounted read-on
 
 ### 2. Never run `gh auth setup-git` at runtime
 
-The obvious command is the one that fails. It writes to `~/.gitconfig`, and git saves config
-by temp-file-and-rename, which a bind-mounted file rejects:
+It writes to `~/.gitconfig`, and git saves config by temp-file-and-rename, which a
+bind-mounted file rejects:
 
 ```
 $ gh auth setup-git

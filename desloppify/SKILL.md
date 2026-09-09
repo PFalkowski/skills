@@ -42,9 +42,7 @@ layers, entities, ports, or value objects merely to make the code look architect
   comment, and [less-is-more](../less-is-more/SKILL.md) to every code change. Propose deletion
   of a superseded path, test, config entry, or abstraction in the same bounded change; deletion
   itself is subject to the approval gate below.
-- **One canonical statement per load-bearing fact.** State it once and reference it; a fact
-  restated in five places costs five edits when it changes and five contradictions when one is
-  missed. When correcting a fact that proved false, find every restatement before calling the
+- **One canonical statement per load-bearing fact.** State it once and reference it. When correcting a fact that proved false, find every restatement before calling the
   correction done.
 - Never create a summary, index, knowledge graph, or archive as a substitute for deletion.
   Keep campaign notes untracked; durable truth belongs in code, tests, git history, one ADR,

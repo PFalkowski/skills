@@ -22,13 +22,13 @@ metadata:
 
 ### Where the work comes in
 
-A single `backlog.md` is the default source, not the only one. A **glob** admits several files; **`items=`** takes a list of ticket ids or a tracker query and pulls each issue in. Whatever the source, items are normalised into the schema below *before* pre-flight, and pre-flight then runs against that normalised list exactly as it would against a hand-written file — a ticket that arrives without acceptance criteria specific enough to write a failing test for is not ready merely because a tracker query matched it.
+Whatever the source, items are normalised into the schema below *before* pre-flight, and pre-flight then runs against that normalised list exactly as it would against a hand-written file — a ticket that arrives without acceptance criteria specific enough to write a failing test for is not ready merely because a tracker query matched it.
 
-Two consequences worth stating. Ordering is the source's: path order for a glob, the order given for a list, tracker order for a query — so if items build on each other, order them deliberately rather than trusting a query. And a tracker-sourced backlog is a *snapshot* taken at pre-flight; edits made on the tracker mid-run don't reach the loop, so the run's own file stays the record of what was actually worked.
+Ordering is the source's: path order for a glob, the order given for a list, tracker order for a query — so if items build on each other, order them deliberately rather than trusting a query. And a tracker-sourced backlog is a *snapshot* taken at pre-flight; edits made on the tracker mid-run don't reach the loop, so the run's own file stays the record of what was actually worked.
 
 ### Multiple runs on the same date
 
-When run records are organized by date (`.../runs/YYYY-MM-DD/...`), a second cycle that day MUST NOT overwrite the first — increment a filename suffix (`nightshift-backlog.md` → `-2.md` → `-3.md`) within the shared date directory. Each cycle's exit summary prepends to its own file; per-item review logs sit alongside (distinct slugs rarely collide). The date dir is the audit unit; the suffix disambiguates within the day without losing the prior cycle's Q:/A: trail.
+When run records are organized by date (`.../runs/YYYY-MM-DD/...`), a second cycle that day MUST NOT overwrite the first — increment a filename suffix (`nightshift-backlog.md` → `-2.md` → `-3.md`) within the shared date directory. Each cycle's exit summary prepends to its own file; per-item review logs sit alongside (distinct slugs rarely collide).
 
 ## Phase 1 — Pre-flight (user awake)
 
@@ -63,19 +63,19 @@ Language- and toolchain-agnostic — discover conventions, don't assume them. In
 
 ## Adversarial code review (the default second pass — every code item)
 
-The green test proves only what the implementer thought to assert. So after Green+Refactor, before commit/PR, a **fresh reviewer subagent that never sees the implementer's rationale** hunts the diff at extra-high recall for what the test missed; confirmed bugs get a regression test + fix in-item, pre-existing/out-of-scope ones get a follow-up issue. This is the standard review pass for the overwhelming majority of items, which are code. Protocol + hard rules: [CODE-REVIEW.md](CODE-REVIEW.md).
+After Green+Refactor, before commit/PR, a **fresh reviewer subagent that never sees the implementer's rationale** hunts the diff at extra-high recall for what the test missed; confirmed bugs get a regression test + fix in-item, pre-existing/out-of-scope ones get a follow-up issue. Protocol + hard rules: [CODE-REVIEW.md](CODE-REVIEW.md).
 
 ## Adversarial source-verification mode (optional — for the rare fact-heavy item)
 
-Most items are code and use the code review above. A *minority* instead turn on **claims about the world** a test runner can't check — values copied from external docs/specs/dashboards, citations backing a numeric claim, version or compatibility facts, third-party API behavior, entity attributes. For those, run **two-agent adversarial verification** instead of (or alongside) the code-review pass: a generator subagent produces the candidate output, an independent reviewer subagent re-fetches every cited source and audits each claim verbatim. The two MUST NOT share context — the reviewer's value is entirely its independence. This mode is the exception, not the rule; reach for it only when external-fact accuracy is the item's main risk. Full protocol, prompt templates, and calibration: [ADVERSARIAL.md](ADVERSARIAL.md).
+A *minority* of items turn on **claims about the world** a test runner can't check — values copied from external docs/specs/dashboards, citations backing a numeric claim, version or compatibility facts, third-party API behavior, entity attributes. For those, run **two-agent adversarial verification** instead of (or alongside) the code-review pass: a generator subagent produces the candidate output, an independent reviewer subagent re-fetches every cited source and audits each claim verbatim. The two MUST NOT share context — the reviewer's value is entirely its independence. Reach for it only when external-fact accuracy is the item's main risk. Full protocol, prompt templates, and calibration: [ADVERSARIAL.md](ADVERSARIAL.md).
 
 ### Source-verification rules that transfer across projects
 
-Project-agnostic rules for the source-verification mode, earned across actual cycles. A project that leans on this mode keeps its own domain rules — source allowlists, field conventions, tolerance thresholds — in that project's own skill, layered on top.
+A project that leans on this mode keeps its own domain rules — source allowlists, field conventions, tolerance thresholds — in that project's own skill, layered on top.
 
 1. **Verbatim-quote pre-flight on every external fact.** Before writing a value lifted from a source into a structured field, paste the exact sentence from the cited URL that contains it. If no cited source contains the value, **drop the field** — don't infer, approximate, or lift from uncited material. This extends to quoted strings in free-text notes: a quotation must appear verbatim on a cited source, or be paraphrased without quote marks (decorative quotes invite later cycles to treat them as already-verified).
 
-2. **Cross-source agreement requires the same MEANING, not just the same number.** Two sources corroborate only when their labels/definitions match, not merely their digits. A value labelled one thing in source A and a different thing in source B is not a match even when the numbers are close. Label-mismatch is a more common failure than number-mismatch and harder to spot.
+2. **Cross-source agreement requires the same MEANING, not just the same number.** Two sources corroborate only when their labels/definitions match, not merely their digits. A value labelled one thing in source A and a different thing in source B is not a match even when the numbers are close.
 
 3. **Intra-source contradiction degrades confidence.** If a single source contradicts itself (summary vs detail, header vs body, infobox vs prose), flag it in notes and DOWNGRADE rather than picking the more flattering reading.
 

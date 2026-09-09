@@ -11,7 +11,7 @@ metadata:
 
 # signal-verdict
 
-Falsify-first: the default outcome of a rigorous test is **PARK**, not PROMOTE — the value is cheaply killing bad ideas and making the rare good one *trustworthy*. Discipline: **data first, TDD, real-data CI gate, label ≠ objective ≠ verdict, one-shot holdout.**
+Falsify-first: the default outcome of a rigorous test is **PARK**, not PROMOTE. Discipline: **data first, TDD, real-data CI gate, label ≠ objective ≠ verdict, one-shot holdout.**
 
 ## The one rule that prevents the most expensive mistake
 
@@ -23,9 +23,6 @@ Falsify-first: the default outcome of a rigorous test is **PARK**, not PROMOTE �
 | **Objective** | What a model/threshold optimizes | A calibrated / profit-weighted **probability loss**. **Never PnL. Never AUC.** Feature selection happens *inside* CV folds. |
 | **Verdict** | What decides accept/reject | Walk-forward **OOS** ROI/Sharpe uplift vs baseline on a **touched-once holdout**, deflated for multiplicity. Any knob that responds to this number invalidates it. |
 
-Judging by PnL is correct as a *verdict* and catastrophic as an *objective* — a PnL-tuned threshold has
-near-unlimited power to fence off *this* sample's losers and will overfit even under purged CV.
-
 ## The runbook
 
 Work top to bottom. Each phase has a Definition of Done; do not advance until it's met.
@@ -35,8 +32,7 @@ Work top to bottom. Each phase has a Definition of Done; do not advance until it
    sizing / exposure. (Different columns have very different leverage — measure the baseline before guessing.)
 2. Write the **label**, **objective**, **verdict** for *this* idea per the table above.
 3. **Leak audit**: every feature must come from the decision bar **D-1 and earlier**; the label from entry
-   forward. List the inputs and confirm none touches the traded day. A single leaking feature manufactures a
-   phantom edge with a beautiful in-sample curve — the most expensive false positive of all.
+   forward. List the inputs and confirm none touches the traded day.
 4. Declare the **trial budget** up front (every threshold/feature/model variant you'll try) — the deflation
    haircut scales to it. Append-only; a spent trial stays spent.
 - **DoD:** a one-paragraph pre-registration (hypothesis, label, objective, verdict, leak audit, budget).
@@ -45,8 +41,7 @@ Work top to bottom. Each phase has a Definition of Done; do not advance until it
 1. Replay the **current production policy** over real retained history → labeled outcomes (deterministic).
 2. **Decompose the P&L**: per-exit-reason, per-regime, win/loss asymmetry, and **tail concentration**
    (what share of return rides on the top-k trades). High tail concentration ⇒ a low **power floor** ⇒
-   expect most ideas to PARK because the effect is undetectable at this effective N. Knowing this *before*
-   searching saves weeks.
+   expect most ideas to PARK because the effect is undetectable at this effective N.
 3. Record the baseline numbers with confidence intervals. **This is the bar every idea must beat.**
 - **DoD:** a committed baseline report with CIs + a stated power floor / minimum detectable effect.
 
@@ -89,8 +84,7 @@ running many ideas against it, is p-hacking — track cumulative multiplicity ac
 within one run.
 
 ### Phase 5 — Document everything (win or lose)
-- An **ADR** for the decision (Context / Options / Decision / Consequences) — including the PARK ones; the
-  recorded negatives are what stop the next person re-running a dead idea.
+- An **ADR** for the decision (Context / Options / Decision / Consequences) — including the PARK ones.
 - The harness **report** under a version-controlled docs path (e.g. `docs/plans/…`); link it from the ADR;
   update the ADR index.
 - Honest **caveats**: multiplicity, grid-boundary optima, regime-specific results, data-quality holes.
@@ -114,7 +108,7 @@ within one run.
 - A genetic optimizer maximizing **in-sample PnL** over a temporally-shuffled subsample → overfit parameters
   pasted into production. (Fix: out-of-fold walk-forward fitness on the harness.)
 - A CV result that "clears the bar" but **PARKs on the holdout** because a random gate at the same skip rate
-  did as well → the choice added no skill OOS. (This is the runbook working.)
+  did as well → the choice added no skill OOS.
 
 ## Reference implementation
 A worked end-to-end example produces, per phase: a baseline P&L decomposition, a policy backtester with

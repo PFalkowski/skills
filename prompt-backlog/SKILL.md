@@ -13,11 +13,8 @@ metadata:
 A prioritized, ordered list of deferred work. Each item carries three things: **why** it was
 asked (Context), **what to do** (a ready-to-run prompt), and a running **Log**.
 
-The key move: **the prompt is written now, while the context is live.** Whoever captures the item
-has the conversation in context — file paths, decisions, constraints, the reason. A future agent
-(or future-you) starting cold will not. So author a *self-contained* prompt that a fresh agent
-could run verbatim, and record the Context that explains the why. Don't just stash the user's
-words and hope the situation is still understood later.
+**The prompt is written now, while the context is live.** Author a *self-contained* prompt that a
+fresh agent could run verbatim, and record the Context that explains the why.
 
 ## When to capture
 Whenever work is deferred rather than done now: the user says to do something next/later/after
@@ -73,8 +70,7 @@ Copy-paste starter: [TEMPLATE.md](TEMPLATE.md).
 | `P2` | later (default) | "later", "at some point", general backlog |
 | `P3` | someday / keep in mind | "keep in mind", "note for later", nice-to-have |
 
-If the user gives no signal, default to `P2`. The temporal words map to priority — that's how
-"next" vs "keep in mind for later" gets encoded.
+If the user gives no signal, default to `P2`.
 
 ## Convention — folder layout
 
