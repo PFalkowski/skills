@@ -80,8 +80,6 @@ When attempt 3 fails:
 - **Do not** revert your changes — leave the partial state for the user to inspect. But **do** make sure tests are at least back to a clean compile (no broken build for the next item).
 - Move to the next item.
 
-The 3-attempt limit is the line where "transient flake" stops being plausible and "I have a wrong mental model of the problem" becomes likely. More attempts mostly compound the wrong model and burn context.
-
 ## Question deferral
 
 When you can't decide from the codebase alone:
@@ -92,21 +90,16 @@ When you can't decide from the codebase alone:
 
 Never silently guess. Either log A: with reasoning, or block.
 
-**A settings file is not a schema.** This list used to send anything touching `*Settings.cs` or
-`*.appsettings.json` straight to `blocked-on-question` — a path heuristic standing in for a consequence
-test, and it misfires precisely where unattended runs spend most of their time. Adding a `Subject` key to
+**A settings file is not a schema.** Adding a `Subject` key to
 an appsettings file is one revert away; repointing the connection string a production job reads is not,
 and both live in the same file. Ask what happens if the choice turns out wrong, never which file it lands
-in. Blocking on a cheap reversible fork is not caution: the item stalls, a human's turnaround is spent on
-something they would have waved through, and the next run re-derives the same question and stalls again.
+in.
 
 ## Context management between items
 
 After finishing item N (status `done` / `blocked-on-question` / `failed-after-retries`):
 
 ### Default: spawn a fresh general-purpose Agent for item N+1
-
-Why: Anthropic prompt cache TTL is 5 minutes. A test run that takes longer than that uncaches the entire parent context. Across 10+ work items the parent re-pays the cache miss 10+ times. Spawning resets the cache budget per item, and the parent doesn't accumulate per-item code edits.
 
 Spawn prompt template:
 ```
@@ -127,6 +120,8 @@ return a single-line status: "<status>: <item title> — <one-line summary>".
 Do NOT spawn a further subagent — the parent will do that for the next item.
 """
 ```
+
+Anthropic prompt cache TTL is 5 minutes. A test run that takes longer than that uncaches the entire parent context.
 
 After the subagent returns, the parent reads the backlog (cheap, the file has been updated) and decides whether to spawn the next or exit.
 
@@ -149,7 +144,7 @@ When a stop condition fires, do these in order:
 
 ### 1. Fold tuning observations into the relevant skill files (BEFORE the summary)
 
-If the run surfaced lessons worth codifying — concrete prompt-tuning notes, new failure modes, refinements to existing rules, calibration thresholds that worked or didn't — fold them into the right skill file BEFORE writing the exit summary. The run record alone is not propagation: a per-run markdown file is read once, by the morning reviewer, and never again. Skills are read on every subsequent invocation.
+If the run surfaced lessons worth codifying — concrete prompt-tuning notes, new failure modes, refinements to existing rules, calibration thresholds that worked or didn't — fold them into the right skill file BEFORE writing the exit summary.
 
 Where things go:
 - **Project-specific rules** (tied to a particular project's data shape, source-allowlist quirks, domain conventions) → the project's own skill file (e.g. `.claude/skills/<project-skill>/SKILL.md` "Cumulative hard rules" section).
@@ -157,8 +152,6 @@ Where things go:
 - **Worked examples** (what failed and how the rule caught it the next round) → the project skill's run-history table; never the generic skill (the generic skill stays project-neutral).
 
 If the parent NightShift agent is the one writing the summary, it does the fold. If a Phase-2 spawned subagent finishes the run alone (rare — usually the parent re-enters), it appends a TODO line to the summary and the parent folds in the next cycle.
-
-A run that captures 6 tuning observations in the exit summary but doesn't fold them anywhere has wasted 5 of them. The first one is read by the morning reviewer; the rest decay.
 
 ### 2. Prepend the summary block to the backlog file
 
@@ -180,7 +173,7 @@ A run that captures 6 tuning observations in the exit summary but doesn't fold t
 ---
 ```
 
-The `Folded into skills` line is the audit trail for whether step 1 actually happened. If it reads "none", that's fine — not every run produces new rules. If it's missing entirely, the run skipped step 1.
+If the `Folded into skills` line reads "none", that's fine — not every run produces new rules. If it's missing entirely, the run skipped step 1.
 
 ### 3. Return control
 

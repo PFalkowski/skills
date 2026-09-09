@@ -10,11 +10,7 @@ metadata:
 
 # whatever
 
-*"Whatever — just progress."* Named for what the user says when you ask one question too many.
-
-Default to **deciding and proceeding**. Asking is the exception, not the reflex. The user's time
-spent answering a question they did not need to be asked is gone; a stated decision they disagree
-with costs them one correction. Optimize for that asymmetry.
+Default to **deciding and proceeding**. Asking is the exception, not the reflex.
 
 ## The test — ask ONLY if all three hold
 
@@ -36,7 +32,7 @@ where to put a helper — **pick the sensible default, state it in one line, and
 
 > "Using a new branch off main; committing only the prompt-backlog files — say if you wanted otherwise."
 
-Then continue without waiting. The one-liner gives the user a cheap veto without a blocking prompt.
+Then continue without waiting.
 
 ## When you act without asking
 - **Name the choice** briefly so it is visible and correctable.

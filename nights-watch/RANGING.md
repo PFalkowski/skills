@@ -1,9 +1,5 @@
 # The Ranging — one ticket, done properly
 
-> *A ranging is one mission beyond the Wall.* No muster, no standing loop, no worker pool — the user hands the Watch a single ticket and it comes back with a PR or a precise reason it couldn't.
-
-The Ranging is the Watch's answer to "do this one thing, and do it right." Everything about the patrol that exists to serve *throughput* — scanning the tracker, the readiness label, tiering for economy, one-at-a-time pacing, the loop — falls away. Everything that exists to serve *correctness* — the fact-check gate, the by-the-book lifecycle, the adversarial grill, the chronicle and the fire — stays, and hardens.
-
 ```
 /nights-watch ticket=42                              # a tracker issue
 /nights-watch ticket=https://github.com/o/r/issues/42
@@ -43,27 +39,25 @@ Workflow({ name: 'sdlc-workhorse', args: { goal: '<the gated brief>', parallel: 
 
 Running from a repo that isn't this one? Named resolution reads the *current* repo's `.claude/workflows/`, so pass `scriptPath` at this repo's copy instead of `name`.
 
-**5. Grill it.** The workhorse already grills every slice with a fresh agent and refute-tests each finding, so the gate is met by construction — read `slices[].verifiedFindings` rather than paying for it twice. Run `code-review-grill` yourself only if the report shows no review ran, or if the change is load-bearing enough (public API, schema, security, concurrency) to deserve the quorum on top. Confirmed findings get fixed and re-grilled; the review posts to the PR.
-
-A ranging has none of the patrol's grill problem ([WATCH.md](WATCH.md) § Dispatch): "yourself" works here because on a ranging the watcher *is* the session agent, which holds `Agent` and can spawn a genuinely fresh reviewer — even a quorum. That is exactly the tool a ranger dispatched inside a patrol Workflow does not have, which is why there the grill is dispatched by the script instead. Both modes end up with a reviewer who never saw the author's rationale; only the caller differs.
+**5. Grill it.** The workhorse already grills every slice with a fresh agent and refute-tests each finding, so the gate is met by construction — read `slices[].verifiedFindings` rather than paying for it twice. Run `code-review-grill` yourself ('yourself' works on a ranging because the watcher is the session agent and holds `Agent`) only if the report shows no review ran, or if the change is load-bearing enough (public API, schema, security, concurrency) to deserve the quorum on top. Confirmed findings get fixed and re-grilled; the review posts to the PR.
 
 **6. Report.** The workhorse hands back a **merge-ready report** — it commits, but never pushes, opens, or merges anything, and the ranging must not smuggle that back in. So this step is the watcher's: when `mergeReady` is true, push the branch and open the PR referencing the ticket, comment the link, `ai-done`. When it's false, `mergeBlockedBy` (or `stoppedAt`, when the design never cleared its gate and no code was written) *is* the blocker report — give it to the user in full, unsoftened. Same terminal states as a patrol (Oath rule 7); one of them is now a sentence to a human instead of a label.
 
-**7. Gather at the fire.** The workhorse runs its own retrospective and, given `libraryIndex`, curates into the Library itself — so read its `retro` and the chronicles rather than redoing the work; add what it filed but couldn't act on, and append one journal line ([LIBRARY.md](LIBRARY.md)). One ticket earns a small fire — but a lesson learned on a ranging is worth exactly as much to the next agent as one learned on patrol, and the chronicle is discarded either way.
+**7. Gather at the fire.** The workhorse runs its own retrospective and, given `libraryIndex`, curates into the Library itself — so read its `retro` and the chronicles rather than redoing the work; add what it filed but couldn't act on, and append one journal line ([LIBRARY.md](LIBRARY.md)).
 
 ## The lifecycle — every time, whatever the size
 
-The ranging runs **sdlc-workhorse** end to end, whatever the ticket's size. This is the point of the mode: the user asked for one thing done properly, so the discipline is not means-tested. The tier rubric governs which *model* carries each phase, never whether the phase happens.
+The ranging runs **sdlc-workhorse** end to end, whatever the ticket's size. The tier rubric governs which *model* carries each phase, never whether the phase happens.
 
 Spec → grilled requirements → design + adversarial design review → **TDD (Red → Green → Refactor)** → implement → adversarial review → **documentation** → merge-ready report → retrospective notes to the chronicle.
 
-**Why the workhorse and not `sdlc-old-fashioned`.** The lifecycle is identical; who holds the gates is not. Old-fashioned holds them with a human standing at each one — and on a ranging the human has already left the room. Step 2 is where they're in it: the gate, the questions, the fork in the road. After that the work is unattended, and gates that assume a conductor who isn't there get improvised past. The workhorse holds the same gates with control flow, which is the only kind that survives an empty room.
+**Why the workhorse and not `sdlc-old-fashioned`.** Old-fashioned holds its gates with a human standing at each one — and on a ranging the human has already left the room. Step 2 is where they're in it: the gate, the questions, the fork in the road. After that the work is unattended, and gates that assume a conductor who isn't there get improvised past.
 
-Three parts of that chain are the ones agents quietly skip on small tickets. Under the workhorse they are **structural** rather than aspirational — worth knowing exactly which mechanism holds each, so you can tell a real gate from a reported one:
+Three parts of that chain are the ones agents quietly skip on small tickets:
 
-- **Planning is written down.** The spec and the plan are separate phases whose output is text a *different* agent grills. A design a reviewer can't read wasn't reviewed — and here it can't advance unread, because the reviewer is handed the artifact and nothing else.
-- **The test fails first.** The RED agent must return the test's actual output, and a second agent re-reads it and rules on one question: did it fail on the asserted behaviour, or on a typo? A false red is rejected and the slice doesn't proceed. This is the gate prose cannot hold — "write a failing test first" is trivially satisfied by a test that fails for the wrong reason, and the author is the last to notice.
-- **Documentation the change invalidates is updated in the same PR.** README, `CONTEXT.md`, ADRs, CHANGELOG, doc comments, the skill's own docs — whatever the change makes untrue. It's a phase, not a hope: a run that goes long cannot quietly drop it. Docs that lie are worse than absent docs, and "docs later" is how they start lying.
+- **Planning is written down.** The spec and the plan are separate phases whose output is text a *different* agent grills.
+- **The test fails first.** The RED agent must return the test's actual output, and a second agent re-reads it and rules on one question: did it fail on the asserted behaviour, or on a typo? A false red is rejected and the slice doesn't proceed.
+- **Documentation the change invalidates is updated in the same PR.** README, `CONTEXT.md`, ADRs, CHANGELOG, doc comments, the skill's own docs — whatever the change makes untrue.
 
 And the standing discipline, unchanged from the patrol: read the Library index first and open only what's relevant; chronicle field notes the moment they're learned, not at the end; run **fact-check** at every critical decision moment — a root-cause call, a design fork, any unverified fact about to enter code — decomposing the decision into verifiable sub-claims and proving each with a runnable experiment plus its output, or independent authoritative sources. Unprovable counts as false. A premise that dies under fact-check ends the ranging honestly: `stoppedAt` with the evidence, no code written.
 

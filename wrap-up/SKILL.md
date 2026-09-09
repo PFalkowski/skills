@@ -11,8 +11,7 @@ metadata:
 # wrap-up
 
 Three passes, in order: **ship** (nothing valuable exists only on this machine), **sweep** (no dead
-scaffolding left behind), **account** (nothing promised is silently dropped). The passes are ordered
-so that nothing pass 2 deletes is something pass 1 should have shipped or pass 3 still needs.
+scaffolding left behind), **account** (nothing promised is silently dropped).
 
 ## Scope first
 
@@ -68,14 +67,12 @@ Route everything open per house rules. The two routes **compose** — they are n
   title, the context a stranger needs, one acceptance line — show the drafts, get a yes, then post.
   Each draft meets the [triage](../triage/READINESS.md) bar or it is not worth filing. **Propose
   offloading whenever the ledger is more than one fresh context can carry**: several independent
-  threads, or more items than fit on a screen. A note listing fourteen things is not a handoff, it is
-  a backlog with nowhere to live — the receiver acts on the first item and the rest rot in the
-  scrollback. The board holds the set so the note only has to carry the thread.
+  threads, or more items than fit on a screen. The board holds the set so the note only has to carry
+  the thread.
 - **Carry it in a `handoff lite` note** — whenever anything is still open, whether or not it was also
   filed. Invoke the `handoff` skill with `lite`: same note, same discipline, printed inline as one
-  paste-ready block, **nothing written to disk**. This is what makes wrap-up the skill for crossing a
-  boundary and not only for ending a day — a fresh context, a `/clear`, another machine — and
-  whoever is on the far side of that boundary has none of this transcript. When the ledger was
+  paste-ready block, **nothing written to disk**. Whoever is on the far side of the boundary you are crossing — a
+  fresh context, a `/clear`, another machine — has none of this transcript. When the ledger was
   offloaded, **Next** is the one thread to resume plus the issue numbers, never a copy of them.
 
 Ordering: the user's stated priority wins; absent one, blockers first.
@@ -101,8 +98,7 @@ Persistent memory is part of the ledger. Review the entries this session touched
 
 - **Relied on and confirmed** — leave it alone.
 - **Contradicted** — the session proved an entry wrong or stale (a renamed flag, a reversed
-  decision, a fact that no longer holds): update or delete it now. A stale memory misleads every
-  future session, which is worse than no memory.
+  decision, a fact that no longer holds): update or delete it now.
 - **Lesson learned** — the session taught something durable that the repo itself does not record
   (a user preference, a corrected approach, a constraint): write it, following the house memory
   discipline (one fact per entry, why + how to apply, indexed).

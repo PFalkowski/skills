@@ -11,12 +11,8 @@ metadata:
 
 # OMV dev server
 
-One box, two jobs: a NAS that stores things, and a dev server that agents work inside.
-This is the runbook for building it, plus the traps that cost hours the first time.
-
-Everything here is a **pair** — a prose section explaining *why*, and a script beside it
-doing the same thing idempotently. Run the scripts to build; read the prose when something
-breaks. The scripts re-run safely, so they double as a repair tool.
+Run the scripts to build; read the prose when something breaks. The scripts re-run safely,
+so they double as a repair tool.
 
 ## Start here
 
@@ -66,7 +62,6 @@ Nothing here contains real hostnames, addresses or keys. Substitute:
 
 ## Keeping this current
 
-This document is meant to be edited when it is wrong. New trap → a row in
-[PITFALLS.md](PITFALLS.md) plus, if it is preventable, a check in `smoke-test.sh` so it
-fails loudly next time instead of being rediscovered. Findings that are specific to one
-machine belong in your own notes, not here.
+New trap → a row in [PITFALLS.md](PITFALLS.md) plus, if it is preventable, a check in
+`smoke-test.sh` so it fails loudly next time instead of being rediscovered. Findings that
+are specific to one machine belong in your own notes, not here.

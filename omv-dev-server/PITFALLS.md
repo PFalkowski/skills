@@ -1,7 +1,7 @@
 # Pitfalls
 
-Symptom → what it actually is → fix. Every row cost someone real time. Read this before
-investigating; several of these look like a different problem than they are.
+Symptom → what it actually is → fix. Read this before investigating; several of these look
+like a different problem than they are.
 
 ## Host and login
 

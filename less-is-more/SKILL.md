@@ -10,10 +10,6 @@ metadata:
 
 # less-is-more
 
-Every line of production code is a liability: someone must read it, test it, keep it
-correct, and load it into their head — or their context window — before every future
-change. The asset is the behaviour; the code is the cost of having it.
-
 The unit of "less" is **cognitive load, not line count**. A change that adds lines but
 makes the code easier to hold in one's head is less. A compressed one that makes it
 harder is more.
@@ -42,8 +38,6 @@ separate, deliberate work. But inside your blast radius, own the code fully.
    Git remembers.
 
 ## The nuance: more lines can be less code
-
-Compression is not the goal; density has its own cognitive cost.
 
 ```cs
 // MORE (despite fewer lines) — one expression, five decisions, zero names

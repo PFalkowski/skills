@@ -1,11 +1,6 @@
 # The dev container
 
-A container per repository, running as you, with a persistent home — so an agent working
-inside it keeps its memory, its credentials, and its file ownership straight.
-
 ## Mount the repo *root*, not the repo
-
-This is the decision everything else depends on, and the obvious version is wrong.
 
 The tempting launcher mounts the current directory: `-v "$PWD:/workspace"`. It works, and it
 quietly destroys per-project memory. Claude Code derives its project key from the absolute
@@ -22,10 +17,6 @@ Mount each repo at `/workspace` in turn and **every repo produces the same key**
 ```bash
 -v "$REPO_ROOT:/workspace"  -w "/workspace/<relative path from the root>"
 ```
-
-Now each repo has a distinct, stable key. Stable is the second benefit: the container path
-no longer depends on where the host keeps the files, so moving disks or renaming a share
-does not invalidate anything.
 
 The same rule governs `~/.claude.json`, which stores trust and permission grants per
 absolute path. A path mismatch there does not error — it silently ignores your allow-list
@@ -46,8 +37,7 @@ on an active machine is three orders of magnitude larger and of no use on the ne
 
 Transcripts are also where secrets accumulate. A token that only ever lived in one repo's
 `.git/config` ends up quoted in every session that ran `git remote -v`, so copying
-`projects/` wholesale moves the leak onto the NAS along with it. One more reason to take
-`memory/` and nothing else.
+`projects/` wholesale moves the leak onto the NAS along with it.
 
 **Migrate into the directory the launcher actually mounts.** It is easy to finish with two
 homes — an early hand-rolled launcher pointing at one, the migration filling another — and
@@ -73,15 +63,6 @@ dest="$REPO_ROOT/<GIT_OWNER>/<REPO>"
 git clone /tmp/<REPO>.bundle "$dest"
 git -C "$dest" remote set-url origin <real-origin-url>
 ```
-
-Why this beats a token for a one-time seed:
-
-- No credential moves, and none is left behind to rotate later.
-- One mechanism for every forge. A `GH_TOKEN` only ever solves GitHub; a bundle moves an
-  Azure DevOps or self-hosted repo with exactly the same two commands.
-- `--all` carries every branch and tag, so this is a real clone, not a shallow snapshot.
-- On a LAN it is quick — a bundle is about the size of the packed history, typically a
-  fraction of the working `.git`.
 
 Two things to correct straight afterwards. `origin` points at the bundle file until you reset
 it, so do that in the same breath. And the clone checks out whichever branch `HEAD` had on
@@ -153,8 +134,8 @@ key is registered. That is the correct error, and it is the one that tells you t
 
 ### Give self-updating tools somewhere to write
 
-The same root cause, one layer up. Everything baked into the image is installed as root
-under `/usr`, so a tool that updates itself in place has nowhere it may write:
+Everything baked into the image is installed as root under `/usr`, so a tool that updates
+itself in place has nowhere it may write:
 
 ```
 ✘ Auto-update failed: no write permission to npm prefix
@@ -180,11 +161,10 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 so your own edits survive. The image's pinned copy stays where it was: delete
 `~/.npm-global` and you fall straight back to it.
 
-**This is a deliberate exception to pinning.** The rule above says pin what you can, because
-an unpinned CLI changing under an unchanged Dockerfile is a nasty regression to trace. An
-agent CLI is the case where being several versions behind on a remote box is the worse
-failure. Decide it per tool rather than by default, and if you would rather hold the pinned
-version, set `DISABLE_AUTOUPDATER=1` and update by rebuilding.
+**This is a deliberate exception to pinning.** An agent CLI is the case where being several
+versions behind on a remote box is the worse failure. Decide it per tool rather than by
+default, and if you would rather hold the pinned version, set `DISABLE_AUTOUPDATER=1` and
+update by rebuilding.
 
 One trap when checking this. `dev` gives you an *interactive non-login* shell, which reads
 `.bashrc`; `bash -l` reads `.profile`. Test both, and give the test a real TTY — an

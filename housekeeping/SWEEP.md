@@ -1,7 +1,7 @@
 # SWEEP — the code half
 
 Step 5. Runs **after** the documentation is true, because half of these lenses judge the code
-against what the docs say it should be. Against drifted docs they measure a system nobody built.
+against what the docs say it should be.
 
 ## The lenses
 
@@ -19,11 +19,6 @@ it finds interesting and reports the set as complete.
 | `architecture-drift` | Departures from the architecture this repo **documents** — layering, DDD, ports & adapters | The documented rule being broken. An unstated rule is a proposal, not drift |
 | `smells` | Oversized units, deep nesting, primitive obsession, dead code, ancient TODOs | What it costs the next person to touch it |
 | `formatting` | Files the repo's own formatter would change; style rules configured but unenforced | The *setup* gap and a file count — not a list of files |
-
-Ordering inside a run is deliberate: `warnings` and `formatting` are cheap and load-bearing (they
-bury every later diff in noise if left), `architecture-drift` and `library-consistency` are the ones
-that pay for the whole exercise, and `smells` is the one most likely to produce taste dressed as a
-finding — which is why every candidate is refute-verified before a human sees it.
 
 ## What gets a candidate killed
 

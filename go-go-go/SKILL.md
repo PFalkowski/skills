@@ -10,11 +10,7 @@ metadata:
 
 # go-go-go
 
-*"Don't ask, just ship."*
-
-Drive the repo from its current state — uncommitted changes, open tasks, stalled branch, or raw idea — straight to a raised PR. No permission-asking on reversible choices. Stop only at hard blockers (irreversible actions, missing secrets, genuinely ambiguous requirements that would waste real work if guessed wrong).
-
-**Invoked by an agent rather than typed by a human?** Run [`reflect`](../reflect/SKILL.md) first — surface and route load-bearing assumptions before whatever-mode starts deciding on your behalf, since no human is present to catch a bad guess.
+**Invoked by an agent rather than typed by a human?** Run [`reflect`](../reflect/SKILL.md) first — surface and route load-bearing assumptions before whatever-mode starts deciding on your behalf.
 
 ## Step 1 — Take stock (read-only, fast)
 
@@ -94,14 +90,14 @@ If the branch is `main`/`master` with no feature branch yet → create one first
 
 ## Step 6 — Review & triage the PR (ALWAYS, once it's raised)
 
-"PR raised" is not "shipped." Drive every fresh PR through review and triage **before** the final report — don't wait to be asked:
+Drive every fresh PR through review and triage **before** the final report — don't wait to be asked:
 
 1. **Adversarial review.** Invoke **`code-review-grill`** on the new PR — a *fresh* agent that did not write the diff (never self-review from the session that wrote it). Scale to the change: a single reviewer for small/contained diffs, quorum (concern-per-agent) for load-bearing ones; keep models cost-aware per the table below. Within go-go-go, code-review-grill's own Step 7 ask-before-posting gate is skipped — go-go-go's whatever-mode already covers that decision — but its posting *mechanics* still apply: real inline per-finding PR comments (one thread first, confirm it landed, then the rest), never a single flat summary.
 2. **Auto-apply the mechanical findings** and push — the reversible/low-risk class (renames, dead params, doc/comment accuracy, a missing test, an obvious off-by-one) you already decide on under whatever-mode.
 3. **Post every finding as its own inline PR comment, fixed or not.** Each comment body states its status (fixed in commit `<sha>`, or left unresolved) plus the finding's description, suggested fix, and verification. Nothing gets silently dropped, filtered, or summarized into one comment.
 4. **Triage next steps into issues.** Convert deferred / out-of-scope work and any un-fixed findings into tracker issues via **`to-issues`** (or `gh issue create`), linked from the PR, so nothing falls through.
 
-The trap this guards against: a session reviewing its own just-written diff rationalises it. Spawn the fresh reviewer even when the change "looks clean."
+Spawn the fresh reviewer even when the change "looks clean."
 
 ## Step 7 — Unblock a stalled PR (State D)
 

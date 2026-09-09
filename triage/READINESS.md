@@ -29,8 +29,7 @@ skipped.
 
 ## 2. Intended — is it wanted right now?
 
-A readiness rubric cannot answer this, which is why it is a separate question rather than an eighth item. Parked,
-deferred, superseded, "filed so it isn't lost", awaiting-a-decision, umbrella and discussion tickets are all
+Parked, deferred, superseded, "filed so it isn't lost", awaiting-a-decision, umbrella and discussion tickets are all
 **perfectly well specified**. Every one of them passes section 1. Every one of them is wrong to build.
 
 Signals, in rough order of reliability:
@@ -47,15 +46,10 @@ longer a note to a future reader, but the mechanism.
 
 ## When unsure, the answer is no
 
-The costs are lopsided. A false accept spends a worker, a branch, a review and a person's attention on a change
-nobody wanted — and on an *intent* misjudgement, that change may actively contradict a decision already made. A
-false reject costs one line in a summary that a person can override.
+The costs are lopsided: a false accept spends a worker, a branch, a review and a person's attention on a change
+nobody wanted; a false reject costs one line in a summary that a person can override.
 
 ## Never enact a refusal
 
 Record why a ticket was declined; do not label, close, or comment it into a state on that basis — unless a human
 asked about that specific ticket and is waiting for the answer.
-
-Any judgement applied across a whole board will be wrong sometimes. When a refusal is only *reported*, a wrong
-call costs a line of text. When it is written to the tracker, it costs someone else the work of finding an
-authoritative-looking label and undoing it.

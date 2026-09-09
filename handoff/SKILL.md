@@ -10,9 +10,8 @@ metadata:
 
 # handoff
 
-The receiver shares **none** of your context — only what you write down. Carry the
-least text that lets them act without re-asking: ordered action points, plus the state
-they cannot reconstruct from the repo. Nothing else. A good handoff fits on one screen.
+The receiver shares **none** of your context — only what you write down. Carry the least text that lets them act without re-asking: ordered action points, plus the
+state they cannot reconstruct from the repo. Nothing else. A good handoff fits on one screen.
 
 ## The note
 
@@ -31,7 +30,7 @@ Add only when it changes what they do:
 - **Watch out** — non-obvious gotchas / tacit knowledge that cost you to learn and would
   cost them to rediscover.
 
-## The discipline (the point of this skill)
+## The discipline
 
 1. **Earn every line.** If deleting it would not change the receiver's next move, cut it.
    When unsure, cut.
@@ -73,6 +72,3 @@ one line instead of emitting an empty note.
 > **Settled** — chunked `StreamingResponse`, not a background job (latency matters).
 > Ruled out: pandas `to_csv` (loads every row).
 > **Map** — `api/export.py`, `csv_stream.py`, PR #214.
-
-Action points first, paths not pastes, decisions and dead-ends closed — and nothing the
-receiver could read off the repo themselves.

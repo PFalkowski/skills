@@ -1,6 +1,6 @@
 # Handover protocol — mechanics
 
-How the conductor runs each lifecycle phase as its own fresh `claude` process, keeps its own context minimal, and leaves a fully inspectable trail. This is the detail behind **Dial 2 → "fresh process per phase"** and the **handover protocol** section of `SKILL.md`.
+This is the detail behind **Dial 2 → "fresh process per phase"** and the **handover protocol** section of `SKILL.md`.
 
 > Flag names evolve between Claude Code versions. Confirm the exact flags with `claude --help` before relying on them; the *shape* of the protocol (brief in → fresh process → transcript on disk → thin summary out) doesn't change.
 
@@ -141,15 +141,13 @@ Notes:
   `~/.claude/projects/<project-slug>/<session-id>.jsonl`.
   `<project-slug>` is the working directory with path separators replaced by dashes; if unsure, list `~/.claude/projects/` and match by the newest `<session-id>.jsonl`. Because you passed `--session-id`, you know the filename exactly. Replay/inspect it later with `claude --resume <session-id>`.
 
-Together these satisfy "full inspection of the conversation — what it received and what it did": the `.brief.md` is the input, the `.jsonl`/`.log` is the entire conversation.
-
 ### 4. Consume thin — the conductor stays minimal
 
 The conductor reads back **only**:
 - the child's `RESULT` block (≤10 lines), and
 - the diff of `.agents/sdlc-old-fashioned/backlog.md`.
 
-It checks the gate against those, writes its decision (scope change, revised figure, deferral) into the backlog's `Decisions / notes`, then advances or loops the phase — the next brief must never carry a figure the backlog doesn't. **It never reads the child's full transcript into its own context** — that would defeat the whole point. The transcript is for the human and the audit trail, on disk.
+It checks the gate against those, writes its decision (scope change, revised figure, deferral) into the backlog's `Decisions / notes`, then advances or loops the phase — the next brief must never carry a figure the backlog doesn't. **It never reads the child's full transcript into its own context.** The transcript is for the human and the audit trail, on disk.
 
 ## The backlog — schema
 

@@ -1,6 +1,6 @@
 # desloppify runbook
 
-This is the operating detail for a `desloppify` run. Keep the active context small: inspect
+Keep the active context small: inspect
 the files that decide the next step, retain evidence and decisions, and stop a lane when it
 produces no new signal. Do not read the whole repository just to prove that a scan exists.
 
@@ -39,8 +39,7 @@ Report mode — `apply=report`, the default — means the working tree is left e
 file is created, edited, renamed, or deleted, no command that writes is run, and no external
 system is written to. Producing the findings and the diff to show is the whole of the work.
 
-Start with a bounded inventory. Never page the whole file listing into context — the listing of
-a large repository costs more to read than most of what this run will save:
+Start with a bounded inventory. Never page the whole file listing into context:
 
 ```bash
 git status --short --branch
@@ -70,8 +69,7 @@ already dedicated. Do not overwrite unrelated user changes.
 
 Establish document truth using the doctrine in
 [housekeeping/DOC-TRIAGE.md](../housekeeping/DOC-TRIAGE.md): the source-of-truth ladder, the
-drift / bloat / gap split, contradictions and orphans, and the dispositions. Do not restate it
-here — a second copy drifts, and nothing in this repository would notice when it did.
+drift / bloat / gap split, contradictions and orphans, and the dispositions. Do not restate it here.
 
 Audit the smallest useful document surface inside `scope` first, and record per candidate what
 that doctrine requires: `id`, claim, source of truth, actual evidence, and one disposition.
@@ -169,8 +167,7 @@ and compare them against the step-1 baseline. For a material diff, invoke code-r
 fresh review at every budget and resolve findings before declaring the slice done.
 
 Show the diff. If the run is in an isolated branch or worktree, commit each approved slice there
-as it is verified — the isolation is what makes committing safe, and an uncommitted slice in a
-worktree the user did not choose is not recoverable work. The prohibition applies to the user's
+as it is verified. The prohibition applies to the user's
 own branch: never commit, push, merge, or post there as a side effect.
 
 ## 6. Close the run

@@ -10,11 +10,6 @@ metadata:
 
 # dead-branch-guard
 
-A human merges a PR while an agent keeps working on the same branch. Two hours later the agent
-pushes 28 files to that branch and rewrites the merged PR's description. `git push` and
-`gh pr edit` both succeed silently; the commit sits on a branch no PR tracks until someone
-notices by eye. This skill installs the guard that refuses that push.
-
 ## What the hook checks
 
 On every `git push`, for each **remote** branch being pushed (so `git push origin HEAD:x` and

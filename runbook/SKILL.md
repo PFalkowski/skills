@@ -10,10 +10,7 @@ metadata:
 
 # runbook
 
-A walk-through typed into chat evaporates: the user follows it with a browser or a console
-open, not the conversation, and comes back later with results. Half the steps are theirs
-(accounts, credit cards, SSH keys, physical hardware) and half are the assistant's once they
-report back. The durable artifact is a file in the project; the chat only points at it.
+The durable artifact is a file in the project; the chat only points at it.
 
 ## Triggers
 
@@ -75,5 +72,5 @@ Written <date>; sources: <links>.
 
 - One file per procedure; running it again later starts from the file, not from memory.
 - Prices, flows and flags drift faster than repositories: date them, source them, and expect
-  step 1 to be wrong by the evening. That is why step 8 exists.
+  step 1 to be wrong by the evening.
 - Keep the chat short. If the walk-through is longer than the file, the file is incomplete.

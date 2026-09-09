@@ -10,7 +10,7 @@ metadata:
 
 # fact-check
 
-Never assert a load-bearing fact from memory. **Ground it, cite the source, or flag it as unverified.** Every claim you assert ships with its source — a reproduced experiment, agreeing authoritative sources, or an exact `path:line` — not with how sure the sentence sounds.
+Never assert a load-bearing fact from memory. **Ground it, cite the source, or flag it as unverified.**
 
 ## When to reach for this
 
@@ -50,7 +50,7 @@ Surface the disagreement rather than silently picking a side. Prefer the more au
 
 ## Output
 
-Per claim, tight: **verdict · confidence · method · evidence** — a deep link, a runnable snippet + its output, or a `path:line` citation. The deliverable is the evidence trail, not prose — a reader should be able to re-verify from what you hand them. A compound question gets one line per sub-claim, then the composed answer.
+Per claim, tight: **verdict · confidence · method · evidence** — a deep link, a runnable snippet + its output, or a `path:line` citation. A compound question gets one line per sub-claim, then the composed answer.
 
 ## Anti-patterns
 
