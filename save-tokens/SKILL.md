@@ -10,16 +10,13 @@ metadata:
 
 # save-tokens
 
-*"Nothing gets sent just once."* Everything in the conversation is sent again on every later turn,
-cached at a tenth of the input price, and output costs about five times input. This skill is the
-agent's side of Anthropic's
+The agent's side of Anthropic's
 [Maximizing the value of your Claude Code sessions](https://claude.com/blog/maximizing-the-value-of-your-claude-code-sessions)
 and [Choosing a Claude model and effort level](https://claude.com/blog/claude-model-and-effort-level-in-claude-code).
-
-Two kinds of fix, and the split is the point. Some the agent applies itself, this turn, with the
-tools it has. The rest are slash commands and settings only the user can run: an agent cannot
-`/clear`, `/compact`, `/rewind` or `/model`. For those its job is to say the exact command at the
-moment it is cheapest, in one line, and get on with the work.
+Two kinds of fix: what the agent applies itself, this turn, with the tools it has, and the slash
+commands and settings only the user can run. An agent cannot `/clear`, `/compact`, `/rewind` or
+`/model`; for those it says the exact command at the moment it is cheapest, in one line, and gets
+on with the work.
 
 ## What the agent does itself
 
@@ -39,14 +36,13 @@ every tier, and a haiku brief must say exactly what to do and what to return. Th
 decide the dial: *it had the context, clearly tried, and still got it wrong* is a bigger model; *it
 skipped a file, did not run the tests, or stopped part-way* is more effort. Effort stays at the
 model's default; `effort:` exists only in a subagent definition file, for a job that recurs. A failed
-attempt escalates one tier on retry, once, which is cheaper than over-provisioning every job.
+attempt escalates one tier on retry, once.
 
 ### Keep noise out of the context that thinks
 
-Command output is appended like a file and re-sent every turn after. Output over 30,000 characters
-is spilled to a file automatically and only a preview stays (`BASH_MAX_OUTPUT_LENGTH` or the
-`bashOutputMaxChars` setting moves the line); the expensive band is everything just under it, such
-as a test runner printing 400 passing lines one at a time.
+Output over 30,000 characters is spilled to a file automatically and only a preview stays
+(`BASH_MAX_OUTPUT_LENGTH` or the `bashOutputMaxChars` setting moves the line); the expensive band is
+everything just under it, such as a test runner printing 400 passing lines one at a time.
 
 - Quiet flags first: `--reporter=dot`, `-q`, `--quiet`, `--no-pager`, `--stat` instead of the full
   diff, `-n 20` on a log.
@@ -63,13 +59,13 @@ as a test runner printing 400 passing lines one at a time.
 
 - Grep before Read. Read with an offset and limit when the region is known. Never re-read a file
   already in the context, and never cat a file back to verify an edit the tool already confirmed.
-- Answer from the transcript before running anything. Re-deriving a fact that is already in the
-  conversation spends output tokens, the expensive kind.
+- Answer from the transcript before running anything; never re-derive a fact that is already in the
+  conversation.
 
 ### Write less
 
-Thinking, tool calls and prose are all output. The final message is short, points at files and
-output instead of pasting them, and does not restate what was done.
+The final message is short, points at files and output instead of pasting them, and does not
+restate what was done.
 
 ## What the agent recommends, and when
 
@@ -83,7 +79,7 @@ of MCP tools nobody has called. The user has the gauge: a status line with the c
 | Trigger | Say |
 |---|---|
 | The next request is a different task from the conversation so far | "`/clear` first (`/rename` before it if you want this session back): the last N turns are about X and would ride along every turn." |
-| A milestone closed and what came before it is dead weight now (PR open, bug found, phase done) | "`/compact keep: the goal, the decision on X, paths A and B; drop: the debugging of Y`", with the keep and drop lines written out. When the same things must survive every compaction, a `# Compact instructions` section in `CLAUDE.md` says it once, and a `SessionStart` hook matched on `compact` can re-inject a short brief after each one. On a 1M-context model, `/autocompact 200k` (v2.1.221+) puts the safety net back where it was, so turns stop re-sending half a million tokens. |
+| A milestone closed and what came before it is dead weight now (PR open, bug found, phase done) | "`/compact keep: the goal, the decision on X, paths A and B; drop: the debugging of Y`", with the keep and drop lines written out. When the same things must survive every compaction, a `# Compact instructions` section in `CLAUDE.md` says it once, and a `SessionStart` hook matched on `compact` can re-inject a short brief after each one. On a 1M-context model, `/autocompact 200k` (v2.1.221+) puts the safety net back where it was. |
 | The user is stepping away for a while, or says so | "`/compact` before you go: the cache expires after an hour on a subscription and five minutes on an API key, and summarising is much cheaper while the conversation is still cached." On an API key, `promptCacheTtl: 1h` in settings (or `ENABLE_PROMPT_CACHING_1H=1`) makes breaks under an hour free. |
 | The last few turns went somewhere not worth keeping | "`/rewind` to before them, not `/compact`: rewinding cuts turns off the end and costs nothing, compacting rewrites everything and always costs." |
 | A big task is greenlit in a context that is full or mostly about something else | Ask: *if this task restarted in a clean session, how much of this conversation would be re-read?* Little, and the state fits a short note: write it with [`handoff`](../handoff/SKILL.md) and recommend a fresh session, or spawn a subagent with the note when the job is fire-and-forget. Entangled state: `/compact` instead. Never clear or compact on the user's behalf; a fresh session is theirs to start. |
