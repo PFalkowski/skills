@@ -33,6 +33,7 @@
     "./reflect",
     "./refresh-nuget-repo",
     "./runbook",
+    "./save-tokens",
     "./sdlc-old-fashioned",
     "./signal-verdict",
     "./snapshot-terminal-sessions",

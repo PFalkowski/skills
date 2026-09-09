@@ -37,15 +37,7 @@ Three constraints:
 
 ## Tier rubric — lowest sufficient model
 
-Default is **`sonnet`**. Move off it only when the ticket clearly matches another row. When torn between two tiers, take the lower — a failed attempt escalates one tier on retry (once), which is cheaper than over-provisioning every ticket.
-
-| Tier | Ticket smells like | Examples |
-|---|---|---|
-| `haiku` | Mechanical, unambiguous, verifiable by grep/build alone | typo/rename sweeps, dep version bump, config tweak, adding a lint rule, doc wording fixes |
-| `sonnet` (default) | Normal engineering: localized change + tests | bug fix with repro, small feature in an existing pattern, new test coverage, refactor within a module |
-| `opus` | Cross-cutting reasoning where a wrong design costs more than the tier premium | multi-module refactor with tricky invariants, concurrency/correctness bugs without a repro, performance work needing hypothesis-driven diagnosis |
-
-Effort follows tier: `low` for haiku-class chores, default for sonnet, `high` only for the opus row. Record the assigned tier in the claim comment.
+The rubric is [save-tokens](../save-tokens/SKILL.md) § *Send each job to the cheapest tier that does it*: default **`sonnet`**, off it only when the ticket clearly matches another row, the lower tier when torn. Effort follows tier: `low` for haiku-class chores, default for sonnet, `high` only for the opus row. Record the assigned tier in the claim comment.
 
 ## Process assignment (which sworn-brother skills the ranger runs)
 

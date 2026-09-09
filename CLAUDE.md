@@ -14,6 +14,9 @@ Before dispatching anything that runs a Workflow (`sdlc-workhorse`, `housekeepin
 # Where changes live
 On hobby and non-client-facing projects, deliver every change as a pull request (PR): commit, push, open the PR, report the link. Do not ask whether to push.
 
+# This repository is public
+Everything here is world-readable, including commit messages, branch names, PR titles and bodies, and comments. Never name a private repository, or anything that identifies one: its issue and pull-request numbers, its file or project paths, its product and domain specifics. Describe it broadly instead — "a private repository managed by these skills", "the managed repo", "one lifecycle run" — and keep only numbers and counts that illustrate scale without pointing at a repo.
+
 # Before the human sees the PR
 Opening a PR triggers one `code-review-grill` pass (Phase 9 inside `sdlc-old-fashioned`) by a fresh reviewer at the strongest tier, never the session that wrote the diff. Its ask about what to post is the manager's to answer, not the human's: the manager picks which findings land, and in what order, with `reflect`. Then `fix-pr` runs in hybrid mode with the manager answering in the human's place: Sonnet fixers take the mechanical findings, the manager decides the substantive ones one by one, and the human hears only what it cannot decide. The mandate is `merge=ask`: the human reviews the finished PR in the browser and merges it.
 
