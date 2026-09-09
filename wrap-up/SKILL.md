@@ -71,7 +71,7 @@ Route everything open per house rules. The two routes **compose** — they are n
   the thread.
 - **Carry it in a `handoff lite` note** — whenever anything is still open, whether or not it was also
   filed. Invoke the `handoff` skill with `lite`: same note, same discipline, printed inline as one
-  paste-ready block, **nothing written to disk**. Whoever is on the far side of that boundary — a
+  paste-ready block, **nothing written to disk**. Whoever is on the far side of the boundary you are crossing — a
   fresh context, a `/clear`, another machine — has none of this transcript. When the ledger was
   offloaded, **Next** is the one thread to resume plus the issue numbers, never a copy of them.
 

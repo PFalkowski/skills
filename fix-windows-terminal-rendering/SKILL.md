@@ -11,6 +11,11 @@ metadata:
 
 # Fix Windows terminal rendering
 
+Interactive terminal programs (Claude Code, vim, lazygit, htop-alikes) draw by moving the
+cursor around a fixed grid. Legacy `conhost.exe` reflows and truncates that grid in ways the
+program is not told about, so rows smash together, a resize permanently corrupts the layout,
+and `Ctrl+L` fails to repaint. Windows Terminal handles the same escape sequences correctly.
+
 Which host runs is a per-user setting, so the fix is a registry write — no admin, no reinstall.
 
 ## Symptoms this fixes

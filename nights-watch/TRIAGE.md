@@ -6,6 +6,8 @@
 here — *ready* (specified well enough) and *intended* (wanted now) — and it is deliberately not restated in this
 file. Three copies of one rubric drift, and the copy a worker reads is never the one that was updated.
 
+What this file adds is what is specific to a patrol:
+
 - **The watcher judges from ticket text only** — title, body, comments, linked context. It does not open the
   codebase; that is the worker's job. If readiness can't be judged from the ticket, the ticket isn't ready.
 - **Failing changes nothing on the tracker.** No label, no comment, no state. Record the *specific* missing

@@ -121,6 +121,8 @@ Do NOT spawn a further subagent — the parent will do that for the next item.
 """
 ```
 
+Anthropic prompt cache TTL is 5 minutes. A test run that takes longer than that uncaches the entire parent context.
+
 After the subagent returns, the parent reads the backlog (cheap, the file has been updated) and decides whether to spawn the next or exit.
 
 ### Alternative: in-place compression (short backlogs only)
@@ -171,7 +173,7 @@ If the parent NightShift agent is the one writing the summary, it does the fold.
 ---
 ```
 
-If the `Folded into skills` line reads "none", that's fine — not every run produces new rules.
+If the `Folded into skills` line reads "none", that's fine — not every run produces new rules. If it's missing entirely, the run skipped step 1.
 
 ### 3. Return control
 

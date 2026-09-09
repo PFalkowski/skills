@@ -4,7 +4,7 @@
 
 Users, groups, shared folders and Compose files created through the OMV web UI are written
 from OMV's database on every "Apply". Anything you change by hand in those files is lost at
-the next apply.
+the next apply:
 
 - Create the dev user **through the web UI**, not `useradd`. Only UI-created users can
   later become Samba accounts, which is what lets one identity serve SSH, the container,
@@ -128,8 +128,10 @@ chown <DEV_USER>:users /home/<DEV_USER>/.profile /home/<DEV_USER>/.bashrc /home/
 ### About the `docker` group
 
 Adding a user to `docker` is **root-equivalent**: any member can start a container that
-bind-mounts `/` and writes as root. It should be a decision rather than a default. Rootless
-Docker is the alternative and fights the omv-extras setup.
+bind-mounts `/` and writes as root. It is the standard way to avoid `sudo` and it is what
+the OMV Docker plugins assume, so it is a reasonable trade here — but it is a real grant,
+not a convenience, and it should be a decision rather than a default. Rootless Docker is
+the alternative and fights the omv-extras setup.
 
 ## Scripts
 

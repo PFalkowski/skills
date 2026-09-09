@@ -10,7 +10,7 @@ metadata:
 
 # handoff
 
-Carry the least text that lets them act without re-asking: ordered action points, plus the
+The receiver shares **none** of your context — only what you write down. Carry the least text that lets them act without re-asking: ordered action points, plus the
 state they cannot reconstruct from the repo. Nothing else. A good handoff fits on one screen.
 
 ## The note

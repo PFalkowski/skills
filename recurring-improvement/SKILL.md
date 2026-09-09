@@ -11,7 +11,7 @@ metadata:
 
 # recurring-improvement
 
-It does **no legwork itself**: it sequences recurring *processes*, holds the schedule, and keeps the paper trail.
+A conductor for a repo's **recurring** maintenance and self-improvement. It does **no legwork itself**: it sequences recurring *processes*, holds the schedule, and keeps the paper trail.
 
 Two things happen on a run:
 

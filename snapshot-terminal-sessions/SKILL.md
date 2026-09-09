@@ -50,7 +50,7 @@ pwsh -File "$HOME\scripts\reopen-claude-sessions.ps1"
 - Pairs a `claude-monitor.exe` with a `claude.exe` session into one tab (as a `split-pane
   --size 0.5`) when their directories match exactly.
 
-## Known limitation
+## Known limitation (Windows Terminal + PowerShell only, by design)
 
 Windows Terminal doesn't expose which processes share a tab vs. sit in separate tabs/panes,
 so tab/pane topology beyond the claude↔claude-monitor pairing above is **not** recoverable —

@@ -12,6 +12,8 @@ metadata:
 
 **The reviewer is never the author.** The calling session acts only as **orchestrator + synthesizer**: it preps the diff, spawns *fresh* `Agent` subagents to do all the critiquing, and consolidates.
 
+Where Matt Pocock's [grill-me](https://github.com/mattpocock/skills) interrogates *the user* about a plan one question at a time, this skill turns the same relentless interrogation onto *the diff*: the reviewer grills each change to a verified conclusion instead of skimming.
+
 ## The grilling stance (how every reviewer works)
 
 Adapted from grill-me's interrogation discipline, applied to code:

@@ -13,7 +13,8 @@ metadata:
 
 Write a single handover covering **every** recently-active Claude Code session, not just the
 current one. Claude Code flushes each session to disk as
-`~/.claude/projects/<encoded-cwd>/<session-id>.jsonl` on every message. It works **after** a
+`~/.claude/projects/<encoded-cwd>/<session-id>.jsonl` on every message, so this reads
+them directly instead of inspecting live processes. It works **after** a
 crash or power cut, when the `claude.exe` processes (and any PEB-based cwd detection) are
 already gone.
 

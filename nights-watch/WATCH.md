@@ -23,6 +23,8 @@ The Watch runs as a self-pacing loop (`/loop` dynamic mode / ScheduleWakeup wher
 - **Empty muster** → idle tick every 20–30 min. Trackers don't change faster than that at night.
 - **Budget exhausted or user stands you down** → stop the loop explicitly; on stand-down, release still-claimed tickets back to the ready label with a comment.
 
+The watcher carries almost nothing between patrols on purpose: the tracker labels are the state machine, the journal is the logbook, and the Library ([LIBRARY.md](LIBRARY.md)) is the long-term memory. Any fresh context can take the next patrol from those three alone.
+
 ## The notice — one pinned sign per board
 
 Oath rule 9 requires the notice. It is the watcher's own work — one `gh` call and at most one write, which is exactly the "one cheap shell command" rule 2 permits on the main context.
