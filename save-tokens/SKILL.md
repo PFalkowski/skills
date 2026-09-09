@@ -1,6 +1,6 @@
 ---
 name: save-tokens
-description: 'Spends a session''s tokens on the task: the cheapest subagent tier that fits, noise kept out of the main context, and a one-line call for /clear, /compact, /rewind, a model change or a handoff when it is cheapest. Triggers: a subagent dispatch, a noisy command, a task boundary, "save tokens", "what is eating my tokens".'
+description: 'Spends a session''s tokens on the task: the cheapest subagent tier that fits, noise kept out of the main context, and a one-line call for /clear, /compact, /rewind, a model change or a handoff when cheapest. Triggers: a subagent dispatch, a noisy command, a task boundary, "save tokens", "what is eating my tokens".'
 license: MIT
 metadata:
   author: Piotr Falkowski
