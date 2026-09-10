@@ -26,7 +26,7 @@ for f in */SKILL.md; do
   n=$(printf '%s' "$d" | wc -m)
   total=$((total + n))
   # a skill the model cannot invoke has its description withheld from the prompt, so it costs nothing per turn
-  if sed -n '/^---$/,/^---$/p' "$f" | grep -q '^disable-model-invocation:[[:space:]]*true'; then :; else loaded=$((loaded + n)); fi
+  if awk '/^---$/{n++; next} n==1' "$f" | grep -q '^disable-model-invocation:[[:space:]]*true'; then :; else loaded=$((loaded + n)); fi
   if [ "$n" -gt "$hard" ]; then echo "FAIL $f: description is $n chars (max $hard)"; status=1
   elif [ "$n" -gt "$soft" ]; then echo "warn $f: description is $n chars (target under $soft)"; fi
 done
