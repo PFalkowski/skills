@@ -57,7 +57,8 @@ does that.
 Read the diff **and** the surrounding code — entities/models, callers, DI/registration, sibling
 implementations — before judging. A change is only correct in context (e.g. an invariant removed in
 one file may have been silently relied on in another). Capture each finding as `file:line` +
-severity + a concrete suggested fix.
+severity + a concrete suggested fix. A nit opens with the nit marker
+([code-review-grill REFERENCE](../code-review-grill/REFERENCE.md), § The nit marker) above its body.
 
 ## 5. Post inline comments
 Each inline comment is a PR **thread** with a `threadContext`. Write the body to a JSON file (this
