@@ -1,6 +1,6 @@
 ---
 name: code-review-grill
-description: 'Adversarial review of a branch or PR diff by a fresh agent that did not write the code, as a single reviewer or a quorum of concern-based subagents. Use to review a branch, PR or diff.'
+description: 'Adversarial review of a branch or PR diff by a fresh agent that did not write the code, as a single reviewer or a quorum of concern-based subagents. Use to review a branch, PR or diff. Also covers Azure DevOps PRs (dev.azure.com), including az repos auth and diffs-API failures.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -30,7 +30,7 @@ Ask the user: **single adversarial agent** or **quorum**?
 - **Quorum** — one fresh subagent per concern, run in parallel, each with a sharp brief (objective / output / tools / boundaries) and effort sized to the diff. If the user names concerns, use exactly those; if not, the orchestrator picks the relevant subset from the diff. Concern menu + the auto-pick heuristic live in **[REFERENCE.md](REFERENCE.md)**.
 
 > **Azure DevOps PRs:** delegate the whole resolve → diff → post pipeline to
-> [azure-devops-pr-review](../azure-devops-pr-review/SKILL.md) (its steps 1–5) from the start, not
+> [AZURE-DEVOPS.md](AZURE-DEVOPS.md) (its steps 1–5) from the start, not
 > just Step 7's posting — it already solves PR-metadata lookup, the diffs-API workaround, and
 > full-context file reading, so Steps 1–3 below are for the generic/GitHub-or-local case.
 
@@ -46,7 +46,7 @@ git fetch origin <base>
 git diff --stat <base>...HEAD
 git diff       <base>...HEAD
 ```
-Read the changed files at **full context**, not just the hunks — a change is only correct in the surrounding code (mirrors `azure-devops-pr-review` step 3).
+Read the changed files at **full context**, not just the hunks — a change is only correct in the surrounding code (mirrors `AZURE-DEVOPS.md` step 3).
 
 **Consider materializing a worktree at PR-head** (`git worktree add`) to do that reading. It's just a checkout — no restore/build — so its cost scales with repo size, not solution complexity; don't confuse it with building the solution. It turns full-context reads and ripple-tracing into plain Read/Grep/Glob calls on real paths instead of repeated `git show <ref>:<path>`, gives real 1-indexed line numbers for free (useful later when posting inline comments), and — unlike switching the current checkout — doesn't disturb whatever the user has checked out if the PR branch isn't already local. Skip it for a small diff where a couple of `git show`s are just as fast; for a large or heavy repo (monorepo, submodules, huge history) where even a checkout isn't obviously cheap, ask the user before creating one rather than deciding silently.
 
@@ -109,12 +109,12 @@ This step runs after **every** review — single adversarial or quorum alike, wh
 
 1. **Detect the active PR** for the reviewed branch and name it in the prompt so the user knows exactly where comments would land:
    - **GitHub** → `gh pr view --json number,url,title -q '.number, .url'` (or `gh pr list --head <branch>`).
-   - **Azure DevOps** → resolve via **[azure-devops-pr-review](../azure-devops-pr-review/SKILL.md)**.
+   - **Azure DevOps** → resolve via **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)**.
    - If no PR exists for the branch, say so and stop after the table (offer to open one only if asked).
 2. **Ask two things explicitly:** (a) *do you want to post comments to PR #N (`<url>`)?* and (b) *which finding IDs?* (e.g. `F1,F3`, `all blockers`, `none`). Default is **post nothing** until the user names IDs.
 3. Post **only** the selected subset. Post **one** thread first, confirm it landed (numeric `id` in the response), then the rest. Each comment body includes the finding's severity, ID, description, suggested fix, and its verification artifact. A ⛏️ nit opens with the nit marker (REFERENCE, § The nit marker) above all of it.
 
 - **GitHub** → inline review comments via `gh api` (path + line + body).
-- **Azure DevOps** → delegate to **[azure-devops-pr-review](../azure-devops-pr-review/SKILL.md)** (its thread/encoding workarounds).
+- **Azure DevOps** → delegate to **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)** (its thread/encoding workarounds).
 
 Mechanics for both hosts are in **[REFERENCE.md](REFERENCE.md)**. If there is no PR, or the user declines, stop after the table.

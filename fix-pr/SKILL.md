@@ -16,7 +16,7 @@ metadata:
 
 1. Identify the PR from the argument (number, URL, or current branch):
    - **GitHub** → `gh pr view <n> --json number,url,title,headRefName,baseRefName`.
-   - **Azure DevOps** → delegate resolution and all later thread mechanics to [azure-devops-pr-review](../azure-devops-pr-review/SKILL.md).
+   - **Azure DevOps** → delegate resolution and all later thread mechanics to [AZURE-DEVOPS.md](../code-review-grill/AZURE-DEVOPS.md).
 2. Check out the PR head branch (`gh pr checkout <n>`, or fetch + checkout). If the current checkout is on unrelated dirty work, use a worktree instead of disturbing it.
 3. Pull the review threads — **unresolved/active only** by default:
    - **GitHub** → `gh api repos/{owner}/{repo}/pulls/<n>/comments` for inline comments and `gh pr view --json reviews,comments` for review bodies; group into threads and drop resolved ones (GraphQL `reviewThreads.isResolved` is the reliable source for resolution state).
@@ -72,7 +72,7 @@ Repeat until the inventory is exhausted.
 2. **One combined commit** for the run (or a small series if the fixes are genuinely unrelated), whose message maps comments to resolutions (`Address review: C1 guard null stream, C2 rename per review, …`). The commit contains the new tests together with the fixes they prove — a fix without its red-turned-green test is not ready to commit. Push it to the PR branch — the push is automatic; it is the normal, expected next step of "fix my PR".
 3. **Then stop and ask** — never auto-post to the review conversation (headless runs don't ask: they follow the caller's `reply=`/`resolve=` policy, defaulting to draft-only — see [Headless](#headless--driven-by-another-skill)):
    - *Reply to each thread with how it was addressed?* Drafted replies cite the fix commit and, for refuted comments, the refuting evidence (politely: "checked this — see snippet/output; happy to change it anyway if you prefer").
-   - *Resolve/close the threads that were fixed?* GitHub → resolve via GraphQL `resolveReviewThread`; Azure DevOps → set thread status `fixed`/`closed` via [azure-devops-pr-review](../azure-devops-pr-review/SKILL.md).
+   - *Resolve/close the threads that were fixed?* GitHub → resolve via GraphQL `resolveReviewThread`; Azure DevOps → set thread status `fixed`/`closed` via [AZURE-DEVOPS.md](../code-review-grill/AZURE-DEVOPS.md).
 4. Post only what the user approves; post one reply first, confirm it landed, then the rest. Refuted threads are replied to but left **unresolved** unless the user says otherwise — the reviewer gets to disagree.
 
 ## Headless — driven by another skill
