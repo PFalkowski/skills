@@ -128,7 +128,13 @@ confidence: confirmed | likely | unverified — never for an executable claim th
 smallest honest change · dependencies · disposition: now | ticket | drop
 ```
 
-An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; if it was not run it is withheld from the findings rather than reported anyway, and is listed under **Not run** with the reason and the command that would settle it, so a review that could execute nothing says so instead of reporting clean. A claim no run could settle uses fact-check's strongest available method. A hypothesis without an artifact is not a finding.
+Every withheld executable claim goes under its own heading instead:
+
+```text
+Not run: id · claim · reason it could not be run · command that would settle it
+```
+
+An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; if it was not run it is withheld from the findings rather than reported anyway, and is listed under **Not run** with the reason and the command that would settle it. A claim no run could settle uses fact-check's strongest available method. A hypothesis without an artifact is not a finding.
 Trace callers, dependents, tests, config, and sibling implementations before proposing deletion.
 Kill taste-only findings, rules nobody documented, already-guarded issues, and duplicates. After
 grouping by cause, stop at `max_items` root causes — never before verifying the candidates.

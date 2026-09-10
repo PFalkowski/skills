@@ -85,7 +85,7 @@ Each agent returns the **standard finding payload** (location `path:line` · des
 - **In-repo proof** — for an invariant/ripple break that no run could settle: cite the exact `path:line` of the caller/dependent that relies on the broken contract, with the relevant lines quoted (and the `grep`/command that found it).
 - **Authoritative source** — for a doc/API/version/standards claim: a working deep link to the spec/docs section (≥2 for consequential claims), quoting the relevant text.
 
-An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; if it was not run it is withheld from the findings rather than downgraded to ❓, and is listed under **Not run** with the reason and the command that would settle it, so a review that could execute nothing says so instead of reporting clean. A genuinely ungroundable non-executable claim still downgrades to ❓ uncertain, with plain notice that it is unverified and why.
+An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; if it was not run it is withheld from the findings rather than downgraded to ❓, and is listed under **Not run** with the reason and the command that would settle it. A genuinely ungroundable non-executable claim still downgrades to ❓ uncertain, with plain notice that it is unverified and why. A finding is a chain of claims: split it before choosing a method, and report the atoms grounded rather than withholding the whole finding for the one atom that could not be.
 
 ## Step 6 — Consolidate into the findings table
 

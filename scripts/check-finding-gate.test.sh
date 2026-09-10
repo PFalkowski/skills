@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Exercises check-finding-gate.sh against a fixture tree so the real skill
-# files are never touched: green when all twelve files carry the anchor
+# files are never touched: green when all thirteen files carry the anchor
 # clause (even inside a fenced code block), non-zero and naming the file
 # when one lacks it, and non-zero and naming the file when one is missing
-# outright.
+# outright. Also asserts the script's own file list matches what this test
+# expects, so a silently shrunk list (an entry deleted from the script) is
+# caught rather than leaving every other assertion green against a smaller
+# array the test re-declared and never checked.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,7 +18,7 @@ total=0
 FIXTURE_ROOT=$(mktemp -d)
 trap 'rm -rf "$FIXTURE_ROOT"' EXIT
 
-files=(
+expected_files=(
   fact-check/SKILL.md
   code-review-grill/SKILL.md
   code-review-grill/REFERENCE.md
@@ -27,8 +30,21 @@ files=(
   nights-watch/TRIAGE.md
   nights-watch/GRILL.md
   desloppify/RUNBOOK.md
-  housekeeping/FILING.md
+  housekeeping/SKILL.md
+  housekeeping/SWEEP.md
 )
+
+# Parse the actual file-list array out of check-finding-gate.sh itself,
+# rather than re-declaring it, so a deleted entry there fails here too.
+mapfile -t files < <(sed -n '/^files=(/,/^)/p' "$CHECK" | sed '1d;$d' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+total=$((total + 1))
+if [ "${#files[@]}" -ne "${#expected_files[@]}" ] || [ "$(printf '%s\n' "${files[@]}")" != "$(printf '%s\n' "${expected_files[@]}")" ]; then
+  echo "FAIL: check-finding-gate.sh's file list does not match the expected set"
+  echo "  script:   ${files[*]}"
+  echo "  expected: ${expected_files[*]}"
+  fail=$((fail + 1))
+fi
 
 write_clean_fixture() {
   local root="$1"
@@ -45,12 +61,12 @@ EOF
   done
 }
 
-# All twelve files present and carrying the clause: must be green.
+# All thirteen files present and carrying the clause: must be green.
 write_clean_fixture "$FIXTURE_ROOT"
 total=$((total + 1))
 out=$(cd "$FIXTURE_ROOT" && bash scripts/check-finding-gate.sh 2>&1); status=$?
 if [ "$status" -ne 0 ]; then
-  echo "FAIL: clean fixture (all twelve files, all carrying the clause) should be green"
+  echo "FAIL: clean fixture (all thirteen files, all carrying the clause) should be green"
   echo "$out"
   fail=$((fail + 1))
 fi

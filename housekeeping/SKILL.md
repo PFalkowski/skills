@@ -120,7 +120,7 @@ off to `go-go-go` (one thing, now), `nights-watch` in RANGING mode (one item, by
 
 Lead with what is *not* covered, then what changed:
 
-- **`uncovered`** from every dispatch — surface nobody examined. Never round it to clean.
+- **`uncovered`** from every dispatch — surface nobody examined. Never round it to clean. An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; if it was not run it is withheld from the findings and listed under **Not run** with the reason and the command that would settle it — that belongs here too, not folded into `uncovered`.
 - **Docs**: findings by kind, what was deleted and what now holds those claims, what was refuted.
 - **Filed**: ticket links. **Deferred**: what the user chose to leave, so it is not re-litigated.
 - **Sweep**: work items, ordered, with the do-now ones started or handed off.

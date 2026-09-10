@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fails unless the anchor clause below appears, as a literal fixed string,
-# in each of the twelve files listed. This is the only thing it checks: no
+# in each of the thirteen files listed. This is the only thing it checks: no
 # absence scan, no symbol scan, no glob over all skills, no occurrence
 # count, no judgment on surrounding prose. A missing file fails loudly
 # rather than being silently skipped. The clause counts wherever it
@@ -25,7 +25,8 @@ files=(
   nights-watch/TRIAGE.md
   nights-watch/GRILL.md
   desloppify/RUNBOOK.md
-  housekeeping/FILING.md
+  housekeeping/SKILL.md
+  housekeeping/SWEEP.md
 )
 
 status=0
