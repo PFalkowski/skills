@@ -142,9 +142,10 @@ const FACT_CHECK_RULE =
   `MANDATORY — run the "fact-check" skill on every load-bearing claim you are about to write down, BEFORE you write ` +
   `it. This is not optional diligence and not a step you may judge unnecessary: a claim that reaches the artifact ` +
   `unchecked has already contaminated every phase after this one, because they read your output as established fact. ` +
-  `Decompose each claim into independently verifiable sub-claims and prove each with the strongest evidence ` +
-  `available — executable → run it and paste the ACTUAL output; about this codebase → cite the exact path:line; ` +
-  `documentable → two or more independent authoritative sources. UNPROVABLE = FALSE: a claim you cannot ground does ` +
+  `Decompose each claim into independently verifiable sub-claims and prove each by the method its type requires — ` +
+  `an executable claim (what the code does at runtime) is grounded only by running it and pasting the ACTUAL output, ` +
+  `never by an in-repo citation or a source link in its place; a claim about this codebase, by the exact path:line; ` +
+  `a documentable claim, by two or more independent authoritative sources. UNPROVABLE = FALSE: a claim you cannot ground does ` +
   `not go in hedged ("likely", "should be", "appears to"), it does not go in at all. State plainly what you could ` +
   `not establish and treat it as an open question. Discovering mid-check that your premise is WRONG is a SUCCESS of ` +
   `this process, not a setback — say so and change the artifact.`
@@ -195,7 +196,10 @@ const REFUTE_SCHEMA = {
     status: { type: 'string', enum: ['refuted', 'confirmed', 'unverifiable'] },
     evidence: {
       type: 'string',
-      description: 'A runnable snippet AND its actual output, a path:line in this repo, or an authoritative deep link. Your confidence is not evidence.',
+      description: 'An executable claim is grounded only by running it and pasting the actual output, never by a ' +
+        'citation or link in its place; a claim about this codebase, by a path:line; a documentable claim, by an ' +
+        'authoritative deep link. Your confidence is not evidence. status "unverifiable" still requires evidence: ' +
+        'name why it could not be run and the exact command that would settle it.',
     },
   },
 }
@@ -390,7 +394,7 @@ const RETRO_SCHEMA = {
 // ---------------------------------------------------------------------------
 const LENSES = [
   'correctness — is the claim simply, factually wrong?',
-  'evidence — is it asserted rather than shown? Demand the snippet, the path:line, or the source.',
+  'evidence — is it asserted rather than shown? If executable, demand the run and its output; otherwise demand the path:line or the source.',
   'reproduction — if you actually did what it says, would you observe what it claims?',
 ]
 
@@ -414,9 +418,10 @@ async function proven(claim, whyLoadBearing, phaseName, context) {
       // restating it here, or this workflow silently keeps a stale copy of the
       // method the day fact-check improves. The VERDICT is not delegated: the
       // caller counts these votes, so no single agent decides what is proven.
-      `Use the "fact-check" skill to ground this. Follow its method — strongest evidence first: executable → run a ` +
-      `minimal script and paste its ACTUAL output; about this codebase → cite the exact path:line; documentable → ` +
-      `confirm across two or more independent authoritative sources. Attach the evidence itself, never your confidence.\n\n` +
+      `Use the "fact-check" skill to ground this. Follow its method — the claim type fixes it, not your convenience: ` +
+      `executable (what the code does at runtime) → run a minimal script and paste its ACTUAL output, never a ` +
+      `citation or link in its place; about this codebase → cite the exact path:line; documentable → confirm across ` +
+      `two or more independent authoritative sources. Attach the evidence itself, never your confidence.\n\n` +
       `Return only your own verdict on this one claim. You are one vote of ${LENSES.length}; do not try to reach a ` +
       `balanced conclusion on your own — attack the claim from your lens and report what you actually found.`,
       { label: `refute:${i + 1}`, phase: phaseName, model: tiers.verify, schema: REFUTE_SCHEMA }
@@ -430,7 +435,9 @@ async function proven(claim, whyLoadBearing, phaseName, context) {
   const refuted = valid.filter(v => v.status === 'refuted')
   const verdict = {
     proven: confirmed.length > refuted.length && confirmed.length >= Math.ceil(valid.length / 2),
-    why: refuted.length ? refuted.map(v => v.evidence).join(' | ') : confirmed.map(v => v.evidence).join(' | '),
+    why: refuted.length ? refuted.map(v => v.evidence).join(' | ')
+       : confirmed.length ? confirmed.map(v => v.evidence).join(' | ')
+       : valid.map(v => v.evidence).join(' | '),   // all-unverifiable: carry the reason and command onward
     votes: valid,
   }
   provenMemo.set(memoKey, verdict)

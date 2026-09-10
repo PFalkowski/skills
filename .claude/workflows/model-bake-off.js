@@ -115,7 +115,7 @@ const CLAIM_VERDICT_SCHEMA = {
   required: ['status', 'evidence'],
   properties: {
     status: { type: 'string', enum: ['refuted', 'confirmed', 'unverifiable'] },
-    evidence: { type: 'string', description: 'A runnable snippet plus its actual output, a path:line, or an authoritative deep link. Assertion is not evidence.' },
+    evidence: { type: 'string', description: 'For an executable claim: the actual output of running it, never a citation in its place. For a claim about this codebase: a path:line. For a documentable claim: an authoritative deep link. Assertion is not evidence.' },
   },
 }
 
@@ -265,9 +265,10 @@ const assessed = await pipeline(
       agent(
         `Try to REFUTE this claim. Default to "refuted" if you cannot establish it.\n\n` +
         `Claim: ${cl.claim}\nWhy it is load-bearing: ${cl.whyLoadBearing}\n\n` +
-        `Ground it the strongest way available: run a snippet if it is executable, cite path:line if it is about this codebase, ` +
-        `or confirm against two independent authoritative sources if it is documentable. Attach the actual evidence — ` +
-        `the snippet AND its real output, or the deep link. Your own confidence is not evidence.`,
+        `The claim type fixes the method: if it is executable — what the code does at runtime — it is grounded only by ` +
+        `running it and showing the real output, never by a citation or link in its place; if it is about this codebase, ` +
+        `cite the exact path:line; if it is documentable, confirm it against two independent authoritative sources. ` +
+        `Attach the actual evidence. Your own confidence is not evidence.`,
         { label: `refute:${run.alias}`, phase: 'Verify claims', schema: CLAIM_VERDICT_SCHEMA }
       ).then(v => (v ? { ...cl, ...v } : null))
     ))

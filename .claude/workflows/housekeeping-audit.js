@@ -235,6 +235,10 @@ const perShardResults = await pipeline(
          - Anything that will take longer than a focused edit is effort 'L' and action 'file-ticket'.
          - Where you cannot establish which side is right, action 'ask-human'. That is a real answer
            here, not a failure — a guessed source of truth is how a correct document gets deleted.
+           A claim about what the code DOES at runtime is grounded only by running it and showing
+           the real output, never by reading it in its place; if you could not run it, you cannot
+           establish which side is right — action 'ask-human', and say in 'evidence' why it could
+           not be run and the command that would settle it.
          - Report at most ${args.maxFindingsPerShard ?? 25} findings, worst first, and say in
            'evidence' where you checked. A finding without a code anchor or a quoted external claim
            will be refuted, and should be.
@@ -274,7 +278,9 @@ const perShardResults = await pipeline(
            Intent, requirements, deadlines → the authoritative external. A recorded decision → the
            ADR. If the finding named the wrong one, return the right one.
          Default to refuted:true when the evidence does not hold up. If it survives, set
-         refuted:false and 'proof': the exact lines (path:line) or the quoted external claim.
+         refuted:false and 'proof': for a claim about what the code does at runtime, the real
+         output of running it — never a citation in its place; otherwise the exact lines (path:line)
+         or the quoted external claim.
          You may correct 'sourceOfTruth' and 'action'; leave them null to keep the finding's own.
          ${READ_ONLY} ${NO_SPAWN}`,
         { label: `verify:${norm(f.doc).split('/').pop().slice(0, 20)}-${f.kind}`, phase: 'Verify',
