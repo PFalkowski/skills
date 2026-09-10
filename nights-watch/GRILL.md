@@ -77,7 +77,7 @@ The dedup key is `file:title`, no line number — line numbers shift between the
 
 The watcher posts; the workflow never writes a channel (same split as the hunt). Default `report=threads`:
 
-- Each surviving finding → one inline review thread: `gh api repos/{o}/{r}/pulls/{pr}/comments` with `commit_id=<head sha>`, `path`, `line`, `side=RIGHT`. Body: the claim, the failure scenario (or the nit's cost), the proof, severity, and the suggestion if one survived — a 💡 nit opening with the nit marker ([code-review-grill REFERENCE](../code-review-grill/REFERENCE.md), § The nit marker). All of them post — the user chose verification, not severity, as the floor.
+- Each surviving finding → one inline review thread: `gh api repos/{o}/{r}/pulls/{pr}/comments` with `commit_id=<head sha>`, `path`, `line`, `side=RIGHT`. Body: the claim, the failure scenario (or the nit's cost), the proof, severity, and the suggestion if one survived — a ⛏️ nit opening with the nit marker ([code-review-grill REFERENCE](../code-review-grill/REFERENCE.md), § The nit marker). All of them post — the user chose verification, not severity, as the floor.
 - Findings that anchor outside the diff go into **one** consolidated PR comment naming their real locations.
 - The sweep report (`<date>-<n>.md` + `INDEX.md`) records per PR: posted / refuted / already-standing / uncovered / not-run (each un-run executable claim, with its reason and the command that would settle it) — a grill that posted nothing still writes its line, because a quiet grill and a broken grill must be distinguishable.
 - `report=document` keeps everything in the logbook and touches no PR; `report=chat` returns findings in-session (for `once`).
