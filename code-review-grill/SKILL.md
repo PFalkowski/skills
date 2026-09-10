@@ -20,7 +20,7 @@ Adapted from grill-me's interrogation discipline, applied to code:
 - **One thread at a time.** Take a hunk, interrogate it to a conclusion, *then* move on — don't fan out half-questions across the whole diff. Walk each branch of the "is this correct?" tree, resolving dependencies between decisions one-by-one.
 - **Interrogate, don't admire.** For each change ask: *what must be true for this to be correct? what input breaks it? what caller/test relied on the old behavior? what did the author assume?*
 - **Ask "is this the only one?"** For every *fix*, the follow-up question is *where else does this exact shape live, and why is it not fixed here too?* — see [Step 3](#step-3--trace-ripple-effects).
-- **Answer by exploring, never by speculating.** grill-me's rule "if the codebase can answer it, explore instead of asking" becomes: if a doubt can be settled by running a snippet, grepping the repo, or checking the project's docs, do that — that *is* the [verification](#step-5--run-the-review-fresh-adversarial-grilling) every finding must carry. An un-run hypothesis is not a finding.
+- **Answer by exploring, never by speculating.** grill-me's rule "if the codebase can answer it, explore instead of asking" becomes: settle an executable doubt by running it; a codebase doubt by grepping; a doc/API doubt by checking the docs — the claim decides which, not convenience. That *is* the [verification](#step-5--run-the-review-fresh-adversarial-grilling) every finding must carry. An un-run hypothesis is not a finding.
 - **Carry a recommended answer.** Like grill-me proposing an answer per question, every finding ships a concrete suggested fix.
 
 ## Step 0 — Pick the stance (ALWAYS ask)
@@ -58,7 +58,7 @@ For every changed public symbol, signature, invariant, or config key, grep calle
 
 The tell is a diff that changes one of several structurally parallel things — one of N timer functions, one of N repository methods, one of N adapters implementing a port, one of N call sites of the same helper. When you see that, ask why the other N−1 are untouched and require an answer, rather than assuming the author checked.
 
-**Building/testing locally is the reviewer's call, not a default step.** If CI already gates the PR, check its status first (`gh pr checks`, or for Azure DevOps the PR's status checks / build info) and cite that rather than re-deriving it. But if there's no CI configured, or its status isn't visible from where you're standing, a local build/test run is a reasonable — often the only — way to establish that baseline; use judgment. Either way, an actual build or test run is also the natural route to a **runnable-snippet verification artifact** for a specific finding (a minimal repro, or one targeted test proving one hypothesis).
+**CI status can stand in for the baseline build/test check; it never stands in for a specific finding's run.** If CI already gates the PR, check its status first (`gh pr checks`, or for Azure DevOps the PR's status checks / build info) and cite that for the baseline. If there's no CI configured, or its status isn't visible from where you're standing, a local build/test run is a reasonable — often the only — way to establish that baseline; use judgment. But once a specific executable claim is in play, citing CI is not a substitute: that claim is grounded only by running it and showing the real output, so producing the **runnable-snippet verification artifact** for that finding (a minimal repro, or one targeted test proving one hypothesis) is never optional.
 
 ## Step 4 — Capture the house rules (docs, ADRs, conventions) — ALWAYS
 
@@ -80,19 +80,19 @@ Spawn via the **Agent tool** — never review from the calling context. Each rev
 
 Each agent returns the **standard finding payload** (location `path:line` · description · severity emoji · suggested fix · **verification**) defined in REFERENCE.
 
-**Every finding must be verified before it is reported — no unverified claims.** A finding raised "from reading" is a hypothesis, not a finding. Before an agent emits a finding it must ground it by the strongest method the problem allows, and **state which method it used in enough detail that the user can replicate it in one step** (per [fact-check](../fact-check/SKILL.md)):
+**Every finding must be verified before it is reported — no unverified claims.** A finding raised "from reading" is a hypothesis, not a finding. The claim's type fixes which method below grounds it — it is not a menu to pick from, and **the agent must state which method it used in enough detail that the user can replicate it in one step** (per [fact-check](../fact-check/SKILL.md)):
 - **Runnable snippet** — for anything executable (logic bug, off-by-one, regex, boundary, encoding, null/overflow, async/ordering, perf claim): write a minimal self-contained snippet (or failing test) that exercises the issue, run it, and report the snippet verbatim plus its actual output, so the user reproduces by copy-paste.
-- **In-repo proof** — for invariant/ripple breaks: cite the exact `path:line` of the caller/dependent that relies on the broken contract, with the relevant lines quoted (and the `grep`/command that found it).
-- **Authoritative source** — for doc/API/version/standards claims: a working deep link to the spec/docs section (≥2 for consequential claims), quoting the relevant text.
+- **In-repo proof** — for an invariant/ripple break that no run could settle: cite the exact `path:line` of the caller/dependent that relies on the broken contract, with the relevant lines quoted (and the `grep`/command that found it).
+- **Authoritative source** — for a doc/API/version/standards claim: a working deep link to the spec/docs section (≥2 for consequential claims), quoting the relevant text.
 
-If a finding **cannot** be grounded by any of these, the agent must downgrade it to ❓ uncertain and say plainly that it is unverified and why. Pick the method that fits the problem; always show the work.
+An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; if it was not run it is withheld from the findings rather than downgraded to ❓, and is listed under **Not run** with the reason and the command that would settle it, so a review that could execute nothing says so instead of reporting clean. A genuinely ungroundable non-executable claim still downgrades to ❓ uncertain, with plain notice that it is unverified and why.
 
 ## Step 6 — Consolidate into the findings table
 
 The lead merges agent outputs into **one table** (templates + severity legend in REFERENCE):
 - **Dedupe:** same location + same issue raised by multiple agents → **one row**, with each flagging agent's emoji in its column.
 - Assign finding **IDs** (`F1`, `F2`, …), fill per-agent severity emoji, compute **Votes** (flagged / total agents — quorum only), and set a **Consensus** severity.
-- **Carry each finding's verification through:** the table gets a `Verified` column naming the method; the copy-paste-ready artifact (snippet+output, in-repo proof, or deep link) is reproduced verbatim below the table, keyed by finding ID. Drop or downgrade any finding whose agent returned no usable artifact.
+- **Carry each finding's verification through:** the table gets a `Verified` column naming the method; the copy-paste-ready artifact (snippet+output, in-repo proof, or deep link) is reproduced verbatim below the table, keyed by finding ID. An executable finding whose agent returned no usable artifact is withheld from the table and moved to a **Not run** list, one line each naming the claim, why it wasn't run, and the command that would settle it; a non-executable finding with no usable artifact downgrades to ❓ instead.
 - Order by consensus severity, blockers first.
 
 ## Step 7 — Offer to post (ALWAYS prompt; NEVER auto-post)

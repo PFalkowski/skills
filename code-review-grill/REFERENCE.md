@@ -41,19 +41,21 @@ Use `–` in an agent's cell when that agent did not flag the row.
 - finding:     one-sentence statement of the problem
 - suggested:   concrete fix (code or precise instruction)
 - verification:
-    method:    snippet | in-repo | source      (which grounding method was used)
+    method:    snippet | in-repo | source      (fixed by the claim's type, not chosen)
     detail:    the actual proof, copy-paste-ready (see below) — NOT "I checked" with no artifact
 ```
 
-**`verification` is mandatory on every finding** (per [fact-check](../fact-check/SKILL.md)). A finding without a verification artifact is not a finding — either ground it or downgrade it to ❓ and mark it unverified. The `detail` must let the user replicate in one step:
+**`verification` is mandatory on every finding** (per [fact-check](../fact-check/SKILL.md)). A finding without a verification artifact is not a finding. The claim's type fixes which row below grounds it — it is not a menu to pick from; when a claim fits more than one row, the **snippet** row wins, and the other rows cover only what no run could settle. The `detail` must let the user replicate in one step:
 
 | method | when | what `detail` must contain |
 |---|---|---|
-| **snippet** | executable claim (logic/off-by-one/regex/boundary/encoding/null/overflow/async/perf) | the minimal runnable snippet **or failing test** *verbatim*, the command to run it, and its **actual captured output** — user reproduces by copy-paste |
-| **in-repo** | broken invariant / ripple / dependent | the exact `path:line` of the relying caller, the relevant lines quoted, and the `grep`/command that found them |
+| **snippet** | executable claim — what the code does at runtime (logic/off-by-one/regex/boundary/encoding/null/overflow/async/perf) | the minimal runnable snippet **or failing test** *verbatim*, the command to run it, and its **actual captured output** — user reproduces by copy-paste |
+| **in-repo** | broken invariant / ripple / dependent that no run could settle | the exact `path:line` of the relying caller, the relevant lines quoted, and the `grep`/command that found them |
 | **source** | doc / API / version / standards claim | a working **deep link** to the authoritative section (≥2 for consequential claims), with the relevant text quoted |
 
-When a snippet cannot be made to reproduce the issue, that is itself a result: drop or downgrade the finding.
+An executable claim is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place. When a snippet cannot be made to reproduce an executable claim, that claim is withheld from the findings and listed under **Not run** — naming why and the command that would settle it — never downgraded to ❓. A non-executable claim that fails to ground downgrades to ❓, unchanged.
+
+**Not run** (listed separately, never as a row in the findings table): one line per withheld executable claim — the claim, why it could not be run, and the exact command that would settle it.
 
 ## Brief templates
 
@@ -69,7 +71,13 @@ Objective: Grill this diff hunk-by-hunk. Assume it is wrong until proven right; 
            AND deviations from the attached house rules (ADRs / coding guidelines / architectural style).
 Output:    The standard finding payload, one block per finding, INCLUDING a verification artifact for
            each (runnable snippet+output, in-repo path:line proof, or authoritative deep link). State
-           the method used. Downgrade any finding you cannot ground to ❓ unverified. End with a verdict.
+           the method used. An executable claim — what the code does at runtime — is grounded only by
+           running it and showing the real output, never by an in-repo citation or a source link in its
+           place; if it was not run it is withheld from the findings rather than downgraded to ❓, and is
+           listed under Not run with the reason and the command that would settle it, so a review that
+           could execute nothing says so instead of reporting clean. A genuinely ungroundable
+           non-executable finding still downgrades to ❓ unverified. End with a verdict, and a Not run
+           list if anything was withheld.
 Tools:     Read/Grep the attached files and their dependents. Run snippets/tests to verify executable
            claims. (Add WebSearch/WebFetch if claims need checking.)
 Boundaries: Review only this diff and what it touches. Do not propose unrelated refactors. No unverified findings.
@@ -81,8 +89,13 @@ Objective: Grill this diff for <CONCERN> only (see scope: <one-line scope from t
            for each relevant change ask what must be true for it to be correct and what breaks it.
 Output:    The standard finding payload for <CONCERN> findings only; '✅ nothing found' if clean.
            Every finding MUST carry a verification artifact (runnable snippet+actual output, in-repo
-           path:line proof, or authoritative deep link) and name the method. No unverified findings —
-           downgrade what you cannot ground to ❓ unverified.
+           path:line proof, or authoritative deep link) and name the method. An executable claim — what
+           the code does at runtime — is grounded only by running it and showing the real output, never
+           by an in-repo citation or a source link in its place; if it was not run it is withheld from
+           the findings rather than downgraded to ❓, and is listed under Not run with the reason and the
+           command that would settle it, so a review that could execute nothing says so instead of
+           reporting clean. A genuinely ungroundable non-executable finding still downgrades to ❓
+           unverified.
 Tools:     Read/Grep the attached files + dependents. Run snippets/tests to confirm executable claims.
            [documentation worker ONLY] You own the house rules: check the diff for conformance to the
            project's ADRs, coding guidelines, patterns/practices, and architectural style (DDD vs n-tier
