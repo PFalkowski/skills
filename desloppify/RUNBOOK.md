@@ -123,11 +123,12 @@ Every surviving finding needs:
 ```text
 id · location · root cause · reader/context cost · risk/size
 evidence: exact path:line, command/output, test, or authoritative source
-confidence: confirmed | likely | unverified
+confidence: confirmed | likely | unverified — never for an executable claim that
+  was not run; that one is withheld and listed under Not run instead (below)
 smallest honest change · dependencies · disposition: now | ticket | drop
 ```
 
-Use fact-check's strongest available method. A hypothesis without an artifact is not a finding.
+An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; if it was not run it is withheld from the findings rather than reported anyway, and is listed under **Not run** with the reason and the command that would settle it, so a review that could execute nothing says so instead of reporting clean. A claim no run could settle uses fact-check's strongest available method. A hypothesis without an artifact is not a finding.
 Trace callers, dependents, tests, config, and sibling implementations before proposing deletion.
 Kill taste-only findings, rules nobody documented, already-guarded issues, and duplicates. After
 grouping by cause, stop at `max_items` root causes — never before verifying the candidates.

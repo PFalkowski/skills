@@ -186,10 +186,11 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        anything in it. If proving a claim needs a build or a real checkout, make your
        own worktree (git worktree add <tmp> <ref>), work there, and remove it when done.
        MANDATORY — run the "fact-check" skill on EVERY load-bearing claim before you
-       record it. Decompose each into independently verifiable sub-claims and prove each
-       with the strongest evidence available: executable → run it and paste the ACTUAL
-       output; about this codebase → cite the exact path:line; documentable → two or more
-       independent authoritative sources. UNPROVABLE = FALSE. A claim you cannot ground
+       record it. Decompose each into independently verifiable sub-claims and prove each:
+       an executable claim — what the code does at runtime — is grounded only by running
+       it and showing the real output, never by an in-repo citation or a source link in
+       its place; about this codebase → cite the exact path:line; documentable → two or
+       more independent authoritative sources. UNPROVABLE = FALSE. A claim you cannot ground
        does not get hedged into the premise ("likely", "should be") — it is EXCLUDED and
        listed as an open question. ONLY CLAIMS YOU PROVED ARE HELD.
        Discovering the ticket's own premise is wrong is a SUCCESS of this gate: say so,
@@ -310,9 +311,11 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        Truth before all: at every critical decision moment — a root-cause call, a design
        fork, before any unverified fact (API behavior, version/compat, copied number)
        enters code — run the "fact-check" skill: decompose the decision into smaller
-       verifiable sub-claims and prove each (runnable experiment + output, or independent
-       authoritative sources). Unprovable = false. Refuted premise = return blocked with
-       the evidence; proven facts carry their proof into the PR.
+       verifiable sub-claims and prove each — an executable claim is grounded only by
+       running it and showing the real output, never by an in-repo citation or a source
+       link in its place; otherwise, an in-repo citation or independent authoritative
+       sources. Unprovable = false. Refuted premise = return blocked with the evidence;
+       proven facts carry their proof into the PR.
        Do NOT review your own diff for the record — the grill is not your job and you
        cannot run it (you have no Agent/Task tool to spawn a reviewer with). The patrol
        script dispatches a fresh reviewer against your PR after you return.
@@ -361,9 +364,14 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
          Read the repo's own docs first (README, docs/adr, contributing/coding guidelines)
          and judge the diff against THIS project's documented conventions.
          Grill it hunk by hunk: what must be true for this to be correct? what input breaks
-         it? what caller relied on the old behavior? Verify every finding before reporting
-         it — a runnable snippet with its output, an in-repo citation (path:line), or an
-         authoritative link. Speculation is not a finding; drop it.
+         it? what caller relied on the old behavior? An executable claim — what the code
+         does at runtime — is grounded only by running it and showing the real output,
+         never by an in-repo citation or a source link in its place; if it was not run it
+         is withheld rather than reported anyway, and is listed under **Not run** — in
+         your returned summary below, the only field this schema has for it — with the
+         reason and the command that would settle it. A claim about this codebase is grounded by
+         an in-repo citation (path:line); about an API or spec, by an authoritative link.
+         Speculation is not a finding; drop it.
          Ticket context (all you get — do not ask the author): ${t.title}
          ${t.brief}
          TDD IS MANDATORY HERE — verify it held, and treat a breach as a finding:
@@ -383,7 +391,8 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
          Post the confirmed findings to the PR as an ordinary review. Write as any reviewer
          would: nothing in the review names the Watch, nights-watch, "ranger", the grill, or
          otherwise reveals an automated process (Oath rule 8).
-         Return JSON: {reviewed, findingsPosted, blocking, summary}.`,
+         Return JSON: {reviewed, findingsPosted, blocking, summary} — summary is also
+         where any Not-run list goes; this schema has no separate field for it.`,
         { label: `grill:${t.id}`, phase: 'Grill', model: t.tier, effort: t.effort,
           schema: { type: 'object',
             properties: { reviewed: {type:'boolean'}, findingsPosted: {type:'number'},

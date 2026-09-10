@@ -28,7 +28,7 @@ An `agent()` running inside a Workflow holds no `Agent`/`Task` tool and no `Work
 
 1. **The Grill never touches the code or the merge.** No commits, no approvals, no merge, no PR state changes. Threads and a logbook are the entire output surface. (An unattended approve is an unattended merge on auto-merge repos.)
 2. **Fresh eyes only.** No reviewer ever saw the author's rationale — the grill workflow gets the PR number and the range, never the watcher's opinion, never a ranger's chronicle of building it.
-3. **Only verified findings post.** Every finding — down to the last nit — faces an adversarial verifier prompted to kill it before any human reads it. What survives posts, *all* of it; severity says how much it matters, verification says whether it speaks at all. Speculation dies in the workflow (Oath rule 1: unprovable = false).
+3. **Only verified findings post.** Every finding — down to the last nit — faces an adversarial verifier prompted to kill it before any human reads it. What survives posts, *all* of it; severity says how much it matters, verification says whether it speaks at all. An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; if it was not run it is withheld from the findings rather than reported anyway, and is listed under **Not run** with the reason and the command that would settle it, so a review that could execute nothing says so instead of reporting clean. Speculation dies in the workflow (Oath rule 1: unprovable = false).
 4. **One thread per finding, at the line.** A surviving finding becomes an inline review thread anchored to its `file:line` at the PR head. Never a wall-of-text review comment when a line will do; a finding that anchors to no diff line (it lives in an untouched caller) goes into one consolidated comment instead, saying where it actually lives.
 5. **Never grill the same sha twice.** The grilled ledger remembers `<pr> <head-sha>`; a PR is re-grilled only when its head moves. On a re-grill, standing threads from earlier grills are passed in as dedup keys — a finding whose thread already exists is dropped before verification, so a push that fixes nothing costs re-review of the new commits, not a duplicate thread storm.
 
@@ -62,7 +62,8 @@ One Workflow per moved PR — [`.claude/workflows/grill.js`](../.claude/workflow
 //        stance: 'single' | 'quorum', concerns,
 //        known: ['<file>:<title-key>'],    // this PR's standing threads from earlier grills
 //        tiers: { review, verify, docs }, reserve, chronicleDir, libraryIndex }
-// out: { findings,       // verified survivors, worst-first, each with file/line/proof/key
+// out: { findings,       // verified survivors, worst-first, each with file/line/proof/key —
+//                        // an executable claim that was never run does not enter this array
 //        refuted, alreadyPosted, uncovered,
 //        concernsRun,    // recorded from returns, never inferred from silence
 //        complete }      // the ledger's gate: false whenever anything in `uncovered`
@@ -78,7 +79,7 @@ The watcher posts; the workflow never writes a channel (same split as the hunt).
 
 - Each surviving finding → one inline review thread: `gh api repos/{o}/{r}/pulls/{pr}/comments` with `commit_id=<head sha>`, `path`, `line`, `side=RIGHT`. Body: the claim, the failure scenario (or the nit's cost), the proof, severity, and the suggestion if one survived. All of them post — the user chose verification, not severity, as the floor.
 - Findings that anchor outside the diff go into **one** consolidated PR comment naming their real locations.
-- The sweep report (`<date>-<n>.md` + `INDEX.md`) records per PR: posted / refuted / already-standing / uncovered — a grill that posted nothing still writes its line, because a quiet grill and a broken grill must be distinguishable.
+- The sweep report (`<date>-<n>.md` + `INDEX.md`) records per PR: posted / refuted / already-standing / uncovered / not-run (each un-run executable claim, with its reason and the command that would settle it) — a grill that posted nothing still writes its line, because a quiet grill and a broken grill must be distinguishable.
 - `report=document` keeps everything in the logbook and touches no PR; `report=chat` returns findings in-session (for `once`).
 
 Two guards. **`prs=all` on other people's PRs is outward-facing**: unattended threads on a colleague's PR are the Watch speaking in public, so the sweep report says whose PRs were grilled, and turning that on is the user's explicit call, never a default. And **a security finding on a public repo's PR follows the disclosure gate** ([HUNT.md](HUNT.md) § Disclosure): a vulnerability does not get a public inline thread pointing at the vulnerable line — it routes to `advisory` (or `chat` fallback), and the thread says only that a finding was raised through a private channel.

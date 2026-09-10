@@ -13,9 +13,11 @@ What this file adds is what is specific to a patrol:
 - **Failing changes nothing on the tracker.** No label, no comment, no state. Record the *specific* missing
   pieces in the patrol summary and move on (Oath rule 7).
 - **Item 7 of the bar is discharged with the fact-check skill, and it is mandatory here, not advisory.** Where a
-  ticket or the triage verdict itself rests on a load-bearing claim, decompose it into sub-claims and prove each
-  with a runnable experiment plus output, or independent authoritative sources. Unprovable counts as false →
-  declined, evidence in the summary. Proven → carry the proof into the ranger's brief so it lands in the PR.
+  ticket or the triage verdict itself rests on a load-bearing claim, decompose it into sub-claims and prove each:
+  an executable claim is grounded only by running it and showing the real output, never by an in-repo citation or
+  a source link in its place; otherwise, a runnable experiment plus output, or independent authoritative sources.
+  Unprovable counts as false → declined, evidence in the summary. Proven → carry the proof into the ranger's brief
+  so it lands in the PR.
 
 ## Judged intake (the default — `judge=haiku`, disable with `judge=off`)
 
