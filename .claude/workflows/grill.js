@@ -53,7 +53,8 @@ const FINDINGS = { type: 'object', properties: { findings: { type: 'array', item
     failureScenario: {type:'string', minLength: 1},   // inputs/state → wrong outcome; nits name the cost
     evidence: {type:'string', minLength: 1},
     suggestion: {type:['string','null']} },
-  required: ['title','file','line','severity','failureScenario','evidence'] } } },
+  required: ['title','file','line','severity','failureScenario','evidence'] } },
+  uncovered: { type: 'array', items: { type: 'string' } } },  // an executable claim not run: why, and the command that would settle it
   required: ['findings'] }
 const VERDICT = { type: 'object', properties: { refuted: {type:'boolean'}, why: {type:'string'},
   severity: {type:['string','null'], enum: [...SEVERITIES, null]}, proof: {type:['string','null']} },
@@ -118,8 +119,12 @@ const grillPrompt = concern =>
    ${houseRules ? `HOUSE RULES (already distilled — judge the diff against these):\n${houseRules}`
                 : `Read the repo's own docs (README, ADRs, guidelines) FIRST and judge the diff
    against its documented architecture.`}
-   Truth before all: fact-check any load-bearing external claim (an API contract, a library
-   behaviour) before it enters a finding. Keep a chronicle at
+   Truth before all: an executable claim — what the code does at runtime — is grounded only by
+   running it and showing the real output, never by an in-repo citation or a source link in its
+   place; if you could not run it, it is NOT a finding — add one string to \`uncovered\` naming
+   the claim, why it could not be run, and the command that would settle it. A non-executable
+   claim (an API contract, a library behaviour) is grounded by the path:line or an authoritative
+   source, as usual. Keep a chronicle at
    ${args.chronicleDir}/grill-${args.pr}${concern ? `-${concern}` : ''}.md as you go.
    Report EVERYTHING that holds up, nits included — severity says how much it matters; the
    verifier decides what survives. Every finding anchors to a line: 'file' repo-relative exactly
@@ -146,6 +151,7 @@ const reviews = await parallel(lenses.map(concern => () => (async () => {
     // would look covered, the ledger would mark the PR grilled, and the gate ran degraded.
     if (!r) { uncovered.push(`${concern ?? 'review'}: reviewer died — diff unexamined`); return null }
     ran.add(concern ?? 'review')
+    for (const u of r.uncovered ?? []) uncovered.push(`${concern ?? 'review'}: ${u}`)
     return (r.findings ?? []).map(f => ({ ...f, concern: concern ?? 'review' }))
   } finally { release() }
 })()))
@@ -177,8 +183,10 @@ const verified = await parallel(candidates.map(f => () => (async () => {
        yourself, do not trust the summary. You are trying to KILL it: is the claim actually true
        at that line, does the failure scenario actually follow, does a caller or a guard upstream
        already prevent it? Default to refuted:true when the evidence does not hold up.
-       If it holds, set refuted:false, your own severity call, and 'proof': a runnable snippet
-       with its output, the exact in-repo lines, or an authoritative reference. ${NO_SPAWN}`,
+       If it holds, set refuted:false, your own severity call, and 'proof': for an executable
+       claim, the real output of running it — never a citation or link in its place; for an
+       in-repo or documentable claim, the exact lines or an authoritative reference, as before.
+       ${NO_SPAWN}`,
       { label: `verify:${norm(f.title).slice(0, 24)}`, phase: 'Verifiers',
         model: args.tiers?.verify ?? 'sonnet', schema: VERDICT, isolation: 'worktree' })
     // A dead verifier is not a verdict: an unverified finding must not post (the skill's rule —
