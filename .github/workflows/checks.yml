@@ -17,6 +17,8 @@ jobs:
           bash scripts/check-descriptions.sh
           bash scripts/check-state-paths.sh
           bash scripts/check-state-paths.test.sh
+          bash scripts/check-finding-gate.sh
+          bash scripts/check-finding-gate.test.sh
           bash dead-branch-guard/scripts/pre-push.test.sh
           bash auto-mode-setup/scripts/deny-rules.test.sh
           bash scripts/link-skills-claude-md.test.sh

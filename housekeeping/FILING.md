@@ -38,7 +38,9 @@ are one ticket. If a ticket needs two people or two reviews, it is two.
 Write for a stranger reading it in three months, with none of this context:
 
 - **What is wrong**, in one sentence, as a claim that can be falsified.
-- **Evidence**: `path:line`, the command and its real output, or the quoted authoritative source.
+- **Evidence**: `path:line`, the command and its real output, or the quoted authoritative source. An
+  executable claim is grounded only by running it — a candidate no run has settled does not clear
+  the gate above and never reaches a ticket body.
 - **Why it matters**: the cost. A defect it permits, an hour it adds, a rule it breaks. Never
   "cleanliness".
 - **Suggested fix**, as a sketch. Say if it is one of several approaches.

@@ -37,14 +37,14 @@ If the invocation didn't name one, ask: **hybrid** (default), **interactive**, o
 
 For each comment, before any fix is considered, run [fact-check](../fact-check/SKILL.md) on the comment's claim:
 
-- **Executable claims** ("this throws on empty input", "this regex misses X", "this leaks the handle") → minimal runnable snippet or targeted test, with the snippet and its actual output kept as evidence.
+- **Executable claims** ("this throws on empty input", "this regex misses X", "this leaks the handle") → minimal runnable snippet or targeted test, with the snippet and its actual output kept as evidence. An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; a comment making one that cannot be run is neither confirmed nor refuted, and goes to needs-discussion rather than being acted on.
 - **Codebase claims** ("this duplicates Y", "callers rely on Z") → exact `path:line` citations found by grep.
 - **Doc/API/standard claims** ("this API is deprecated", "the spec requires…") → two or more authoritative sources, deep-linked.
 
 Verdicts:
 - **Confirmed** → proceed to Step 3.
 - **Refuted** → do **not** implement anything. Record the refutation with its evidence; in interactive/hybrid mode show it to the user immediately (they may still want a change — reviewer intent can be right even when the stated reason is wrong). In auto mode it becomes a drafted reply for Step 4, never a silent skip.
-- **Unverifiable** → treat as substantive and interactive in every mode; never auto-fix on an ungrounded claim.
+- **Unverifiable** → treat as substantive and interactive in every mode; never auto-fix on an ungrounded claim — this is where an executable claim that could not be run lands, per above.
 
 ## Step 3 — Resolve, one comment at a time
 

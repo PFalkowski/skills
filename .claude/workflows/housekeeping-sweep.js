@@ -37,7 +37,7 @@ const say = (m) => log(startedAt ? `[${startedAt}] ${m}` : m)
 // column is what separates a finding from an opinion — every lens says how its findings are proved.
 const CATALOGUE = {
   warnings: `Compiler, analyzer and linter warnings. RUN the repo's own build and lint${args.checks?.build ? ` (\`${args.checks.build}\`)` : ''} and read the real output — do not predict warnings from reading code. Group by rule id, count them, and say which are one-line fixes and which are symptoms. Suppressed or baselined warnings count: say what is being hidden.`,
-  bugs: `Latent defects: wrong logic, unhandled failure modes, race conditions, resource leaks, off-by-one, swallowed exceptions, null/None paths, unchecked external input. Each needs a concrete failure scenario — inputs and state → wrong outcome. Prove it where you can: a runnable snippet and its output beats a reading.`,
+  bugs: `Latent defects: wrong logic, unhandled failure modes, race conditions, resource leaks, off-by-one, swallowed exceptions, null/None paths, unchecked external input. Each needs a concrete failure scenario — inputs and state → wrong outcome. This is executable behaviour: ground it only by running it and showing the real output, never by a reading in its place. If you cannot run it, it is not a finding — say so under \`notRun\`, with the command that would settle it.`,
   'tests-unit': `Logic with no unit coverage that would cost real money to get wrong: branching business rules, calculations, parsers, state machines, error paths. Name the specific untested behaviour, not the coverage percentage — a percentage tells nobody what to write. Run the coverage tool if the repo has one${args.checks?.test ? ` (\`${args.checks.test}\`)` : ''}.`,
   'tests-integration': `Seams that only fail when assembled: persistence, HTTP boundaries, message handlers, transactions, migrations, auth, serialization contracts. Where does the suite mock the very thing most likely to break? Name the seam and the failure it would not catch.`,
   duplication: `The same logic implemented more than once — copy-paste, and the subtler kind where two implementations of one rule have already diverged. Divergence is the finding: say which copy is right, and what the other would produce differently.`,
@@ -58,7 +58,8 @@ const CANDIDATES = { type: 'object', properties: { candidates: { type: 'array', 
     effort: { type: 'string', enum: ['S', 'M', 'L', 'XL'] },
     severity: { type: 'string', enum: ['critical', 'high', 'medium', 'low', 'nit'] },
     evidence: { type: 'string', minLength: 1 } },         // command + output, or path:line read
-  required: ['title', 'where', 'problem', 'cost', 'fix', 'effort', 'severity', 'evidence'] } } },
+  required: ['title', 'where', 'problem', 'cost', 'fix', 'effort', 'severity', 'evidence'] } },
+  notRun: { type: 'array', items: { type: 'string' } } },  // an executable claim not run: why, and the command that would settle it
   required: ['candidates'] }
 
 const VERDICT = { type: 'object', properties: {
@@ -95,6 +96,7 @@ const claim_ = n => {
 }
 
 const uncovered = []
+const notRun = []       // a claim a lens disclosed it could not run — reported, never gates `complete`
 const refuted = []
 
 const NO_SPAWN = `You are the ONLY agent on your task. You have no Agent, Task or Workflow tool — do
@@ -152,10 +154,14 @@ const perLens = await pipeline(
          ${args.scope ? `Scope: ${args.scope.join(', ')}.` : 'Scope: the whole repository, but weight what is load-bearing — code that handles money, data, auth or external input first.'}
          ${houseRules ? `HOUSE RULES (already distilled — judge against these):\n${houseRules}`
                       : `Read the repo's own docs (README, ADRs, guidelines) and its build/lint config FIRST, and judge against what they state.`}
-         Every candidate needs EVIDENCE: the command you ran and its real output, or the exact
-         path:line you read. A candidate whose evidence is "this looks wrong" will be refuted, and
-         should be. Give 'cost' as what it actually costs someone — a defect it permits, an hour it
-         adds to the next change, a rule it breaks — never "it is unclean".
+         Every candidate needs EVIDENCE: an executable claim — what the code does at runtime — is
+         grounded only by the command you ran and its real output, never by a reading in its place;
+         a claim about this codebase is grounded by the exact path:line you read. A candidate whose
+         evidence is "this looks wrong" will be refuted, and should be. If an executable claim could
+         not be run, it is not a candidate — add one string to \`notRun\` naming the claim, why it
+         could not be run, and the command that would settle it. Give 'cost' as what it actually
+         costs someone — a defect it permits, an hour it adds to the next change, a rule it breaks —
+         never "it is unclean".
          Effort is yours to estimate: S = a focused edit, M = a session, L = a day or more,
          XL = a project. Be honest; an L reported as S is how a cleanup eats a week.
          ${args.chronicleDir ? `Keep a chronicle at ${args.chronicleDir}/sweep-${lens}.md as you go.` : ''}
@@ -166,6 +172,7 @@ const perLens = await pipeline(
       // Silence is not a clean lens. Without this the concern reads as examined-and-fine, which is
       // the most expensive lie a survey can tell.
       if (!r) { uncovered.push(`lens '${lens}': surveyor died — that concern is unexamined`); return null }
+      for (const u of r.notRun ?? []) notRun.push(`lens '${lens}': ${u}`)
       return (r.candidates ?? []).map(c => ({ ...c, lens }))
     } finally { release() }
   })(),
@@ -187,7 +194,8 @@ const perLens = await pipeline(
          - Is a guard, a caller, a config or an existing test already preventing the failure?
          - Is the effort estimate credible once you have read the surrounding code? Correct it if not.
          Default to refuted:true when the evidence does not hold up. If it survives, set
-         refuted:false and 'proof': a command and its output, or the exact path:line.
+         refuted:false and 'proof': for an executable claim, the command and its real output —
+         never a path:line in its place; for a claim about this codebase, the exact path:line.
          ${NO_FIX} ${NO_SPAWN}`,
         { label: `verify:${norm(c.title).slice(0, 24)}`, phase: 'Verify',
           model: args.tiers?.verify ?? 'sonnet', schema: VERDICT,
@@ -262,6 +270,7 @@ return {
   refuted,
   lensesRun: lenses,
   uncovered,
+  notRun,
   // Nothing was changed and nothing was filed — the conductor owns both of those decisions.
   complete: uncovered.length === 0,
 }
