@@ -34,11 +34,11 @@ const baseArgs = o => ({ pr: 7, title: 'fix: parse', url: 'u', range: 'aaa..bbb'
   files: ['src/db.ts'], stance: 'single', concerns: [], known: [],
   chronicleDir: '/c', libraryIndex: '/l', ...o })
 const mkAgent = ({ findings = [], verdicts = [{ refuted: false, why: 'holds', severity: null, proof: 'p' }],
-                   reviewerDies = false, verifierDies = false, rulesDie = false } = {}) => {
+                   reviewerDies = false, verifierDies = false, rulesDie = false, notRun = [] } = {}) => {
   let vi = -1
   return async (prompt, opts) => {
     if (opts.label === 'house-rules') return rulesDie ? null : 'RULES'
-    if (opts.label.startsWith('grill')) return reviewerDies ? null : { findings }
+    if (opts.label.startsWith('grill')) return reviewerDies ? null : { findings, notRun }
     if (opts.label.startsWith('verify')) { vi++; return verifierDies ? null : verdicts[vi % verdicts.length] }
     throw new Error('unexpected label ' + opts.label)
   }
@@ -91,6 +91,13 @@ console.log('silence is never a clean review — complete gates the grilled ledg
     budget: { total: 1, remaining: () => 0, spent: () => 1 } })
   await t('under reserve: reviewer never runs → uncovered, not a clean pass',
     () => broke.complete === false && broke.findings.length === 0)
+
+  const disclosed = await runGrill({ args: baseArgs(),
+    agentFn: mkAgent({ findings: [], notRun: ['timing-attack claim: no runner for this target arch'] }) })
+  await t('a reviewer that ran but disclosed an un-run claim lands in notRun, not uncovered',
+    () => disclosed.notRun.length === 1 && disclosed.uncovered.length === 0)
+  await t('...and complete stays true — disclosure must not freeze the grilled ledger',
+    () => disclosed.complete === true)
 }
 
 console.log('verification is the only floor — everything that survives posts, nits included:')

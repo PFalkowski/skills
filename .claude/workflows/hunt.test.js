@@ -44,9 +44,9 @@ const F = o => ({ title: 'sqli in parseQuery', file: 'src/db.ts', symbol: 'parse
   evidence: 'db.ts:40', ...o })
 const baseArgs = o => ({ range: 'aaa..bbb', files: ['src/db.ts', 'package.json'], manifests: [],
   lenses: ['injection'], known: {}, fixed: [], carry: [], chronicleDir: '/c', libraryIndex: '/l', ...o })
-const mkAgent = ({ findings = [], verdicts = [{ refuted: false }], hunterDies = false } = {}) =>
+const mkAgent = ({ findings = [], verdicts = [{ refuted: false }], hunterDies = false, notRun = [] } = {}) =>
   async (prompt, opts) => {
-    if (opts.label.startsWith('hunter:')) return hunterDies ? null : { findings }
+    if (opts.label.startsWith('hunter:')) return hunterDies ? null : { findings, notRun }
     const i = mkAgent.i = (mkAgent.i ?? -1) + 1
     return verdicts[i % verdicts.length]
   }
@@ -139,6 +139,14 @@ console.log('coverage vs deferral — only `uncovered` may hold the watermark:')
   await t('a DEAD hunter is excluded from lensesRun (coverage is never inferred from silence)',
     () => dead.lensesRun.includes('authz') && !dead.lensesRun.includes('injection'))
   await t('...and holds the watermark', () => dead.complete === false)
+
+  mkAgent.i = -1
+  const disclosed = await runHunt({ args: baseArgs(),
+    agentFn: mkAgent({ findings: [], notRun: ['timing-attack claim: no runner for this target arch'] }) })
+  await t('a lens that ran but disclosed an un-run claim lands in notRun, not uncovered',
+    () => disclosed.notRun.length === 1 && disclosed.uncovered.length === 0)
+  await t('...and complete stays true — disclosure must not freeze the hunt watermark',
+    () => disclosed.complete === true && disclosed.lensesRun.includes('injection'))
 }
 
 console.log('carry — a queue, and queues rot:')

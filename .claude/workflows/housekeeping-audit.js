@@ -277,9 +277,13 @@ const perShardResults = await pipeline(
          - Is the named sourceOfTruth right for THIS KIND OF CLAIM? Behaviour → code and tests.
            Intent, requirements, deadlines → the authoritative external. A recorded decision → the
            ADR. If the finding named the wrong one, return the right one.
-         Default to refuted:true when the evidence does not hold up. If it survives, set
-         refuted:false and 'proof': for a claim about what the code does at runtime, the real
-         output of running it — never a citation in its place; otherwise the exact lines (path:line)
+         EXCEPTION — action 'ask-human': this finding is not claiming an answer, it is disclosing that
+         the auditor could not establish one (often because the claim was executable and could not be
+         run). Do not refute it for lacking the proof it was created to admit lacking. It survives on
+         its named reason and the command that would settle it, in 'evidence' — set refuted:false.
+         For every other finding: default to refuted:true when the evidence does not hold up. If it
+         survives, set refuted:false and 'proof': for a claim about what the code does at runtime, the
+         real output of running it — never a citation in its place; otherwise the exact lines (path:line)
          or the quoted external claim.
          You may correct 'sourceOfTruth' and 'action'; leave them null to keep the finding's own.
          ${READ_ONLY} ${NO_SPAWN}`,

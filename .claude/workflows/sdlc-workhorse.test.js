@@ -240,6 +240,20 @@ console.log('\nthe premise is fact-checked and only the survivors are carried fo
   await t('when NOTHING survives, the next phase is told so explicitly',
     () => /VERIFIED PREMISE: none/.test(promptFor(r, 'plan:r1')))
 }
+{
+  // proven() folds an all-`unverifiable` vote into `why` as the joined evidence (never empty),
+  // rather than the generic "no verifier returned a verdict" placeholder that fires only when a
+  // verifier agent dies outright. A claim nobody could run is not the same failure as a claim
+  // nobody looked at, and the report must say which one happened.
+  const r = await runWorkhorse({
+    args: baseArgs(),
+    agentFn: mkClaimAgent({ claims: ['the timeout is 30s'], verdicts: { 'the timeout is 30s': 'unverifiable' } }) })
+  await t('an all-unverifiable claim is rejected, not silently held',
+    () => !promptFor(r, 'plan:r1').includes('the timeout is 30s'))
+  await t('...with a non-empty explanation in the log, not the dead-verifier placeholder',
+    () => r.logs.some(m => /did not survive refutation/.test(m) && /the timeout is 30s/.test(m)
+      && /verdict for the timeout is 30s/.test(m) && !/no verifier returned a verdict/.test(m)))
+}
 
 console.log('\nmandatory fact-check reaches the premise agents themselves, not just the refuters:')
 {

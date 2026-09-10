@@ -57,7 +57,7 @@ const CANDIDATES = { type: 'object', properties: { findings: { type: 'array', it
     flaw: {type:'string', enum: FLAWS}, severity: {type:'string', enum: SEVERITIES},
     failurePath: {type:'string'}, evidence: {type:'string'} },
   required: ['title','file','symbol','subject','flaw','severity','failurePath','evidence'] } },
-  uncovered: { type: 'array', items: { type: 'string' } } },  // an executable claim not run: why, and the command that would settle it
+  notRun: { type: 'array', items: { type: 'string' } } },  // an executable claim not run: why, and the command that would settle it
   required: ['findings'] }
 const VERDICT = { type: 'object', properties: { refuted: {type:'boolean'}, why: {type:'string'},
   severity: {type:['string','null'], enum: [...SEVERITIES, null]}, repro: {type:['string','null']} },
@@ -104,6 +104,7 @@ const claim = n => {
 // evidence of a fix. An id that falls out of all of these is one the fire will mark fixed and
 // then report as a regression against a fix that never happened.
 const uncovered = []    // a lens that never ran (refused OR died) — the ONLY thing that holds the watermark
+const notRun = []       // a claim the hunter disclosed it could not run — reported, never holds the watermark
 const deferred = []     // found, not yet refuted — banked to carry.jsonl, does NOT hold the watermark
 const stillPresent = [] // known findings re-found unchanged — real, still there, NOT fixed
 const refuted = []      // killed by 2+ refuters — never real; not fixed either
@@ -217,7 +218,7 @@ const hunted = await pipeline(
          is grounded only by running it and showing the real output, never by a citation or link in
          its place; a non-executable claim is grounded by independent authoritative sources. If a
          finding turns on an executable claim you could not run, it does not ship as a finding — add
-         one string to \`uncovered\` naming the claim, why it could not be run, and the command that
+         one string to \`notRun\` naming the claim, why it could not be run, and the command that
          would settle it. Any other unprovable claim: drop it, false.
          DECOMPOSE TO ATOMS — the single highest-leverage thing you do. A finding is a CHAIN of claims
          and is only as true as its weakest link, so never fact-check it as one lump. Break it into the
@@ -255,7 +256,7 @@ const hunted = await pipeline(
       // open finding in its files fixed. Coverage is recorded from what came back, never inferred.
       if (!r) { uncovered.push(`${lens}: hunter died — delta unexamined by this lens`); return null }
       ran.add(lens)
-      for (const u of r.uncovered ?? []) uncovered.push(`${lens}: ${u}`)
+      for (const u of r.notRun ?? []) notRun.push(`${lens}: ${u}`)
       return r
     } finally { release() }
   },
@@ -317,7 +318,7 @@ for (const g of Object.values(groups)) {
   if (lenses.length > 1) for (const f of g) f.corroborated = lenses
 }
 confirmed.sort((a, b) => RANK[a.severity] - RANK[b.severity])
-return { confirmed, deferred, uncovered, stillPresent, refuted, dropped,
+return { confirmed, deferred, uncovered, notRun, stillPresent, refuted, dropped,
          range: args.range, visibility: args.visibility,
          // Recorded from what came back, not inferred from the absence of complaint.
          lensesRun: [...ran],

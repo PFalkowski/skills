@@ -263,12 +263,15 @@ const assessed = await pipeline(
     const claims = (extracted && extracted.claims) || []
     const verdicts = await parallel(claims.map(cl => () =>
       agent(
-        `Try to REFUTE this claim. Default to "refuted" if you cannot establish it.\n\n` +
+        `Try to REFUTE this claim.\n\n` +
         `Claim: ${cl.claim}\nWhy it is load-bearing: ${cl.whyLoadBearing}\n\n` +
         `The claim type fixes the method: if it is executable — what the code does at runtime — it is grounded only by ` +
         `running it and showing the real output, never by a citation or link in its place; if it is about this codebase, ` +
         `cite the exact path:line; if it is documentable, confirm it against two independent authoritative sources. ` +
-        `Attach the actual evidence. Your own confidence is not evidence.`,
+        `Attach the actual evidence. Your own confidence is not evidence.\n\n` +
+        `If the claim is documentable or about this codebase and you cannot establish it, default to "refuted". If it is ` +
+        `executable and you could not run it, that is NOT a refutation — return "unverifiable" and put the reason you ` +
+        `could not run it, plus the command that would settle it, in 'evidence'.`,
         { label: `refute:${run.alias}`, phase: 'Verify claims', schema: CLAIM_VERDICT_SCHEMA }
       ).then(v => (v ? { ...cl, ...v } : null))
     ))

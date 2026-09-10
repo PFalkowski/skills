@@ -54,7 +54,7 @@ const FINDINGS = { type: 'object', properties: { findings: { type: 'array', item
     evidence: {type:'string', minLength: 1},
     suggestion: {type:['string','null']} },
   required: ['title','file','line','severity','failureScenario','evidence'] } },
-  uncovered: { type: 'array', items: { type: 'string' } } },  // an executable claim not run: why, and the command that would settle it
+  notRun: { type: 'array', items: { type: 'string' } } },  // an executable claim not run: why, and the command that would settle it
   required: ['findings'] }
 const VERDICT = { type: 'object', properties: { refuted: {type:'boolean'}, why: {type:'string'},
   severity: {type:['string','null'], enum: [...SEVERITIES, null]}, proof: {type:['string','null']} },
@@ -79,8 +79,10 @@ const claim = n => {
 }
 
 // Every way a finding can avoid `findings` needs a home the watcher can test — absence must never
-// read as "reviewed clean". `uncovered` is the only one that blocks the grilled-ledger entry.
+// read as "reviewed clean". `uncovered` is the only one that blocks the grilled-ledger entry;
+// a disclosed un-run claim lands in `notRun` instead, reported but never gating.
 const uncovered = []    // a reviewer that never ran (under reserve OR died) — the PR is NOT grilled
+const notRun = []       // a claim the reviewer disclosed it could not run — reported, never gates the ledger
 const refuted = []      // killed by the verifier — never real; titles, for the report
 const alreadyPosted = []// matched args.known — a thread from an earlier grill already stands
 const ran = new Set()   // concerns whose reviewer actually returned — never inferred from silence
@@ -121,7 +123,7 @@ const grillPrompt = concern =>
    against its documented architecture.`}
    Truth before all: an executable claim — what the code does at runtime — is grounded only by
    running it and showing the real output, never by an in-repo citation or a source link in its
-   place; if you could not run it, it is NOT a finding — add one string to \`uncovered\` naming
+   place; if you could not run it, it is NOT a finding — add one string to \`notRun\` naming
    the claim, why it could not be run, and the command that would settle it. A non-executable
    claim (an API contract, a library behaviour) is grounded by the path:line or an authoritative
    source, as usual. Keep a chronicle at
@@ -151,7 +153,7 @@ const reviews = await parallel(lenses.map(concern => () => (async () => {
     // would look covered, the ledger would mark the PR grilled, and the gate ran degraded.
     if (!r) { uncovered.push(`${concern ?? 'review'}: reviewer died — diff unexamined`); return null }
     ran.add(concern ?? 'review')
-    for (const u of r.uncovered ?? []) uncovered.push(`${concern ?? 'review'}: ${u}`)
+    for (const u of r.notRun ?? []) notRun.push(`${concern ?? 'review'}: ${u}`)
     return (r.findings ?? []).map(f => ({ ...f, concern: concern ?? 'review' }))
   } finally { release() }
 })()))
@@ -199,7 +201,7 @@ const verified = await parallel(candidates.map(f => () => (async () => {
 })()))
 
 const findings = verified.filter(Boolean).sort((a, b) => RANK[a.severity] - RANK[b.severity])
-return { findings, refuted, alreadyPosted, uncovered,
+return { findings, refuted, alreadyPosted, uncovered, notRun,
          pr: args.pr, range: args.range,
          // Recorded from what came back, never inferred from the absence of complaint.
          concernsRun: [...ran],
