@@ -18,6 +18,33 @@ commands and settings only the user can run. An agent cannot `/clear`, `/compact
 `/model`; for those it says the exact command at the moment it is cheapest, in one line, and gets
 on with the work.
 
+## Settings worth checking once
+
+Session-level advice is spent every session; these are set once and then hold. Check them the first
+time this skill runs in a machine's config, or when the user asks what is eating their tokens. Say
+what is unset in one line with the value to set, and move on. Do not re-offer what is already set.
+
+`/context` shows what is loaded before a prompt is typed. `/usage` attributes recent usage to
+individual skills, subagents, plugins and MCP servers, and flags any behaviour that is 10% or more
+of the total. Prefer both over reasoning about the config from what is on disk.
+
+| Check | If unset | Why |
+|---|---|---|
+| `CLAUDE_CODE_SUBAGENT_MODEL` in `settings.json` `env` | Set it to `sonnet` | An unset subagent inherits the **main session's** model, so every worker in an Opus session bills at Opus. A per-dispatch `model` still overrides it, so adversarial phases keep the strong tier. |
+| A plugin enabled at user scope but used in one or two projects | Disable it in user settings, enable it per project | A plugin loads its skills **and** its MCP server into every session in every repository. One measured at 3,721 tokens per turn in repositories that never called it. |
+| An MCP server that fails to connect | Remove it with `claude mcp remove <name> -s user` | It costs a failed connection attempt every session, and its error banner hides real MCP problems. |
+| `bashOutputMaxChars` | Measure before changing it | Anything above the cap spills to a file and only a preview stays. Lowering it pays only if the preview is usually enough: a spill the agent has to read back costs a whole extra turn carrying the whole context, which is far more than the characters saved. |
+| A command whose noisy form runs all day | A `PreToolUse` hook on `Bash`, or a filtering CLI | Quieting at the source beats capping the tail. The tail is rare; the volume is in the many small outputs. |
+
+Measuring a machine's fixed per-turn cost, when a number is needed rather than a guess: run
+`claude -p "reply with exactly: ok"` in the target repository, then take the smallest
+`cache_read + cache_creation + input` of any assistant turn in the newest transcript under
+`~/.claude/projects/<encoded-cwd>/`. Change one thing and run it again; the difference is that
+thing's cost. `--strict-mcp-config --mcp-config '{"mcpServers":{}}'` and
+`--settings '{"enabledPlugins":{"<name>":false}}'` toggle a component without editing anything on
+disk. Runs minutes apart differ by a few hundred tokens as the git status snapshot changes, so treat
+that as the noise floor.
+
 ## What the agent does itself
 
 ### Send each job to the cheapest tier that does it
