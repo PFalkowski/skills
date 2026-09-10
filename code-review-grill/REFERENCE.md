@@ -182,6 +182,6 @@ gh api "repos/$OWNER_REPO/pulls/<PR>/comments" \
 - To batch instead of one-at-a-time, `POST repos/$OWNER_REPO/pulls/<PR>/reviews` with a `comments` array of `{path,line,side,body}` and `event=COMMENT` — but the one-at-a-time form above is what lets you confirm the first thread landed.
 
 ### Azure DevOps
-Delegate to **[azure-devops-pr-review](../azure-devops-pr-review/SKILL.md)** — it encodes the `pullRequestThreads` JSON schema, left/right anchoring, and the Windows console-encoding workarounds. Build the finding bodies here; let that skill post the threads.
+Delegate to **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)** — it encodes the `pullRequestThreads` JSON schema, left/right anchoring, and the Windows console-encoding workarounds. Build the finding bodies here; let that skill post the threads.
 
 **Always**: never auto-post. Present the table, ask which findings to post, post only those.

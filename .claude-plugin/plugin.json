@@ -6,7 +6,6 @@
   },
   "skills": [
     "./auto-mode-setup",
-    "./azure-devops-pr-review",
     "./clean-room",
     "./code-review-grill",
     "./context-reduction",
