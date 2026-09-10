@@ -6,11 +6,21 @@
 |---|---|---|
 | 🔥 | Blocker / critical | Correctness, security, or data-loss bug; must fix before merge. |
 | ⚠️ | Major | Real problem with material impact; should fix. |
-| 💡 | Minor / nit | Style, readability, small improvement; optional. |
+| ⛏️ | Minor / nit | Style, readability, small improvement; optional. |
 | ✅ | Reviewed-clean | Agent examined this area and found nothing. |
 | ❓ | Uncertain | Needs author input or more info to judge. |
 
 Use `–` in an agent's cell when that agent did not flag the row.
+
+### The nit marker
+
+Every ⛏️ finding posted to a pull request opens its body with this line, verbatim, above the finding text:
+
+```markdown
+![Ackchyually](https://raw.githubusercontent.com/PFalkowski/skills/main/code-review-grill/assets/ackchyually.png)
+```
+
+It marks the comment as optional at a glance, so a reader scrolling a thread tells a nit from a bug without reading either. Only ⛏️ carries it: a marker on a 🔥 or ⚠️ finding undercuts the finding, and one on every comment marks nothing. The URL is absolute because the skill posts into repositories that do not contain the image.
 
 ## Concern menu
 
@@ -37,7 +47,7 @@ Use `–` in an agent's cell when that agent did not flag the row.
 
 ```
 - location:    path/to/file.ext:LINE   (the line in the diff, RIGHT side unless noted)
-- severity:    🔥 | ⚠️ | 💡 | ❓
+- severity:    🔥 | ⚠️ | ⛏️ | ❓
 - finding:     one-sentence statement of the problem
 - suggested:   concrete fix (code or precise instruction)
 - verification:
@@ -152,6 +162,16 @@ HEAD_SHA=$(gh pr view <PR> --json headRefOid -q .headRefOid)
 
 gh api "repos/$OWNER_REPO/pulls/<PR>/comments" \
   -f body="🔥 **F1** SQL built by string-concat of \`userId\`. Parameterise via \`SqlParameter\`." \
+  -f commit_id="$HEAD_SHA" \
+  -f path="src/Repo.cs" \
+  -F line=42 \
+  -f side=RIGHT
+
+# a ⛏️ nit opens with the marker (see § The nit marker)
+gh api "repos/$OWNER_REPO/pulls/<PR>/comments" \
+  -f body="![Ackchyually](https://raw.githubusercontent.com/PFalkowski/skills/main/code-review-grill/assets/ackchyually.png)
+
+⛏️ **F7** \`ParseHeader\` reads as a query, not a command. Rename to \`TryReadHeader\`." \
   -f commit_id="$HEAD_SHA" \
   -f path="src/Repo.cs" \
   -F line=42 \

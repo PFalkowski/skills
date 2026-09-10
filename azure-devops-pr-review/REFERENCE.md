@@ -52,6 +52,10 @@ POST a thread to:
   }
 }
 ```
+- A ⛏️ nit prepends the nit marker to `content`, before the severity line — an image in Markdown,
+  so it survives the same JSON escaping as the rest of the body
+  (`"![Ackchyually](https://raw.githubusercontent.com/PFalkowski/skills/main/code-review-grill/assets/ackchyually.png)\n\n**⛏️ — title.**\n\n…"`).
+  Definition in [code-review-grill REFERENCE](../code-review-grill/REFERENCE.md), § The nit marker.
 - `filePath` **must** start with `/` (path from repo root, forward slashes).
 - `offset` is a **1-based column**. To highlight a whole line range, `rightFileStart.offset = 1` and
   `rightFileEnd.offset = (last line length) + 1`. A single point (start == end) is also accepted.
