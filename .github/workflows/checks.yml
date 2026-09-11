@@ -25,3 +25,8 @@ jobs:
           for t in .claude/workflows/*.test.js clean-room/*.test.mjs; do
             node --test "$t"
           done
+      - name: PowerShell tests
+        shell: pwsh
+        run: |
+          git config --global init.defaultBranch main
+          ./whats-next/scripts/WhatsNext.test.ps1
