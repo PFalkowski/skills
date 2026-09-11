@@ -134,7 +134,7 @@ function Invoke-Prune {
 
     $rows = foreach ($repo in $repos) {
         if ($Fetch) { & git -C $repo.Root fetch --prune --quiet 2>$null }
-        Get-PruneCandidate -Repo $repo -Remote (Get-RepositoryPullRequest -Slug $repo.Slug) -AllowIgnored:$IncludeIgnored
+        Get-PruneCandidate -Repo $repo -Remote (Get-RepositoryPullRequest -Slug $repo.Slug) -LiveSessions $live -AllowIgnored:$IncludeIgnored
     }
     $rows = @($rows)
     $removable = @($rows | Where-Object { $_.Removable })

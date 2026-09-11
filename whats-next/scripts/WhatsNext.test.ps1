@@ -50,8 +50,16 @@ function Add-Branchy {
 }
 
 function Verdict {
-    param([string]$Path, [string]$Ref = 'origin/main', [string[]]$Merged = @(), [switch]$AllowIgnored)
-    Test-WorktreeRemovable -Fact (Get-WorktreeFact -Path $Path) -DefaultRef $Ref -MergedHeads $Merged -AllowIgnored:$AllowIgnored
+    param(
+        [string]$Path, [string]$Ref = 'origin/main', [string[]]$Merged = @(),
+        [string]$MergedOid, [string[]]$LiveSessions = @(), [switch]$AllowIgnored
+    )
+    $fact = Get-WorktreeFact -Path $Path
+    $heads = @($Merged | ForEach-Object {
+        [pscustomobject]@{ Head = $_; Oid = $(if ($MergedOid) { $MergedOid } else { $fact.HeadOid }) }
+    })
+    Test-WorktreeRemovable -Fact $fact -DefaultRef $Ref -MergedHeads $heads `
+        -LiveSessionPaths $LiveSessions -AllowIgnored:$AllowIgnored
 }
 
 # ---------------------------------------------------------------------------------------
@@ -97,6 +105,21 @@ try {
     check 'but is removable once the forge says its pull request merged' $true (Verdict $squashed -Merged @('squashed')).Removable
     check 'and reports that as the reason' 'merged pull request' (Verdict $squashed -Merged @('squashed')).Reason
     check 'another branch name in that list does not release it' $false (Verdict $squashed -Merged @('something-else')).Removable
+    check 'the same branch name at a different commit does not release it' $false (Verdict $squashed -Merged @('squashed') -MergedOid ('0' * 40)).Removable
+    check 'a name match on the wrong commit reports unmerged commits' 'unmerged commits' (Verdict $squashed -Merged @('squashed') -MergedOid ('0' * 40)).Reason
+
+    $neverPushed = Add-Branchy $fx 'never-pushed'
+    check 'a branch that was never pushed cannot match a merged pull request' $false (Verdict $neverPushed -Merged @('never-pushed')).Removable
+
+    check 'a worktree with a session open in it is NOT removable' $false (Verdict $merged -LiveSessions @($merged)).Removable
+    check 'and reports the open session as the reason' 'session open here' (Verdict $merged -LiveSessions @($merged)).Reason
+
+    $bisecting = Add-Branchy $fx 'bisecting' -Push -MergeToMain
+    check 'the bisect fixture is removable before the bisect starts' $true (Verdict $bisecting).Removable
+    git_ -C $bisecting bisect start
+    check 'a worktree mid-bisect is NOT removable' $false (Verdict $bisecting).Removable
+    check 'and reports the operation as the reason' 'operation in progress' (Verdict $bisecting).Reason
+    git_ -C $bisecting bisect reset
 
     # THE catastrophic case from the real data: a detached worktree holding a commit on no branch.
     $detachedUnique = Join-Path $fx.Base 'detached-unique'

@@ -17,6 +17,16 @@ function Get-WorktreeAdminDir {
     return $null
 }
 
+$script:OperationMarkers = @('rebase-merge', 'rebase-apply', 'BISECT_LOG', 'CHERRY_PICK_HEAD', 'MERGE_HEAD', 'REVERT_HEAD', 'sequencer')
+
+function Test-GitOperationInProgress {
+    param([Parameter(Mandatory)][string]$AdminDir)
+    foreach ($marker in $script:OperationMarkers) {
+        if (Test-Path -LiteralPath (Join-Path $AdminDir $marker)) { return $true }
+    }
+    return $false
+}
+
 function ConvertTo-WorktreeFact {
     param([string]$Path, [bool]$StatusOk, [string[]]$StatusLines, [string]$AgeSeconds)
 
@@ -24,7 +34,7 @@ function ConvertTo-WorktreeFact {
         Path = $Path; Missing = $false; IsMain = $false; Locked = $false
         Branch = $null; Detached = $false; Upstream = $null; UpstreamGone = $false
         Ahead = 0; Behind = 0; Dirty = $false; DirtyCount = 0; IgnoredCount = 0
-        HeadOid = $null; LastCommitAge = $null
+        HeadOid = $null; LastCommitAge = $null; OperationInProgress = $false
     }
 
     # git prints nothing and exits non-zero when the directory or its .git pointer is broken.
@@ -41,6 +51,7 @@ function ConvertTo-WorktreeFact {
     }
     $fact.IsMain = (Test-Path -LiteralPath $admin -PathType Container) -and (Split-Path $admin -Leaf) -eq '.git'
     $fact.Locked = Test-Path -LiteralPath (Join-Path $admin 'locked')
+    $fact.OperationInProgress = Test-GitOperationInProgress -AdminDir $admin
 
     $sawAheadBehind = $false
     foreach ($line in $StatusLines) {
@@ -108,7 +119,8 @@ function Test-WorktreeRemovable {
     param(
         [Parameter(Mandatory)]$Fact,
         [string]$DefaultRef,
-        [string[]]$MergedHeads = @(),
+        [object[]]$MergedHeads = @(),
+        [string[]]$LiveSessionPaths = @(),
         [switch]$AllowIgnored
     )
 
@@ -118,12 +130,16 @@ function Test-WorktreeRemovable {
     if ($Fact.Missing) { return & $no 'directory missing' }
     if ($Fact.IsMain) { return & $no 'main worktree' }
     if ($Fact.Locked) { return & $no 'locked' }
+    if ($Fact.OperationInProgress) { return & $no 'operation in progress' }
     if ($Fact.Dirty) { return & $no 'uncommitted changes' }
 
     $here = (Get-Location).Path
     $target = (Resolve-Path -LiteralPath $Fact.Path -ErrorAction SilentlyContinue)?.Path
     if ($target -and ($here -eq $target -or $here.StartsWith($target + [IO.Path]::DirectorySeparatorChar))) {
         return & $no 'current worktree'
+    }
+    if ($target -and (@($LiveSessionPaths) | Where-Object { $_ -and $_.TrimEnd('/', '\') -eq $target.TrimEnd('/', '\') })) {
+        return & $no 'session open here'
     }
 
     if ($Fact.IgnoredCount -gt 0 -and -not $AllowIgnored) { return & $no 'ignored files present' }
@@ -140,7 +156,10 @@ function Test-WorktreeRemovable {
         return & $yes 'merged'
     }
 
-    if ($Fact.Branch -and $MergedHeads -contains $Fact.Branch) { return & $yes 'merged pull request' }
+    if ($Fact.Branch -and $Fact.Upstream -and $Fact.HeadOid -and
+        ($MergedHeads | Where-Object { $_.Head -eq $Fact.Branch -and $_.Oid -eq $Fact.HeadOid })) {
+        return & $yes 'merged pull request'
+    }
 
     return & $no 'unmerged commits'
 }
@@ -282,7 +301,7 @@ open:pullRequests(states:OPEN,first:100){nodes{
 number title isDraft headRefName reviewDecision mergeable url
 reviewThreads(first:100){nodes{isResolved}}
 commits(last:1){nodes{commit{statusCheckRollup{state}}}}}}
-merged:pullRequests(states:MERGED,first:100,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{headRefName}}}}
+merged:pullRequests(states:MERGED,first:100,orderBy:{field:UPDATED_AT,direction:DESC}){nodes{headRefName headRefOid}}}}
 '@
     $raw = & gh api graphql -f owner=$owner -f name=$name -f query=$query 2>$null
     if ($LASTEXITCODE -ne 0 -or -not $raw) { return $null }
@@ -292,7 +311,7 @@ merged:pullRequests(states:MERGED,first:100,orderBy:{field:UPDATED_AT,direction:
 
     [pscustomobject]@{
         DefaultBranch = $repo.defaultBranchRef.name
-        MergedHeads = @($repo.merged.nodes | ForEach-Object { $_.headRefName })
+        MergedHeads = @($repo.merged.nodes | ForEach-Object { [pscustomobject]@{ Head = $_.headRefName; Oid = $_.headRefOid } })
         PullRequests = @($repo.open.nodes | ForEach-Object {
             [pscustomobject]@{
                 Number = $_.number; Title = $_.title; Head = $_.headRefName; Url = $_.url
@@ -446,12 +465,13 @@ function Get-Board {
 }
 
 function Get-PruneCandidate {
-    param($Repo, $Remote, [switch]$AllowIgnored)
+    param($Repo, $Remote, $LiveSessions = @(), [switch]$AllowIgnored)
     $defaultRef = Get-DefaultRef -RepoRoot $Repo.Root -BranchName $(if ($Remote) { $Remote.DefaultBranch } else { $null })
     $mergedHeads = @(if ($Remote) { $Remote.MergedHeads })
+    $livePaths = @(@($LiveSessions) | ForEach-Object { $_.Cwd } | Where-Object { $_ })
     foreach ($path in $Repo.Worktrees) {
         $verdict = Test-WorktreeRemovable -Fact (Get-WorktreeFact -Path $path) -DefaultRef $defaultRef `
-            -MergedHeads $mergedHeads -AllowIgnored:$AllowIgnored
+            -MergedHeads $mergedHeads -LiveSessionPaths $livePaths -AllowIgnored:$AllowIgnored
         [pscustomobject]@{
             Repo = $Repo.Name; Root = $Repo.Root; Path = $path
             Removable = $verdict.Removable; Reason = $verdict.Reason
