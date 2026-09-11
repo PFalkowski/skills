@@ -38,15 +38,17 @@ Items are ranked 1 (hottest) through 7 (coolest):
 | Rank | Mark    | Meaning |
 |------|---------|---------|
 | 1 | `MERGE`   | Open PR is green and mergeable — waiting on you to merge it |
-| 2 | `REVIEW`  | Open PR has unresolved review threads, or changes were requested |
-| 3 | `NO PR`   | Branch is pushed with no pull request open for it |
+| 2 | `REVIEW`  | Open PR needs you — unresolved review threads, changes requested, merge conflicts, or failing checks |
+| 3 | `NO PR`   | Branch is pushed with no pull request open for it (or the forge was never consulted, in which case the item says so instead of claiming a fact it never checked) |
 | 4 | `AT RISK` | Worktree has uncommitted changes and nobody is sitting in it |
 | 5 | `ASKED`   | A background session is blocked, waiting on your answer |
 | 6 | `BACKLOG` | Worktree has open items in its `prompts/backlog.md` |
 | 7 | `STALE`   | No commit in longer than `-StaleDays` (default 7) — a cleanup candidate |
 
-A draft PR, a PR still waiting on a required review, or a PR with a pending/failing check never
-ranks 1 — it is left off the board rather than reported as ready.
+A draft PR, a PR still waiting on a required review, or a PR with a pending check never ranks
+1 — it is left off the board rather than reported as ready. A failing check or a merge conflict
+is not left off the board either — it ranks 2, because it needs you just as much as an unresolved
+review thread does.
 
 Items are grouped by repository, but the repositories themselves are ordered by their single
 hottest item, not alphabetically and not by item count. A repository holding one rank-1 item is

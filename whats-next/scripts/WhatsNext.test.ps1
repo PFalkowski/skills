@@ -202,10 +202,10 @@ check 'an unresolved thread outranks green' 2 (Get-PullRequestRank -PullRequest 
 check 'changes requested is rank 2' 2 (Get-PullRequestRank -PullRequest (Pr @{ Decision = 'CHANGES_REQUESTED' }))
 check 'an unresolved thread beats an empty decision' 2 (Get-PullRequestRank -PullRequest (Pr @{ Unresolved = 3; Decision = '' }))
 check 'a draft is not on the board' $null (Get-PullRequestRank -PullRequest (Pr @{ IsDraft = $true }))
-check 'a failing check is not ready to merge' $null (Get-PullRequestRank -PullRequest (Pr @{ Rollup = 'FAILURE' }))
+check 'a failing check needs you, so rank 2, not ready to merge' 2 (Get-PullRequestRank -PullRequest (Pr @{ Rollup = 'FAILURE' }))
 check 'a pending check is not ready to merge' $null (Get-PullRequestRank -PullRequest (Pr @{ Rollup = 'PENDING' }))
 check 'no checks configured is not a failure' 1 (Get-PullRequestRank -PullRequest (Pr @{ Rollup = $null }))
-check 'a conflicted branch is not ready to merge' $null (Get-PullRequestRank -PullRequest (Pr @{ Mergeable = 'CONFLICTING' }))
+check 'a conflicted branch needs you, so rank 2, not absent from the board' 2 (Get-PullRequestRank -PullRequest (Pr @{ Mergeable = 'CONFLICTING' }))
 check 'a required review still outstanding is not ready' $null (Get-PullRequestRank -PullRequest (Pr @{ Decision = 'REVIEW_REQUIRED' }))
 
 # ---------------------------------------------------------------------------------------

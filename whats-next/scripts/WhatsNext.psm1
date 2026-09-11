@@ -326,7 +326,8 @@ merged:pullRequests(states:MERGED,first:100,orderBy:{field:UPDATED_AT,direction:
 function Get-PullRequestRank {
     param([Parameter(Mandatory)]$PullRequest)
     if ($PullRequest.IsDraft) { return $null }
-    if ($PullRequest.Unresolved -gt 0 -or $PullRequest.Decision -eq 'CHANGES_REQUESTED') { return 2 }
+    if ($PullRequest.Unresolved -gt 0 -or $PullRequest.Decision -eq 'CHANGES_REQUESTED' -or
+        $PullRequest.Rollup -eq 'FAILURE' -or $PullRequest.Mergeable -eq 'CONFLICTING') { return 2 }
     if ($PullRequest.Decision -eq 'REVIEW_REQUIRED') { return $null }
     # A null rollup means the repository configures no checks at all, which is not a failure.
     if ($PullRequest.Rollup -notin @('SUCCESS', $null)) { return $null }
@@ -390,7 +391,10 @@ function Get-RepositoryBoardItem {
                 continue
             }
             if ($rank -eq 2) {
-                $why = if ($pr.Unresolved -gt 0) { "$($pr.Unresolved) unresolved thread(s)" } else { 'changes requested' }
+                $why = if ($pr.Unresolved -gt 0) { "$($pr.Unresolved) unresolved thread(s)" }
+                    elseif ($pr.Decision -eq 'CHANGES_REQUESTED') { 'changes requested' }
+                    elseif ($pr.Mergeable -eq 'CONFLICTING') { 'merge conflicts' }
+                    else { 'checks are failing' }
                 New-BoardItem $Repo 2 'pr-threads' "PR #$($pr.Number) $why - $($pr.Title)" $fact -SessionId $sessionId -Url $pr.Url -Open:$busy
                 continue
             }
