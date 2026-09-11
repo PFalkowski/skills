@@ -133,6 +133,9 @@ function Test-WorktreeRemovable {
         return & $no 'no default branch'
     }
 
+    $defaultBranch = $DefaultRef -replace '^[^/]+/', ''
+    if ($Fact.Branch -eq $defaultBranch) { return & $no 'default branch' }
+
     if ((Invoke-Git -Dir $Fact.Path -GitArgs @('merge-base', '--is-ancestor', 'HEAD', $DefaultRef)).Ok) {
         return & $yes 'merged'
     }

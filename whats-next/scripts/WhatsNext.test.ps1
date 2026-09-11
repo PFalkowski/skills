@@ -111,6 +111,13 @@ try {
     git_ -C $fx.Repo worktree add --detach $detachedMerged 'origin/main'
     check 'detached at an ancestor of the default branch is removable' $true (Verdict $detachedMerged).Removable
 
+    # A linked worktree sitting on the default branch itself is trivially its own ancestor, so
+    # the merge check alone would call it "merged" and offer to delete a deliberately kept checkout.
+    $onDefault = Join-Path $fx.Base 'on-default-branch'
+    git_ -C $fx.Repo worktree add --force $onDefault main
+    check 'a linked worktree on the default branch is NOT removable' $false (Verdict $onDefault).Removable
+    check 'and reports why' 'default branch' (Verdict $onDefault).Reason
+
     check 'the main worktree is NOT removable' $false (Verdict $fx.Repo).Removable
     check 'main worktree reports why' 'main worktree' (Verdict $fx.Repo).Reason
 
