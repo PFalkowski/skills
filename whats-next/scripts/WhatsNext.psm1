@@ -417,7 +417,7 @@ function Get-RepositoryBoardItem {
             New-BoardItem $Repo 6 'backlog' "$($backlog.Count) backlog item(s), next: $($backlog[0])" $fact -SessionId $sessionId -Open:$busy
             continue
         }
-        if ($fact.LastCommitAge -and $fact.LastCommitAge.TotalDays -gt $StaleDays -and -not $fact.IsMain) {
+        if ($fact.LastCommitAge -and $fact.LastCommitAge.TotalDays -gt $StaleDays -and -not $fact.IsMain -and -not $pr) {
             New-BoardItem $Repo 7 'stale' "no commit in $([int]$fact.LastCommitAge.TotalDays) days - cleanup candidate" $fact -SessionId $sessionId
         }
     }
