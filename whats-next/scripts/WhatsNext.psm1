@@ -396,7 +396,8 @@ function Get-RepositoryBoardItem {
             }
         }
         if ($fact.Branch -and $fact.Upstream -and -not $fact.UpstreamGone -and -not $pr) {
-            New-BoardItem $Repo 3 'pushed-no-pr' "$($fact.Branch) is pushed with no pull request" $fact -SessionId $sessionId -Open:$busy
+            $label = if ($Remote) { "$($fact.Branch) is pushed with no pull request" } else { "$($fact.Branch) is pushed - pull request state unknown" }
+            New-BoardItem $Repo 3 'pushed-no-pr' $label $fact -SessionId $sessionId -Open:$busy
             continue
         }
         if ($fact.Dirty -and -not $running) {
