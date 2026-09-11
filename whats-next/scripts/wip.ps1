@@ -118,10 +118,6 @@ function Start-Item {
     $label = if ($entry.Branch) { "$($entry.Repo) $($entry.Branch)" } else { "$($entry.Repo) $($entry.Kind)" }
     Set-Location -LiteralPath $entry.Path
 
-    # `claude -r <id>` finds a session from any directory, but the resumed session takes the
-    # directory it was launched from - verified by resuming a worktree session from elsewhere and
-    # watching the transcript record the new path. So the move happens first, or the agent comes
-    # back pointed at the wrong repository.
     if ($entry.SessionId) {
         "-> $($entry.Path)  (resuming $($entry.SessionId))"
         & claude -r $entry.SessionId -n $label

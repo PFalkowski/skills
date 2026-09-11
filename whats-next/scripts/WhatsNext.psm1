@@ -126,8 +126,6 @@ function Test-WorktreeRemovable {
         return & $no 'current worktree'
     }
 
-    # `git worktree remove` refuses on tracked and untracked files but deletes ignored ones
-    # without a word, and ignored is where local configuration and skill state live.
     if ($Fact.IgnoredCount -gt 0 -and -not $AllowIgnored) { return & $no 'ignored files present' }
 
     if (-not $DefaultRef) { return & $no 'no default branch' }
@@ -139,11 +137,6 @@ function Test-WorktreeRemovable {
         return & $yes 'merged'
     }
 
-    # A squash merge rewrites the branch into one new commit, so its own commits are never
-    # ancestors of the default branch and the ancestor test above is false for every squash-merged
-    # branch that ever landed. The forge saying the pull request merged is the only proof left.
-    # A deleted upstream is NOT accepted on its own: a branch can outlive its remote while still
-    # holding commits that exist nowhere else.
     if ($Fact.Branch -and $MergedHeads -contains $Fact.Branch) { return & $yes 'merged pull request' }
 
     return & $no 'unmerged commits'
@@ -188,8 +181,7 @@ function Get-TranscriptSession {
     if ($files.Count -eq 0) { return @() }
 
     # The encoded directory name cannot be decoded back to a path, so the working directory has to
-    # come from inside the file. That format is internal to Claude Code and documented as changing
-    # between releases, so a file that no longer parses costs the board a row, never the run.
+    # come from inside the file.
     $raw = @($files | ForEach-Object -ThrottleLimit 12 -Parallel {
         foreach ($line in (Get-Content -LiteralPath $_.FullName -TotalCount 20 -ErrorAction SilentlyContinue)) {
             if (-not $line -or $line[0] -ne '{') { continue }
@@ -297,7 +289,7 @@ merged:pullRequests(states:MERGED,first:100,orderBy:{field:UPDATED_AT,direction:
 
     [pscustomobject]@{
         DefaultBranch = $repo.defaultBranchRef.name
-        MergedHeads = @($repo.merged.nodes.headRefName)
+        MergedHeads = @($repo.merged.nodes | ForEach-Object { $_.headRefName })
         PullRequests = @($repo.open.nodes | ForEach-Object {
             [pscustomobject]@{
                 Number = $_.number; Title = $_.title; Head = $_.headRefName; Url = $_.url

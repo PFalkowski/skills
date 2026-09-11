@@ -72,8 +72,6 @@ try {
     'scratch notes nobody committed' | Set-Content -LiteralPath (Join-Path $untracked 'notes.txt')
     check 'untracked-only on a merged branch is NOT removable' $false (Verdict $untracked).Removable
 
-    # `git worktree remove` without --force refuses on tracked and untracked files but deletes
-    # ignored ones silently, and ignored is where local config and skill state live.
     $ignored = Add-Branchy $fx 'ignored-merged' -Push -MergeToMain
     New-Item -ItemType Directory -Path (Join-Path $ignored 'ignore-me') -Force | Out-Null
     'local settings nobody can regenerate' | Set-Content -LiteralPath (Join-Path $ignored 'ignore-me/settings.json')
@@ -84,8 +82,6 @@ try {
     $unpushed = Add-Branchy $fx 'never-pushed'
     check 'unpushed and unmerged is NOT removable' $false (Verdict $unpushed).Removable
 
-    # A branch can outlive its remote while still holding commits that exist nowhere else, so a
-    # deleted upstream is not on its own a reason to delete anything.
     $gone = Add-Branchy $fx 'gone-upstream' -Push
     git_ -C $fx.Remote update-ref -d refs/heads/gone-upstream
     git_ -C $fx.Repo fetch --prune
@@ -93,8 +89,6 @@ try {
     check 'gone upstream holding unique commits is NOT removable' $false (Verdict $gone).Removable
     check 'gone upstream reports why' 'unmerged commits' (Verdict $gone).Reason
 
-    # A squash merge rewrites the branch into one new commit, so the ancestor test is false for
-    # every squash-merged branch that ever landed. Only the forge can say it merged.
     $squashed = Add-Branchy $fx 'squashed' -Push
     git_ -C $fx.Repo merge --squash squashed
     git_ -C $fx.Repo commit -m 'squashed landing'
@@ -183,8 +177,6 @@ check 'a required review still outstanding is not ready' $null (Get-PullRequestR
 
 # ---------------------------------------------------------------------------------------
 "repository ordering"
-# Group by repository, but order the repositories by their hottest item, so an approved pull
-# request cannot hide behind routine work somewhere else.
 $items = @(
     [pscustomobject]@{ Repo = 'beta'; Rank = 1 }
     [pscustomobject]@{ Repo = 'alpha'; Rank = 4 }
@@ -199,8 +191,6 @@ check 'and is internally ranked' 4 $ordered[2].Rank
 
 # ---------------------------------------------------------------------------------------
 "transcript fallback degrades"
-# The transcript format is internal to Claude Code and changes between releases. A board that
-# throws on upgrade day is worse than a board missing a column.
 check 'an unparseable line yields nothing rather than an error' $null (Read-TranscriptHint -Line 'not json at all')
 check 'json without the expected fields yields nothing' $null (Read-TranscriptHint -Line '{"unexpected":"shape"}')
 check 'a json array yields nothing' $null (Read-TranscriptHint -Line '[1,2,3]')
