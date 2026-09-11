@@ -63,7 +63,7 @@ function Select-Shown {
         $key = "$($entry.RepoRoot)|$($entry.Rank)"
         $count[$key] = 1 + $(if ($count.ContainsKey($key)) { $count[$key] } else { 0 })
         if ($count[$key] -le $PerRank) { $shown.Add($entry) }
-        else { $hidden[$entry.RepoRoot] = 1 + $(if ($hidden.ContainsKey($entry.RepoRoot)) { $hidden[$entry.RepoRoot] } else { 0 }) }
+        else { $hidden[$key] = 1 + $(if ($hidden.ContainsKey($key)) { $hidden[$key] } else { 0 }) }
     }
     [pscustomobject]@{ Shown = @($shown); Hidden = $hidden }
 }
@@ -82,23 +82,30 @@ function Show-Board {
         ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $boardFile -Encoding utf8
 
     $currentRoot = $null
+    $currentRank = $null
     for ($i = 0; $i -lt $items.Count; $i++) {
         $entry = $items[$i]
-        if ($entry.RepoRoot -ne $currentRoot) {
-            if ($currentRoot -and $selection.Hidden.ContainsKey($currentRoot)) {
-                "        {0,-8}  ... and {1} more" -f '', $selection.Hidden[$currentRoot]
+        if ($entry.RepoRoot -ne $currentRoot -or $entry.Rank -ne $currentRank) {
+            if ($currentRoot) {
+                $hiddenKey = "$currentRoot|$currentRank"
+                if ($selection.Hidden.ContainsKey($hiddenKey)) {
+                    "        {0,-8}  ... and {1} more $($marks[$currentRank])" -f '', $selection.Hidden[$hiddenKey]
+                }
             }
+            if ($entry.RepoRoot -ne $currentRoot) { ''; "  $($entry.Repo)" }
             $currentRoot = $entry.RepoRoot
-            ''
-            "  $($entry.Repo)"
+            $currentRank = $entry.Rank
         }
         $where = if ($entry.Branch) { $entry.Branch } else { Split-Path $entry.Path -Leaf }
         if ($entry.AlreadyOpen) { $where += '   [a session is already open here]' }
         '{0,4}  {1,-8}  {2}' -f ($i + 1), $marks[$entry.Rank], $entry.Label
         '        {0,-8}  {1}' -f '', $where
     }
-    if ($currentRoot -and $selection.Hidden.ContainsKey($currentRoot)) {
-        "        {0,-8}  ... and {1} more" -f '', $selection.Hidden[$currentRoot]
+    if ($currentRoot) {
+        $hiddenKey = "$currentRoot|$currentRank"
+        if ($selection.Hidden.ContainsKey($hiddenKey)) {
+            "        {0,-8}  ... and {1} more $($marks[$currentRank])" -f '', $selection.Hidden[$hiddenKey]
+        }
     }
     ''
     '  wip <n> to go there.  wip prune to clear dead worktrees.'
