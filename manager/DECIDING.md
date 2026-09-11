@@ -62,13 +62,15 @@ Every line carries its reason and evidence so the agent can push back with facts
 
 ## The journal
 
-`.agents/manager/journal.md`, append-only, one line per decision — every skill's run logs belong under `.agents/<skill>/` (the full convention, including the override variable, is in [docs/agent-state.md](../docs/agent-state.md)), so a reader finds them all in one place:
+`journal.md` under the state root — `~/.agent-state/<repo-slug>/manager/` by default, `MANAGER_STATE` overriding it ([docs/agent-state.md](../docs/agent-state.md)). Append-only, and **one line per decision**:
 
 ```
 [MM-DD HH:mm] <subject> <A#> <VERDICT> <ask in ≤12 words> — <reason> [<evidence>] → told <agent/channel>
 ```
 
-On a public repository the journal is publication, like any file in the tree: keep the state root outside the repo (`MANAGER_STATE=<path>`), the same way `nights-watch` keeps its ledger out of a public tree. The journal is operational state, not memory — an agent may correct a memory; nobody edits a journal.
+**The format is the whole discipline.** A journal is a ledger for scanning, not a place to file a run report: no mandate section, no phase log, no token counts, no narrative of how a verdict was reached. That story, where it is worth anything, is already on the pull request. A journal that grows sections becomes a file nobody opens and every reviewer pays for, and because it is append-only it conflicts with itself the moment two branches both write to it.
+
+It is operational state, not memory — an agent may correct a memory; nobody edits a journal. It is outside the tree, so it is never part of a diff and never needs a commit of its own.
 
 ## Telling the human
 
