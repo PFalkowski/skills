@@ -4,9 +4,9 @@ Two layers, deliberately separate: **chronicles** (per-agent, raw, written as th
 
 ## Layout
 
-Memory sits in two roots at the **main repo root**, split by whether a human is meant to read it. Both are configurable.
+Memory sits in two roots, split by whether a human is meant to read it.
 
-The **Library** is committed, so it survives clones and travels with the project.
+The **Library** is committed at the main repo root, so it survives clones and travels with the project.
 
 ```
 .nights-watch/
@@ -15,15 +15,15 @@ The **Library** is committed, so it survives clones and travels with the project
     <slug>.md              # one durable fact per file
 ```
 
-Everything else records only *that* a run happened, so it lives under the house state root from [agent-state.md](../docs/agent-state.md) and is gitignored wholesale — with one exception, `hunts/`, noted below:
+Everything else records only *that* a run happened, so it lives under the house state root from [agent-state.md](../docs/agent-state.md) — outside the tree, so it outlives the worktree that wrote it:
 
 ```
-.agents/nights-watch/
+~/.agent-state/<repo-slug>/nights-watch/
   journal.md               # patrol logbook (see WATCH.md § The watch journal)
   chronicles/              # per-agent, append-as-you-go, raw — one file per ranger run
     <date>-<ticket-id>.md
   locks/                   # claim advertisements, one directory per ticket
-  hunts/                   # the Hunt's state + reports — NOT memory, and NOT here on a public repo
+  hunts/                   # the Hunt's state + reports — NOT memory
     state.md               # the watermark: what has already been examined
     ledger.md              # fingerprints of reported findings, so the horn never blows twice
     carry.jsonl            # candidates found but not yet refuted — rewritten each hunt, never appended
@@ -32,15 +32,13 @@ Everything else records only *that* a run happened, so it lives under the house 
     <date>-<n>.md
 ```
 
-`AGENTS_STATE` moves the second root and leaves the first alone: the Library is not run state and never follows it.
+`AGENTS_STATE=.agent-state` moves the second root into the checkout and leaves the first alone: the Library is not run state and never follows it. On a **public** repo, never set it — the ledger names the file and severity of live unfixed flaws, and an ignored file is one `git add -f` from being published ([HUNT.md](HUNT.md) § Where the state root is).
 
-**On a repo that has not migrated yet.** For one release, read the new path first and fall back to the retired one when the new path is absent and the old one exists, noting the fallback in the patrol summary. Always *write* to the new path, so a repo migrates by being run. The retired paths are listed in [agent-state.md](../docs/agent-state.md) § Retired paths, not here, because a skill that names its own retired path fails the state-path check — that is what stops the migration quietly reverting. **Try both spellings of the journal**: the old root's file is `JOURNAL.md` on the repos that have one, and a case-sensitive filesystem will not find it under the lowercase name the layout above uses. **The public-repo root outside the repo moved too**, so a Hunt must apply the same fallback there or it starts with an empty watermark and ledger.
+**On a repo that has not migrated yet.** For one release, read the new path first and fall back to the retired one when the new path is absent and the old one exists, noting the fallback in the patrol summary. Always *write* to the new path, so a repo migrates by being run. The retired paths are listed in [agent-state.md](../docs/agent-state.md) § Retired paths, not here, because a skill that names its own retired path fails the state-path check — that is what stops the migration quietly reverting. **Try both spellings of the journal**: the oldest root's file is `JOURNAL.md` on the repos that have one, and a case-sensitive filesystem will not find it under the lowercase name the layout above uses.
 
 `hunts/` sits in the state root, not in the Library. A Library entry is *memory*: written by the fire, read as a hint, and — per § Recall — fair game for a ranger who observes it to be wrong. The watermark and the ledger are *law*: there is nothing to fact-check them against, and an agent "correcting" a watermark silently re-scans or skips a delta. So the Hunt's state is machine-written, machine-read, and never curated. What the Hunt *does* contribute to the Library is what the fire is for: which lenses produce noise on this repo, and what each one costs (`calibration`). See [HUNT.md](HUNT.md).
 
-One consequence worth stating here: on a **public** repo, `hunts/` **is not in the repo at all** — the state root moves to `~/.agents/nights-watch/<repo-slug>/` (or wherever `state=` names). The ledger records the file and severity of live unfixed flaws, and committing that publishes exactly what the Hunt's disclosure rule withheld. [HUNT.md](HUNT.md) § Where the state root is has the full trade.
-
-The Library stays committed on every repo: a curated convention is not a vulnerability. Chronicles do not — they are raw run notes, ignored in place like the rest of the state root.
+The Library stays committed on every repo: a curated convention is not a vulnerability. Chronicles do not — they are raw run notes and stay in the state root.
 
 ## Chronicles — each agent dumps as it goes
 

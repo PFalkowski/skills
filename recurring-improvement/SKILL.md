@@ -27,11 +27,9 @@ This is for *periodic* upkeep, not a single fix (that's `go-go-go`) or one featu
 State lives under `docs/` in the standard house style:
 
 - **`docs/recurring-backlog.md`** — the master schedule: one row per recurring task with description, **interval (proposed CRON)**, last-run, status, and a link to that task's process folder. This file is the source of truth for due-detection. Seed it from [`TEMPLATE.recurring-backlog.md`](TEMPLATE.recurring-backlog.md) on first run.
-- **`docs/<process>/`** — one folder *per recurring task* (`<process>` is a placeholder — it's whatever process that row drives, e.g. `security-audit`, `test-coverage`). Each follows the convention in [`REFERENCE.md`](REFERENCE.md): `RUNBOOK.md` (the process contract incl. scope calibration) + `INDEX.md` (run-history ledger, newest first) + `runs/YYYY-MM-DD/report.md` + **stable IDs** with **states** (`open`/`accepted`/`wontfix`/`fixed`/`regressed`).
+- **`docs/<process>/`** — one folder *per recurring task* (`<process>` is a placeholder — it's whatever process that row drives, e.g. `security-audit`, `test-coverage`). Each follows the convention in [`REFERENCE.md`](REFERENCE.md): `RUNBOOK.md` (the process contract incl. scope calibration) + `INDEX.md` (run-history ledger, newest first) + **stable IDs** with **states** (`open`/`accepted`/`wontfix`/`fixed`/`regressed`). Per-run reports are state, not records, and live under the house state root ([agent-state.md](../docs/agent-state.md)).
 
-Root is adaptive — **discover the backlog first**: check `docs/recurring-backlog.md`, then `.agents/recurring-improvement/backlog.md`. Whichever exists owns the root; its `config.root` line is authoritative. For one release, also read this skill's two retired roots, listed in [agent-state.md](../docs/agent-state.md) § Retired paths — if one of those is what exists, use it and say so in the run report, then write the next update to `docs/recurring-backlog.md`.
-
-On a first-ever run with no backlog anywhere, prefer `docs/`. The schedule is a deliverable: a human reads it to see what is due without knowing a run happened, so it does not belong under the ignored `.agents/` root. Use `.agents/recurring-improvement/backlog.md` only where the repo deliberately keeps agent artifacts out of `docs/`, accepting that the schedule is then untracked.
+The schedule is a deliverable — a human reads it to see what is due without knowing a run happened — so it is committed, and `docs/recurring-backlog.md` is its home. **Discover it first**, because a repo may already keep it elsewhere: whichever backlog exists owns the root, and its `config.root` line is authoritative. For one release, also read this skill's retired roots, listed in [agent-state.md](../docs/agent-state.md) § Retired paths — if one of those is what exists, use it and say so in the run report, then write the next update to `docs/recurring-backlog.md`.
 
 **Adopt, don't recreate.** If a process folder already exists (e.g. a repo already runs `docs/security-audit/`), point the backlog row at it and use its existing RUNBOOK/INDEX — never overwrite it.
 
@@ -59,7 +57,7 @@ This is itself a process row (default: `skill-evolution`) and writes its own `do
    | `code-quality` | `improve-codebase-architecture` / `restomod` |
    | `fix-warnings` | `go-go-go` |
    | `security-audit` | the repo's `security-audit` skill |
-3. Each process writes `<root>/<process>/runs/<TODAY>/report.md` as **untracked working scratch** (gitignore `<root>/*/runs/`), then updates its `INDEX.md` (new/closed/regressed, ID movements — the row's headline must carry every still-`open` ID, since the row and the PR description are the only durable records) and the master `<root>/recurring-backlog.md` (last-run, status).
+3. Each process writes its run report as **working scratch** under the state root (`~/.agent-state/<repo-slug>/recurring-improvement/runs/<process>/<TODAY>/report.md`), then updates its `INDEX.md` (new/closed/regressed, ID movements — the row's headline must carry every still-`open` ID, since the row and the PR description are the only durable records) and the master `<root>/recurring-backlog.md` (last-run, status).
 4. **Nothing due → no-op report.** Idempotent: re-running before anything elapses changes nothing.
 
 ## Step 3 — Report

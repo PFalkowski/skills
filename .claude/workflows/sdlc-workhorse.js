@@ -45,8 +45,8 @@ if (typeof cfg.goal !== 'string' || !cfg.goal.trim()) {
   throw new Error('sdlc-workhorse: args.goal is required — the change to build, in enough detail to specify.')
 }
 
-const backlogPath = cfg.backlogPath || '.agents/sdlc-workhorse/backlog.md'
-const chronicleDir = cfg.chronicleDir || '.agents/sdlc-workhorse/chronicles'
+const backlogPath = cfg.backlogPath || '$HOME/.agent-state/<repo dir name>/sdlc-workhorse/backlog.md'
+const chronicleDir = cfg.chronicleDir || '$HOME/.agent-state/<repo dir name>/sdlc-workhorse/chronicles'
 const libraryIndex = cfg.libraryIndex || null          // nights-watch Library, if the repo keeps one
 const maxGrillRounds = cfg.maxGrillRounds ?? 3
 const maxPlanRounds = cfg.maxPlanRounds ?? 2
@@ -539,7 +539,7 @@ async function runRetro(sliceCount) {
     `already know next time. Split every finding by what can be acted on NOW:\n` +
     `- evolved-now — anything improvable this session: sharpen a skill ("evolve-skill"), write a missing one ` +
     `("write-a-skill"), fix the docs/ADR/lessons file. DO it, do not just note it.\n` +
-    `- filed-for-human — needs a human decision or a future session. File it to ${backlogPath}, and carry it into the PR description or the tracker too: that path is gitignored and worktree-local, so the backlog alone does not keep it.\n` +
+    `- filed-for-human — needs a human decision or a future session. File it to ${backlogPath}, and carry it into the PR description or the tracker too: state is not a record, so the backlog alone does not keep it.\n` +
     `- flagged-blocker — blocking, neither evolvable nor plannable. Surface it plainly.\n\n` +
     `${record.blockers.length ? `This run hit real failures. Use the "postmortem" skill's discipline on them: symptom → root-cause chain → fix → forward-looking rule, and check whether a regression test is missing.\n\n` : ''}` +
     `${libraryIndex ? `Curate the durable lessons into the Library at ${libraryIndex} (one fact per file + index): conventions, gotchas, token calibrations, settled decisions, tooling. Noise dies with the chronicle.\n\n` : ''}` +
@@ -578,7 +578,7 @@ if (!baseline.green) {
 note('Baseline', `green across ${baseline.checks.length} check(s); ${baseline.pitfalls.length} repo pitfall(s) catalogued`)
 if (baseline.missingGuardrails.length) {
   record.deferred.push({ what: 'missing guardrails', detail: baseline.missingGuardrails })
-  say(`Missing guardrails filed to ${backlogPath} (gitignored — repeat them in the PR): ${baseline.missingGuardrails.join('; ')}`)
+  say(`Missing guardrails filed to ${backlogPath} (repeat them in the PR): ${baseline.missingGuardrails.join('; ')}`)
 }
 
 const pitfallRule = baseline.pitfalls.length

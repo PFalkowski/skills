@@ -19,6 +19,13 @@ truth with no mechanism keeping it honest; it gets read as authoritative precise
 it is most wrong. An archived doc is still in the search path; a graph node still
 answers queries after the code moved on.
 
+One index is not a derived layer: a **pointer table**, one line per record — name, status,
+where it is — written in the same edit as the record it lists. That is routing, and a log
+too big to read whole needs it. It turns into the anti-pattern the moment a row starts
+carrying the record's content, because then it is a summary with a second copy's decay and
+it is read by everyone who orients. A row that has grown into a paragraph is a deletion
+target, not a documentation win.
+
 **Where truth is allowed to live** (everything else points here or dies):
 
 | Truth | Owner |

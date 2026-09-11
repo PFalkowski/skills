@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Fails when a skill's markdown declares a state root that is not
-# .agents/<skill>/... and is not a permanent deliverable exemption below; when
-# a skill declares a bare file directly under .agents/ with no <slug>/
-# segment; when it names a state path this repo has already migrated away
-# from; or when the repo's .gitignore is missing the wholesale .agents/ line
-# docs/agent-state.md's gitignore rule claims exists.
-# See docs/agent-state.md for the convention this enforces.
+# Fails when a skill's markdown declares a state root that is neither
+# ~/.agent-state/<repo-slug>/<skill>/... nor its in-tree opt-in
+# .agent-state/<skill>/... and is not a permanent deliverable exemption below;
+# when a skill declares a bare file directly under the state root with no
+# <skill>/ segment; or when it names a state path this repo has already
+# migrated away from. It never flags .agents/skills/, which belongs to OpenAI
+# Codex -- committed team skills, with $HOME/.agents/skills for personal ones.
+# See docs/agent-state.md and docs/adr/0001-agent-state-location.md for the
+# convention this enforces.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 cd "${CHECK_STATE_PATHS_ROOT:-.}"
@@ -13,7 +15,7 @@ cd "${CHECK_STATE_PATHS_ROOT:-.}"
 # Permanent exemptions for the generic scan below, not migration TODOs. Each
 # is a deliverable under docs/agent-state.md's logs-vs-deliverables test -- a
 # human is expected to read it later without knowing a run happened -- so it
-# keeps its own human-facing home and never moves under the ignored .agents/.
+# keeps its own human-facing home and never moves under the state root.
 #
 #   .out-of-scope/  -- triage's record of rejected requests
 #   .nights-watch/  -- only its tracked library/. The nights-watch pass below
@@ -23,6 +25,8 @@ deliverable_re='\.nights-watch/|\.out-of-scope/'
 
 # Harness, VCS, or sub-path references -- never a skill's own state root.
 infra_re='\.claude-plugin/|\.claude/|\.githooks/|\.github/|\.git/|\.ssh/|\.lock/|\.agents/'
+
+state_root_re='\.agent-state/'
 
 # Only library/ under .nights-watch/ is a deliverable. Everything else there
 # is run state that has migrated, so this pass names the whole rest of the
@@ -41,12 +45,15 @@ nights_watch_allowed_seg='library'
 # ./x as it is bare, and those qualified spellings are the ones these skills
 # actually use.
 retired_res=(
-  'docs/sdlc/runs/;.agents/sdlc-old-fashioned/runs/'
-  'prompts/sdlc-backlog\.md;.agents/<owning skill>/backlog.md -- see docs/agent-state.md, Retired paths'
-  '\.housekeeping/;.agents/housekeeping/'
+  'docs/sdlc/runs/;~/.agent-state/<repo-slug>/sdlc-old-fashioned/runs/'
+  'prompts/sdlc-backlog\.md;~/.agent-state/<repo-slug>/<owning skill>/backlog.md -- see docs/agent-state.md, Retired paths'
+  '\.housekeeping/;~/.agent-state/<repo-slug>/housekeeping/'
   '\.recurring-improvement/;docs/recurring-backlog.md'
-  '\.sdlc/;.agents/sdlc-workhorse/'
+  '\.sdlc/;~/.agent-state/<repo-slug>/sdlc-workhorse/'
+  '\.agents/[A-Za-z0-9_.<>/-]+;~/.agent-state/<repo-slug>/<slug>/'
 )
+
+codex_skills_re='\.agents/skills(/|$)'
 
 offenders=0
 report() {
@@ -58,25 +65,28 @@ for dir in */; do
   skill="${dir%/}"
   [ -f "${dir}SKILL.md" ] || continue
 
-  # A dot-prefixed directory that is neither .agents/ nor a deliverable. The
-  # exemptions are tested against the matched text, never the whole
-  # path:line:match record -- filtering the record would exempt every file
-  # whose own path happened to contain an exempt segment.
+  # A dot-prefixed directory that is neither the state root nor infra nor a
+  # deliverable. The exemptions are tested against the matched text, never the
+  # whole path:line:match record -- filtering the record would exempt every
+  # file whose own path happened to contain an exempt segment.
   while IFS=: read -r f l match; do
     printf '%s' "$match" | grep -qE "$deliverable_re" && continue
     printf '%s' "$match" | grep -qE "$infra_re" && continue
-    report "$f" "$l" "$match" "skill state belongs at .agents/$skill/..."
+    printf '%s' "$match" | grep -qE "$state_root_re" && continue
+    report "$f" "$l" "$match" "skill state belongs at ~/.agent-state/<repo-slug>/$skill/..."
   done < <(grep -rnoE '(^|[^A-Za-z0-9_/.~-])\.[a-z][a-z0-9-]*/' --include='*.md' "$dir" || true)
 
-  # A bare file directly under .agents/ (no <slug>/ segment) is not
+  # A bare file directly under the state root (no <slug>/ segment) is not
   # conforming (docs/agent-state.md, "The directory rule"). The generic scan
-  # treats .agents/ as infra -- it only ever sees the short ".agents/" token,
-  # never what follows it -- so it can never tell a bare file from the
-  # conforming .agents/<slug>/... shape. This pass captures the segment right
-  # after .agents/ and checks whether a "/" follows it.
+  # exempts the bare .agent-state/ spelling by name, and never sees the
+  # qualified ~/.agent-state/ or <repo>/.agent-state/ ones at all, since the
+  # character class in front of its pattern excludes "~" and "/". So it can
+  # never tell a bare file from the conforming .agent-state/<slug>/... shape.
+  # This pass captures the segment right after .agent-state/ and checks
+  # whether a "/" follows it.
   while IFS=: read -r f l match; do
-    report "$f" "$l" "$match" "bare file directly under .agents/, no skill segment -- see docs/agent-state.md"
-  done < <(grep -rnoE '\.agents/[A-Za-z0-9_.-]+/?' --include='*.md' "$dir" \
+    report "$f" "$l" "$match" "bare file directly under .agent-state/, no skill segment -- see docs/agent-state.md"
+  done < <(grep -rnoE '\.agent-state/[A-Za-z0-9_.-]+/?' --include='*.md' "$dir" \
              | grep -vE '/$' || true)
 
   # Any subpath of .nights-watch/ except the tracked library/.
@@ -91,25 +101,17 @@ for dir in */; do
     seg="${seg%%/*}"
     [ -z "$seg" ] && continue
     [ "$seg" = "$nights_watch_allowed_seg" ] && continue
-    report "$f" "$l" "$match" "nights-watch run state moved to .agents/nights-watch/; only library/ stays"
+    report "$f" "$l" "$match" "nights-watch run state moved to ~/.agent-state/<repo-slug>/nights-watch/; only library/ stays"
   done < <(grep -rnoE '\.nights-watch/[^[:space:])"`'"'"']*' --include='*.md' "$dir" || true)
 
   for entry in "${retired_res[@]}"; do
     pattern="${entry%%;*}"
     moved_to="${entry#*;}"
     while IFS=: read -r f l match; do
+      printf '%s' "$match" | grep -qE "$codex_skills_re" && continue
       report "$f" "$l" "$match" "retired state path; it moved to $moved_to"
     done < <(grep -rnoE "$pattern" --include='*.md' "$dir" || true)
   done
 done
-
-# The gitignore rule: docs/agent-state.md claims .agents/ is ignored
-# wholesale by a single ".agents/" line in the managed repo's .gitignore.
-# Check that the line is actually there, or the claim is false and someone
-# will trust it and commit run logs.
-if [ ! -f .gitignore ] || ! grep -qxE '\.agents/?' .gitignore; then
-  echo "NONCONFORMING .gitignore -> missing a wholesale '.agents/' line (docs/agent-state.md's gitignore rule)"
-  offenders=1
-fi
 
 exit "$offenders"

@@ -6,12 +6,12 @@ This is the detail behind **Dial 2 → "fresh process per phase"** and the **han
 
 ## File layout
 
-Durable deliverables live in the repo and travel with the PR; the per-phase run logs under `.agents/sdlc-old-fashioned/runs/` are **gitignored** — on disk for inspection and cross-session resume, never in the PR:
+The run's state root — `~/.agent-state/<repo-slug>/sdlc-old-fashioned/`, written `<state>/` here — is outside the tree, so it survives the worktree and never reaches the PR ([agent-state.md](../../docs/agent-state.md)):
 
 ```
-.agents/sdlc-old-fashioned/            # GITIGNORED wholesale, local only
+<state>/
   backlog.md                           # THE live backlog
-  runs/                                # copy out before the worktree goes
+  runs/
     01-guardrails.brief.md             # exactly what the phase agent received
     01-guardrails.log                  # tee'd, human-readable transcript of the run
     02-specify.brief.md
@@ -21,13 +21,9 @@ Durable deliverables live in the repo and travel with the PR; the per-phase run 
     07-red-S2.brief.md                 # per-slice phases carry the slice id
     08-impl-S2.log
     ...
-docs/sdlc/
-  plan.md                              # Phase 4 design artifact (grilled in Phase 5) — committed
-  reflections/
-    2026-07-06-retro.md                # Phase 13 output — a few lines, committed
 ```
 
-`docs/sdlc/` is the **default** home for the durable deliverables, not a fixed one: where the repo already names its own home for agent process records (a `CLAUDE.md`/`AGENTS.md` rule, an agent-docs index), Phase 1 finds it and the spec, plan, review notes and retro are written there instead. Confirm the repo's `.gitignore` carries the wholesale `.agents/` line in Phase 1, which covers this whole root. The canonical, replayable transcript is *also* written by the harness itself (see "Transcript capture" below) — the `.log` is the convenience copy.
+The spec, plan, review notes, verdicts and retro are **posted on the PR** — in the body, in a comment, or on a linked issue — not committed into the tree. What gets committed is what a reader would open without knowing a run happened: the ADRs, the runbooks, a lessons entry. A repo whose `CLAUDE.md` names its own committed home for agent process records overrides that; Phase 1 finds it. The canonical, replayable transcript is *also* written by the harness itself (see "Transcript capture" below) — the `.log` is the convenience copy.
 
 ## Orient & isolate (Step 0.7)
 
@@ -45,7 +41,7 @@ git worktree list
 git worktree add ../<repo>-<feature> -b <feature-branch>    # or the harness EnterWorktree
 ```
 
-Run the conductor from inside the worktree so every spawned phase process inherits that cwd (or pass `--add-dir <worktree>` explicitly). The durable `docs/sdlc/` deliverables (spec, plan, ADRs, retro) live in the worktree and get committed on the branch. The whole `.agents/sdlc-old-fashioned/` root — the backlog and the per-phase runs alike — is **gitignored**: it stays on disk for inspection and cross-session resume, and never reaches the branch, so nothing has to be deleted at publish time.
+Run the conductor from inside the worktree so every spawned phase process inherits that cwd (or pass `--add-dir <worktree>` explicitly). The committed deliverables (ADRs, runbooks, the lessons entry) live in the worktree and land on the branch. `<state>/` — the backlog and the per-phase runs alike — is outside the tree: it stays on disk for inspection and cross-session resume, never reaches the branch, and needs nothing deleted at publish time.
 
 **Clean up** once the PR is open and pushed — propose, don't auto-remove:
 
@@ -53,7 +49,7 @@ Run the conductor from inside the worktree so every spawned phase process inheri
 git worktree remove ../<repo>-<feature>                     # after confirming; or ExitWorktree
 ```
 
-Safe only once `.agents/sdlc-old-fashioned/runs/` has been copied outside the tree and the file count checked. The committed trail (spec, plan, ADRs, retro) survives removal; the gitignored briefs and `.log` files do not, and for a phase that ran as an in-session subagent there is no canonical `.jsonl` you can name — those logs are the only transcript and the only proof each test went RED. `wrap-up`'s sweep runs this check before it removes anything.
+Safe as soon as the PR carries what it has to carry. `<state>/` is not in the worktree, so the briefs and `.log` files survive the removal — which matters for a phase that ran as an in-session subagent, where there is no canonical `.jsonl` to name and those logs are the only transcript and the only proof each test went RED.
 
 ## The per-phase loop
 
@@ -84,14 +80,14 @@ skip it; if you skip a trigger that clearly fired, say so in RESULT.
 <one line each. A count or inventory carries the filter/command that produced it, never the bare number.>
 
 ## Read these (don't trust this brief alone)
-- Live backlog / current state: .agents/sdlc-old-fashioned/backlog.md
+- Live backlog / current state: <state>/backlog.md
 - Spec/PRD: <path>
-- Plan: docs/sdlc/plan.md
+- Plan: <the PR comment or issue holding it>
 - Other artifacts: <paths>
 
 ## Definition of done for THIS run
 1. Meet the GATE above.
-2. Update .agents/sdlc-old-fashioned/backlog.md — item state, phase, the `Current` block, timestamp.
+2. Update <state>/backlog.md — item state, phase, the `Current` block, timestamp.
    <A read-only phase whose output is a PR comment — Phase 9 review, say — still writes its
    RESULT to the backlog, but is not asked to commit anything: never demand a commit from a
    phase that has nothing committable.>
@@ -100,7 +96,7 @@ skip it; if you skip a trigger that clearly fired, say so in RESULT.
 5. Print a `RESULT` block, ≤10 lines: gate met (y/n), artifacts written, backlog updated, blockers, recommended next phase, and — last, mandatory — what in this brief was wrong ("nothing" is an answer; silence is not).
 ```
 
-Save it to `.agents/sdlc-old-fashioned/runs/NN-<phase>.brief.md`.
+Save it to `<state>/runs/NN-<phase>.brief.md`.
 
 ### 2. Spawn a fresh process, capture the transcript
 
@@ -109,8 +105,8 @@ Pick the **model tier that fits the phase** — cheap (haiku/sonnet) for mechani
 **PowerShell (Windows):**
 ```powershell
 $phase = "05-plan-review"
-$brief = ".agents/sdlc-old-fashioned/runs/$phase.brief.md"
-$log   = ".agents/sdlc-old-fashioned/runs/$phase.log"
+$brief = "<state>/runs/$phase.brief.md"
+$log   = "<state>/runs/$phase.log"
 $sid   = [guid]::NewGuid().Guid            # so you know exactly which transcript file it is
 
 Get-Content $brief -Raw |
@@ -122,10 +118,10 @@ Get-Content $brief -Raw |
 **bash:**
 ```bash
 phase="05-plan-review"; sid=$(uuidgen)
-cat ".agents/sdlc-old-fashioned/runs/$phase.brief.md" \
+cat "<state>/runs/$phase.brief.md" \
  | claude -p --session-id "$sid" --model opus --add-dir . \
      --permission-mode acceptEdits --verbose 2>&1 \
- | tee ".agents/sdlc-old-fashioned/runs/$phase.log"
+ | tee "<state>/runs/$phase.log"
 ```
 
 Notes:
@@ -136,7 +132,7 @@ Notes:
 
 ### 3. Transcript capture — two records, both inspectable
 
-- **Convenience log:** the `tee`/`Tee-Object` above → `.agents/sdlc-old-fashioned/runs/NN-<phase>.log`, human-readable.
+- **Convenience log:** the `tee`/`Tee-Object` above → `<state>/runs/NN-<phase>.log`, human-readable.
 - **Canonical transcript:** the harness writes the complete session (every message, tool call, and result) to
   `~/.claude/projects/<project-slug>/<session-id>.jsonl`.
   `<project-slug>` is the working directory with path separators replaced by dashes; if unsure, list `~/.claude/projects/` and match by the newest `<session-id>.jsonl`. Because you passed `--session-id`, you know the filename exactly. Replay/inspect it later with `claude --resume <session-id>`.
@@ -145,13 +141,13 @@ Notes:
 
 The conductor reads back **only**:
 - the child's `RESULT` block (≤10 lines), and
-- the diff of `.agents/sdlc-old-fashioned/backlog.md`.
+- the diff of `<state>/backlog.md`.
 
 It checks the gate against those, writes its decision (scope change, revised figure, deferral) into the backlog's `Decisions / notes`, then advances or loops the phase — the next brief must never carry a figure the backlog doesn't. **It never reads the child's full transcript into its own context.** The transcript is for the human and the audit trail, on disk.
 
 ## The backlog — schema
 
-`.agents/sdlc-old-fashioned/backlog.md`, updated by every phase before it exits. It is run scaffolding, not a deliverable, and the ignored state root keeps it out of the merged tree on its own — but it also dies with the worktree, so **its still-open items are filed to the tracker or the PR before Phase 13 sweeps** (see `SKILL.md`, Step 6):
+`<state>/backlog.md`, updated by every phase before it exits. It is run scaffolding, not a deliverable, and the ignored state root keeps it out of the merged tree on its own — but it also dies with the worktree, so **its still-open items are filed to the tracker or the PR before Phase 13 sweeps** (see `SKILL.md`, Step 6):
 
 ```markdown
 # SDLC backlog — <feature / epic name>
@@ -159,14 +155,14 @@ It checks the gate against those, writes its decision (scope change, revised fig
 ## Current
 - **Slice:**  S2 — <title>
 - **Phase:**  8 — Implement → GREEN
-- **Run:**    .agents/sdlc-old-fashioned/runs/08-impl-S2.log   (session <sid>)
+- **Run:**    <state>/runs/08-impl-S2.log   (session <sid>)
 - **Updated:** 2026-07-06T14:20Z
 
 ## Slices
 | id | slice                       | state | phase | last run                         |
 |----|-----------------------------|-------|-------|----------------------------------|
-| S1 | <title>                     | Done  | 12    | .agents/sdlc-old-fashioned/runs/12-merge-S1.log   |
-| S2 | <title>                     | Doing | 8     | .agents/sdlc-old-fashioned/runs/08-impl-S2.log    |
+| S1 | <title>                     | Done  | 12    | <state>/runs/12-merge-S1.log   |
+| S2 | <title>                     | Doing | 8     | <state>/runs/08-impl-S2.log    |
 | S3 | <title>                     | Todo  | —     | —                                |
 
 ## Out-of-scope / filed  (feature-creep guard)

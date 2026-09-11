@@ -74,5 +74,5 @@ Actions taken: `code-review-grill` dispatched on #515 with the principal brief; 
 Managed: PR #515. Verdicts: 4 approved (incl. merge after grill), 1 redirected (grill), 2 deferred (#531–#534), 0 vetoed.
 Dispatched: code-review-grill on #515 (opus); fix-pr headless and the merge queued behind it.
 Escalated: none.
-Budget: —. Journal: .agents/manager/journal.md
+Budget: —. Journal: ~/.agent-state/<repo-slug>/manager/journal.md
 ```

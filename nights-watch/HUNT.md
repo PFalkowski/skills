@@ -55,18 +55,15 @@ The watermark is what makes an hourly job cheap and non-repetitive: the Hunt loo
   <date>-<n>.md # the hunt reports
 ```
 
-### Where the state root is, and why it is not always in the repo
+### Where the state root is
 
-| Repo | State root | Because |
-|---|---|---|
-| private | `.agents/nights-watch/hunts/`, ignored in-tree | it is operational state, so it lives under the house state root ([agent-state.md](../docs/agent-state.md)) and stays out of the diff |
-| **public** | `~/.agents/nights-watch/<repo-slug>/`, outside the repo | the ledger names the file and severity of live unfixed flaws, so committing it publishes what rule 4 withheld |
+`<state root>` is `~/.agent-state/<repo-slug>/nights-watch/hunts/` — outside the repo, so it outlives the worktree that wrote it and never reaches a diff ([agent-state.md](../docs/agent-state.md)). `state=<path>` overrides it and beats `AGENTS_STATE`.
 
-Neither root is committed, and **the watermark and the ledger are per-clone as a result**. That is a real cost, not a free win: a fresh clone or a second machine starts with no watermark (re-audits a week) and an empty ledger, so **every open finding is reported again** at full refuter cost — rule 3 off, exactly on the repos `report=advisory` exists for. A Hunt that runs from more than one machine must therefore point `state=` (or `AGENTS_STATE`) at a durable path the operator keeps, rather than expect git to carry it.
+**A public repo must not opt its state root in-tree** (`AGENTS_STATE=.agent-state`): the ledger names the file and severity of live unfixed flaws, and an ignored file still lives in the tree, one `git add -f` or a tooling change from being published — publishing exactly what rule 4 withheld.
 
-**Migrating an existing Hunt.** Both roots moved. For one release, read the retired root when the new one is absent — the paths are in [agent-state.md](../docs/agent-state.md) § Retired paths — and copy its `state.md` and `ledger.md` across before the first hunt writes. Skip that and the Hunt silently starts from an empty watermark and an empty ledger, which is this section's whole cost paid for nothing.
+The root is per machine, so **the watermark and the ledger do not travel between machines**. That is a real cost, not a free win: a second machine starts with no watermark (re-audits a week) and an empty ledger, so **every open finding is reported again** at full refuter cost — rule 3 off, exactly on the repos `report=advisory` exists for. A Hunt that runs from more than one machine points `state=` at a durable shared path (a private sibling repo, a synced dir, **loyal-dog**'s `~/.loyal-dog`) and sharing comes back; a lone laptop is unaffected. The same knob points several repos at one root.
 
-What is genuinely lost on a public repo is **sharing between machines**: name a private path (`state=<path>` — a private sibling repo, a synced dir, **loyal-dog**'s `~/.loyal-dog`) and sharing comes back; take the default and each machine hunts its own watch, double-reporting across machines. A team hunting one public repo from several machines should set `state=` and not discover this later; a lone laptop is unaffected. Any repo can override `state=` — the multi-repo user pointing several repos at one root is the same knob.
+**Migrating an existing Hunt.** The root moved. For one release, read the retired root when the new one is absent — the paths are in [agent-state.md](../docs/agent-state.md) § Retired paths — and copy its `state.md` and `ledger.md` across before the first hunt writes, saying in the report when that fallback fired. Skip it and the Hunt silently starts from an empty watermark and an empty ledger, which is this section's whole cost paid for nothing.
 
 `state.md` is four lines, read and rewritten whole:
 
@@ -251,7 +248,7 @@ Sub-floor findings are filtered at the **report**, never at the hunt — the led
 
 | `report=` | Does | Use when |
 |---|---|---|
-| `document` (default with no active tracker) | Appends a dated hunt to `<state root>/<date>-<n>.md` + `INDEX.md` — the **state root**, which on a public repo is not in the repo (§ Where the state root is) | no remote tracker in use — a logbook the user skims, nothing pushed at them |
+| `document` (default with no active tracker) | Appends a dated hunt to `<state root>/<date>-<n>.md` + `INDEX.md` — the **state root**, which is not in the repo (§ Where the state root is) | no remote tracker in use — a logbook the user skims, nothing pushed at them |
 | `issues` (default when the repo manages work in a remote tracker) | Files each finding as a tracker ticket, labeled `ai-ready` (§ Handing findings to the patrol) | you want the finding *fixed*, not just known — which is the normal case on a managed board |
 | `pr` | Opens one PR carrying the hunt document (docs only — Hunt rule 1 stands) | the team reviews security in PRs and wants a comment thread |
 | `advisory` | Drafts a GitHub security advisory (`gh api .../security-advisories`) | the repo is public and the finding is a real vulnerability — see below |
@@ -265,7 +262,7 @@ This rule is the watcher's job, not the workflow's: the script hunts and returns
 
 **Step 0 — resolve visibility.** `gh repo view --json visibility`. This runs *before* the muster, and its result is passed into the workflow as `args.visibility`, so no agent has to guess and the report can state it. **Unresolvable visibility is treated as public** — the one safe default, since guessing wrong in the other direction publishes a vulnerability.
 
-**Step 1 — place the state.** Public → the state root is `~/.agents/nights-watch/<repo-slug>/` (§ Where the state root is). The in-tree default is gitignored, and on a public repo that is not enough: an ignored file still lives in the tree, one `git add -f` or a tooling change from being published.
+**Step 1 — place the state.** The default root is already outside the repo (§ Where the state root is). A public repo whose `.claude/settings.json` opts the state root in-tree must point `state=` outside it before hunting.
 
 **Step 2 — route the finding.** On a public repo a real vulnerability goes to `advisory` — a private draft on the repo, where a fix and a CVE can follow. This **overrides `report=`**, whatever the user configured, including `issues` and `pr`. If advisories are unavailable (no permission, not GitHub), the fallback is `chat` — tell the human directly and write nothing down. There is no path where "the channel was unavailable" ends with the finding published.
 
@@ -332,7 +329,7 @@ The Hunt runs on the cadence the user set (`every`, default `1h`) — a `/loop` 
 - **The lock replaces the claim.** A patrol claims tickets, and the claim is what stops two watchers double-working one; a hunt claims nothing, so it takes a lock. `mkdir <state root>/.lock` — a **directory**, because `mkdir` fails atomically when one exists and check-then-write does not: two ticks (a cron plus a manual `once`, two loops) can both observe an absent file and both create it. Write `owner.md` inside it (ISO start, range, host) for the human who finds it. A timer that fires while the lock stands **skips the tick and logs it**.
 - **Staleness is measured in duration, not cadence.** A lock is stale past `lockTtl` (default **90 min**, and it must exceed the longest hunt you actually run, not the gap between hunts). Keying it to `2 × every` breaks live locks precisely where the lock matters most: at `every=15m`, a six-lens party with worktree-isolated refuters routinely outruns 30 minutes, so the third tick would declare a *healthy* hunt dead, break its lock, and start the concurrent double-report the lock exists to prevent — via the recovery path. Nothing here distinguishes a slow hunt from a dead one; a generous TTL means a genuinely crashed hunt costs a delayed hunt rather than a corrupted one. If your hunts approach the TTL, the party is too big for the cadence — that is the signal, not a knob to tighten.
 - **The lock is released on every exit path**, not just the happy one: after the watermark, on a blocker, on a stand-down (where the watermark deliberately does *not* advance), and on a throw. The TTL is the backstop for the crash that skips all of them, not the release mechanism.
-- **The lock is local.** On a public repo, so is all the other state, so two clones on two machines cannot exclude each other — see § Where the state root is.
+- **The lock is local**, like all the other state, so two machines cannot exclude each other — see § Where the state root is.
 - **Budget guard** → the watcher sizes the wave, and `claim()` admits (see § Dispatch); reserve ~40k per lens ([WATCH.md](WATCH.md) § Token watching). A lens that never ran lands in `uncovered` and holds the watermark back; a candidate found but not refuted lands in `deferred` and is carried to the next hunt. The report names both.
 - **Stand down** on the user's word or an exhausted target. Nothing is claimed, so no ticket needs releasing — but "the watermark is the only state" is no longer true: there are four artifacts (`state.md`, `ledger.md`, `carry.jsonl`, `.lock/`), and a stand-down mid-hunt must release the lock, or the next hunt skips ticks until the TTL breaks it.
 
