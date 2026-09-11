@@ -190,7 +190,10 @@ finally {
 "pull request ranking"
 function Pr {
     param([hashtable]$Overrides)
-    $pr = @{ IsDraft = $false; Unresolved = 0; Decision = ''; Rollup = 'SUCCESS'; Mergeable = 'MERGEABLE' }
+    $pr = @{
+        IsDraft = $false; Unresolved = 0; Decision = ''; Rollup = 'SUCCESS'; Mergeable = 'MERGEABLE'
+        Number = 1; Title = 'synthetic pr'; Head = $null; Url = 'https://example.invalid/pr/1'
+    }
     foreach ($k in $Overrides.Keys) { $pr[$k] = $Overrides[$k] }
     [pscustomobject]$pr
 }
@@ -206,18 +209,232 @@ check 'a conflicted branch is not ready to merge' $null (Get-PullRequestRank -Pu
 check 'a required review still outstanding is not ready' $null (Get-PullRequestRank -PullRequest (Pr @{ Decision = 'REVIEW_REQUIRED' }))
 
 # ---------------------------------------------------------------------------------------
+# Get-RepositoryBoardItem's own suite call (below) passes an empty worktree list, so nothing
+# above exercises the rung bodies themselves. These do, against real worktrees.
+"board ranking ladder"
+
+function P { param($Obj, [string]$Name) if ($null -ne $Obj) { $Obj.$Name } else { $null } }
+
+function Set-CommitAge {
+    param([string]$Path, [int]$DaysAgo)
+    $date = (Get-Date).AddDays(-$DaysAgo).ToString('o')
+    $env:GIT_COMMITTER_DATE = $date
+    $env:GIT_AUTHOR_DATE = $date
+    git_ -C $Path commit --amend --no-edit --date=$date
+    Remove-Item Env:\GIT_COMMITTER_DATE, Env:\GIT_AUTHOR_DATE -ErrorAction SilentlyContinue
+}
+
+$fx2 = New-Fixture
+try {
+    function Board {
+        param([string[]]$Worktrees, [object[]]$PullRequests = @(), $NewestSession = @{}, $LiveHere = @{}, [int]$StaleDays = 7, [switch]$NoRemote)
+        $repo = [pscustomobject]@{ Name = 'r'; Root = $fx2.Repo; Worktrees = @($Worktrees) }
+        $remote = if ($NoRemote) { $null } else { [pscustomobject]@{ PullRequests = @($PullRequests) } }
+        @(Get-RepositoryBoardItem -Repo $repo -Remote $remote -NewestSession $NewestSession -LiveHere $LiveHere -StaleDays $StaleDays)
+    }
+
+    # G4: a worktree whose PR is ready to merge is ALSO dirty, the exact real-data shape that
+    # produced a second row, because `continue` inside a `switch` exits the switch, not the loop.
+    $w1 = Add-Branchy $fx2 'ready-and-dirty' -Push
+    'more work' | Add-Content -LiteralPath (Join-Path $w1 'work.txt')
+    $items = Board -Worktrees @($w1) -PullRequests @((Pr @{ Head = 'ready-and-dirty'; Number = 101 }))
+    check 'a worktree with a ready pull request yields exactly one board item, even when dirty' 1 $items.Count
+    check 'and that one item is the pull request, not the dirty fallthrough' 'pr-ready' (P (Select-Object -InputObject $items -First 1) 'Kind')
+
+    # Plain rank 1, no complications.
+    $w2 = Add-Branchy $fx2 'ready-1' -Push
+    $items = Board -Worktrees @($w2) -PullRequests @((Pr @{ Head = 'ready-1'; Number = 102 }))
+    check 'a green mergeable pull request is rank 1' 1 (P ($items | Select-Object -First 1) 'Rank')
+
+    # Rank 2, one worktree per reason, each labelled distinctly (G9 folds conflicts and failing
+    # checks in here too; a PR "waiting on you" for any of these four reasons is not absent).
+    $w3 = Add-Branchy $fx2 'needs-review' -Push
+    $items = Board -Worktrees @($w3) -PullRequests @((Pr @{ Head = 'needs-review'; Number = 103; Unresolved = 2 }))
+    check 'unresolved review threads is rank 2' 2 (P ($items | Select-Object -First 1) 'Rank')
+    check 'and names the unresolved threads' $true ((P ($items | Select-Object -First 1) 'Label') -like '*unresolved thread*')
+
+    $w4 = Add-Branchy $fx2 'changes-requested' -Push
+    $items = Board -Worktrees @($w4) -PullRequests @((Pr @{ Head = 'changes-requested'; Number = 104; Decision = 'CHANGES_REQUESTED' }))
+    check 'changes requested is rank 2' 2 (P ($items | Select-Object -First 1) 'Rank')
+
+    $w5 = Add-Branchy $fx2 'conflicted' -Push
+    $items = Board -Worktrees @($w5) -PullRequests @((Pr @{ Head = 'conflicted'; Number = 105; Mergeable = 'CONFLICTING' }))
+    check 'a pull request with merge conflicts needs you, so rank 2, not absent from the board' 2 (P ($items | Select-Object -First 1) 'Rank')
+    check 'and names the conflict' $true ((P ($items | Select-Object -First 1) 'Label') -like '*conflict*')
+
+    $w6 = Add-Branchy $fx2 'checks-failing' -Push
+    $items = Board -Worktrees @($w6) -PullRequests @((Pr @{ Head = 'checks-failing'; Number = 106; Rollup = 'FAILURE' }))
+    check 'a pull request with failing checks needs you, so rank 2, not absent from the board' 2 (P ($items | Select-Object -First 1) 'Rank')
+    check 'and names the failing checks' $true ((P ($items | Select-Object -First 1) 'Label') -like '*fail*')
+
+    # A pull request that ranks nowhere (a required review still outstanding) still surfaces even
+    # with no worktree checked out anywhere for it.
+    $items = Board -Worktrees @() -PullRequests @((Pr @{ Head = 'orphan-conflicted'; Number = 109; Mergeable = 'CONFLICTING' }))
+    check 'an orphaned conflicted pull request now surfaces, at rank 2' 2 (P ($items | Select-Object -First 1) 'Rank')
+    $items = Board -Worktrees @() -PullRequests @((Pr @{ Head = 'orphan-ready'; Number = 110 }))
+    check 'an orphaned ready pull request still surfaces with no worktree' 'pr-no-worktree' (P ($items | Select-Object -First 1) 'Kind')
+
+    # Rank 3: pushed, no open pull request. G6 - when the forge was never consulted at all (no
+    # slug, unauthenticated, rate-limited, offline), the row must not claim a fact it never
+    # checked. G8 - the repository's own main checkout sitting on its own default branch must
+    # never contribute this row; it can never become actionable and it is not excluded like rank 7.
+    $w7 = Add-Branchy $fx2 'lonely-branch' -Push
+    $items = Board -Worktrees @($w7)
+    check 'pushed with no open pull request (forge consulted) is rank 3' 3 (P ($items | Select-Object -First 1) 'Rank')
+    check 'and says so plainly' $true ((P ($items | Select-Object -First 1) 'Label') -like '*no pull request*')
+
+    $w8 = Add-Branchy $fx2 'unknown-branch' -Push
+    $items = Board -Worktrees @($w8) -NoRemote
+    check 'when the forge was never consulted, the row still appears' 3 (P ($items | Select-Object -First 1) 'Rank')
+    check 'labelled as unknown, not as a checked fact' $true ((P ($items | Select-Object -First 1) 'Label') -like '*unknown*')
+    check 'and does not claim the one fact it never checked' $false ((P ($items | Select-Object -First 1) 'Label') -like '*no pull request*')
+
+    $items = Board -Worktrees @($fx2.Repo)
+    check 'the main worktree on its own default branch is never a rank-3 row' 0 $items.Count
+
+    # Rank 4: uncommitted changes with nobody attending, and G12's clean-but-never-pushed commits,
+    # ordered above the dirty items in the same rung.
+    $w9 = Add-Branchy $fx2 'dirty-only'
+    'edit' | Add-Content -LiteralPath (Join-Path $w9 'work.txt')
+    $items = Board -Worktrees @($w9)
+    check 'an unattended dirty worktree is rank 4' 4 (P ($items | Select-Object -First 1) 'Rank')
+    check 'labelled dirty-at-risk' 'dirty-at-risk' (P ($items | Select-Object -First 1) 'Kind')
+
+    $w10 = Add-Branchy $fx2 'committed-unpushed'
+    $items = Board -Worktrees @($w10)
+    check 'a clean branch with committed but never-pushed work is on the board' 4 (P ($items | Select-Object -First 1) 'Rank')
+    check 'labelled as never pushed, not silently dropped' $true ((P ($items | Select-Object -First 1) 'Label') -like '*never*push*')
+
+    $w11 = Add-Branchy $fx2 'unpushed-ordering'
+    $w12 = Add-Branchy $fx2 'dirty-ordering'
+    'edit' | Add-Content -LiteralPath (Join-Path $w12 'work.txt')
+    $raw = Board -Worktrees @($w12, $w11)
+    $sortedPair = @(Sort-BoardItem -Items $raw)
+    check 'never-pushed sorts above dirty within the same rank' 'committed-unpushed' (P ($sortedPair | Select-Object -First 1) 'Kind')
+
+    # Rank 5: a blocked background session takes priority over the never-pushed rung above it,
+    # because someone is already attending to it.
+    $w13 = Add-Branchy $fx2 'blocked-session'
+    $normPath = $w13.TrimEnd('/', '\').ToLowerInvariant()
+    $liveHere = @{ $normPath = [pscustomobject]@{ State = 'blocked'; SessionId = 'sess-123' } }
+    $items = Board -Worktrees @($w13) -LiveHere $liveHere
+    check 'a blocked background session is rank 5' 5 (P ($items | Select-Object -First 1) 'Rank')
+    check 'labelled session-question' 'session-question' (P ($items | Select-Object -First 1) 'Kind')
+
+    # Rank 6: backlog items. G5 - the real prompt-backlog skill writes `## [pending] [P#] Title`
+    # headings, not checkboxes; both forms must be read.
+    $w14 = Add-Branchy $fx2 'has-backlog-checkbox'
+    New-Item -ItemType Directory (Join-Path $w14 'prompts') -Force | Out-Null
+    @'
+# Backlog
+- [ ] first checkbox item
+- [x] done item, not counted
+'@ | Set-Content -LiteralPath (Join-Path $w14 'prompts/backlog.md')
+    git_ -C $w14 add -A
+    git_ -C $w14 commit -m 'add backlog'
+    $items = Board -Worktrees @($w14)
+    check 'a checkbox-style backlog is rank 6' 6 (P ($items | Select-Object -First 1) 'Rank')
+    check 'and names the first pending item' $true ((P ($items | Select-Object -First 1) 'Label') -like '*first checkbox item*')
+
+    $w15 = Add-Branchy $fx2 'has-backlog-heading'
+    New-Item -ItemType Directory (Join-Path $w15 'prompts') -Force | Out-Null
+    @'
+# Backlog
+
+## [pending] [P1] first heading item
+
+some context
+'@ | Set-Content -LiteralPath (Join-Path $w15 'prompts/backlog.md')
+    git_ -C $w15 add -A
+    git_ -C $w15 commit -m 'add backlog'
+    $items = Board -Worktrees @($w15)
+    check 'the real prompt-backlog [pending] heading format is rank 6' 6 (P ($items | Select-Object -First 1) 'Rank')
+    check 'and names the first pending heading' $true ((P ($items | Select-Object -First 1) 'Label') -like '*first heading item*')
+
+    $w16 = Add-Branchy $fx2 'backlog-all-done'
+    New-Item -ItemType Directory (Join-Path $w16 'prompts') -Force | Out-Null
+    '## [done] [P1] already finished' | Set-Content -LiteralPath (Join-Path $w16 'prompts/backlog.md')
+    git_ -C $w16 add -A
+    git_ -C $w16 commit -m 'add backlog'
+    $items = Board -Worktrees @($w16)
+    check 'a backlog with only done items yields no rank-6 item' 0 $items.Count
+
+    # Rank 7: stale, with G10 - an open pull request, however it ranks, means the worktree is not
+    # a cleanup candidate.
+    $w17 = Add-Branchy $fx2 'stale-no-pr'
+    Set-CommitAge -Path $w17 -DaysAgo 30
+    $items = Board -Worktrees @($w17) -StaleDays 7
+    check 'an old worktree with no pull request is stale' 7 (P ($items | Select-Object -First 1) 'Rank')
+    check 'labelled stale' 'stale' (P ($items | Select-Object -First 1) 'Kind')
+
+    $w18 = Add-Branchy $fx2 'stale-with-pr'
+    Set-CommitAge -Path $w18 -DaysAgo 30
+    $items = Board -Worktrees @($w18) -PullRequests @((Pr @{ Head = 'stale-with-pr'; Number = 107; Decision = 'REVIEW_REQUIRED' }))
+    check 'an old worktree holding an open pull request is NOT a stale cleanup candidate' 0 $items.Count
+}
+finally {
+    git_ -C $fx2.Repo worktree prune
+    Remove-Item -LiteralPath $fx2.Base -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+# ---------------------------------------------------------------------------------------
 "repository ordering"
+function Row {
+    param([string]$Repo, [string]$RepoRoot, [int]$Rank, [string]$Kind = 'x', [string]$Path)
+    [pscustomobject]@{
+        Repo     = $Repo
+        RepoRoot = if ($RepoRoot) { $RepoRoot } else { $Repo }
+        Rank     = $Rank
+        Kind     = $Kind
+        Path     = if ($Path) { $Path } else { "$Repo-$Rank-$Kind" }
+    }
+}
 $items = @(
-    [pscustomobject]@{ Repo = 'beta'; Rank = 1 }
-    [pscustomobject]@{ Repo = 'alpha'; Rank = 4 }
-    [pscustomobject]@{ Repo = 'alpha'; Rank = 6 }
-    [pscustomobject]@{ Repo = 'beta'; Rank = 7 }
+    (Row 'beta' -RepoRoot 'root-beta' -Rank 1)
+    (Row 'alpha' -RepoRoot 'root-alpha' -Rank 4)
+    (Row 'alpha' -RepoRoot 'root-alpha' -Rank 6)
+    (Row 'beta' -RepoRoot 'root-beta' -Rank 7)
 )
 $ordered = @(Sort-BoardItem -Items $items)
 check 'the hottest repository comes first' 'beta' $ordered[0].Repo
 check 'its own items stay together' 'beta' $ordered[1].Repo
 check 'the cooler repository follows whole' 'alpha' $ordered[2].Repo
 check 'and is internally ranked' 4 $ordered[2].Rank
+
+# ---------------------------------------------------------------------------------------
+# G15: the board's input arrives unordered (Get-WorktreeFactSet runs in parallel), so a sort with
+# no total order rotates which items are hidden between otherwise-identical runs.
+"deterministic sort"
+$dup = @(
+    (Row 'gamma' -Rank 4 -Path 'C:\gamma\z')
+    (Row 'gamma' -Rank 4 -Path 'C:\gamma\a')
+    (Row 'gamma' -Rank 4 -Path 'C:\gamma\m')
+)
+$forward = @(Sort-BoardItem -Items $dup) | ForEach-Object { $_.Path }
+$reversed = @(Sort-BoardItem -Items @($dup[2], $dup[1], $dup[0])) | ForEach-Object { $_.Path }
+check 'the same fact set sorts identically regardless of the order it arrived in' ($forward -join ',') ($reversed -join ',')
+
+# ---------------------------------------------------------------------------------------
+# G18: two repositories that share a directory leaf (no GitHub remote for one or both) must not
+# merge into one hottest-item calculation or one display group.
+"repository grouping keys on root path, not display name"
+$items = @(
+    (Row 'dup' -RepoRoot 'C:\repos\one' -Rank 1)
+    (Row 'dup' -RepoRoot 'C:\repos\two' -Rank 6)
+    (Row 'mid' -RepoRoot 'C:\repos\mid' -Rank 3)
+)
+$ordered = @(Sort-BoardItem -Items $items)
+check 'the genuinely hot repository leads' 'C:\repos\one' $ordered[0].RepoRoot
+check 'a merely-warm repository is not overtaken by a same-named repo''s unrelated heat' 'C:\repos\mid' $ordered[1].RepoRoot
+check 'the same-named but cooler repository trails on its own merit' 'C:\repos\two' $ordered[2].RepoRoot
+
+$items2 = @(
+    (Row 'dup' -RepoRoot 'C:\repos\one' -Rank 1 -Path 'C:\repos\one\a')
+    (Row 'dup' -RepoRoot 'C:\repos\two' -Rank 1 -Path 'C:\repos\two\a')
+    (Row 'dup' -RepoRoot 'C:\repos\one' -Rank 4 -Path 'C:\repos\one\b')
+)
+$ordered2 = @(Sort-BoardItem -Items $items2)
+check 'two same-named repositories do not interleave their items' 'C:\repos\one' $ordered2[1].RepoRoot
 
 # ---------------------------------------------------------------------------------------
 "transcript fallback degrades"
