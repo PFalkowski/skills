@@ -352,7 +352,7 @@ function Sort-BoardItem {
             $hottest[$item.Repo] = $item.Rank
         }
     }
-    return @($Items | Sort-Object @{ Expression = { $hottest[$_.Repo] } }, @{ Expression = { $_.Repo } }, @{ Expression = { $_.Rank } }, @{ Expression = { $_.Kind } })
+    return @($Items | Sort-Object -Stable @{ Expression = { $hottest[$_.Repo] } }, @{ Expression = { $_.Repo } }, @{ Expression = { $_.Rank } }, @{ Expression = { $_.Kind } }, @{ Expression = { $_.Path } })
 }
 
 function New-BoardItem {
