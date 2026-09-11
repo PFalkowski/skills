@@ -7,9 +7,9 @@
 - **Migration:** tracked in [#181](https://github.com/PFalkowski/skills/issues/181). Until it
   lands, [docs/agent-state.md](../agent-state.md) and [CONTRIBUTING.md](../../CONTRIBUTING.md)
   still give the previous convention as the rule. `scripts/check-state-paths.sh` cannot tell the
-  two apart: its scan skips a dot-directory preceded by `~`, `/`, `.` or `-`, so the new root is
-  invisible to it in every qualified spelling, while it still requires the wholesale `.agents/`
-  line in `.gitignore`. Read the decision below as where the repository is going, not as what the
+  two apart: its scan skips a dot-directory preceded by anything that can end a path — an
+  alphanumeric, `_`, `/`, `.`, `~` or `-` — so the new root is invisible to it in every qualified
+  spelling, while it still requires the wholesale `.agents/` line in `.gitignore`. Read the decision below as where the repository is going, not as what the
   written rules say today.
 
 ## Context
@@ -275,10 +275,11 @@ silently.
       way or the other.
 - [x] ~~Rebase the open skills PR #170 ("three lessons from one lifecycle run") onto this
       decision.~~ Moot as written: #170 merged on 2026-09-09, before this ADR was accepted. It
-      left the path prose byte-identical, so the sweep above does not touch what it did change,
-      which is the item below.
-- [ ] Reconcile `sdlc-old-fashioned` with decision 3. PR #170 made `docs/sdlc/` the default home
-      for the spec, plan, review notes and retro, committed on the branch
-      (`sdlc-old-fashioned/SKILL.md`, `references/handover-protocol.md`). This ADR says those are
-      posted to the pull request and not committed into the tree. An agent following the skill
-      today does the opposite of the accepted decision, so one of the two has to give.
+      left the path prose byte-identical. The conflict worth acting on is older than #170 and
+      is the item below.
+- [ ] Reconcile `sdlc-old-fashioned` with decision 3. The skill makes `docs/sdlc/` the committed
+      home for the spec, plan, review notes and retro — `references/handover-protocol.md` said so
+      before #170, which added the override rule and carried the first mention into `SKILL.md`.
+      This ADR says those are posted to the pull request and not committed into the tree. An agent
+      following the skill today does the opposite of the accepted decision, so one of the two has
+      to give.
