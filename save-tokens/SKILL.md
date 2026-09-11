@@ -98,6 +98,11 @@ everything just under it, such as a test runner printing 400 passing lines one a
   already in the context, and never cat a file back to verify an edit the tool already confirmed.
 - Answer from the transcript before running anything; never re-derive a fact that is already in the
   conversation.
+- A repo's own accumulated prose is where this goes wrong at scale: a lessons log, a decision
+  archive, an index. Route through the index and open the few records that match the change in
+  hand. A mature lessons log reaches tens of thousands of tokens, and a repo instruction to "read
+  the lessons" is not an instruction to load it whole. If a log has no index, adding one costs less
+  than one more full read — [`postmortem`](../postmortem/SKILL.md) defines the shape.
 
 ### Write less
 

@@ -50,6 +50,12 @@ loaded whole.** Keep an index table at the very top — one row per entry
 (`Date · Title · Class`, newest first) — and add your row in the same edit as the entry.
 Readers consult the index and open **only** the entries it points them to.
 
+**Say that in the file itself.** A log with no reading instructions gets loaded whole by the
+next agent, which is how a useful log becomes an unaffordable one. When you create the file,
+or the first time you touch one that lacks it, put a short "how to read this" note above the
+index: don't load the whole thing, match the Class column to what you are about to touch,
+open only those entries. A row stays one line; the entry it points at carries the detail.
+
 `Class` is the root-cause family, not the component — *silent failure*, *store divergence*,
 *unbounded read*, *config-not-shipped*, *timezone boundary*. Reuse an existing class name
 when one fits.
