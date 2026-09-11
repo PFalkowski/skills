@@ -348,11 +348,11 @@ function Sort-BoardItem {
     param([Parameter(Mandatory)]$Items)
     $hottest = @{}
     foreach ($item in $Items) {
-        if (-not $hottest.ContainsKey($item.Repo) -or $item.Rank -lt $hottest[$item.Repo]) {
-            $hottest[$item.Repo] = $item.Rank
+        if (-not $hottest.ContainsKey($item.RepoRoot) -or $item.Rank -lt $hottest[$item.RepoRoot]) {
+            $hottest[$item.RepoRoot] = $item.Rank
         }
     }
-    return @($Items | Sort-Object -Stable @{ Expression = { $hottest[$_.Repo] } }, @{ Expression = { $_.Repo } }, @{ Expression = { $_.Rank } }, @{ Expression = { $_.Kind } }, @{ Expression = { $_.Path } })
+    return @($Items | Sort-Object -Stable @{ Expression = { $hottest[$_.RepoRoot] } }, @{ Expression = { $_.RepoRoot } }, @{ Expression = { $_.Rank } }, @{ Expression = { $_.Kind } }, @{ Expression = { $_.Path } })
 }
 
 function New-BoardItem {

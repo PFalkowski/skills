@@ -60,10 +60,10 @@ function Select-Shown {
     $hidden = @{}
     $count = @{}
     foreach ($entry in $Items) {
-        $key = "$($entry.Repo)|$($entry.Rank)"
+        $key = "$($entry.RepoRoot)|$($entry.Rank)"
         $count[$key] = 1 + $(if ($count.ContainsKey($key)) { $count[$key] } else { 0 })
         if ($count[$key] -le $PerRank) { $shown.Add($entry) }
-        else { $hidden[$entry.Repo] = 1 + $(if ($hidden.ContainsKey($entry.Repo)) { $hidden[$entry.Repo] } else { 0 }) }
+        else { $hidden[$entry.RepoRoot] = 1 + $(if ($hidden.ContainsKey($entry.RepoRoot)) { $hidden[$entry.RepoRoot] } else { 0 }) }
     }
     [pscustomobject]@{ Shown = @($shown); Hidden = $hidden }
 }
@@ -81,24 +81,24 @@ function Show-Board {
     $items | Select-Object Repo, RepoRoot, Rank, Kind, Label, Path, Branch, SessionId, Url, AlreadyOpen |
         ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $boardFile -Encoding utf8
 
-    $currentRepo = $null
+    $currentRoot = $null
     for ($i = 0; $i -lt $items.Count; $i++) {
         $entry = $items[$i]
-        if ($entry.Repo -ne $currentRepo) {
-            if ($currentRepo -and $selection.Hidden.ContainsKey($currentRepo)) {
-                "        {0,-8}  ... and {1} more" -f '', $selection.Hidden[$currentRepo]
+        if ($entry.RepoRoot -ne $currentRoot) {
+            if ($currentRoot -and $selection.Hidden.ContainsKey($currentRoot)) {
+                "        {0,-8}  ... and {1} more" -f '', $selection.Hidden[$currentRoot]
             }
-            $currentRepo = $entry.Repo
+            $currentRoot = $entry.RepoRoot
             ''
-            "  $currentRepo"
+            "  $($entry.Repo)"
         }
         $where = if ($entry.Branch) { $entry.Branch } else { Split-Path $entry.Path -Leaf }
         if ($entry.AlreadyOpen) { $where += '   [a session is already open here]' }
         '{0,4}  {1,-8}  {2}' -f ($i + 1), $marks[$entry.Rank], $entry.Label
         '        {0,-8}  {1}' -f '', $where
     }
-    if ($currentRepo -and $selection.Hidden.ContainsKey($currentRepo)) {
-        "        {0,-8}  ... and {1} more" -f '', $selection.Hidden[$currentRepo]
+    if ($currentRoot -and $selection.Hidden.ContainsKey($currentRoot)) {
+        "        {0,-8}  ... and {1} more" -f '', $selection.Hidden[$currentRoot]
     }
     ''
     '  wip <n> to go there.  wip prune to clear dead worktrees.'
