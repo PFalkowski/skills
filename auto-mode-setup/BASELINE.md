@@ -300,6 +300,16 @@ intend. `--force-with-lease` stays ungated too, as noted above, deliberately —
 the allow list. That restores prompting on every `git push` and touches no deny rule — the pairs
 above stay exactly as protective as they are today.
 
+### Directories the agent writes outside the repo
+
+```
+"additionalDirectories": ["~/.agent-state/"]
+```
+
+A sibling of `permissions.allow`, not a rule in it. Skill run state lives there rather than in the
+checkout ([agent-state.md](../docs/agent-state.md)), so without this line every `Write` and `Edit`
+a run makes to its own journal, lock or chronicle prompts. `Bash` writes there already do not.
+
 ---
 
 ## Per-repo overrides — `<repo>/.claude/settings.json`
