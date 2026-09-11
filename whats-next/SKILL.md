@@ -40,7 +40,7 @@ Items are ranked 1 (hottest) through 7 (coolest):
 | 1 | `MERGE`   | Open PR is green and mergeable — waiting on you to merge it |
 | 2 | `REVIEW`  | Open PR needs you — unresolved review threads, changes requested, merge conflicts, or failing checks |
 | 3 | `NO PR`   | Branch is pushed with no pull request open for it (or the forge was never consulted, in which case the item says so instead of claiming a fact it never checked) |
-| 4 | `AT RISK` | Worktree has uncommitted changes and nobody is sitting in it |
+| 4 | `AT RISK` | Worktree has commits that were never pushed, or uncommitted changes, and nobody is sitting in it |
 | 5 | `ASKED`   | A background session is blocked, waiting on your answer |
 | 6 | `BACKLOG` | Worktree has open items in its `prompts/backlog.md` |
 | 7 | `STALE`   | No commit in longer than `-StaleDays` (default 7) — a cleanup candidate |

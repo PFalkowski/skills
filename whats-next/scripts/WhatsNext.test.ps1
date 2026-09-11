@@ -224,6 +224,17 @@ function Set-CommitAge {
     Remove-Item Env:\GIT_COMMITTER_DATE, Env:\GIT_AUTHOR_DATE -ErrorAction SilentlyContinue
 }
 
+# A branch whose upstream is gone (pushed once, then deleted on the remote) is the one pushed
+# state that reaches ranks 6/7: unlike a live pushed branch it does not match rank 3, and unlike a
+# branch that was never pushed at all it does not match the never-pushed rank-4 rung either.
+function Add-GoneUpstream {
+    param($Fx, [string]$Branch)
+    $path = Add-Branchy $Fx $Branch -Push
+    git_ -C $Fx.Remote update-ref -d "refs/heads/$Branch"
+    git_ -C $Fx.Repo fetch --prune
+    $path
+}
+
 $fx2 = New-Fixture
 try {
     function Board {
@@ -323,7 +334,7 @@ try {
 
     # Rank 6: backlog items. G5 - the real prompt-backlog skill writes `## [pending] [P#] Title`
     # headings, not checkboxes; both forms must be read.
-    $w14 = Add-Branchy $fx2 'has-backlog-checkbox'
+    $w14 = Add-GoneUpstream $fx2 'has-backlog-checkbox'
     New-Item -ItemType Directory (Join-Path $w14 'prompts') -Force | Out-Null
     @'
 # Backlog
@@ -336,7 +347,7 @@ try {
     check 'a checkbox-style backlog is rank 6' 6 (P ($items | Select-Object -First 1) 'Rank')
     check 'and names the first pending item' $true ((P ($items | Select-Object -First 1) 'Label') -like '*first checkbox item*')
 
-    $w15 = Add-Branchy $fx2 'has-backlog-heading'
+    $w15 = Add-GoneUpstream $fx2 'has-backlog-heading'
     New-Item -ItemType Directory (Join-Path $w15 'prompts') -Force | Out-Null
     @'
 # Backlog
@@ -351,7 +362,7 @@ some context
     check 'the real prompt-backlog [pending] heading format is rank 6' 6 (P ($items | Select-Object -First 1) 'Rank')
     check 'and names the first pending heading' $true ((P ($items | Select-Object -First 1) 'Label') -like '*first heading item*')
 
-    $w16 = Add-Branchy $fx2 'backlog-all-done'
+    $w16 = Add-GoneUpstream $fx2 'backlog-all-done'
     New-Item -ItemType Directory (Join-Path $w16 'prompts') -Force | Out-Null
     '## [done] [P1] already finished' | Set-Content -LiteralPath (Join-Path $w16 'prompts/backlog.md')
     git_ -C $w16 add -A
@@ -361,13 +372,13 @@ some context
 
     # Rank 7: stale, with G10 - an open pull request, however it ranks, means the worktree is not
     # a cleanup candidate.
-    $w17 = Add-Branchy $fx2 'stale-no-pr'
+    $w17 = Add-GoneUpstream $fx2 'stale-no-pr'
     Set-CommitAge -Path $w17 -DaysAgo 30
     $items = Board -Worktrees @($w17) -StaleDays 7
     check 'an old worktree with no pull request is stale' 7 (P ($items | Select-Object -First 1) 'Rank')
     check 'labelled stale' 'stale' (P ($items | Select-Object -First 1) 'Kind')
 
-    $w18 = Add-Branchy $fx2 'stale-with-pr'
+    $w18 = Add-GoneUpstream $fx2 'stale-with-pr'
     Set-CommitAge -Path $w18 -DaysAgo 30
     $items = Board -Worktrees @($w18) -PullRequests @((Pr @{ Head = 'stale-with-pr'; Number = 107; Decision = 'REVIEW_REQUIRED' }))
     check 'an old worktree holding an open pull request is NOT a stale cleanup candidate' 0 $items.Count
