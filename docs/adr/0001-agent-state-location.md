@@ -1,8 +1,16 @@
 # ADR-0001: Agent state lives outside the tree; deliverables and PRs carry the record
 
-- **Status:** Proposed
-- **Date:** 2026-09-07
+- **Status:** Accepted
+- **Date:** 2026-09-11
+- **Proposed:** 2026-09-07
 - **Deciders:** repo owner
+- **Migration:** tracked in [#181](https://github.com/PFalkowski/skills/issues/181). Until it
+  lands, [docs/agent-state.md](../agent-state.md) and [CONTRIBUTING.md](../../CONTRIBUTING.md)
+  still give the previous convention as the rule. `scripts/check-state-paths.sh` cannot tell the
+  two apart: its scan skips a dot-directory preceded by anything that can end a path — an
+  alphanumeric, `_`, `/`, `.`, `~` or `-` — so the new root is invisible to it in every qualified
+  spelling, while it still requires the wholesale `.agents/` line in `.gitignore`. Read the decision below as where the repository is going, not as what the
+  written rules say today.
 
 ## Context
 
@@ -237,9 +245,16 @@ GitHub                               permanent · posted at publish time, before
 
 ## Consequences and migration
 
+Tracked as [#181](https://github.com/PFalkowski/skills/issues/181). Teaching
+`scripts/check-state-paths.sh` the new root comes first, not because the others fail without it but
+because without it nothing verifies them: the check walks only top-level directories holding a
+`SKILL.md`, so it never reads `docs/agent-state.md`, and a skill moved to the new root passes it
+silently.
+
 - [ ] Rewrite [docs/agent-state.md](../agent-state.md): new default root, `AGENTS_STATE` as
       the in-tree opt-in, the publish-at-PR-time rule, `docs/agents/` named as a deliverable
-      home.
+      home. `CONTRIBUTING.md`'s "Where skill run logs and state go" section repeats the old
+      root and moves with it.
 - [ ] Update `scripts/check-state-paths.sh` and `scripts/check-state-paths.test.sh`: new
       default root, no `.gitignore` assertion, an explicit exemption for `.agents/skills/`.
 - [ ] Add `.agents/<slug>/` to the retired-paths table with the one-release read fallback,
@@ -258,5 +273,13 @@ GitHub                               permanent · posted at publish time, before
       process runbooks to `docs/agents/`, open INDEX identifiers to issues, manager journal
       to run state, and any already-tracked `.nights-watch/chronicles/` files resolved one
       way or the other.
-- [ ] Rebase the open skills PR #170 ("three lessons from one lifecycle run") onto this
-      decision, so its `sdlc-old-fashioned` lessons land against the new paths.
+- [x] ~~Rebase the open skills PR #170 ("three lessons from one lifecycle run") onto this
+      decision.~~ Moot as written: #170 merged on 2026-09-09, before this ADR was accepted. It
+      left the path prose byte-identical. The conflict worth acting on is older than #170 and
+      is the item below.
+- [ ] Reconcile `sdlc-old-fashioned` with decision 3. The skill makes `docs/sdlc/` the committed
+      home for the spec, plan, review notes and retro — `references/handover-protocol.md` said so
+      before #170, which added the override rule and carried the first mention into `SKILL.md`.
+      This ADR says those are posted to the pull request and not committed into the tree. An agent
+      following the skill today does the opposite of the accepted decision, so one of the two has
+      to give.

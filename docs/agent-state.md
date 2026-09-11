@@ -5,7 +5,7 @@ to write a run log, a journal, a lock, a watermark, or any other record of
 *that it ran* — where does that go? It applies to the repository a skill is
 acting on (its "managed repo"), which for the skills in this repository is
 usually this repository itself. Decision record:
-[ADR-0001](adr/0001-agent-state-location.md), which proposes moving the default
+[ADR-0001](adr/0001-agent-state-location.md), accepted, which moves the default
 state root out of the tree and is not yet reflected in the rules below.
 
 Enforced by [`scripts/check-state-paths.sh`](../scripts/check-state-paths.sh),
