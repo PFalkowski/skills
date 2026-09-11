@@ -339,8 +339,8 @@ function Get-BacklogItem {
     $file = Join-Path $WorktreePath 'prompts/backlog.md'
     if (-not (Test-Path -LiteralPath $file)) { return @() }
     return @(Get-Content -LiteralPath $file -ErrorAction SilentlyContinue |
-        Where-Object { $_ -match '^\s*[-*]\s*\[\s\]\s*(.+)$' } |
-        ForEach-Object { $Matches[1].Trim() })
+        Where-Object { $_ -match '^\s*[-*]\s*\[\s\]\s*(?<item>.+)$|^##\s*\[pending\]\s*(?<item>.+)$' } |
+        ForEach-Object { $Matches['item'].Trim() })
 }
 
 function Sort-BoardItem {
