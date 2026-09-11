@@ -384,13 +384,15 @@ function Get-RepositoryBoardItem {
 
         if ($pr) {
             $claimed[$pr.Number] = $true
-            switch (Get-PullRequestRank -PullRequest $pr) {
-                1 { New-BoardItem $Repo 1 'pr-ready' "PR #$($pr.Number) green, waiting on you to merge - $($pr.Title)" $fact -SessionId $sessionId -Url $pr.Url -Open:$busy; continue }
-                2 {
-                    $why = if ($pr.Unresolved -gt 0) { "$($pr.Unresolved) unresolved thread(s)" } else { 'changes requested' }
-                    New-BoardItem $Repo 2 'pr-threads' "PR #$($pr.Number) $why - $($pr.Title)" $fact -SessionId $sessionId -Url $pr.Url -Open:$busy
-                    continue
-                }
+            $rank = Get-PullRequestRank -PullRequest $pr
+            if ($rank -eq 1) {
+                New-BoardItem $Repo 1 'pr-ready' "PR #$($pr.Number) green, waiting on you to merge - $($pr.Title)" $fact -SessionId $sessionId -Url $pr.Url -Open:$busy
+                continue
+            }
+            if ($rank -eq 2) {
+                $why = if ($pr.Unresolved -gt 0) { "$($pr.Unresolved) unresolved thread(s)" } else { 'changes requested' }
+                New-BoardItem $Repo 2 'pr-threads' "PR #$($pr.Number) $why - $($pr.Title)" $fact -SessionId $sessionId -Url $pr.Url -Open:$busy
+                continue
             }
         }
         if ($fact.Branch -and $fact.Upstream -and -not $fact.UpstreamGone -and -not $pr) {
