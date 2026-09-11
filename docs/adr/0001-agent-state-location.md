@@ -1,8 +1,12 @@
 # ADR-0001: Agent state lives outside the tree; deliverables and PRs carry the record
 
-- **Status:** Proposed
-- **Date:** 2026-09-07
+- **Status:** Accepted
+- **Date:** 2026-09-07 proposed, 2026-09-11 accepted
 - **Deciders:** repo owner
+- **Migration:** tracked in [#181](https://github.com/PFalkowski/skills/issues/181). Until it
+  lands, `docs/agent-state.md` and `scripts/check-state-paths.sh` still enforce the previous
+  convention, so a skill that writes to the new root today fails CI. Read the decision below as
+  where the repository is going, not as what the checks accept yet.
 
 ## Context
 
@@ -237,6 +241,10 @@ GitHub                               permanent · posted at publish time, before
 
 ## Consequences and migration
 
+Tracked as [#181](https://github.com/PFalkowski/skills/issues/181). The
+`scripts/check-state-paths.sh` item gates the rest: until the check accepts the new root, every
+other change in this list fails CI.
+
 - [ ] Rewrite [docs/agent-state.md](../agent-state.md): new default root, `AGENTS_STATE` as
       the in-tree opt-in, the publish-at-PR-time rule, `docs/agents/` named as a deliverable
       home.
@@ -258,5 +266,7 @@ GitHub                               permanent · posted at publish time, before
       process runbooks to `docs/agents/`, open INDEX identifiers to issues, manager journal
       to run state, and any already-tracked `.nights-watch/chronicles/` files resolved one
       way or the other.
-- [ ] Rebase the open skills PR #170 ("three lessons from one lifecycle run") onto this
-      decision, so its `sdlc-old-fashioned` lessons land against the new paths.
+- [x] ~~Rebase the open skills PR #170 ("three lessons from one lifecycle run") onto this
+      decision.~~ Moot: #170 merged before this ADR was accepted, so its `sdlc-old-fashioned`
+      path prose landed against the previous convention and is covered by the sweep above
+      rather than by a rebase.
