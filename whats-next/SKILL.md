@@ -21,7 +21,8 @@ Costs no model tokens — it is a plain PowerShell script. Run it with no argume
 need to decide what to pick up next; it prints one ranked board across every repository you have
 recent activity in, and also writes the same board as a styled HTML report (`board.html`, next to
 `board.json`) and opens it in your default browser. Pass `-Html` to open only the report and skip
-the terminal text.
+the terminal text. The report's theme defaults to Auto (follows the OS/browser); the Light/Auto/Dark
+toggle in its header remembers your choice for next time.
 
 Wire it into the PowerShell profile once, so it is one word from any prompt. Open `$PROFILE`
 (`notepad $PROFILE`, creating it if it does not exist) and add:
@@ -52,6 +53,12 @@ browser still asks once, the first time it meets an unfamiliar protocol ("Open P
 similar) — some browsers let you check "always allow" so it stops asking. It is specific to the
 machine it is run on: registering it on a laptop does nothing for the same report opened on a
 desktop. Remove it with `scripts/unregister-protocol.ps1`.
+
+Plain `wip` (not `-Html`) asks about this itself, once: the first time it finds the protocol
+unregistered in a real terminal, it offers to run `register-protocol.ps1` for you, `[y/N]`,
+defaulting to no. It never asks again after that, whether you said yes or no — run
+`register-protocol.ps1` by hand later if you skipped it. A non-interactive run (piped, CI, no
+console) is never asked and never blocks on it.
 
 ## The ranking ladder
 
