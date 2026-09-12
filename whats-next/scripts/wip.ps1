@@ -34,6 +34,11 @@
 
 .PARAMETER PerRank
   How many items of the same rank to show per repository before collapsing the rest into a count.
+
+.PARAMETER Html
+  Printing the board (Item omitted) always also writes a styled HTML report to board.html next
+  to board.json and opens it in the default browser. Pass -Html to print only that report and
+  skip the terminal text.
 #>
 [CmdletBinding()]
 param(
@@ -43,7 +48,8 @@ param(
     [switch]$Fetch,
     [int]$SinceDays = 14,
     [int]$StaleDays = 7,
-    [int]$PerRank = 5
+    [int]$PerRank = 5,
+    [switch]$Html
 )
 
 Set-StrictMode -Version Latest
@@ -52,7 +58,76 @@ Import-Module (Join-Path $PSScriptRoot 'WhatsNext.psm1') -Force -DisableNameChec
 
 $stateRoot = if ($env:AGENTS_STATE) { Join-Path $env:AGENTS_STATE 'whats-next' } else { Join-Path $HOME '.agent-state/whats-next' }
 $boardFile = Join-Path $stateRoot 'board.json'
+$htmlFile = Join-Path $stateRoot 'board.html'
 $marks = @{ 1 = 'MERGE'; 2 = 'REVIEW'; 3 = 'NO PR'; 4 = 'AT RISK'; 5 = 'ASKED'; 6 = 'BACKLOG'; 7 = 'STALE' }
+$slugs = @{ 1 = 'merge'; 2 = 'review'; 3 = 'nopr'; 4 = 'atrisk'; 5 = 'asked'; 6 = 'backlog'; 7 = 'stale' }
+
+function ConvertTo-HtmlEscaped {
+    param([string]$Text)
+    [System.Net.WebUtility]::HtmlEncode($Text)
+}
+
+function New-BoardHtml {
+    param([Parameter(Mandatory)][object[]]$Items, [Parameter(Mandatory)][hashtable]$Hidden)
+
+    $repoOrder = [System.Collections.Generic.List[string]]::new()
+    $byRepo = @{}
+    for ($i = 0; $i -lt $Items.Count; $i++) {
+        $entry = $Items[$i]
+        if (-not $byRepo.ContainsKey($entry.RepoRoot)) {
+            $byRepo[$entry.RepoRoot] = [System.Collections.Generic.List[object]]::new()
+            $repoOrder.Add($entry.RepoRoot)
+        }
+        $byRepo[$entry.RepoRoot].Add([pscustomobject]@{ N = $i + 1; Entry = $entry })
+    }
+
+    $sections = New-Object System.Text.StringBuilder
+    foreach ($root in $repoOrder) {
+        $rows = $byRepo[$root]
+        $repoName = $rows[0].Entry.Repo
+        $repoNameHtml = ConvertTo-HtmlEscaped $repoName
+        [void]$sections.Append("<section class=`"repo`" data-repo=`"$repoNameHtml`">")
+        [void]$sections.Append("<div class=`"repo-head`"><span class=`"repo-name`">$repoNameHtml</span></div>")
+
+        $currentRank = $null
+        foreach ($row in $rows) {
+            $entry = $row.Entry
+            if ($null -ne $currentRank -and $currentRank -ne $entry.Rank) {
+                $hiddenKey = "$root|$currentRank"
+                if ($Hidden.ContainsKey($hiddenKey)) {
+                    [void]$sections.Append("<div class=`"more-row`">+$($Hidden[$hiddenKey]) more $($marks[$currentRank])</div>")
+                }
+            }
+            $currentRank = $entry.Rank
+            $n = $row.N
+            $slug = $slugs[$entry.Rank]
+            $where = if ($entry.Branch) { $entry.Branch } else { Split-Path $entry.Path -Leaf }
+            $labelHtml = ConvertTo-HtmlEscaped $entry.Label
+            $whereHtml = ConvertTo-HtmlEscaped $where
+            $openTag = if ($entry.AlreadyOpen) { '<span class="here">SESSION OPEN</span>' } else { '' }
+            $fullCmd = 'pwsh -NoProfile -File "' + $PSCommandPath + '" ' + $n
+            $fullCmdHtml = ConvertTo-HtmlEscaped $fullCmd
+            [void]$sections.Append(('<div class="row" data-tier="{0}"><div class="rank tabular">{1}</div><div class="pill pill-{0}">{2}</div><div><div class="row-title">{3}{4}</div><div class="row-meta">{5}</div><div class="cmd-group"><button class="jump-btn resume-btn" data-n="{1}" data-cmd="wip {1}"><svg class="play-icon" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0l8 5-8 5z"/></svg><span>wip {1}</span></button><button class="jump-btn full-btn" data-n="{1}">{6}</button></div></div></div>' `
+                -f $slug, $n, $marks[$entry.Rank], $labelHtml, $openTag, $whereHtml, $fullCmdHtml))
+        }
+        $lastHiddenKey = "$root|$currentRank"
+        if ($Hidden.ContainsKey($lastHiddenKey)) {
+            [void]$sections.Append("<div class=`"more-row`">+$($Hidden[$lastHiddenKey]) more $($marks[$currentRank])</div>")
+        }
+        [void]$sections.Append('</section>')
+    }
+
+    $repoOptions = New-Object System.Text.StringBuilder
+    foreach ($root in $repoOrder) {
+        $name = ConvertTo-HtmlEscaped $byRepo[$root][0].Entry.Repo
+        [void]$repoOptions.Append("<option value=`"$name`">$name</option>")
+    }
+
+    $template = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'board-template.html') -Raw
+    $template.Replace('{{REPO_COUNT}}', $repoOrder.Count).Replace('{{ITEM_COUNT}}', $Items.Count).`
+        Replace('{{DATE}}', (Get-Date -Format 'yyyy-MM-dd')).Replace('{{REPO_OPTIONS}}', $repoOptions.ToString()).`
+        Replace('{{BODY}}', $sections.ToString())
+}
 
 function Select-Shown {
     param($Items)
@@ -80,6 +155,11 @@ function Show-Board {
     New-Item -ItemType Directory -Path $stateRoot -Force | Out-Null
     $items | Select-Object Repo, RepoRoot, Rank, Kind, Label, Path, Branch, SessionId, Url, AlreadyOpen |
         ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $boardFile -Encoding utf8
+
+    New-BoardHtml -Items $items -Hidden $selection.Hidden | Set-Content -LiteralPath $htmlFile -Encoding utf8
+    Start-Process -FilePath $htmlFile
+
+    if ($Html) { return }
 
     $currentRoot = $null
     $currentRank = $null
@@ -184,4 +264,4 @@ function Invoke-Prune {
 if (-not $Item) { Show-Board }
 elseif ($Item -eq 'prune') { Invoke-Prune }
 elseif ($Item -match '^\d+$') { Start-Item -Number ([int]$Item) }
-else { throw 'Usage: wip | wip <n> | wip prune [-Apply] [-IncludeIgnored] [-Fetch]' }
+else { throw 'Usage: wip [-Html] | wip <n> | wip prune [-Apply] [-IncludeIgnored] [-Fetch]' }
