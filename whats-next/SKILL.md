@@ -31,6 +31,25 @@ function wip { pwsh -NoProfile -File "<skill-dir>/scripts/wip.ps1" @args }
 Reload it (`. $PROFILE`) or open a new terminal. From then on, `wip`, `wip <n>`, and `wip prune`
 work from any directory.
 
+### Optional: one-click Resume from a published board
+
+If the board gets rendered somewhere clickable — an Artifact, an internal dashboard — a "Resume"
+button on it can only *copy* `wip <n>` by default: a web page cannot start a local process, full
+stop, no matter how the button is built. Registering a `wip://` URL protocol closes that gap by
+giving Windows something to route the click to.
+
+```powershell
+pwsh -NoProfile -File "<skill-dir>/scripts/register-protocol.ps1"
+```
+
+Windows only, user-scope (`HKEY_CURRENT_USER\Software\Classes\wip`), no admin required, entirely
+opt-in — nothing else in this skill runs it for you, and nothing breaks if you skip it; the button
+still works as a copy. A `wip://46` link then opens a new terminal running `wip 46` there. The
+browser still asks once, the first time it meets an unfamiliar protocol ("Open PowerShell?" or
+similar) — some browsers let you check "always allow" so it stops asking. It is specific to the
+machine it is run on: registering it on a laptop does nothing for the same board opened on a
+desktop. Remove it with `scripts/unregister-protocol.ps1`.
+
 ## The ranking ladder
 
 Items are ranked 1 (hottest) through 7 (coolest):
