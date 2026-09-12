@@ -188,6 +188,37 @@ Bash(dotnet --list-sdks:*)
 `gh api` is read-only only by convention — it will happily `-X DELETE`. Narrow it to
 `Bash(gh api -X GET:*)` if the tree contains repos you do not control.
 
+### The `git -C` forms — added 2026-09-04
+
+```
+Bash(git -C * log:*)        Bash(git -C * status:*)     Bash(git -C * diff:*)
+Bash(git -C * show:*)       Bash(git -C * branch:*)     Bash(git -C * rev-parse:*)
+Bash(git -C * ls-files:*)   Bash(git -C * ls-tree:*)    Bash(git -C * blame:*)
+Bash(dotnet test:*)         Bash(dotnet build:*)
+```
+
+The deny list already carries `git -C` variants of every destructive command, but the allow list
+carried none of the read-only ones. The dangerous `-C` forms were blocked and the safe `-C` forms
+were never granted, so the safe ones prompted.
+
+That matters more than it looks, because **`git -C <path>` is the fix for what causes most of the
+remaining prompts**: a compound `cd <path> && <read command>`. After a `cd`, the matcher cannot
+statically determine which directory the command will read, and because a `Read()` deny rule exists
+it cannot prove the command will not reach a secret — so it must ask. `git -C` puts the path in the
+command, which is *more* determinable, not less.
+
+**Do not "fix" this by allowing `Bash(cat:*)`, `Bash(grep:*)`, `Bash(head:*)` or `Bash(sed:*)`.**
+Those read arbitrary file contents through the shell, which bypasses every `Read()` rule in the
+Secrets section above — `cat ~/.ssh/id_rsa` is not a `Read()`. Granting them silently cancels that
+half of the deny list. The prompt is the boundary working.
+
+The remedy is behavioural and costs nothing: absolute paths instead of `cd`, `git -C` for git, and
+the **Read / Grep / Glob tools** for anything touching file contents. Those are checked per file, so
+an ordinary path is silent and a denied one is refused — no prompt either way.
+
+`dotnet test` and `dotnet build` are here because they compile and run a repo's own suite without
+reading arbitrary paths; they are frequent in any .NET tree and prompted every time.
+
 ---
 
 ## Per-repo overrides — `<repo>/.claude/settings.json`
