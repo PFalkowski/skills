@@ -263,6 +263,37 @@ Bash(dotnet --list-sdks:*)
 `gh api` is read-only only by convention — it will happily `-X DELETE`. Narrow it to
 `Bash(gh api -X GET:*)` if the tree contains repos you do not control.
 
+### The `git -C` forms — added 2026-09-04
+
+```
+Bash(git -C * log:*)        Bash(git -C * status:*)     Bash(git -C * diff:*)
+Bash(git -C * show:*)       Bash(git -C * branch:*)     Bash(git -C * rev-parse:*)
+Bash(git -C * ls-files:*)   Bash(git -C * ls-tree:*)    Bash(git -C * blame:*)
+Bash(dotnet test:*)         Bash(dotnet build:*)
+```
+
+The deny list already carries `git -C` variants of every destructive command, but the allow list
+carried none of the read-only ones. The dangerous `-C` forms were blocked and the safe `-C` forms
+were never granted, so the safe ones prompted.
+
+That matters more than it looks, because **`git -C <path>` is the fix for what causes most of the
+remaining prompts**: a compound `cd <path> && <read command>`. After a `cd`, the matcher cannot
+statically determine which directory the command will read, and because a `Read()` deny rule exists
+it cannot prove the command will not reach a secret — so it must ask. `git -C` puts the path in the
+command, which is *more* determinable, not less.
+
+**Do not "fix" this by allowing `Bash(cat:*)`, `Bash(grep:*)`, `Bash(head:*)` or `Bash(sed:*)`.**
+Those read arbitrary file contents through the shell, which bypasses every `Read()` rule in the
+Secrets section above — `cat ~/.ssh/id_rsa` is not a `Read()`. Granting them silently cancels that
+half of the deny list. The prompt is the boundary working.
+
+The remedy is behavioural and costs nothing: absolute paths instead of `cd`, `git -C` for git, and
+the **Read / Grep / Glob tools** for anything touching file contents. Those are checked per file, so
+an ordinary path is silent and a denied one is refused — no prompt either way.
+
+`dotnet test` and `dotnet build` are here because they compile and run a repo's own suite without
+reading arbitrary paths; they are frequent in any .NET tree and prompted every time.
+
 **`Bash(git push:*)` is a deliberate, accepted risk, not an oversight — the repository owner was
 shown the gap below in full and chose to keep the grant anyway.** The deny-list pairs above are a
 real, measured improvement: every **unbundled** destructive spelling — `--force`, `-f`, `--delete`,
@@ -309,6 +340,13 @@ above stay exactly as protective as they are today.
 A sibling of `permissions.allow`, not a rule in it. Skill run state lives there rather than in the
 checkout ([agent-state.md](../docs/agent-state.md)), so without this line every `Write` and `Edit`
 a run makes to its own journal, lock or chronicle prompts. `Bash` writes there already do not.
+
+### The `wip` PowerShell function — one-time, per machine
+
+Not a permission — `$PROFILE` is not shared or provisioned by this setup, so a fresh machine or a
+freshly created `$PROFILE` starts without it and `wip` comes back "not recognized" until it is
+added. See [whats-next/SKILL.md](../whats-next/SKILL.md)'s Quick start for the function to add and
+where `$PROFILE` resolves to.
 
 ---
 
