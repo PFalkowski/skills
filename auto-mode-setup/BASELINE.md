@@ -341,6 +341,13 @@ A sibling of `permissions.allow`, not a rule in it. Skill run state lives there 
 checkout ([agent-state.md](../docs/agent-state.md)), so without this line every `Write` and `Edit`
 a run makes to its own journal, lock or chronicle prompts. `Bash` writes there already do not.
 
+### The `wip` PowerShell function — one-time, per machine
+
+Not a permission — `$PROFILE` is not shared or provisioned by this setup, so a fresh machine or a
+freshly created `$PROFILE` starts without it and `wip` comes back "not recognized" until it is
+added. See [whats-next/SKILL.md](../whats-next/SKILL.md)'s Quick start for the function to add and
+where `$PROFILE` resolves to.
+
 ---
 
 ## Per-repo overrides — `<repo>/.claude/settings.json`
