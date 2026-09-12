@@ -1,4 +1,3 @@
-#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
   Prints one ranked board of what to work on next across every repository you have been active in,
@@ -39,6 +38,9 @@
   Printing the board (Item omitted) always also writes a styled HTML report to board.html next
   to board.json and opens it in the default browser. Pass -Html to print only that report, skip
   the terminal text, and skip the one-time wip:// registration prompt below (it needs a terminal).
+
+.PARAMETER Help
+  Print this help and exit; nothing else runs. Also -h.
 #>
 [CmdletBinding()]
 param(
@@ -49,8 +51,14 @@ param(
     [int]$SinceDays = 14,
     [int]$StaleDays = 7,
     [int]$PerRank = 5,
-    [switch]$Html
+    [switch]$Html,
+    [Alias('h')][switch]$Help
 )
+
+if ($Help) {
+    Get-Help $PSCommandPath -Detailed
+    return
+}
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -143,6 +151,19 @@ function Select-Shown {
     [pscustomobject]@{ Shown = @($shown); Hidden = $hidden }
 }
 
+function Open-Report {
+    param([Parameter(Mandatory)][string]$Path)
+    try {
+        if ($IsWindows) { Start-Process -FilePath $Path }
+        elseif ($IsMacOS) { Start-Process -FilePath 'open' -ArgumentList $Path }
+        elseif ($IsLinux) { Start-Process -FilePath 'xdg-open' -ArgumentList $Path }
+        else { Start-Process -FilePath $Path }
+    }
+    catch {
+        "Could not open a browser automatically ($($_.Exception.Message)). The report is at: $Path"
+    }
+}
+
 function Test-Interactive {
     if ($env:CI) { return $false }
     if (-not [Environment]::UserInteractive) { return $false }
@@ -192,7 +213,7 @@ function Show-Board {
         ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $boardFile -Encoding utf8
 
     New-BoardHtml -Items $items -Hidden $selection.Hidden | Set-Content -LiteralPath $htmlFile -Encoding utf8
-    Start-Process -FilePath $htmlFile
+    Open-Report -Path $htmlFile
 
     if ($Html) { return }
 
@@ -300,4 +321,4 @@ function Invoke-Prune {
 if (-not $Item) { Show-Board }
 elseif ($Item -eq 'prune') { Invoke-Prune }
 elseif ($Item -match '^\d+$') { Start-Item -Number ([int]$Item) }
-else { throw 'Usage: wip [-Html] | wip <n> | wip prune [-Apply] [-IncludeIgnored] [-Fetch]' }
+else { throw 'Usage: wip [-Html] | wip <n> | wip prune [-Apply] [-IncludeIgnored] [-Fetch] | wip -h' }
