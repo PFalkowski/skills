@@ -38,10 +38,10 @@ const baseArgs = o => ({ lenses: ['bugs'], chronicleDir: '/c', ...o })
 
 const mkAgent = ({ candidates = [C()], verdict = { refuted: false, why: 'holds', proof: 'p' },
                    plan = null, rulesDie = false, lensDies = false, verifierDies = false,
-                   plannerDies = false } = {}) =>
+                   plannerDies = false, notRun = [] } = {}) =>
   async (prompt, opts) => {
     if (opts.label === 'house-rules') return rulesDie ? null : 'RULES: ports and adapters'
-    if (opts.label.startsWith('lens:')) return lensDies ? null : { candidates }
+    if (opts.label.startsWith('lens:')) return lensDies ? null : { candidates, notRun }
     if (opts.label.startsWith('verify:')) return verifierDies ? null : verdict
     if (opts.label === 'plan') {
       if (plannerDies) return null
@@ -102,6 +102,13 @@ console.log('an unexamined concern is NAMED — it must never read like a clean 
 
   const clean = await run({ args: baseArgs(), agentFn: mkAgent({ candidates: [] }) })
   await t('a genuinely clean lens IS complete', () => clean.candidates.length === 0 && clean.complete === true)
+
+  const disclosed = await run({ args: baseArgs(),
+    agentFn: mkAgent({ candidates: [], notRun: ['timing-attack claim: no runner for this target arch'] }) })
+  await t('a lens that ran but disclosed an un-run claim lands in notRun, not uncovered',
+    () => disclosed.notRun.length === 1 && disclosed.uncovered.length === 0)
+  await t('...and complete stays true — disclosure must not freeze the sweep',
+    () => disclosed.complete === true)
 }
 
 console.log('')

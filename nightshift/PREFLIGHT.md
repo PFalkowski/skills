@@ -1,6 +1,6 @@
 # NightShift — Pre-flight checklist
 
-The goal of pre-flight is **zero overnight stops**. Walk every category below with the user before saying you're ready. Treat anything you skim past as a guaranteed 3 a.m. blocker.
+Walk every category below with the user before saying you're ready.
 
 ## 1. Backlog hygiene
 

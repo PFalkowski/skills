@@ -1,12 +1,9 @@
 # Remote access: Tailscale, SSH, and a phone
 
-The goal is reaching the box from anywhere without opening a single port on the router.
-
 ## Tailscale
 
-Tailscale puts the server on a private WireGuard network. Every device that joins gets a
-stable `100.x.y.z` address that works on the LAN, on mobile data, and behind NAT, with no
-port forwarding and nothing exposed to the public internet.
+Every device that joins gets a stable `100.x.y.z` address that works on the LAN, on mobile
+data, and behind NAT, with no port forwarding and nothing exposed to the public internet.
 
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
@@ -28,16 +25,13 @@ tailscale serve --bg 2283          # proxies https://<NAS_TS_NAME>.<TAILNET>.ts.
 tailscale serve status
 ```
 
-That is how a phone reaches Immich: a real HTTPS URL, no port forward, no self-signed
-certificate warning, no exposure to the internet. Use `tailscale funnel` only if you
-genuinely want it public — that *does* expose the service, and it is a different decision.
+Use `tailscale funnel` only if you genuinely want it public — that *does* expose the
+service, and it is a different decision.
 
 **Do not point `serve` at a service that has no authentication of its own.** Tailnet-only
 is a strong boundary, but everyone on your tailnet is inside it.
 
 ## SSH
-
-Key authentication, and one setting that matters more on mobile than anywhere else.
 
 ```bash
 ssh-keygen -t ed25519 -C "<you>@<device>"
@@ -121,9 +115,9 @@ trip to find a monitor.
 Termius is an SSH client for Android and iOS. Point it at the tailnet name, import the
 private key, and it works from anywhere Tailscale does.
 
-The problem is not connecting, it is *staying* connected. A phone switches networks, sleeps,
-and loses the session — and with it anything running in the foreground. tmux fixes this
-properly: the shell lives on the server, and the client merely attaches to it.
+A phone switches networks, sleeps, and loses the session — and with it anything running in
+the foreground. tmux fixes this properly: the shell lives on the server, and the client
+merely attaches to it.
 
 ```bash
 tmux new -A -s main        # attach if it exists, create if it does not — the only command needed
@@ -145,7 +139,7 @@ Practical notes for a small screen:
 ### The config
 
 [`scripts/tmux.conf`](scripts/tmux.conf), installed to the dev user's `~/.tmux.conf` by
-`30-remote-access.sh`. Every line is there for a phone-shaped reason:
+`30-remote-access.sh`.
 
 | Setting | Why |
 |---|---|
@@ -159,8 +153,7 @@ Practical notes for a small screen:
 
 ### Working in it
 
-The whole point is that you rarely need any of this — you reconnect and your work is where
-you left it. What you do need on a phone:
+What you need on a phone:
 
 | Do | Keys |
 |---|---|

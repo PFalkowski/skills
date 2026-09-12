@@ -22,15 +22,21 @@ done < <(find . -name '*.csproj' -not -path '*/obj/*' -not -path '*/bin/*' 2>/de
 [ "$found" = 0 ] && echo "  (no .csproj found)"
 
 echo "== package version(s) =="
-find . -name '*.csproj' -not -path '*/obj/*' -not -path '*/bin/*' -exec \
-  grep -hoiE '<Version>[^<]+' {} \; 2>/dev/null | sed -E 's/<[^>]+>//' | sort -u | sed 's/^/  /' || echo "  (none)"
+versions="$(find . -name '*.csproj' -not -path '*/obj/*' -not -path '*/bin/*' -exec \
+  grep -hoiE '<Version>[^<]+' {} \; 2>/dev/null | sed -E 's/<[^>]+>//' | sort -u)"
+if [ -n "$versions" ]; then echo "$versions" | sed 's/^/  /'; else echo "  (none)"; fi
 
 echo "== workflows =="
-ls .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null | sed 's/^/  /' || echo "  (none)"
+workflows="$(ls .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null)"
+if [ -n "$workflows" ]; then echo "$workflows" | sed 's/^/  /'; else echo "  (none)"; fi
 
 echo "== open issues =="
 if command -v gh >/dev/null 2>&1; then
-  gh issue list --state open 2>/dev/null | sed 's/^/  /' || echo "  (gh not authed)"
+  if issues="$(gh issue list --state open 2>/dev/null)"; then
+    if [ -n "$issues" ]; then echo "$issues" | sed 's/^/  /'; else echo "  (none)"; fi
+  else
+    echo "  (gh not authed)"
+  fi
 else
   echo "  (gh CLI not available)"
 fi
@@ -46,9 +52,9 @@ if [ -n "$pkgcsproj" ]; then
   idlc="$(printf '%s' "$id" | tr '[:upper:]' '[:lower:]')"
   echo "  package id: $id"
   echo "  published on NuGet:"
-  curl -s "https://api.nuget.org/v3-flatcontainer/$idlc/index.json" 2>/dev/null \
-    | grep -oE '"[0-9][^"]*"' | tr -d '"' | tail -5 | sed 's/^/    /' \
-    || echo "    (not found / never published)"
+  versions_nuget="$(curl -s "https://api.nuget.org/v3-flatcontainer/$idlc/index.json" 2>/dev/null \
+    | grep -oE '"[0-9][^"]*"' | tr -d '"' | tail -5)"
+  if [ -n "$versions_nuget" ]; then echo "$versions_nuget" | sed 's/^/    /'; else echo "    (not found / never published)"; fi
   echo "  -> If the highest published version is ABOVE the repo's <Version>, the repo is"
   echo "     STALE. Do NOT refresh/publish from it. Reconcile the real source first."
 fi

@@ -10,9 +10,8 @@ metadata:
 
 # Housekeeping
 
-Get the map to match the territory, then fix the territory. **In that order**, because every later
-step trusts the docs: a sweep that judges code against drifted documentation measures it against a
-system nobody built.
+Get the map to match the territory, then fix the territory. **In that order**: a sweep that judges
+code against drifted documentation measures it against a system nobody built.
 
 ## Reference docs
 
@@ -43,21 +42,20 @@ Workflow({ name: 'housekeeping-audit', args: {
   includeComments: true,       // prose comments in code are documentation and drift like it
   externals: [{ name: 'Confluence: Platform space', how: '<MCP tool / CLI / URL>' }],
   maxShards: 6, perShard: 8, reserve: 40000,
-  chronicleDir: '.housekeeping/chronicles',
+  chronicleDir: '~/.agent-state/<repo-slug>/housekeeping/chronicles',
   tiers: { inventory: 'haiku', audit: 'sonnet', verify: 'sonnet', consolidate: 'sonnet' },
 } })
 ```
 
 Shards are cut **by code area**, so the README and the ADR that contradict each other land with the
-same auditor. Every finding is refute-verified; the script has **no write path at all**.
+same auditor. Every finding is refute-verified.
 
 > **Running against a repo other than this one** — which is the normal case here. Named resolution
 > reads `.claude/workflows/` in the *current* repo, so pass `scriptPath` at this repo's copy
 > (`<skills-repo>/.claude/workflows/housekeeping-audit.js`) instead of `name`. Same for the other two.
 
-Read `uncovered` before anything else. A dead auditor means part of the surface was never looked
-at, and reporting that as clean documentation is the one failure that makes the run worse than not
-running it.
+Read `uncovered` before anything else — a dead auditor means part of the surface was never looked
+at.
 
 ## Step 2 — Adjudicate the source of truth — ALWAYS ASK
 
@@ -81,7 +79,7 @@ Then, out loud: *what the docs will no longer claim, and what will hold each of 
 Workflow({ name: 'housekeeping-cleanup', args: {
   startedAt: '<MM-DD HH:mm>',
   dispositions: [ /* ONLY the approved findings, verbatim ids from step 1 */ ],
-  chronicleDir: '.housekeeping/chronicles',
+  chronicleDir: '~/.agent-state/<repo-slug>/housekeeping/chronicles',
   tiers: { edit: 'sonnet', check: 'sonnet' },
 } })
 ```
@@ -98,8 +96,7 @@ document is missing — becomes a ticket. Follow [FILING.md](FILING.md): search 
 ticket per piece of work, evidence and `path:line` in the body, and the readiness bar from `triage`
 if an agent may pick it up.
 
-**ALWAYS ASK before posting.** Show the exact title and body of each. Posting to a tracker is
-outward-facing and other people read it — which is precisely why no script in this skill can do it.
+**ALWAYS ASK before posting.** Show the exact title and body of each.
 
 ## Step 5 — Sweep the code, then plan with the user
 
@@ -115,7 +112,7 @@ Workflow({ name: 'housekeeping-sweep', args: {
 ```
 
 It returns verified candidates grouped into sized work items with a `now` / `ticket` / `drop`
-recommendation. **The user routes them** — that is the whole point of the step. Do-now items hand
+recommendation. **The user routes them.** Do-now items hand
 off to `go-go-go` (one thing, now), `nights-watch` in RANGING mode (one item, by the book), or `nightshift`
 (a batch overnight); the rest go through [FILING.md](FILING.md).
 
@@ -123,7 +120,7 @@ off to `go-go-go` (one thing, now), `nights-watch` in RANGING mode (one item, by
 
 Lead with what is *not* covered, then what changed:
 
-- **`uncovered`** from every dispatch — surface nobody examined. Never round it to clean.
+- **`uncovered`** from every dispatch — surface nobody examined. Never round it to clean. An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; if it was not run it is withheld from the findings and listed under **Not run** with the reason and the command that would settle it — that belongs here too, not folded into `uncovered`.
 - **Docs**: findings by kind, what was deleted and what now holds those claims, what was refuted.
 - **Filed**: ticket links. **Deferred**: what the user chose to leave, so it is not re-litigated.
 - **Sweep**: work items, ordered, with the do-now ones started or handed off.

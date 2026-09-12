@@ -2,13 +2,13 @@
 
 > Master index of this repo's recurring improvement processes, driven by the
 > `recurring-improvement` skill (`/recurring-improvement`). Each row drives a
-> `docs/<process>/` that follows the standard **RUNBOOK + INDEX + runs/**
+> `docs/<process>/` that follows the standard **RUNBOOK + INDEX**
 > convention. **Due-detection:** a process runs when `now − last_run ≥ interval`
 > (or never run / > 30 days). Intervals are *proposed* CRON cadences you edit;
 > the skill reads them but does **not** register cron jobs — run it manually,
 > or wire one master cron that invokes `/recurring-improvement`.
 >
-> `config.root: docs` — change to `.agents` to keep AI-process records out of human docs/ (recommended for agent-heavy repos), or `.recurring-improvement` for repos without a `docs/` dir.
+> `config.root: docs` — where this repo keeps the process folders. The schedule and each `RUNBOOK.md`/`INDEX.md` are committed; per-run reports are not, and live under the agent state root outside this repo.
 
 | Process | Description | Interval (proposed CRON) | Last run | Status | Records |
 |---|---|---|---|---|---|

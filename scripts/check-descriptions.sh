@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Fails on a SKILL.md description over 1024 characters, naming its own slash command, or with an unquoted ": "; warns above 320. Prints the total cost.
+# Fails on a SKILL.md description over 1024 characters, naming its own slash command, or with an unquoted ": "; warns above 320.
+# Prints the cost split by whether the description is actually in context: disable-model-invocation excludes it entirely.
 set -u
 cd "$(dirname "$0")/.."
-hard=1024 soft=320 status=0 total=0
+hard=1024 soft=320 status=0 total=0 loaded=0
 for f in */SKILL.md; do
   raw=$(grep -m1 '^description:' "$f" | sed -E 's/^description:[ ]*//')
   case "$raw" in
@@ -24,8 +25,12 @@ for f in */SKILL.md; do
   fi
   n=$(printf '%s' "$d" | wc -m)
   total=$((total + n))
+  # a skill the model cannot invoke has its description withheld from the prompt, so it costs nothing per turn
+  if awk '/^---$/{n++; next} n==1' "$f" | grep -q '^disable-model-invocation:[[:space:]]*true'; then :; else loaded=$((loaded + n)); fi
   if [ "$n" -gt "$hard" ]; then echo "FAIL $f: description is $n chars (max $hard)"; status=1
   elif [ "$n" -gt "$soft" ]; then echo "warn $f: description is $n chars (target under $soft)"; fi
 done
-echo "total: $total chars across all descriptions (~$((total / 4)) tokens loaded every turn)"
+echo "in context every turn: $loaded chars (~$((loaded / 4)) tokens)"
+echo "withheld by disable-model-invocation: $((total - loaded)) chars"
+echo "total across all descriptions: $total chars"
 exit $status

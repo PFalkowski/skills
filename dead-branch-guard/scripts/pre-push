@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Refuse a push whose remote branch has a MERGED PR that the pushed commit does not contain: the
+# commits would sit on a branch no PR tracks. A merged PR on the
+# branch is not itself the signal — one branch may legitimately carry successive PRs — only
+# the missing merge is. Fails open (with one stderr line) when gh cannot answer. Deliberate
+# bypass: --no-verify.
+set -uo pipefail
+
+remote=$1
+for tool in gh jq timeout; do
+  command -v "$tool" >/dev/null 2>&1 || { echo "pre-push: dead-branch guard skipped: $tool not on PATH" >&2; exit 0; }
+done
+
+while read -r _local_ref local_oid remote_ref _remote_oid; do
+  case "$remote_ref" in refs/heads/*) branch=${remote_ref#refs/heads/} ;; *) continue ;; esac
+  [ "$local_oid" != "0000000000000000000000000000000000000000" ] || continue
+
+  if ! json=$(timeout 10 gh pr list --head "$branch" --state all --limit 10 \
+                --json number,state,mergedAt,mergeCommit,baseRefName 2>/dev/null); then
+    echo "pre-push: dead-branch guard skipped: gh pr list failed for '$branch'" >&2
+    continue
+  fi
+  printf '%s' "$json" | jq -e 'type == "array"' >/dev/null 2>&1 || continue
+  [ "$(printf '%s' "$json" | jq -r '.[0].state // empty')" != "OPEN" ] || continue
+
+  dead=$(printf '%s' "$json" | jq -r '.[] | select(.state == "MERGED" and .mergeCommit.oid != null)
+    | "\(.number) \(.mergeCommit.oid) \(.mergedAt) \(.baseRefName)"' \
+    | while read -r num oid at base; do
+        git merge-base --is-ancestor "$oid" "$local_oid" 2>/dev/null || { echo "$num $at $base"; break; }
+      done)
+  [ -n "$dead" ] || continue
+
+  read -r num at base <<<"$dead"
+  cat >&2 <<EOF
+pre-push: PR #$num for branch '$branch' was MERGED at $at and the commit you are pushing does not
+contain that merge. It would sit on a dead branch that no PR tracks.
+Either continue the branch:  git fetch $remote && git merge $remote/$base   (then push and gh pr create)
+or rehome the new commits:   git checkout -b <new-branch> $remote/$base && git cherry-pick <first-new-sha>^..HEAD
+Bypass only on purpose: git push --no-verify
+EOF
+  exit 1
+done
+
+exit 0

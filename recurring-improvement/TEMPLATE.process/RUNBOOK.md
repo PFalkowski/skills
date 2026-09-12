@@ -33,17 +33,18 @@ commands: { test: auto, lint: auto, build: auto }   # auto = sniff from package.
 ## 4. The cycle
 
 1. Read the previous run's `INDEX.md` row and its still-`open` IDs (run reports are
-   untracked scratch — the row is the record).
+   scratch — the row is the record).
 2. Do the work (delegated to the owning skill, or by hand to the same standard).
 3. Assign/▲promote stable IDs with states (`open` / `accepted` / `wontfix` / `fixed` / `regressed`).
-4. Write `runs/<TODAY>/report.md` — **untracked scratch** (ensure `<root>/*/runs/` is
-   gitignored); update `INDEX.md` (New / Closed / Regressed / Headline — the headline
-   must carry every still-`open` ID, it is the durable record).
+4. Write the run report — **scratch**, under the agent state root outside this repo,
+   at `<state root>/recurring-improvement/runs/<process>/<TODAY>/report.md`; update
+   `INDEX.md` (New / Closed / Regressed / Headline — the headline must carry every
+   still-`open` ID, it is the durable record).
 5. Open one PR for the work; put the findings summary in its description. Update
    `<root>/recurring-backlog.md` (last-run, status).
 
 ## 5. Output format
 
-The (untracked) `runs/<DATE>/report.md` scratch records: scope of this run,
+The run report scratch records: scope of this run,
 findings/changes with their stable IDs and states, the PR link, and what was
 deferred (and why). What survives the run: the `INDEX.md` row and the PR description.

@@ -10,7 +10,7 @@ metadata:
 
 # fact-check
 
-Never assert a load-bearing fact from memory. **Ground it, cite the source, or flag it as unverified.** Every claim you assert ships with its source — a reproduced experiment, agreeing authoritative sources, or an exact `path:line` — not with how sure the sentence sounds.
+Never assert a load-bearing fact from memory. **Ground it, cite the source, or flag it as unverified.**
 
 ## When to reach for this
 
@@ -24,10 +24,10 @@ Never assert a load-bearing fact from memory. **Ground it, cite the source, or f
 
    **A measurement is a claim about a moment; a rate is a claim about a period.** One observation grounds the first and never the second. Before a measured value becomes a premise, check whether it is stable: sample a second point, and when a time series already exists — published artefacts, git history, logs, backups — read that rather than reasoning from the single sample in hand. Recording "n=1" as a caveat does not license using the number as a rate.
 
-2. **Pick the strongest evidence the claim allows:**
-   - **Executable → run it.** If the claim can be settled by running code — arithmetic, floating-point, a regex, parsing, a data transform, an algorithm's output, library behaviour, timing/performance, encoding — write a **minimal** script (python / node / shell) and execute it. A reproducible experiment outranks any amount of reading. *Example: to check a complex math expression, write the few lines that evaluate it and run them rather than reasoning it out by hand.*
+2. **The claim type fixes the verification method — it is not a choice among equals.** An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; if it was not run it is withheld from the findings rather than reported anyway, and is listed under **Not run** with the reason and the command that would settle it. When a claim fits more than one branch below, the executable branch wins — the other branches cover only what no run could settle. A finding is a chain of claims; split it before choosing a method, and report the atoms you grounded rather than withholding the whole finding for the one you could not.
+   - **Executable → run it.** Arithmetic, floating-point, a regex, parsing, a data transform, an algorithm's output, library behaviour, timing/performance, encoding, null/overflow handling, async or ordering behaviour — write a **minimal** script (python / node / shell) and execute it. A reproducible experiment outranks any amount of reading. *Example: to check a complex math expression, write the few lines that evaluate it and run them rather than reasoning it out by hand.*
+   - **About a codebase → cite the source line.** For a claim no run could settle — that a caller exists, that a contract is documented, that a symbol is unused — read the code and point to the exact `path:line` (commit-pinned if it may move); for docs, the file and section. Never answer a codebase question from memory or a skim.
    - **Documentable → cite primary sources.** For API semantics, version numbers, limits, standards, or historical/scientific facts, consult **authoritative** sources and **confirm across ≥2 independent ones** when the claim is consequential or contested.
-   - **About a codebase → cite the source line.** For any claim about how *this* code behaves — what a function does, where a value is set, whether something exists — read it and point to the exact `path:line` (commit-pinned if it may move); for docs, the file and section. Never answer a codebase question from memory or a skim.
    - **Both when you can** — docs say X *and* a quick test confirms X is the gold standard.
 
 3. **Climb the authority ladder** (prefer higher, distrust lower):
@@ -42,7 +42,8 @@ Never assert a load-bearing fact from memory. **Ground it, cite the source, or f
 - **Confirmed (tested)** — reproduced locally; include the snippet and its output.
 - **Confirmed (sources)** — ≥2 independent authoritative sources agree; link both.
 - **Likely** — a single authoritative source; link it and flag the single point of failure.
-- **Unverified** — couldn't ground it; say so explicitly and do **not** assert it as fact.
+- **Unverified** — couldn't ground it; say so explicitly and do **not** assert it as fact. Never used for an executable claim with no run — that one is **Not run**, below.
+- **Not run** — an executable claim that was not run: withheld from the answer, one line giving the reason and the command that would settle it.
 
 ## When sources conflict
 
@@ -50,7 +51,7 @@ Surface the disagreement rather than silently picking a side. Prefer the more au
 
 ## Output
 
-Per claim, tight: **verdict · confidence · method · evidence** — a deep link, a runnable snippet + its output, or a `path:line` citation. The deliverable is the evidence trail, not prose — a reader should be able to re-verify from what you hand them. A compound question gets one line per sub-claim, then the composed answer.
+Per claim, tight: **verdict · confidence · method · evidence** — a deep link, a runnable snippet + its output, or a `path:line` citation. A compound question gets one line per sub-claim, then the composed answer.
 
 ## Anti-patterns
 

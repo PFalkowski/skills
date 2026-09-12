@@ -10,19 +10,21 @@ metadata:
 
 # context-reduction
 
-Prose has two costs: it drifts and then lies, and it burns reading budget (human or
-context-window) before anyone reaches the code. The only reduction that is real is
-**deletion** — making code, tests, and git history the record, then removing the prose.
+The only reduction that is real is **deletion** — making code, tests, and git history the
+record, then removing the prose.
 
 **The anti-pattern this skill refuses:** adding a derived layer — knowledge graph, doc
 index, summary-of-docs, "archive" folder. Every derived layer is a second copy of the
 truth with no mechanism keeping it honest; it gets read as authoritative precisely when
 it is most wrong. An archived doc is still in the search path; a graph node still
-answers queries after the code moved on. In the campaign this skill is
-distilled from, *every* costly lie lived in a derived layer: an ADR summary
-inside a comment, a config value quoted in prose, a curated fact-library
-entry still asserting a branch was unprotected after protection shipped.
-None lived in code.
+answers queries after the code moved on.
+
+One index is not a derived layer: a **pointer table**, one line per record — name, status,
+where it is — written in the same edit as the record it lists. That is routing, and a log
+too big to read whole needs it. It turns into the anti-pattern the moment a row starts
+carrying the record's content, because then it is a summary with a second copy's decay and
+it is read by everyone who orients. A row that has grown into a paragraph is a deletion
+target, not a documentation win.
 
 **Where truth is allowed to live** (everything else points here or dies):
 
@@ -37,18 +39,16 @@ None lived in code.
 
 ## The runbook
 
-Stages gate each other. The ordering is the whole point: **deletion is irreversible and
-its damage is invisible** — a behaviour whose only record was prose has no test, so no
-build goes red when the record dies. Safety work must therefore come first, and it must
-end in a mechanically checkable state, not a feeling of readiness.
+Stages gate each other: **deletion is irreversible and its damage is invisible** — a
+behaviour whose only record was prose has no test, so no build goes red when the record
+dies. Safety work comes first, and ends in a mechanically checkable state.
 
 ### Stage 0 — Measure and write the bar down
 
 1. Build (or reuse) an **executable counter** — e.g. a comment-share script (comment
-   lines / code lines, per file and total) — and record the baseline. *Why executable:
-   the campaign's own lesson is that prose rules about prose drift; only a script the CI
-   can run keeps the number honest. Also: the first version of ours silently counted a
-   test project as production — validate the scope filter against a known file list.*
+   lines / code lines, per file and total) — and record the baseline. *Validate the scope
+   filter against a known file list — a test project silently counted as production
+   invalidates the number.*
 2. Write the survival bar into the repo's agent-instructions file (CLAUDE.md or
    equivalent) as the project's allowlist extension: a comment/doc survives only if
    removing it could cause a wrong, costly decision the code cannot prevent —
@@ -56,16 +56,13 @@ end in a mechanically checkable state, not a feeling of readiness.
    invisible in code, with the source cited**, **(3) non-obvious why, 1–2 sentences**,
    **(4) destructive-operation safety warnings**. Plus one structural rule: *a comment
    may not assert the behaviour of code it does not sit on — if the claim matters,
-   write a test.* *Why that rule: the archetype incident was a comment on component A
-   describing component B; nothing that changes B ever touches A, so it lied for weeks
-   and steered a wrong conclusion into a PR, a runbook, and an issue.*
+   write a test.*
 
 ### Stage 1 — Drift scan (additive, agent-safe)
 
 3. Fan out scanners over disjoint scopes (ADRs, current-guidance docs, agent-facing
    docs, code comments per project, external skills/config). Scanner contract, verbatim
-   into every prompt: **read the actual file/code before opening a finding** — in the
-   prior art, findings dissolved on contact with the real file twice in one run; a
+   into every prompt: **read the actual file/code before opening a finding** — a
    finding nobody verified is future drift. Cap findings per scanner and prefer claims
    an agent would *act* on (commands, paths, config values) over trivia.
 4. Bucket every claim: **drifted** (false — fix at source or delete), **duplicated**
@@ -85,8 +82,7 @@ end in a mechanically checkable state, not a feeling of readiness.
    test that asserts nothing about the claim, and coverage tooling has its own traps.*
    Record per ID: behaviour, code location, test found (exact test name) or NONE,
    testable-without-credentials.
-8. Expect good news: in the prior art 8 of 13 sole records were already pinned —
-   verify, don't assume in either direction.
+8. Verify, don't assume in either direction — many sole records turn out already pinned.
 
 ### Stage 3 — Dispositions
 
@@ -131,10 +127,3 @@ end in a mechanically checkable state, not a feeling of readiness.
 18. Keep the campaign's own artifacts to the same standard: ledger rows and PR
     descriptions survive; per-run reports are gitignored scratch. A reduction
     campaign that leaves a pile of tracked reports has added a derived layer.
-
-## Numbers from the prior art (what "worked" means)
-
-19.8% → 5.5% production comment share (≈ −5,600 comment lines across ~460 files),
-zero code-line changes, zero test regressions; 41 drift findings all closed
-fixed/accepted/wontfix; 13 sole records dispositioned before any deletion; the
-whole campaign gated by one mechanical check and one human "go".

@@ -13,5 +13,31 @@ bash scripts/check-links.sh
 ```
 
 It exits non-zero and prints each broken link (`BROKEN <file>:<line> ->
-<target>`) if any relative `SKILL.md` link no longer resolves. It prints
-nothing and exits 0 when every link is valid.
+<target>`) if any relative `../<dir>/.../<file>.md` link no longer resolves.
+It prints nothing and exits 0 when every link is valid.
+
+CI runs this, `scripts/check-descriptions.sh`, `scripts/check-state-paths.sh`,
+and the Node tests on every push and pull request
+(`.github/workflows/checks.yml`).
+
+## Where skill run logs and state go
+
+A skill's operational state (a run log, a journal, a lock, a watermark —
+anything that records *that a run happened* rather than something a human
+needs to read later) belongs under `~/.agent-state/<repo-slug>/<skill-name>/`,
+outside the tree, so it outlives the worktree it was written in. The full
+convention — the `AGENTS_STATE` in-tree opt-in, the deliverables that never
+move there, and the rule that reasoning is posted on the PR rather than
+committed — is in [docs/agent-state.md](docs/agent-state.md).
+
+Before opening a PR that adds a new skill or gives an existing one a new
+state path, run:
+
+```bash
+bash scripts/check-state-paths.sh
+```
+
+It exits non-zero and prints each offender (`NONCONFORMING <file>:<line> ->
+<path>`) if any skill's markdown declares a state root that isn't the one
+above and isn't a named deliverable. It prints nothing and exits 0 when
+every declared state root conforms.

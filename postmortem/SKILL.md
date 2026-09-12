@@ -11,8 +11,6 @@ metadata:
 
 # postmortem
 
-Structured incident write-up — prevent recurrence, not just record what happened.
-
 ## Trigger
 After any non-trivial production failure: wrong output, silent data loss, crash,
 mis-deploy, bad migration, OOM, or any incident that "took longer than it should have
@@ -50,14 +48,17 @@ Each rule answers: "what does a future contributor need to know to not re-lay th
 **The log is read by agents with finite context, so it must be routable rather than
 loaded whole.** Keep an index table at the very top — one row per entry
 (`Date · Title · Class`, newest first) — and add your row in the same edit as the entry.
-Readers consult the index and open **only** the entries it points them to. A log without
-an index is loaded in full by every consumer, and grows until that is too expensive to do;
-at that point it stops being read at all, which is the failure mode this whole skill exists
-to prevent.
+Readers consult the index and open **only** the entries it points them to.
+
+**Say that in the file itself.** A log with no reading instructions gets loaded whole by the
+next agent, which is how a useful log becomes an unaffordable one. When you create the file,
+or the first time you touch one that lacks it, put a short "how to read this" note above the
+index: don't load the whole thing, match the Class column to what you are about to touch,
+open only those entries. A row stays one line; the entry it points at carries the detail.
 
 `Class` is the root-cause family, not the component — *silent failure*, *store divergence*,
 *unbounded read*, *config-not-shipped*, *timezone boundary*. Reuse an existing class name
-when one fits; the classes are what make step 4b possible.
+when one fits.
 
 Format (newest at top, separator `---` between entries):
 
@@ -82,25 +83,17 @@ Format (newest at top, separator `---` between entries):
 ```
 
 Check that the date header matches the incident date (not today's date if they differ).
-Spell out the root cause chain even for simple incidents — the mechanical chain is what
-makes a LESSONS-LEARNED entry worth re-reading a year later.
+Spell out the root cause chain even for simple incidents.
 
 ### 4b — Compact on the third instance
 
 **When a class reaches three entries, collapse them into one class entry.** State the shared
 invariant once, then list the instances as dated one-liners keeping only what *distinguishes*
 each — the specific API, config key, or boundary that made it a new trap rather than a repeat.
-Everything else is duplication.
 
-Do this as part of writing the third entry, not as separate housekeeping — nobody schedules
-housekeeping on a document that already works. The signal is usually already in the log: a
+Do this as part of writing the third entry, not as separate housekeeping. The signal is usually already in the log: a
 title reading "OOM **#3**" or a rule saying "this has now bitten us three times" means the
 class was recognised and the entries were appended anyway.
-
-The point is not saving bytes. **Three separate entries describe three bugs; one class entry
-describes a trap the design keeps laying** — and only the second framing tells a reader what to
-watch for in code that hasn't failed yet. Compaction is where a log of incidents becomes a set
-of invariants.
 
 ### 5 — Check for regression tests
 

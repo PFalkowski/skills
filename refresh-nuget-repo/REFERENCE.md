@@ -1,6 +1,6 @@
 # Refresh a NuGet/.NET library — reference
 
-The **.NET/NuGet companion** to the generic [`restomod` reference](../restomod/REFERENCE.md). Per-phase
+The **.NET/NuGet companion** to the generic [`restomod` reference](../archive/restomod/REFERENCE.md). Per-phase
 detail for [SKILL.md](SKILL.md); read the phase you're on. **Generic phase mechanics** (Phase 0 clean
 git, the deprecation-shim pattern, the generic security/ship checklists) live in the restomod reference —
 this file carries only the .NET/NuGet specifics.
@@ -9,7 +9,7 @@ this file carries only the .NET/NuGet specifics.
 
 ## Phase 0 — Clean git state
 
-Generic — see [restomod REFERENCE "Phase 0"](../restomod/REFERENCE.md). (`git status` / `MERGE_HEAD`
+Generic — see [restomod REFERENCE "Phase 0"](../archive/restomod/REFERENCE.md). (`git status` / `MERGE_HEAD`
 check, reconcile, then `git checkout -b refresh/<topic>`; never work on the default branch.)
 
 ---
@@ -41,11 +41,6 @@ Reconcile before refreshing:
    **above** the highest published one.
 3. **Verify superset-compatibility**: reflect both the published DLL and your rebuilt DLL and
    compare members so no public API is dropped (that would break consumers).
-
-> Lesson (seen in the wild): a repo sat at an older `<Version>` while NuGet already had a **higher
-> major** — a renamed core interface plus several new methods, consumed across many sibling repos.
-> The refresh was nearly published from the stale tree — caught only by checking the registry. This
-> check is non-negotiable and first.
 
 ## Phase 1 — Deep review: common .NET library bug patterns
 
@@ -134,8 +129,7 @@ This is the only way to catch these before the CI run. A successful `net8.0` bui
 compile against netstandard2.0.
 
 **Central Package Management (CPM).** Moves all `Version=` attributes to a single
-`Directory.Packages.props` at the solution root — makes future bumps a one-line change and
-prevents version drift across projects. Quick mechanical win; do it during the dep-bump step.
+`Directory.Packages.props` at the solution root. Do it during the dep-bump step.
 
 1. Create `Directory.Packages.props` at the solution root:
 ```xml
@@ -220,7 +214,7 @@ and it now *is* the nuget.org package page — so fixing it is part of the refre
 
 Generic strategy (add correct member · keep old name `[Obsolete]` with **unchanged** behavior · move
 internal callers · bump **major** · pin the shim with a suppression-wrapped test) →
-[restomod REFERENCE "Phase 4"](../restomod/REFERENCE.md). The C# specifics: deprecate with
+[restomod REFERENCE "Phase 4"](../archive/restomod/REFERENCE.md). The C# specifics: deprecate with
 `[Obsolete("why; use <new>; removed in a future major")]` and pin the shim under
 `#pragma warning disable CS0618 … restore CS0618`. Always present the options and let the user pick.
 
@@ -257,10 +251,9 @@ filename** (e.g. `publish.yml`). `NUGET_USER` is a repo **variable**, not a secr
 - **Verify before trusting:** run the exact CI command sequence locally, and after push use
   `gh run watch <id> --exit-status` / `gh pr checks <pr>` rather than assuming green.
 
-**Trusted Publishing failure modes (each one cost a real release — prevent all three):**
+**Trusted Publishing failure modes — prevent all three:**
 
-1. **Wrong `NuGet/login` inputs.** The action's API is small and easy to mis-remember.
-   The *only* input is `user`; the credential comes back as the **output** `NUGET_API_KEY`.
+1. **Wrong `NuGet/login` inputs.** The *only* input is `user`; the credential comes back as the **output** `NUGET_API_KEY`.
    Inventing `usernameVar`/`tokenVar`/`token`, or forgetting `--api-key` on the push, yields:
    `Warning: Unexpected input(s) 'usernameVar', 'tokenVar'` then `Error: Input required and not
    supplied: user`. Verify the contract instead of guessing:
@@ -274,8 +267,8 @@ filename** (e.g. `publish.yml`). `NUGET_USER` is a repo **variable**, not a secr
    `$GITHUB_ENV`, so `env.NUGET_API_KEY` is empty and the push silently runs with a blank key →
    401/auth failure. Org/repo secrets and variables don't populate `env` either — they're
    `secrets.*` / `vars.*`. The login step also needs an explicit `id:` for `steps.<id>.outputs`
-   to resolve. This passes review easily because it *looks* wired up; grep the push line for
-   `env.NUGET_API_KEY` and replace with `steps.<id>.outputs.NUGET_API_KEY`.
+   to resolve. Grep the push line for `env.NUGET_API_KEY` and replace with
+   `steps.<id>.outputs.NUGET_API_KEY`.
 
 2. **`NUGET_USER` not set.** Same `Input required and not supplied: user` error even with
    correct YAML. It's the maintainer's NuGet.org username (the package owner shown on the
@@ -326,7 +319,6 @@ per project** — a CI-based scan errors if Automatic Analysis is still on.
   reusing the same SonarCloud token value: `gh secret set SONAR_TOKEN --repo <owner>/<repo>`.
   Also **turn Automatic Analysis OFF** for the project (Administration > Analysis Method; the
   API's `autoscanEnabled` must become `false`) or the analyses conflict.
-- Gives coverage **and** the deeper C# (MSBuild-integrated) rules.
 
 **Automatic Analysis — zero-config fallback.**
 - Server-side scan of default branch + PRs, no workflow/secret. Enable once at the org level

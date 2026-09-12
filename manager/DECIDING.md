@@ -10,11 +10,16 @@ The mandate is the one paragraph every decision is checked against. It is writte
 | `merge=` | `allow` | `allow`: a PR that is green, independently grilled with findings resolved, and inside the goal merges without a human. `ask`: the same PR is escalated with the recommendation "merge". Merging is consequential and hard to reverse; the mandate is what makes it *determined* (rule 3), and the default hands it to the manager because a PR that has passed every gate is the decision the gates were for. |
 | `post=` | `post` | Whether replies, review threads and decision comments are posted where the work lives, or drafted into the report. Posting on the team's own PRs and tickets is reversible and is how rule 7 is met. |
 | `tickets=` | `file` | Whether deferred work is filed as tracker tickets or drafted. Filing is reversible (a ticket can be closed) and keeps the board the source of truth. |
+| `cleanup=` | `allow` | Whether the manager tidies up after work it managed, without asking: remove a worktree one of its runs created, delete the local branch of a PR that merged, open a PR for a branch that is ready. `ask` escalates each. These are the run's *own* artifacts and every one is reconstructible from the repo, so leaving them to a human turns finished work into a chore queue — which is the failure this skill exists to remove. |
 | `budget=` | none | Token or money ceiling across everything dispatched under this mandate. Near it, the manager stops dispatching and reports. |
 | `hard="…"` | see below | Extra lines that always escalate. Extends the defaults; cannot shrink them. |
 | `tracker=` | the house tracker | Whatever the repo already files its tickets in, detected rather than asked for: `github` when the remote is github.com, `azdo` for dev.azure.com, `jira` when the repo's docs or `CLAUDE.md` name it or an Atlassian integration is connected. What the repo's own docs say wins over what the remote implies. Pass the key only to override the detection. |
 
 **Default hard lines** — always escalated, with a recommendation, whatever the mandate: publishing or releasing; spending money; deleting data, history or someone else's branch; force-pushing a shared branch; weakening security or removing a guard; contacting people outside the team; any action that breaks a working assumption of the mandate; merging to a protected branch under `merge=ask`.
+
+**"Deleting" here means someone else's work, not the run's own scaffolding.** A worktree a managed run created, and the local branch of a PR that has merged, are neither data nor history — the commits are in the target branch and the tree is one `git worktree add` from existing again. What stays a hard line is anything reachable only from the thing being deleted: an unmerged branch, a stash, a worktree with uncommitted changes. Check that before deleting, not the label on the artifact.
+
+**The mandate cannot exceed the harness, and a mandate that assumes it is a bug.** Rule 6 makes the [auto-mode-setup](../auto-mode-setup/SKILL.md) deny list the outer boundary: `deny` is evaluated before `ask` and `allow`, and a tool denied at any scope cannot be allowed at another, so no per-repo grant and no manager verdict reaches past it. So **before the first verdict, confirm the commands your mandate implies are actually runnable** — `merge=allow` needs `gh pr merge`, `post=post` needs `gh issue comment` and `gh pr comment`, `tickets=file` needs `gh issue create`, `cleanup=allow` needs `git worktree remove` and `git branch -d`. Where one is denied or missing, say so in the opening report and treat that key as `ask` for the session.
 
 ## The rubric — in this order, stop at the first that decides
 
@@ -57,13 +62,15 @@ Every line carries its reason and evidence so the agent can push back with facts
 
 ## The journal
 
-`.agents/manager/journal.md`, append-only, one line per decision — every skill's run logs belong under `.agents/<skill>/`, so a reader finds them all in one place:
+`journal.md` under the state root — `~/.agent-state/<repo-slug>/manager/` by default, `MANAGER_STATE` overriding it ([docs/agent-state.md](../docs/agent-state.md)). Append-only, and **one line per decision**:
 
 ```
 [MM-DD HH:mm] <subject> <A#> <VERDICT> <ask in ≤12 words> — <reason> [<evidence>] → told <agent/channel>
 ```
 
-On a public repository the journal is publication, like any file in the tree: keep the state root outside the repo (`MANAGER_STATE=<path>`), the same way `nights-watch` keeps its ledger out of a public tree. The journal is operational state, not memory — an agent may correct a memory; nobody edits a journal.
+**The format is the whole discipline.** A journal is a ledger for scanning, not a place to file a run report: no mandate section, no phase log, no token counts, no narrative of how a verdict was reached. That story, where it is worth anything, is already on the pull request. A journal that grows sections becomes a file nobody opens and every reviewer pays for, and because it is append-only it conflicts with itself the moment two branches both write to it.
+
+It is operational state, not memory — an agent may correct a memory; nobody edits a journal. It is outside the tree, so it is never part of a diff and never needs a commit of its own.
 
 ## Telling the human
 

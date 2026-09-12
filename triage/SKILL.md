@@ -10,9 +10,6 @@ metadata:
 
 # Triage
 
-Move tickets through a small state machine so the board says what it means — and so an autonomous agent can be
-pointed at it without a person vetting every item.
-
 ## Reference docs
 
 - [READINESS.md](READINESS.md) — **the bar**: is this work an unattended agent should take? Canonical; other
@@ -73,8 +70,7 @@ A groomed board is the input to an unattended run (`nights-watch`, `nightshift`)
 both are triage's job, not the runner's:
 
 - **Intent must be visible on the ticket.** A judge reading the board infers "not now" from labels and prose. If
-  deferred work is not marked, it looks exactly like wanted work. This is the practical reason `parked` matters
-  more once agents read the board than it did when only people did.
+  deferred work is not marked, it looks exactly like wanted work.
 - **Briefs must be falsifiable.** See [AGENT-BRIEF.md](AGENT-BRIEF.md) — a brief that cannot succeed by finding
   nothing will produce a finding whether or not one exists.
 
@@ -83,9 +79,6 @@ both are triage's job, not the runner's:
 Declining a ticket is a judgement, and judgements applied across a board are sometimes wrong. Record the reason;
 do not label, close, or comment a ticket into a state on that basis — unless a person asked about that specific
 ticket and is waiting on the answer.
-
-A reported refusal costs a line of text when it is wrong. A written one costs somebody the work of finding an
-authoritative-looking label and undoing it.
 
 ## Who may declare a ticket agent-ready
 

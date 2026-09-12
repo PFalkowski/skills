@@ -11,18 +11,12 @@ metadata:
 
 # auto-mode-setup
 
-Unattended runs fail in two directions. Too few permissions and the agent stalls on a prompt at
-02:00 with nobody watching. Too many and it force-pushes over a week of work. This skill sets both
-edges deliberately, from evidence rather than guesswork.
-
 ## The one thing to get right first
 
 **In auto mode the allowlist is a convenience. The deny list is the safety boundary.**
 
 Auto mode hands the approve/reject decision to a classifier instead of a human. Anything you have
-not denied may therefore be approved without you. So the deny list is the only part of this setup
-that is load-bearing, and it is the part to write first. An allowlist merely saves latency on
-commands the classifier would have waved through anyway.
+not denied may therefore be approved without you. Write the deny list first.
 
 Do this in the order below, not the reverse.
 
@@ -67,8 +61,10 @@ Two things to remember when reading its output:
 - Claude Code already runs a built-in read-only set without prompting — `ls`, `cat`, `echo`, `pwd`,
   `head`, `tail`, `grep`, `find`, `wc`, `which`, `diff`, `stat`, `du`, `cd`, and read-only `git`
   forms. Allowlisting those buys nothing. Drop them from the output before writing rules.
-- High frequency is not the same as safe. `git push` and `dotnet run` will rank near the top of any
-  real transcript set. Frequency tells you what to *consider*, never what to grant.
+- High frequency is not the same as safe. `git push`, `docker run`, and `dotnet run` will rank near
+  the top of any real transcript set. Frequency tells you what to *consider*, never what to grant
+  on its own — `git push` stays granted in the baseline, but only alongside the deny-list pairs it
+  depends on and a documented, accepted gap (bundled short flags like `-fd`; see BASELINE.md).
 
 ### 3. Write the user-scope baseline
 
@@ -92,8 +88,7 @@ Anything that builds, tests, deploys, or talks to a paid or shared service goes 
 `.claude/settings.json` — never in the baseline. One repo's `dotnet test` is another repo's
 `terraform apply`.
 
-Commit these. They are as much a project artifact as the CI config, and an agent-ready repo should
-stay agent-ready for the next person who clones it.
+Commit these.
 
 Three things a real tree will throw at you here, all of which mean *stop and report* rather than
 work around:
@@ -115,12 +110,21 @@ Never declare this done from the settings files alone. Prove it:
 - `claude --debug` in a sample repo, confirm the mode and rules that actually loaded. The debug log
   prints each scope's rules as `Applying permission update: Adding N allow rule(s) to destination
   'userSettings' / 'projectSettings' / 'localSettings'` — read those lines, not the JSON you wrote.
+  **This is interactive-only.** `claude --debug -p "…"` prints no permission lines at all, so an
+  agent running this skill headlessly cannot complete this check and must not claim it did.
+- Headless, substitute an observation that is stronger anyway: provoke one denied command in a
+  **throwaway directory** and confirm both that it was refused *and* that its target is untouched.
+  Check the target, not just the refusal — a rule that blocks after the command has already run
+  looks identical in the transcript to one that blocks before. For a deny on a destructive command,
+  `git init` a temp directory with one untracked file, run the denied form against it, and assert
+  the file still exists.
 - Watch for `Ignoring N permissions.allow entries from .claude/settings.json: this workspace has
   not been trusted`. Creating a project `settings.json` where none existed re-arms the trust
   dialog, so brand-new allow rules silently do nothing until a human accepts it once
   interactively. Deny and ask rules are unaffected. Never flip `hasTrustDialogAccepted` on the
   user's behalf to skip this — the dialog exists so a person reviews what is being granted.
-- Deliberately trigger one denied command and confirm it is blocked.
+- Deliberately trigger one denied command and confirm it is blocked — see the throwaway-directory
+  note above; "it was denied" and "it did not run" are different claims.
 - Confirm the deny list survives from the repo *and* from a worktree of it, since worktree
   resolution is the usual place a rule silently stops applying.
 
@@ -128,7 +132,7 @@ Report which repos were configured, which were skipped, and what remains prompti
 
 ## Where deny rules do not save you
 
-State this plainly when handing the setup over; it is the gap people assume is covered.
+State this plainly when handing the setup over.
 
 `Read` and `Edit` deny rules cover Claude's own file tools and the file commands it recognises in
 Bash (`cat`, `head`, `sed`). **They do not cover a subprocess that opens files itself** — a Python

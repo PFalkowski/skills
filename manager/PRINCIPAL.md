@@ -1,7 +1,5 @@
 # The principal brief — running other skills under the manager
 
-Most skills in this set already know how to run without a human: `fix-pr` has a headless mode where "the caller is the principal", `sdlc-old-fashioned` has an autonomous dial that defers questions to a backlog file, `nightshift` defers to its backlog, `nights-watch` reports refusals instead of enacting them, `code-review-grill` never auto-posts and asks who should. Each of them turns its would-be questions into something a caller can answer. **The manager is that caller.** The brief below is what makes it so: it names the manager as principal, states the policies the skill would otherwise have to ask for, and fixes the shape of what comes back.
-
 ## The brief — paste it into every dispatch
 
 ```
@@ -26,13 +24,13 @@ human in this loop; questions to "the user" reach the manager, and it answers th
     OPEN: <work you saw and did not do, each with why>
 ```
 
-Fill every `<…>` from the mandate. A brief with a blank policy is a question the skill will have to ask, which is the thing the brief exists to prevent.
+Fill every `<…>` from the mandate.
 
 ## Per-skill notes — where each one's questions surface
 
 | Skill | Its autonomous shape | Where its asks come out | What the manager does with them |
 |---|---|---|---|
-| `sdlc-old-fashioned` | Dial 1 = **autonomous**; fresh process per phase | deferred questions in `prompts/sdlc-backlog.md`; the merge gate | answer in the backlog file after each phase's result comes back; hold the merge gate per `merge=` |
+| `sdlc-old-fashioned` | Dial 1 = **autonomous**; fresh process per phase | deferred questions in the run's backlog file; the merge gate | answer in the backlog file after each phase's result comes back; hold the merge gate per `merge=` |
 | `sdlc-workhorse` (Workflow) | already autonomous, evidence-gated | its `RESULT`; stops at irreversible lines | consume the result; the irreversible lines are the manager's verdicts |
 | `nights-watch` | standing loop; `once` for a single pass | patrol summary: blockers, refusals, `ai-done` PRs | decide each refusal and blocker; grill or merge-escalate each `ai-done` PR; enact on the board what the Watch would not |
 | `nightshift` | autonomous by construction | backlog-file deferrals; end-of-run summary | answer deferrals in the file; verdicts on the summary |
@@ -52,4 +50,4 @@ Fill every `<…>` from the mandate. A brief with a blank policy is a question t
 
 ## Fencing — the hard leash under the soft one
 
-The brief is the soft leash. The toolset is the hard one, and both are used: dispatch with read-only tools granted freely and mutating ones withheld or fenced, so a worker that ignores the brief still cannot push, post or delete on its own. The manager's own session runs under [auto-mode-setup](../auto-mode-setup/SKILL.md); its deny rules bound everything the manager can approve, and a manager approval never reaches past them. Higher permission means a tighter fence, not a looser one.
+The brief is the soft leash. The toolset is the hard one, and both are used: dispatch with read-only tools granted freely and mutating ones withheld or fenced, so a worker that ignores the brief still cannot push, post or delete on its own. The manager's own session runs under [auto-mode-setup](../auto-mode-setup/SKILL.md); its deny rules bound everything the manager can approve, and a manager approval never reaches past them.

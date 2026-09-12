@@ -1,6 +1,6 @@
 ---
 name: code-review-grill
-description: 'Adversarial review of a branch or PR diff by a fresh agent that did not write the code, as a single reviewer or a quorum of concern-based subagents. Use to review a branch, PR or diff.'
+description: 'Adversarial review of a branch or PR diff by a fresh agent that did not write the code, as a single reviewer or a quorum of concern-based subagents. Use to review a branch, PR or diff. Also covers Azure DevOps PRs (dev.azure.com), including az repos auth and diffs-API failures.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -10,17 +10,17 @@ metadata:
 
 # code-review-grill — adversarial "grilling" code review by a fresh agent
 
-**The reviewer is never the author.** The calling session is too close to the diff (it wrote it, or watched it being written) to judge it honestly — it will rationalise. So the calling session acts only as **orchestrator + synthesizer**: it preps the diff, spawns *fresh* `Agent` subagents to do all the critiquing, and consolidates. Every finding originates from an agent that started cold and was told to assume the code is wrong until proven right.
+**The reviewer is never the author.** The calling session acts only as **orchestrator + synthesizer**: it preps the diff, spawns *fresh* `Agent` subagents to do all the critiquing, and consolidates.
 
-Where Matt Pocock's [grill-me](https://github.com/mattpocock/skills) interrogates *the user* about a plan one question at a time, this skill turns the same relentless interrogation onto *the diff*: the reviewer grills each change to a verified conclusion instead of skimming. This is heavier and more skeptical than the built-in single-pass `/code-review`; reach for it when a change is load-bearing or you want concern-by-concern coverage with a paper trail.
+Where Matt Pocock's [grill-me](https://github.com/mattpocock/skills) interrogates *the user* about a plan one question at a time, this skill turns the same relentless interrogation onto *the diff*: the reviewer grills each change to a verified conclusion instead of skimming.
 
 ## The grilling stance (how every reviewer works)
 
 Adapted from grill-me's interrogation discipline, applied to code:
 - **One thread at a time.** Take a hunk, interrogate it to a conclusion, *then* move on — don't fan out half-questions across the whole diff. Walk each branch of the "is this correct?" tree, resolving dependencies between decisions one-by-one.
-- **Interrogate, don't admire.** For each change ask: *what must be true for this to be correct? what input breaks it? what caller/test relied on the old behavior? what did the author assume?*
-- **Ask "is this the only one?"** For every *fix*, the follow-up question is *where else does this exact shape live, and why is it not fixed here too?* — see [Step 3](#step-3--trace-ripple-effects). A fix scoped to the site that burned someone, rather than to the class of defect, is one of the most common real findings a review can produce.
-- **Answer by exploring, never by speculating.** grill-me's rule "if the codebase can answer it, explore instead of asking" becomes: if a doubt can be settled by running a snippet, grepping the repo, or checking the project's docs, do that — that *is* the [verification](#step-5--run-the-review-fresh-adversarial-grilling) every finding must carry. An un-run hypothesis is not a finding.
+- **Interrogate, don't admire.** For each change ask: *what must be true for this to be correct? what input breaks it? what caller/test relied on the old behavior? what did the author assume?* That is [inversion](../invert/SKILL.md) aimed at a diff, and the second question is the one that finds most bugs.
+- **Ask "is this the only one?"** For every *fix*, the follow-up question is *where else does this exact shape live, and why is it not fixed here too?* — see [Step 3](#step-3--trace-ripple-effects).
+- **Answer by exploring, never by speculating.** grill-me's rule "if the codebase can answer it, explore instead of asking" becomes: settle an executable doubt by running it; a codebase doubt by grepping; a doc/API doubt by checking the docs — the claim decides which, not convenience. That *is* the [verification](#step-5--run-the-review-fresh-adversarial-grilling) every finding must carry. An un-run hypothesis is not a finding.
 - **Carry a recommended answer.** Like grill-me proposing an answer per question, every finding ships a concrete suggested fix.
 
 ## Step 0 — Pick the stance (ALWAYS ask)
@@ -30,7 +30,7 @@ Ask the user: **single adversarial agent** or **quorum**?
 - **Quorum** — one fresh subagent per concern, run in parallel, each with a sharp brief (objective / output / tools / boundaries) and effort sized to the diff. If the user names concerns, use exactly those; if not, the orchestrator picks the relevant subset from the diff. Concern menu + the auto-pick heuristic live in **[REFERENCE.md](REFERENCE.md)**.
 
 > **Azure DevOps PRs:** delegate the whole resolve → diff → post pipeline to
-> [azure-devops-pr-review](../azure-devops-pr-review/SKILL.md) (its steps 1–5) from the start, not
+> [AZURE-DEVOPS.md](AZURE-DEVOPS.md) (its steps 1–5) from the start, not
 > just Step 7's posting — it already solves PR-metadata lookup, the diffs-API workaround, and
 > full-context file reading, so Steps 1–3 below are for the generic/GitHub-or-local case.
 
@@ -46,7 +46,7 @@ git fetch origin <base>
 git diff --stat <base>...HEAD
 git diff       <base>...HEAD
 ```
-Read the changed files at **full context**, not just the hunks — a change is only correct in the surrounding code (mirrors `azure-devops-pr-review` step 3).
+Read the changed files at **full context**, not just the hunks — a change is only correct in the surrounding code (mirrors `AZURE-DEVOPS.md` step 3).
 
 **Consider materializing a worktree at PR-head** (`git worktree add`) to do that reading. It's just a checkout — no restore/build — so its cost scales with repo size, not solution complexity; don't confuse it with building the solution. It turns full-context reads and ripple-tracing into plain Read/Grep/Glob calls on real paths instead of repeated `git show <ref>:<path>`, gives real 1-indexed line numbers for free (useful later when posting inline comments), and — unlike switching the current checkout — doesn't disturb whatever the user has checked out if the PR branch isn't already local. Skip it for a small diff where a couple of `git show`s are just as fast; for a large or heavy repo (monorepo, submodules, huge history) where even a checkout isn't obviously cheap, ask the user before creating one rather than deciding silently.
 
@@ -54,11 +54,11 @@ Read the changed files at **full context**, not just the hunks — a change is o
 
 For every changed public symbol, signature, invariant, or config key, grep callers and dependents **repo-wide** (`git grep`, on the worktree if you made one, or on the ref directly if not). An invariant dropped in one file may be silently relied on in another. The lead gathers this dependent set once and hands it to the reviewer(s) so they judge the change in context, not in isolation.
 
-**Then trace the *sibling* ripple — the one most reviews miss.** The grep above answers "who depended on what changed?" It does not answer the other half: **"is this a *class* of defect, and are there un-fixed instances of the same shape?"** For every fix in the diff, name the defect's *shape* — swallowed exit code, unbounded read, missing guard, un-disposed handle, unvalidated boundary, hardcoded assumption — then grep for that shape, not for the symbol. A fix applied only where it burned someone leaves live instances behind, and the cost is not one missed fix: **the un-fixed instance becomes the nearest template the next person copies from**, so the defect propagates forward into new code. Report each sibling as fixed-here, explicitly-triaged, or a finding.
+**Then trace the *sibling* ripple — the one most reviews miss.** The grep above answers "who depended on what changed?" It does not answer the other half: **"is this a *class* of defect, and are there un-fixed instances of the same shape?"** For every fix in the diff, name the defect's *shape* — swallowed exit code, unbounded read, missing guard, un-disposed handle, unvalidated boundary, hardcoded assumption — then grep for that shape, not for the symbol. Report each sibling as fixed-here, explicitly-triaged, or a finding.
 
 The tell is a diff that changes one of several structurally parallel things — one of N timer functions, one of N repository methods, one of N adapters implementing a port, one of N call sites of the same helper. When you see that, ask why the other N−1 are untouched and require an answer, rather than assuming the author checked.
 
-**Building/testing locally is the reviewer's call, not a default step.** If CI already gates the PR, check its status first (`gh pr checks`, or for Azure DevOps the PR's status checks / build info) and cite that rather than re-deriving it — a full local build+test pass mostly duplicates what CI already verified, and rarely surfaces the kind of defects this skill exists to find (those tend to come from reading code and reasoning about it, not from compiling it). But if there's no CI configured, or its status isn't visible from where you're standing, a local build/test run is a reasonable — often the only — way to establish that baseline; use judgment. Either way, an actual build or test run is also the natural route to a **runnable-snippet verification artifact** for a specific finding (a minimal repro, or one targeted test proving one hypothesis).
+**CI status can stand in for the baseline build/test check; it never stands in for a specific finding's run.** If CI already gates the PR, check its status first (`gh pr checks`, or for Azure DevOps the PR's status checks / build info) and cite that for the baseline. If there's no CI configured, or its status isn't visible from where you're standing, a local build/test run is a reasonable — often the only — way to establish that baseline; use judgment. But once a specific executable claim is in play, citing CI is not a substitute: that claim is grounded only by running it and showing the real output, so producing the **runnable-snippet verification artifact** for that finding (a minimal repro, or one targeted test proving one hypothesis) is never optional.
 
 ## Step 4 — Capture the house rules (docs, ADRs, conventions) — ALWAYS
 
@@ -80,19 +80,19 @@ Spawn via the **Agent tool** — never review from the calling context. Each rev
 
 Each agent returns the **standard finding payload** (location `path:line` · description · severity emoji · suggested fix · **verification**) defined in REFERENCE.
 
-**Every finding must be verified before it is reported — no unverified claims.** A finding raised "from reading" is a hypothesis, not a finding. Before an agent emits a finding it must ground it by the strongest method the problem allows, and **state which method it used in enough detail that the user can replicate it in one step** (per [fact-check](../fact-check/SKILL.md)):
+**Every finding must be verified before it is reported — no unverified claims.** A finding raised "from reading" is a hypothesis, not a finding. The claim's type fixes which method below grounds it — it is not a menu to pick from, and **the agent must state which method it used in enough detail that the user can replicate it in one step** (per [fact-check](../fact-check/SKILL.md)):
 - **Runnable snippet** — for anything executable (logic bug, off-by-one, regex, boundary, encoding, null/overflow, async/ordering, perf claim): write a minimal self-contained snippet (or failing test) that exercises the issue, run it, and report the snippet verbatim plus its actual output, so the user reproduces by copy-paste.
-- **In-repo proof** — for invariant/ripple breaks: cite the exact `path:line` of the caller/dependent that relies on the broken contract, with the relevant lines quoted (and the `grep`/command that found it).
-- **Authoritative source** — for doc/API/version/standards claims: a working deep link to the spec/docs section (≥2 for consequential claims), quoting the relevant text.
+- **In-repo proof** — for an invariant/ripple break that no run could settle: cite the exact `path:line` of the caller/dependent that relies on the broken contract, with the relevant lines quoted (and the `grep`/command that found it).
+- **Authoritative source** — for a doc/API/version/standards claim: a working deep link to the spec/docs section (≥2 for consequential claims), quoting the relevant text.
 
-If a finding **cannot** be grounded by any of these, the agent must downgrade it to ❓ uncertain and say plainly that it is unverified and why. Pick the method that fits the problem; always show the work.
+An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; if it was not run it is withheld from the findings rather than downgraded to ❓, and is listed under **Not run** with the reason and the command that would settle it. A genuinely ungroundable non-executable claim still downgrades to ❓ uncertain, with plain notice that it is unverified and why. A finding is a chain of claims: split it before choosing a method, and report the atoms grounded rather than withholding the whole finding for the one atom that could not be.
 
 ## Step 6 — Consolidate into the findings table
 
 The lead merges agent outputs into **one table** (templates + severity legend in REFERENCE):
 - **Dedupe:** same location + same issue raised by multiple agents → **one row**, with each flagging agent's emoji in its column.
 - Assign finding **IDs** (`F1`, `F2`, …), fill per-agent severity emoji, compute **Votes** (flagged / total agents — quorum only), and set a **Consensus** severity.
-- **Carry each finding's verification through:** the table gets a `Verified` column naming the method; the copy-paste-ready artifact (snippet+output, in-repo proof, or deep link) is reproduced verbatim below the table, keyed by finding ID. Drop or downgrade any finding whose agent returned no usable artifact.
+- **Carry each finding's verification through:** the table gets a `Verified` column naming the method; the copy-paste-ready artifact (snippet+output, in-repo proof, or deep link) is reproduced verbatim below the table, keyed by finding ID. An executable finding whose agent returned no usable artifact is withheld from the table and moved to a **Not run** list, one line each naming the claim, why it wasn't run, and the command that would settle it; a non-executable finding with no usable artifact downgrades to ❓ instead.
 - Order by consensus severity, blockers first.
 
 ## Step 7 — Offer to post (ALWAYS prompt; NEVER auto-post)
@@ -101,16 +101,20 @@ The lead merges agent outputs into **one table** (templates + severity legend in
 > step's ask and post **every** finding (fixed or not) via the mechanics below — one thread first,
 > confirm it landed, then the rest.
 
+> **Under a standing posting policy** — a `manager` mandate (`post=`), or a `CLAUDE.md` that names who
+> answers this step: the ask goes to that principal instead of the human. Post the findings it selects,
+> by the same mechanics.
+
 This step runs after **every** review — single adversarial or quorum alike, when invoked standalone. The moment the table is presented, the orchestrator must:
 
 1. **Detect the active PR** for the reviewed branch and name it in the prompt so the user knows exactly where comments would land:
    - **GitHub** → `gh pr view --json number,url,title -q '.number, .url'` (or `gh pr list --head <branch>`).
-   - **Azure DevOps** → resolve via **[azure-devops-pr-review](../azure-devops-pr-review/SKILL.md)**.
+   - **Azure DevOps** → resolve via **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)**.
    - If no PR exists for the branch, say so and stop after the table (offer to open one only if asked).
 2. **Ask two things explicitly:** (a) *do you want to post comments to PR #N (`<url>`)?* and (b) *which finding IDs?* (e.g. `F1,F3`, `all blockers`, `none`). Default is **post nothing** until the user names IDs.
-3. Post **only** the selected subset. Post **one** thread first, confirm it landed (numeric `id` in the response), then the rest. Each comment body includes the finding's severity, ID, description, suggested fix, and its verification artifact.
+3. Post **only** the selected subset. Post **one** thread first, confirm it landed (numeric `id` in the response), then the rest. Each comment body includes the finding's severity, ID, description, suggested fix, and its verification artifact. A ⛏️ nit opens with the nit marker (REFERENCE, § The nit marker) above all of it.
 
 - **GitHub** → inline review comments via `gh api` (path + line + body).
-- **Azure DevOps** → delegate to **[azure-devops-pr-review](../azure-devops-pr-review/SKILL.md)** (its thread/encoding workarounds).
+- **Azure DevOps** → delegate to **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)** (its thread/encoding workarounds).
 
 Mechanics for both hosts are in **[REFERENCE.md](REFERENCE.md)**. If there is no PR, or the user declines, stop after the table.

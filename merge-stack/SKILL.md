@@ -10,7 +10,7 @@ metadata:
 
 # merge-stack
 
-Land a stacked PR chain (each branch based on the previous) onto the shared base, bottom-up, avoiding the two traps below.
+Land a stacked PR chain (each branch based on the previous) onto the shared base, bottom-up.
 
 ## The two traps
 1. **Squash rewrites the parent's commits.** After squash-merging the bottom PR, its commits land as one new SHA; the next child still holds the old commits, so its diff balloons and shared-file edits conflict. → Rebase each child `--onto <base> <old-parent-tip>` before merging.

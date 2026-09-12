@@ -1,6 +1,6 @@
 ---
 name: wrap-up
-description: 'End-of-session closer: ships outstanding work, sweeps session scaffolding, files what''s still open in the tracker or a `handoff lite` block, and routes skill feedback and memory updates. Triggers: "wrap it up", "close the session", "we''re done here", "tidy up and finish".'
+description: 'End-of-session closer: ships outstanding work, sweeps session scaffolding, offloads the open ledger to the tracker, prints a `handoff lite` block when anything needs continuing, and routes skill feedback and memory. Triggers: "wrap it up", "close the session", or work left unfinished for a fresh context or machine.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -11,8 +11,7 @@ metadata:
 # wrap-up
 
 Three passes, in order: **ship** (nothing valuable exists only on this machine), **sweep** (no dead
-scaffolding left behind), **account** (nothing promised is silently dropped). The passes are ordered
-so that nothing pass 2 deletes is something pass 1 should have shipped or pass 3 still needs.
+scaffolding left behind), **account** (nothing promised is silently dropped).
 
 ## Scope first
 
@@ -45,6 +44,10 @@ Run only when pass 1 leaves nothing outstanding in scope. Project-only, session-
 - Worktrees this session created, once clean and their branch is pushed or merged:
   `git worktree remove <path>`, then `git worktree prune`. A dirty worktree is a pass-1 escape —
   go back, don't force. Also sweep empty leftover directories under the worktrees root.
+- **Clean is not empty.** Ignored files are invisible to `git status` and die with the tree. List them
+  first (`git status --short --ignored`); anything that is the only copy of something the session
+  relied on — run logs, captured evidence, local experiment output — is copied out and its count
+  verified before the remove, or the tree is not sweepable yet.
 - Local branches whose work has landed: `git branch -d` — the merged-only form. Deleting an
   unmerged branch is the user's call to make explicitly, never a cleanup default.
 - `git fetch --prune` to drop remote-tracking refs of branches deleted on the host.
@@ -57,13 +60,20 @@ Re-read the conversation and collect what is still open: tasks requested, promis
 "next we should…"), assumptions stated as future work, items parked in pass 1. An item is done only
 if the transcript shows it verified done — command output, not a claim.
 
-Route everything open per house rules:
+Route everything open per house rules. The two routes **compose** — they are not alternatives:
 
-- **A tracker is in use** — determined from CLAUDE.md, the remote host, or existing issues
-  (GitHub issues / Azure Boards / Jira). Draft one issue per item — title, the context a stranger
-  needs, one acceptance line — show the drafts, get a yes, then post.
-- **No tracker, or the user declines**: emit a `handoff lite` note inline (the `handoff` skill
-  defines the note; `lite` writes no file).
+- **Offload to the tracker** — the board this project already uses, determined from CLAUDE.md, the
+  remote host, or existing issues (GitHub Issues / Azure Boards / Jira). Draft one issue per item —
+  title, the context a stranger needs, one acceptance line — show the drafts, get a yes, then post.
+  Each draft meets the [triage](../triage/READINESS.md) bar or it is not worth filing. **Propose
+  offloading whenever the ledger is more than one fresh context can carry**: several independent
+  threads, or more items than fit on a screen. The board holds the set so the note only has to carry
+  the thread.
+- **Carry it in a `handoff lite` note** — whenever anything is still open, whether or not it was also
+  filed. Invoke the `handoff` skill with `lite`: same note, same discipline, printed inline as one
+  paste-ready block, **nothing written to disk**. Whoever is on the far side of the boundary you are crossing — a
+  fresh context, a `/clear`, another machine — has none of this transcript. When the ledger was
+  offloaded, **Next** is the one thread to resume plus the issue numbers, never a copy of them.
 
 Ordering: the user's stated priority wins; absent one, blockers first.
 
@@ -88,8 +98,7 @@ Persistent memory is part of the ledger. Review the entries this session touched
 
 - **Relied on and confirmed** — leave it alone.
 - **Contradicted** — the session proved an entry wrong or stale (a renamed flag, a reversed
-  decision, a fact that no longer holds): update or delete it now. A stale memory misleads every
-  future session, which is worse than no memory.
+  decision, a fact that no longer holds): update or delete it now.
 - **Lesson learned** — the session taught something durable that the repo itself does not record
   (a user preference, a corrected approach, a constraint): write it, following the house memory
   discipline (one fact per entry, why + how to apply, indexed).
@@ -101,6 +110,6 @@ Persistent memory is part of the ledger. Review the entries this session touched
 - Other sessions' branches and worktrees stay untouched however stale they look — wrap up only
   work this conversation can account for.
 - Posting issues is outward-facing: drafts first, always. Unattended, post only if house rules
-  name the tracker; otherwise emit the `handoff lite` note to the log.
+  name the tracker; the `handoff lite` note goes to the log either way.
 - An empty result is a valid result: "everything shipped, nothing to sweep, ledger clear" — one
   line, done.

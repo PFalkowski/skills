@@ -1,0 +1,32 @@
+name: checks
+
+on: [push, pull_request]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run checks
+        run: |
+          set -e
+          bash scripts/check-links.sh
+          bash scripts/check-descriptions.sh
+          bash scripts/check-state-paths.sh
+          bash scripts/check-state-paths.test.sh
+          bash scripts/check-finding-gate.sh
+          bash scripts/check-finding-gate.test.sh
+          bash dead-branch-guard/scripts/pre-push.test.sh
+          bash auto-mode-setup/scripts/deny-rules.test.sh
+          bash scripts/link-skills-claude-md.test.sh
+          for t in .claude/workflows/*.test.js clean-room/*.test.mjs; do
+            node --test "$t"
+          done
+      - name: PowerShell tests
+        shell: pwsh
+        run: |
+          git config --global init.defaultBranch main
+          ./whats-next/scripts/WhatsNext.test.ps1

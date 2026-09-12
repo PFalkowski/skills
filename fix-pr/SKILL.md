@@ -10,13 +10,13 @@ metadata:
 
 # fix-pr — work a PR's review comments to resolution, truth first
 
-**A review comment is a claim, not an order.** Reviewers are sometimes wrong — about the code, about the API, about what the fix should be. So no comment is acted on until it has been fact-checked, and no non-obvious fix is implemented until *it* has been fact-checked too. The bias, when choosing between valid fixes, is fixed and explicit: **security first, then maintainability, then ease of understanding** — cleverness, micro-optimisation, and minimal-diff convenience lose to those every time.
+**A review comment is a claim, not an order.** No comment is acted on until it has been fact-checked, and no non-obvious fix is implemented until *it* has been fact-checked too. The bias, when choosing between valid fixes, is fixed and explicit: **security first, then maintainability, then ease of understanding**.
 
 ## Step 0 — Resolve the PR and check out its branch
 
 1. Identify the PR from the argument (number, URL, or current branch):
    - **GitHub** → `gh pr view <n> --json number,url,title,headRefName,baseRefName`.
-   - **Azure DevOps** → delegate resolution and all later thread mechanics to [azure-devops-pr-review](../azure-devops-pr-review/SKILL.md).
+   - **Azure DevOps** → delegate resolution and all later thread mechanics to [AZURE-DEVOPS.md](../code-review-grill/AZURE-DEVOPS.md).
 2. Check out the PR head branch (`gh pr checkout <n>`, or fetch + checkout). If the current checkout is on unrelated dirty work, use a worktree instead of disturbing it.
 3. Pull the review threads — **unresolved/active only** by default:
    - **GitHub** → `gh api repos/{owner}/{repo}/pulls/<n>/comments` for inline comments and `gh pr view --json reviews,comments` for review bodies; group into threads and drop resolved ones (GraphQL `reviewThreads.isResolved` is the reliable source for resolution state).
@@ -37,14 +37,14 @@ If the invocation didn't name one, ask: **hybrid** (default), **interactive**, o
 
 For each comment, before any fix is considered, run [fact-check](../fact-check/SKILL.md) on the comment's claim:
 
-- **Executable claims** ("this throws on empty input", "this regex misses X", "this leaks the handle") → minimal runnable snippet or targeted test, with the snippet and its actual output kept as evidence.
+- **Executable claims** ("this throws on empty input", "this regex misses X", "this leaks the handle") → minimal runnable snippet or targeted test, with the snippet and its actual output kept as evidence. An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; a comment making one that cannot be run is neither confirmed nor refuted, and goes to needs-discussion rather than being acted on.
 - **Codebase claims** ("this duplicates Y", "callers rely on Z") → exact `path:line` citations found by grep.
 - **Doc/API/standard claims** ("this API is deprecated", "the spec requires…") → two or more authoritative sources, deep-linked.
 
 Verdicts:
 - **Confirmed** → proceed to Step 3.
 - **Refuted** → do **not** implement anything. Record the refutation with its evidence; in interactive/hybrid mode show it to the user immediately (they may still want a change — reviewer intent can be right even when the stated reason is wrong). In auto mode it becomes a drafted reply for Step 4, never a silent skip.
-- **Unverifiable** → treat as substantive and interactive in every mode; never auto-fix on an ungrounded claim.
+- **Unverifiable** → treat as substantive and interactive in every mode; never auto-fix on an ungrounded claim — this is where an executable claim that could not be run lands, per above.
 
 ## Step 3 — Resolve, one comment at a time
 
@@ -52,7 +52,7 @@ Work the list **one comment to conclusion, then the next** — no half-open thre
 
 1. **Generate every honestly good candidate resolution** — all viable, secure, genuinely defensible options, not an artificial shortlist; if the solution space holds five good fixes, present five. Only when there is really no good option does 2–3 become the *lower* limit: present the least-bad 2–3 with their problems stated plainly. Each candidate carries its trade-offs, exactly one is marked **recommended**, and the weak ones are marked as such with the reason. Rank by the house bias: a fix that closes a security gap beats one that preserves an existing convenience; a boring, readable fix beats a clever one; a fix that leaves the code easier for the next reader beats a smaller diff.
 2. **Fact-check every non-obvious candidate** before offering or applying it: verify it is actually implementable here (the API exists at the pinned version, the pattern compiles, the config key is real) *and* that it actually resolves the comment's issue — a plausible fix that doesn't survive a snippet run is not an option, it's a guess.
-3. **Trace ripple effects — always, for every candidate before it is offered or applied.** A fix that is correct at the comment's line can still break the system around it. For anything the candidate would change — a signature, a return/error contract, an invariant, validation behaviour, a config key, timing/ordering — grep the repo for callers and dependents (`git grep`) and check what relies on the current behaviour (mirrors [code-review-grill](../code-review-grill/SKILL.md) Step 3). A candidate with unaddressed ripple is either extended to cover its dependents or demoted to not-recommended with the ripple named; ripple discovered on the chosen fix is handled in the same change, and its dependents get covered by the TDD tests below.
+3. **Trace ripple effects — always, for every candidate before it is offered or applied.** For anything the candidate would change — a signature, a return/error contract, an invariant, validation behaviour, a config key, timing/ordering — grep the repo for callers and dependents (`git grep`) and check what relies on the current behaviour (mirrors [code-review-grill](../code-review-grill/SKILL.md) Step 3). A candidate with unaddressed ripple is either extended to cover its dependents or demoted to not-recommended with the ripple named; ripple discovered on the chosen fix is handled in the same change, and its dependents get covered by the TDD tests below.
 4. **Route by mode:**
    - **interactive** → present the options (AskUserQuestion fits well: recommended first, trade-offs in the descriptions), implement the user's pick.
    - **hybrid** → mechanical comments go to autonomous fixers — a dynamic Workflow of Sonnet-tier subagents is the recommended shape (one agent per comment, `isolation: 'worktree'` only if they'd touch the same files concurrently; otherwise a simple sequential pipeline is cheaper). Substantive comments follow the interactive route.
@@ -72,7 +72,7 @@ Repeat until the inventory is exhausted.
 2. **One combined commit** for the run (or a small series if the fixes are genuinely unrelated), whose message maps comments to resolutions (`Address review: C1 guard null stream, C2 rename per review, …`). The commit contains the new tests together with the fixes they prove — a fix without its red-turned-green test is not ready to commit. Push it to the PR branch — the push is automatic; it is the normal, expected next step of "fix my PR".
 3. **Then stop and ask** — never auto-post to the review conversation (headless runs don't ask: they follow the caller's `reply=`/`resolve=` policy, defaulting to draft-only — see [Headless](#headless--driven-by-another-skill)):
    - *Reply to each thread with how it was addressed?* Drafted replies cite the fix commit and, for refuted comments, the refuting evidence (politely: "checked this — see snippet/output; happy to change it anyway if you prefer").
-   - *Resolve/close the threads that were fixed?* GitHub → resolve via GraphQL `resolveReviewThread`; Azure DevOps → set thread status `fixed`/`closed` via [azure-devops-pr-review](../azure-devops-pr-review/SKILL.md).
+   - *Resolve/close the threads that were fixed?* GitHub → resolve via GraphQL `resolveReviewThread`; Azure DevOps → set thread status `fixed`/`closed` via [AZURE-DEVOPS.md](../code-review-grill/AZURE-DEVOPS.md).
 4. Post only what the user approves; post one reply first, confirm it landed, then the rest. Refuted threads are replied to but left **unresolved** unless the user says otherwise — the reviewer gets to disagree.
 
 ## Headless — driven by another skill
@@ -81,8 +81,8 @@ When another skill or an unattended context invokes fix-pr, there is no user to 
 
 1. **Mode coerces to auto.** Interactive and the interactive half of hybrid are impossible; every confirmed comment gets the recommended fix. All the invariants that don't need a human still hold in full: fact-check gate, ripple trace, TDD red→green with tests committed, house bias.
 2. **What would have been a question becomes a report line.** Unverifiable comments, refuted comments, and confirmed-but-declined items (e.g. a comment asking to weaken security) are **not** silently decided and **not** blocked on — they are skipped with the evidence recorded and returned to the caller as `needs-discussion`, exactly as a human would have received them.
-3. **Posting follows the caller's stated policy, never a guess.** The caller may pass `reply=post|draft` and `resolve=fixed|none`. If the caller specified nothing, the safe default is **draft, post nothing**: pushing the fix commit is still automatic and still subject to the still-open check in Step 4 (it is the point of the run), but replies and thread resolution stay as drafted text in the report — "never auto-post to the review conversation" survives headless mode by routing the consent to the principal, not by dropping it.
-4. **Return a structured report** the caller can consume without re-reading the run: per-comment outcome (`C<n> → fixed <option> | refuted <evidence> | needs-discussion <why>`), the fix commit SHA(s), the tests added, the ripple findings handled, and the drafted (or posted) replies. sdlc-old-fashioned-style callers feed this straight into their own review/retrospective steps.
+3. **Posting follows the caller's stated policy, never a guess.** The caller may pass `reply=post|draft` and `resolve=fixed|none`. If the caller specified nothing, the safe default is **draft, post nothing**: pushing the fix commit is still automatic and still subject to the still-open check in Step 4 (it is the point of the run), but replies and thread resolution stay as drafted text in the report.
+4. **Return a structured report** the caller can consume without re-reading the run: per-comment outcome (`C<n> → fixed <option> | refuted <evidence> | needs-discussion <why>`), the fix commit SHA(s), the tests added, the ripple findings handled, and the drafted (or posted) replies.
 
 ## The house bias (what "best option" means here)
 

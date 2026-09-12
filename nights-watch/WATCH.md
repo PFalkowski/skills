@@ -5,13 +5,13 @@
 - **`parallel`** — tickets in flight at once. **Default 1**: the Watch works one ticket at a time unless the user raises it.
 - **`max-workers`** — hard cap on the pool. **Default 3**. `parallel` is always clamped to it; raising `parallel` past 3 requires the user to raise `max-workers` explicitly too.
 
-Both are user-configurable per invocation (or in the standing loop's brief); the defaults are the Watch's minimalism, not a technical limit.
+Both are user-configurable per invocation (or in the standing loop's brief).
 
 **What "in flight" means, exactly.** A ticket holds its worker slot from dispatch until its **grill returns** — implementation and review are one unit of work, not two. So `parallel=1` means one ticket is being *either* implemented or reviewed at any moment, never one of each. This is deliberate: a ticket isn't done until it's grilled, so releasing the slot at the ranger's return would report a throughput the gate hasn't caught up with, and let a second ranger start while the first PR is still unreviewed.
 
-The cost is honest: adding the grill lengthened each slot by roughly the review's share of the ticket (a grill reads a diff where a ranger builds the change — call it 10–25%, and calibrate from your own journal). **The default stays 1.** That cost doesn't justify raising it — a bump to 2 would overcompensate several times over while doubling the concurrent-mutation surface, and Oath rule 5's default is a minimalism choice, not a throughput tuning. Raise `parallel` when *you* want more throughput and the repo tolerates concurrent branches, not to pay for the grill.
+**The default stays 1.** Raise `parallel` when *you* want more throughput and the repo tolerates concurrent branches, not to pay for the grill.
 
-**Rangers are always isolated by `isolation: 'worktree'` — at `parallel=1` too.** `parallel` bounds *tickets in flight*, which is not the same quantity as *writers in the working tree*, and the old rule conflated them: it dropped isolation for a lone ranger on the reasoning that one worker cannot collide with itself. But the ranger shares that tree with a concurrently-running hunt and grill (the modes run at the same time by design — [SKILL.md](SKILL.md)) and with the human whose checkout it is. An unattended ranger switching branches and writing files under someone's open editor at 3am is the messy case, not the safe one. One worktree per ticket is the price; what it buys is that nothing the Watch does at night can touch what you are looking at.
+**Rangers are always isolated by `isolation: 'worktree'` — at `parallel=1` too.** `parallel` bounds *tickets in flight*, which is not the same quantity as *writers in the working tree*: the ranger shares that tree with a concurrently-running hunt and grill (the modes run at the same time by design — [SKILL.md](SKILL.md)) and with the human whose checkout it is.
 
 **Grills, judges, premise gates, and claim/release agents are not isolated, and share the main working tree by design** — cheap agents, and most of their work is reading. That only holds if every one of them stays read-only in the shared tree, so **every non-isolated prompt** must say so explicitly — not just the grill's — naming the actual forbidden commands (bare `git checkout <ref>`, `git switch`, `git reset`, `git stash`, `git pull`, `git merge`: anything that moves HEAD, the branch, or the index in the inherited cwd) rather than a vague "read-only," and sends any agent needing a build or a real checkout into its own throwaway worktree (`git worktree add <tmp> <ref>`) instead. Two incidents (2026-08-22) confirmed "read-only" alone isn't enough: a premise agent's `git add` reverted tracked files in the shared tree, and a grill agent ran a bare `git checkout <branch>` that left the shared worktree's HEAD detached — both from prompts that gestured at read-only without listing the commands that actually violate it. Loosen this and concurrent agents will corrupt each other's checkout, sometimes silently.
 
@@ -25,25 +25,50 @@ The Watch runs as a self-pacing loop (`/loop` dynamic mode / ScheduleWakeup wher
 
 The watcher carries almost nothing between patrols on purpose: the tracker labels are the state machine, the journal is the logbook, and the Library ([LIBRARY.md](LIBRARY.md)) is the long-term memory. Any fresh context can take the next patrol from those three alone.
 
+## The notice — one pinned sign per board
+
+Oath rule 9 requires the notice. It is the watcher's own work — one `gh` call and at most one write, which is exactly the "one cheap shell command" rule 2 permits on the main context.
+
+**The title carries the mark.** `🐺 Autonomous agents may claim issues here` — the wolf first, the non-liveness wording after it. GitHub pins at most three issues; the mark is what makes the Watch's card resolve at a glance, and what makes it re-findable months later by whoever comes to stand the Watch down. This is the one place the Watch signs anything: rule 8's stealth governs commits and PRs, and the notice is the deliberate exception.
+
+**Three states, one of which writes.** The muster already lists the board ([SKILL.md](SKILL.md) § One patrol), so ask it for the pin state in the same call and the check costs nothing:
+
+```bash
+gh issue list --state open --json number,title,labels,isPinned
+```
+
+Match the notice on the mark in the returned titles — locally, the way a title regex selector is matched, never as a tracker-side search for an emoji.
+
+| What the board shows | What the watcher does |
+|---|---|
+| The notice, pinned | Nothing. This is the common case and it must stay silent |
+| The notice, not pinned | `gh issue pin <n>` — an earlier watch filed it without pinning, or a human unpinned it |
+| A notice without the mark | `gh issue edit <n> --title '🐺 …'`, then pin it. A one-time correction of an unmarked sign, not a retitle to track status — rule 9 forbids the second, not the first |
+| No notice at all | `gh issue create` with the body rule 9 specifies, then `gh issue pin <n>` |
+
+**Never open a second one.** The board is the state; a patrol that files from memory rather than from that listing duplicates the sign every time a fresh context takes the wall.
+
+**When the three pin slots are full, report — don't evict.** `gh issue pin` fails once three issues are pinned. The pinned strip is the humans' front page, and silently unpinning someone's issue to advertise the Watch is precisely the unasked-for board change rule 7 refuses to enact. So the notice is filed unpinned, and the watcher tells the user in the session report: the notice exists, here is its number, three slots are taken, unpin one and the next patrol will pin it. The next patrol's check picks it up the moment a slot opens.
+
+**On a tracker without pinning**, use whatever that tracker's equivalent front-and-centre surface is (a Jira board description linking the notice, a wiki banner). If it has none, say so in the report and fall back to the marker beside the journal.
+
 ## Stamped output — which run said this, and when did it start
 
-Every mode of the Watch runs on its own cadence, unattended, possibly for days, and they run **concurrently** ([SKILL.md](SKILL.md)). So a terminal scrollback holds interleaved output from a patrol, an hourly hunt, and a 45-minute grill, with no way to tell which run any line belongs to — and "was this from the 03:00 hunt or the 04:00 one?" is the first question anyone scrolling back actually has. So **every mode stamps its output**, in one format:
+Every mode of the Watch runs on its own cadence, unattended, and they run **concurrently** ([SKILL.md](SKILL.md)). So **every mode stamps its output**, in one format:
 
 ```
 [MM-DD HH:mm] <message>          e.g.  [07-20 09:30] lens injection: 2 candidates
 ```
 
-Short by design: the year is noise on a loop you read within the day, and seconds are noise on a cadence measured in minutes.
-
-**The watcher takes the time; the script cannot.** This is not a style preference, it is the only available design: **a workflow script has no clock at all** — `Date.now()` and argless `new Date()` **throw** inside one (they would break resume). So the watcher stamps at dispatch, with a real shell clock, and passes it in:
+**The watcher takes the time; the script cannot.** **A workflow script has no clock at all** — `Date.now()` and argless `new Date()` **throw** inside one (they would break resume). So the watcher stamps at dispatch, with a real shell clock, and passes it in:
 
 ```powershell
 $stamp = Get-Date -Format 'MM-dd HH:mm'      # bash: date +'%m-%d %H:%M'
 ```
 
-Two rules follow from that, and both matter:
+Two rules follow:
 
-1. **The stamp marks the RUN, not the line.** Every line of one dispatch carries the same stamp, because the script cannot observe time passing. That is still the grouping worth having — it answers "which run produced this" — but it must never be presented as a per-line timestamp, because it is not one and nobody can make it one from in there.
+1. **The stamp marks the RUN, not the line.** Every line of one dispatch carries the same stamp, because the script cannot observe time passing. It must never be presented as a per-line timestamp.
 2. **No stamp means no prefix.** When `startedAt` is absent the line is logged bare. The tempting alternative renders `[undefined]`, which reads exactly like a real timestamp to someone scanning a log at 3am — a wrong answer that looks like an answer, which is worse than no answer.
 
 Each mode logs a banner in the CLI at the start and end of every wake, so the boundaries are visible even when the run itself is quiet:
@@ -53,7 +78,7 @@ Each mode logs a banner in the CLI at the start and end of every wake, so the bo
 [07-20 09:41] hunt: done — 1 confirmed, 2 refuted, watermark advanced
 ```
 
-An empty wake still prints its pair. A quiet run and a dead run are indistinguishable otherwise, which is Oath rule 7 applied to the terminal.
+An empty wake still prints its pair. A quiet run and a dead run are indistinguishable otherwise.
 
 ## Dispatch — the worker pool
 
@@ -70,7 +95,7 @@ export const meta = {
 //                     chronicleDir}],         // a DIR — opus only; the workhorse writes one file per agent
 //         libraryIndex: '<repo>/.nights-watch/library/INDEX.md',
 //         workhorsePath: '<abs path to the skills repo>/.claude/workflows/sdlc-workhorse.js',
-//         lockDir: '<repo>/.nights-watch/locks',   // where claim advertisements live
+//         lockDir: '~/.agent-state/<repo-slug>/nights-watch/locks',   // where claim advertisements live
 //         lockTtlMin: 90,                          // staleness marker written into owner.md
 //         startedAt: '07-20 09:30',                // the WATCHER's clock at dispatch (MM-DD HH:mm).
 //                                                  // The script has none — Date.now() throws in here.
@@ -161,10 +186,11 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        anything in it. If proving a claim needs a build or a real checkout, make your
        own worktree (git worktree add <tmp> <ref>), work there, and remove it when done.
        MANDATORY — run the "fact-check" skill on EVERY load-bearing claim before you
-       record it. Decompose each into independently verifiable sub-claims and prove each
-       with the strongest evidence available: executable → run it and paste the ACTUAL
-       output; about this codebase → cite the exact path:line; documentable → two or more
-       independent authoritative sources. UNPROVABLE = FALSE. A claim you cannot ground
+       record it. Decompose each into independently verifiable sub-claims and prove each:
+       an executable claim — what the code does at runtime — is grounded only by running
+       it and showing the real output, never by an in-repo citation or a source link in
+       its place; about this codebase → cite the exact path:line; documentable → two or
+       more independent authoritative sources. UNPROVABLE = FALSE. A claim you cannot ground
        does not get hedged into the premise ("likely", "should be") — it is EXCLUDED and
        listed as an open question. ONLY CLAIMS YOU PROVED ARE HELD.
        Discovering the ticket's own premise is wrong is a SUCCESS of this gate: say so,
@@ -234,7 +260,8 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
            started: <the REAL current UTC time — get it from the shell, e.g. date -u +%FT%TZ>
            host:    <hostname>
            note:    released when the ranger returns or the patrol reaps it; stale past ${A.lockTtlMin} min
-         Return {claimed:true}.`,
+         Post the holder/tier/host/started lines as a comment on ticket ${t.id} too, so the
+         board shows who holds it and since when. Return {claimed:true}.`,
         { label: `claim:${t.id}`, phase: 'Rangers', model: 'haiku', effort: 'low',
           schema: { type:'object', properties:{ claimed:{type:'boolean'} }, required:['claimed'] } }
       )
@@ -284,9 +311,11 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        Truth before all: at every critical decision moment — a root-cause call, a design
        fork, before any unverified fact (API behavior, version/compat, copied number)
        enters code — run the "fact-check" skill: decompose the decision into smaller
-       verifiable sub-claims and prove each (runnable experiment + output, or independent
-       authoritative sources). Unprovable = false. Refuted premise = return blocked with
-       the evidence; proven facts carry their proof into the PR.
+       verifiable sub-claims and prove each — an executable claim is grounded only by
+       running it and showing the real output, never by an in-repo citation or a source
+       link in its place; otherwise, an in-repo citation or independent authoritative
+       sources. Unprovable = false. Refuted premise = return blocked with the evidence;
+       proven facts carry their proof into the PR.
        Do NOT review your own diff for the record — the grill is not your job and you
        cannot run it (you have no Agent/Task tool to spawn a reviewer with). The patrol
        script dispatches a fresh reviewer against your PR after you return.
@@ -335,9 +364,14 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
          Read the repo's own docs first (README, docs/adr, contributing/coding guidelines)
          and judge the diff against THIS project's documented conventions.
          Grill it hunk by hunk: what must be true for this to be correct? what input breaks
-         it? what caller relied on the old behavior? Verify every finding before reporting
-         it — a runnable snippet with its output, an in-repo citation (path:line), or an
-         authoritative link. Speculation is not a finding; drop it.
+         it? what caller relied on the old behavior? An executable claim — what the code
+         does at runtime — is grounded only by running it and showing the real output,
+         never by an in-repo citation or a source link in its place; if it was not run it
+         is withheld rather than reported anyway, and is listed under **Not run** — in
+         your returned summary below, the only field this schema has for it — with the
+         reason and the command that would settle it. A claim about this codebase is grounded by
+         an in-repo citation (path:line); about an API or spec, by an authoritative link.
+         Speculation is not a finding; drop it.
          Ticket context (all you get — do not ask the author): ${t.title}
          ${t.brief}
          TDD IS MANDATORY HERE — verify it held, and treat a breach as a finding:
@@ -357,7 +391,8 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
          Post the confirmed findings to the PR as an ordinary review. Write as any reviewer
          would: nothing in the review names the Watch, nights-watch, "ranger", the grill, or
          otherwise reveals an automated process (Oath rule 8).
-         Return JSON: {reviewed, findingsPosted, blocking, summary}.`,
+         Return JSON: {reviewed, findingsPosted, blocking, summary} — summary is also
+         where any Not-run list goes; this schema has no separate field for it.`,
         { label: `grill:${t.id}`, phase: 'Grill', model: t.tier, effort: t.effort,
           schema: { type: 'object',
             properties: { reviewed: {type:'boolean'}, findingsPosted: {type:'number'},
@@ -388,8 +423,8 @@ return { results, unworked }
 Notes on the template:
 
 - **Sanity-check the shared tree after any non-isolated dispatch, before your own next commit.** A cheap `git branch --show-current` / `git status --short` costs nothing and is the only thing that caught two separate incidents of a non-isolated agent mutating the watcher's own working tree (a reverted file staged by a stray `git add`, and a detached `HEAD` from a bare `git checkout <branch>`) — both from agents that were told to stay read-only and didn't. `git checkout -- <path>` is not sufficient recovery on its own if the index was also touched; use `git checkout HEAD -- <path>` (or, for a branch switch, `git checkout <your-branch>`) to restore from the commit, not the index.
-- **`isolation: 'worktree'` is unconditional — including at `parallel=1`.** The old rule dropped it for a lone ranger, on the reasoning that one worker cannot collide with itself. That counts the wrong thing: what needs protecting is the **working tree**, and the ranger is never its only user. A hunt's refuters and a grill both read it, the modes run concurrently by design ([SKILL.md](SKILL.md)), and the human whose checkout this is has tabs open in it. A lone ranger switching branches and writing files under someone else's editor is the *messy* case, not the safe one — `parallel=1` bounds tickets in flight, never tree users. The cost is one worktree per ticket; the thing it buys is that an unattended 3am ranger can never touch what you are looking at.
-- **The advertisement is identity-bearing, and released on every path.** `mkdir` is atomic, so it doubles as the claim; `owner.md` inside names the holder, ticket, tier, branch, start time, and host — enough for whoever finds it at 9am to know what it is and whether it is still live. Release is in a `finally`, so it survives a dead ranger, a thrown grill, and a budget stand-down; the `lockTtlMin` staleness marker is the backstop for the crash that skips even that, not the mechanism. **The script cannot do this I/O itself** — a workflow script has no filesystem access, and `Date.now()` throws (it would break resume) — so the stamping and the reaping are `haiku` agents the script *orders*. Ownership stays with the script; only the hands are borrowed. A release that fails is swallowed deliberately: it must never mask the ticket's own outcome, and the TTL will catch it.
+- **`isolation: 'worktree'` is unconditional — including at `parallel=1`.** `parallel` bounds tickets in flight, never tree users.
+- **The advertisement is identity-bearing, and released on every path.** `mkdir` is atomic, so it doubles as the claim; `owner.md` inside names the holder, ticket, tier, branch, start time, and host — enough for whoever finds it at 9am to know what it is and whether it is still live. Release is in a `finally`, so it survives a dead ranger, a thrown grill, and a budget stand-down; the `lockTtlMin` staleness marker is the backstop for the crash that skips even that, not the mechanism. **The script cannot do this I/O itself** — a workflow script has no filesystem access, and `Date.now()` throws (it would break resume) — so the stamping and the reaping are `haiku` agents the script *orders*. A release that fails is swallowed deliberately: it must never mask the ticket's own outcome, and the TTL will catch it.
 - **`model: t.tier`** comes from triage ([TRIAGE.md](TRIAGE.md)), never hardcoded to the session tier. Escalation retries are a *second* `agent()` call by the watcher after reading results — keep the pool itself simple.
 - The queue-shift pool means a fast haiku chore doesn't hold a slot while an opus ticket grinds — workers rebalance naturally.
 - The watcher, not the workers, updates tracker labels/comments from `results` — workers get no tracker-write instructions, which keeps the report step consistent and idempotent.
@@ -397,21 +432,19 @@ Notes on the template:
 - **`workhorsePath`, not `{name:}`.** Named resolution reads `.claude/workflows/` in the repo the patrol is *running in* — almost never this one. Pass an absolute `scriptPath` to this repo's copy. Without it, opus tickets return blocked rather than silently degrading to a lesser process: an un-run gate is visible, a skipped one is not.
 - **CRLF workflow files break `scriptPath` dispatch on Windows.** If the approval dialog rejects a `scriptPath` dispatch as containing hidden control characters, the target `.js` has CRLF line endings and the validator is counting each `\r`. A `.gitattributes` rule (`*.js text eol=lf`) is the right repo-level fix, but it only takes effect on a fresh checkout and `core.autocrlf=true` can still reintroduce CRLF, so it is not a reliable guarantee on an existing clone. The dependable, environment-independent workaround is to read the script file and pass its **contents inline via `script`** (still this repo's copy, just LF-clean) rather than `scriptPath` — don't re-diagnose it as file corruption or a permissions problem.
 - **The watcher opens the PR for workhorse tickets.** The workhorse commits but never pushes, publishes, or merges — that line is enforced by absence in its script, and the patrol must not smuggle it back in through the ranger prompt. So a `needsPr` result is the watcher's job: push the branch, open the PR referencing the ticket, then label. Rangers on the other tiers still open their own PRs; only this tier splits the work.
-- **The workhorse's own grill satisfies the review gate.** Its per-slice fresh-agent grill already refute-tests every finding, so don't re-grill by reflex — that's paying twice for the same gate. Add a `code-review-grill` quorum only when its report shows no review ran. The opus branch `continue`s before the grill stage for exactly this reason: workhorse tickets are grilled inside the child workflow, and passing them through the patrol's grill stage as well would double-pay. (It would also have nothing to grill at that point — the workhorse never pushes, so there is no PR until the watcher opens one at report time.)
+- **The workhorse's own grill satisfies the review gate.** Its per-slice fresh-agent grill already refute-tests every finding, so don't re-grill by reflex — that's paying twice for the same gate. Add a `code-review-grill` quorum only when its report shows no review ran. The opus branch `continue`s before the grill stage for exactly this reason: workhorse tickets are grilled inside the child workflow, and passing them through the patrol's grill stage as well would double-pay.
 
-- **The grill is dispatched by the script, not by the ranger — and it has to be.** This is the fix for [#46](https://github.com/PFalkowski/skills/issues/46), where 9 rangers across 3 patrols each discovered the same wall independently. An `agent()` running inside a Workflow has **no `Agent`/`Task` tool** — `ToolSearch` from in there surfaces only `TaskStop`/`EnterWorktree`/`SendMessage`/`CronCreate`/`PushNotification` (verified again while writing this). So a ranger told to "grill your diff with a fresh reviewer" cannot comply: the best it can do is review its own diff and disclose the substitution, which is the one thing the gate exists to prevent — an author grading their own work never catches a flaw in their own *reasoning*. The script's own `agent()` calls are not nested spawns, so moving the grill one level up to where the pool already lives costs nothing and restores the real guarantee. Verified: a script-dispatched second-stage agent has no knowledge of the first stage's context, and holds `Skill` (with `code-review-grill` listed) plus `Bash`/`gh` to post the review.
+- **The grill is dispatched by the script, not by the ranger — and it has to be.** This is the fix for [#46](https://github.com/PFalkowski/skills/issues/46). An `agent()` running inside a Workflow has **no `Agent`/`Task` tool** — `ToolSearch` from in there surfaces only `TaskStop`/`EnterWorktree`/`SendMessage`/`CronCreate`/`PushNotification` (verified again while writing this). So a ranger told to "grill your diff with a fresh reviewer" cannot comply: the best it can do is review its own diff and disclose the substitution, which is the one thing the gate exists to prevent — an author grading their own work never catches a flaw in their own *reasoning*. The script's own `agent()` calls are not nested spawns, so moving the grill one level up to where the pool already lives costs nothing and restores the real guarantee. Verified: a script-dispatched second-stage agent has no knowledge of the first stage's context, and holds `Skill` (with `code-review-grill` listed) plus `Bash`/`gh` to post the review.
 
-- **Scope the composed skills to what a ranger can actually run.** Removing the grill from the ranger prompt is not enough on its own, because the instruction comes back *transitively*: `nightshift`'s LOOP step 7 is an adversarial code review that says "spawn a FRESH reviewer subagent", and LOOP's rules also say "don't review your own diff". A ranger told to follow that discipline is handed an instruction it cannot obey and a prohibition against the obvious fallback — the same wall as #46, reached through a different door. So the prompt scopes it explicitly: LOOP steps 1–6, step 7 belongs to the script. The general rule when composing any skill into a ranger prompt: **check whether its mechanism is spawning, and if so, name the step and say who really runs it.** A skill whose value is a second pair of eyes always has this shape.
+- **Scope the composed skills to what a ranger can actually run.** Removing the grill from the ranger prompt is not enough on its own, because the instruction comes back *transitively*: `nightshift`'s LOOP step 7 is an adversarial code review that says "spawn a FRESH reviewer subagent", and LOOP's rules also say "don't review your own diff". A ranger told to follow that discipline is handed an instruction it cannot obey and a prohibition against the obvious fallback — the same wall as #46, reached through a different door. So the prompt scopes it explicitly: LOOP steps 1–6, step 7 belongs to the script. The general rule when composing any skill into a ranger prompt: **check whether its mechanism is spawning, and if so, name the step and say who really runs it.**
 
 - **Single reviewer, never a quorum, inside the pool.** For the same reason: the grill agent can't spawn subagents either, so `code-review-grill`'s quorum mode is unavailable to it. One adversarial reviewer is the gate at ranger tiers. A quorum needs a caller that holds `Agent` — the watcher itself, after the patrol, on a ticket load-bearing enough to deserve it.
 
-- **Normalize `args` before touching it, and fail loudly.** `args` can reach the script as a **JSON-encoded string** rather than the object you passed — reproduced live while writing this fix, and the second finding in [#46](https://github.com/PFalkowski/skills/issues/46), where it left `repo`/`base`/`chronicleDir` as the literal `undefined` in every ranger prompt and scattered chronicles across five invented directories. `typeof args === 'string' ? JSON.parse(args) : args` costs one line and makes the template robust either way. The validation that follows is the other half: a patrol that throws on a malformed brief is debuggable, while one that proceeds with `undefined` paths does a night's work into the wrong place and reports success.
+- **Normalize `args` before touching it, and fail loudly.** `args` can reach the script as a **JSON-encoded string** rather than the object you passed — the second finding in [#46](https://github.com/PFalkowski/skills/issues/46), where it left `repo`/`base`/`chronicleDir` as the literal `undefined` in every ranger prompt and scattered chronicles across five invented directories. `typeof args === 'string' ? JSON.parse(args) : args` costs one line and makes the template robust either way. The validation that follows is the other half: a patrol that throws on a malformed brief is debuggable, while one that proceeds with `undefined` paths does a night's work into the wrong place and reports success.
 
-- **`grilled` gates `ai-done`.** The watcher labels `ai-done` only for results carrying `grilled: true`. A ticket whose grill agent died comes back with `grilled: false` and a summary saying so — report it as blocked-on-review rather than done, because an un-run gate must be visible. Silence here is exactly the failure #46 describes: a patrol reporting "all grilled" while the gate ran degraded all night.
+- **`grilled` gates `ai-done`.** The watcher labels `ai-done` only for results carrying `grilled: true`. A ticket whose grill agent died comes back with `grilled: false` and a summary saying so — report it as blocked-on-review rather than done, because an un-run gate must be visible.
 
 ## Token watching
-
-The Watch treats tokens like the Wall treats firewood: counted, planned, never wasted.
 
 - **Reserve per ticket.** Estimate conservatively (~240k output tokens for a sonnet ticket; halve for haiku, triple for opus — recalibrate from your own journal, below). The sonnet figure is a measured mean from one 6-ticket patrol on 2026-07-16; treat it as a starting point, not a constant, until more patrols have widened the sample. A worker isn't started unless the remaining budget covers its reserve.
 - **Plan the wave, don't discover the wall.** Before dispatch, if `budget.total` is set: max tickets this patrol ≈ `budget.remaining() / avg reserve`. Triage the whole muster but dispatch only what fits; defer the rest with a log line and leave them unclaimed so nothing sits claimed-but-starved. Before dispatch also run TRIAGE.md's [overlap check](TRIAGE.md#overlap-check--before-dispatch) over the wave you're about to send — two tickets touching the same files must be serialized, stacked, or merged, not raced.
@@ -420,7 +453,7 @@ The Watch treats tokens like the Wall treats firewood: counted, planned, never w
 
 ## The watch journal
 
-Append one entry per patrol to `.nights-watch/journal.md` (or the path the user configures — see [LIBRARY.md](LIBRARY.md) for the full `.nights-watch/` layout):
+Append one entry per patrol to `~/.agent-state/<repo-slug>/nights-watch/journal.md` (or the path the user configures — see [LIBRARY.md](LIBRARY.md) for the full layout, and for the one-release fallback to the old root):
 
 ```md
 ## Patrol <n> — <tickets mustered>/<triaged ready>/<dispatched>
@@ -429,4 +462,4 @@ Append one entry per patrol to `.nights-watch/journal.md` (or the path the user 
 - budget: <spent>k spent / <target or none>
 ```
 
-The journal is the Watch's memory across contexts and its calibration data for token reserves. Keep entries terse — it's a logbook, not a saga.
+Keep entries terse — it's a logbook, not a saga.

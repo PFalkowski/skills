@@ -6,10 +6,10 @@
   },
   "skills": [
     "./auto-mode-setup",
-    "./azure-devops-pr-review",
     "./clean-room",
     "./code-review-grill",
     "./context-reduction",
+    "./dead-branch-guard",
     "./desloppify",
     "./dump-sessions",
     "./evolve-skill",
@@ -19,6 +19,7 @@
     "./go-go-go",
     "./handoff",
     "./housekeeping",
+    "./invert",
     "./less-is-more",
     "./manager",
     "./merge-stack",
@@ -29,8 +30,10 @@
     "./postmortem",
     "./prompt-backlog",
     "./recurring-improvement",
+    "./reflect",
     "./refresh-nuget-repo",
     "./runbook",
+    "./save-tokens",
     "./sdlc-old-fashioned",
     "./signal-verdict",
     "./snapshot-terminal-sessions",
@@ -38,6 +41,7 @@
     "./triage",
     "./walk-the-dog",
     "./whatever",
+    "./whats-next",
     "./wrap-up"
   ]
 }

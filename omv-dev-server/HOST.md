@@ -1,14 +1,10 @@
 # Host, users, storage
 
-OpenMediaVault on a Debian base. OMV is a NAS appliance that keeps its own configuration
-database and regenerates system files from it, so the first decision on this box is *what
-OMV owns and what you own*.
-
 ## What OMV owns, and what that costs you
 
 Users, groups, shared folders and Compose files created through the OMV web UI are written
 from OMV's database on every "Apply". Anything you change by hand in those files is lost at
-the next apply. Two consequences worth knowing before you start:
+the next apply:
 
 - Create the dev user **through the web UI**, not `useradd`. Only UI-created users can
   later become Samba accounts, which is what lets one identity serve SSH, the container,
@@ -19,8 +15,6 @@ the next apply. Two consequences worth knowing before you start:
 
 ## Storage layout
 
-Decide two things: which disk, and inside or outside the file-sharing export.
-
 ```
 /srv/dev-disk-by-uuid-<DISK_UUID>/     # the data disk, not the OS disk
 └── dev/
@@ -28,9 +22,8 @@ Decide two things: which disk, and inside or outside the file-sharing export.
     └── dev-home/                       # the container's HOME                     (0700)
 ```
 
-Put both on a **data disk**, not the OS disk. On many OMV boxes the OS disk is small or
-removable; even where it is not, keeping dev data off it means an OS reinstall costs you
-nothing. Symlink them into the dev user's home so nobody types a UUID path:
+Put both on a **data disk**, not the OS disk. Symlink them into the dev user's home so
+nobody types a UUID path:
 
 ```bash
 ln -sfn /srv/dev-disk-by-uuid-<DISK_UUID>/dev/repos    ~/repos
@@ -47,12 +40,9 @@ copy them out over SSH.
 
 ### If the data disk is removable
 
-A USB-attached disk is a removable device that everything above it treats as fixed. That
-mismatch costs you three things, and only the first is obvious.
-
 **Mount it `errors=remount-ro`.** ext4 defaults to `Continue`, which keeps issuing writes to
 a filesystem the kernel can no longer reach. On a disk whose cable can wobble, that turns a
-link glitch into silent corruption rather than a visible outage. One command, reversible:
+link glitch into silent corruption rather than a visible outage:
 
 ```bash
 tune2fs -e remount-ro /dev/<DATA_PART>

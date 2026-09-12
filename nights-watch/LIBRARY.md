@@ -1,33 +1,44 @@
 # The Library & the fire — memory of the Watch
 
-Two layers, deliberately separate: **chronicles** (per-agent, raw, written as the work happens) and **the Library** (shared, curated, updated only at the gathering at the fire after work completes). Rangers write chronicles freely; only the fire writes the Library. This is the loyal-dog idea scoped to the Watch: durable facts survive any single context, and recall stays cheap because rangers read an index, not a corpus.
+Two layers, deliberately separate: **chronicles** (per-agent, raw, written as the work happens) and **the Library** (shared, curated, updated only at the gathering at the fire after work completes). Rangers write chronicles freely; only the fire writes the Library.
 
 ## Layout
 
-All memory lives under `.nights-watch/` at the **main repo root** (configurable; committed to the repo so it survives clones and travels with the project — with one exception, `hunts/`, noted below):
+Memory sits in two roots, split by whether a human is meant to read it.
+
+The **Library** is committed at the main repo root, so it survives clones and travels with the project.
 
 ```
 .nights-watch/
+  library/
+    INDEX.md               # one line per entry: - [title](slug.md) — hook
+    <slug>.md              # one durable fact per file
+```
+
+Everything else records only *that* a run happened, so it lives under the house state root from [agent-state.md](../docs/agent-state.md) — outside the tree, so it outlives the worktree that wrote it:
+
+```
+~/.agent-state/<repo-slug>/nights-watch/
   journal.md               # patrol logbook (see WATCH.md § The watch journal)
   chronicles/              # per-agent, append-as-you-go, raw — one file per ranger run
     <date>-<ticket-id>.md
-  hunts/                   # the Hunt's state + reports — NOT memory, and NOT here on a public repo
+  locks/                   # claim advertisements, one directory per ticket
+  hunts/                   # the Hunt's state + reports — NOT memory
     state.md               # the watermark: what has already been examined
     ledger.md              # fingerprints of reported findings, so the horn never blows twice
     carry.jsonl            # candidates found but not yet refuted — rewritten each hunt, never appended
     .lock/                 # in-flight marker (a directory — mkdir is atomic)
     INDEX.md
     <date>-<n>.md
-  library/
-    INDEX.md               # one line per entry: - [title](slug.md) — hook
-    <slug>.md              # one durable fact per file
 ```
 
-`hunts/` sits beside the Library, not inside it, and the distinction is the one this file is built on. A Library entry is *memory*: written by the fire, read as a hint, and — per § Recall — fair game for a ranger who observes it to be wrong. The watermark and the ledger are *law*: there is nothing to fact-check them against, and an agent "correcting" a watermark silently re-scans or skips a delta. So the Hunt's state is machine-written, machine-read, and never curated. What the Hunt *does* contribute to the Library is what the fire is for: which lenses produce noise on this repo, and what each one costs (`calibration`). See [HUNT.md](HUNT.md).
+`AGENTS_STATE=.agent-state` moves the second root into the checkout and leaves the first alone: the Library is not run state and never follows it. On a **public** repo, never set it — the ledger names the file and severity of live unfixed flaws, and an ignored file is one `git add -f` from being published ([HUNT.md](HUNT.md) § Where the state root is).
 
-One consequence worth stating here, because it is the single exception to this file's opening line: on a **public** repo, `hunts/` **is not in the repo at all** — the state root moves to `~/.nights-watch/<repo-slug>/` (or wherever `state=` names). The ledger records the file and severity of live unfixed flaws, and committing that publishes exactly what the Hunt's disclosure rule withheld. Gitignoring it in place is the obvious move and the wrong one — an ignored file still sits in the tree, one `git add -f` from publication, and an ignored file is per-clone, which silently costs the incrementality and dedup the ledger exists for. [HUNT.md](HUNT.md) § Where the state root is has the full trade.
+**On a repo that has not migrated yet.** For one release, read the new path first and fall back to the retired one when the new path is absent and the old one exists, noting the fallback in the patrol summary. Always *write* to the new path, so a repo migrates by being run. The retired paths are listed in [agent-state.md](../docs/agent-state.md) § Retired paths, not here, because a skill that names its own retired path fails the state-path check — that is what stops the migration quietly reverting. **Try both spellings of the journal**: the oldest root's file is `JOURNAL.md` on the repos that have one, and a case-sensitive filesystem will not find it under the lowercase name the layout above uses.
 
-Chronicles and the Library stay committed on every repo: a curated convention is not a vulnerability.
+`hunts/` sits in the state root, not in the Library. A Library entry is *memory*: written by the fire, read as a hint, and — per § Recall — fair game for a ranger who observes it to be wrong. The watermark and the ledger are *law*: there is nothing to fact-check them against, and an agent "correcting" a watermark silently re-scans or skips a delta. So the Hunt's state is machine-written, machine-read, and never curated. What the Hunt *does* contribute to the Library is what the fire is for: which lenses produce noise on this repo, and what each one costs (`calibration`). See [HUNT.md](HUNT.md).
+
+The Library stays committed on every repo: a curated convention is not a vulnerability. Chronicles do not — they are raw run notes and stay in the state root.
 
 ## Chronicles — each agent dumps as it goes
 
@@ -76,4 +87,4 @@ After **Report** and before **Return to the wall**, the watcher convenes the fir
 - **The watcher** reads `INDEX.md` at the start of every patrol; `calibration` entries feed wave planning. That patrol-start read is validated the same way `args.tickets` is (WATCH.md § Dispatch): a brief whose `libraryIndex` is missing or the literal string `undefined` fails loudly instead of running blind.
 - **Rangers** get told in their brief to read `INDEX.md` first and open **only the entries relevant to their ticket** (that's what the one-line descriptions are for) — the Library keeps contexts lean, it must never become the thing that bloats them. A ranger that finds the index missing, unreadable, or unresolved says so in its result — it never treats that as "no entries" and proceeds silently.
 - Library entries are memory, not law: they reflect what was true when written. An entry that contradicts what a ranger observes right now is fact-check bait (Oath rule 1) — verify, then fix the entry at the next fire.
-- **Fetch before you read a remote ref — never in the same command as the read, and never before the fetch has completed.** Checking whether the Library (or any entry in it) exists by reading a ref such as `origin/main:.nights-watch/library/INDEX.md` returns whatever was fetched last, which is pre-fetch state if the fetch and the read are combined into one invocation or the fetch was skipped. An empty or missing result from a ref you haven't just watched a fetch bring current proves nothing — it is the "the Library is absent" failure this rule exists to close (Oath rule 1's absence-of-evidence caveat, [SKILL.md](SKILL.md)).
+- **Fetch before you read a remote ref — never in the same command as the read, and never before the fetch has completed.** Checking whether the Library (or any entry in it) exists by reading a ref such as `origin/main:.nights-watch/library/INDEX.md` returns whatever was fetched last, which is pre-fetch state if the fetch and the read are combined into one invocation or the fetch was skipped. An empty or missing result from a ref you haven't just watched a fetch bring current proves nothing (Oath rule 1's absence-of-evidence caveat, [SKILL.md](SKILL.md)).

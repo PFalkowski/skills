@@ -1,8 +1,8 @@
 # NightShift — Adversarial code review (every code item)
 
-The default TDD LOOP proves an item against the test the *implementer* chose to write. That test encodes the implementer's mental model — so it cannot catch the bug the implementer didn't think to test for (the off-by-one in an untested branch, the dropped guard in a refactor, the caller the change just broke). Adversarial code review closes that gap with an **independent** reviewer that hunts for what the green test missed.
+An **independent** reviewer hunts for what the green test missed.
 
-This is distinct from [ADVERSARIAL.md](ADVERSARIAL.md) (data-claim verification): that mode checks *claims about the world* via WebFetch; this mode checks the *implementation* for correctness defects. Same governing principle — **independence** — different target.
+This is distinct from [ADVERSARIAL.md](ADVERSARIAL.md) (data-claim verification): that mode checks *claims about the world* via WebFetch; this mode checks the *implementation* for correctness defects.
 
 ## When it runs
 

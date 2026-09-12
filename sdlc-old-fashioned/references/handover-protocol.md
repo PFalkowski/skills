@@ -1,32 +1,29 @@
 # Handover protocol — mechanics
 
-How the conductor runs each lifecycle phase as its own fresh `claude` process, keeps its own context minimal, and leaves a fully inspectable trail. This is the detail behind **Dial 2 → "fresh process per phase"** and the **handover protocol** section of `SKILL.md`.
+This is the detail behind **Dial 2 → "fresh process per phase"** and the **handover protocol** section of `SKILL.md`.
 
 > Flag names evolve between Claude Code versions. Confirm the exact flags with `claude --help` before relying on them; the *shape* of the protocol (brief in → fresh process → transcript on disk → thin summary out) doesn't change.
 
 ## File layout
 
-Durable deliverables live in the repo and travel with the PR; the per-phase run logs under `docs/sdlc/runs/` are **gitignored** — on disk for inspection and cross-session resume, never in the PR:
+The run's state root — `~/.agent-state/<repo-slug>/sdlc-old-fashioned/`, written `<state>/` here — is outside the tree, so it survives the worktree and never reaches the PR ([agent-state.md](../../docs/agent-state.md)):
 
 ```
-prompts/sdlc-backlog.md          # THE live backlog — deleted when the PR is published (Phase 12)
-docs/sdlc/
-  plan.md                        # Phase 4 design artifact (grilled in Phase 5) — committed
-  runs/                          # GITIGNORED — local only, never committed / in the PR
-    01-guardrails.brief.md       # exactly what the phase agent received
-    01-guardrails.log            # tee'd, human-readable transcript of the run
+<state>/
+  backlog.md                           # THE live backlog
+  runs/
+    01-guardrails.brief.md             # exactly what the phase agent received
+    01-guardrails.log                  # tee'd, human-readable transcript of the run
     02-specify.brief.md
     02-specify.log
     04-plan.brief.md
     05-plan-review.brief.md
-    07-red-S2.brief.md           # per-slice phases carry the slice id
+    07-red-S2.brief.md                 # per-slice phases carry the slice id
     08-impl-S2.log
     ...
-  reflections/
-    2026-07-06-retro.md          # Phase 13 output — a few lines, committed
 ```
 
-Add `docs/sdlc/runs/` to the repo's `.gitignore` in Phase 1. The canonical, replayable transcript is *also* written by the harness itself (see "Transcript capture" below) — the `.log` is the convenience copy.
+The spec, plan, review notes, verdicts and retro are **posted on the PR** — in the body, in a comment, or on a linked issue — not committed into the tree. What gets committed is what a reader would open without knowing a run happened: the ADRs, the runbooks, a lessons entry. A repo whose `CLAUDE.md` names its own committed home for agent process records overrides that; Phase 1 finds it. The canonical, replayable transcript is *also* written by the harness itself (see "Transcript capture" below) — the `.log` is the convenience copy.
 
 ## Orient & isolate (Step 0.7)
 
@@ -44,7 +41,7 @@ git worktree list
 git worktree add ../<repo>-<feature> -b <feature-branch>    # or the harness EnterWorktree
 ```
 
-Run the conductor from inside the worktree so every spawned phase process inherits that cwd (or pass `--add-dir <worktree>` explicitly). The durable `docs/sdlc/` deliverables (spec, plan, ADRs, retro) and `prompts/sdlc-backlog.md` live in the worktree and get committed on the branch; `docs/sdlc/runs/` is **gitignored** (stays on disk), and the backlog is **deleted when the PR is published** (Phase 12).
+Run the conductor from inside the worktree so every spawned phase process inherits that cwd (or pass `--add-dir <worktree>` explicitly). The committed deliverables (ADRs, runbooks, the lessons entry) live in the worktree and land on the branch. `<state>/` — the backlog and the per-phase runs alike — is outside the tree: it stays on disk for inspection and cross-session resume, never reaches the branch, and needs nothing deleted at publish time.
 
 **Clean up** once the PR is open and pushed — propose, don't auto-remove:
 
@@ -52,7 +49,7 @@ Run the conductor from inside the worktree so every spawned phase process inheri
 git worktree remove ../<repo>-<feature>                     # after confirming; or ExitWorktree
 ```
 
-Safe because the durable audit trail (spec, plan, ADRs, retro) is already committed and pushed; the gitignored run logs are disposable along with the tree.
+Safe as soon as the PR carries what it has to carry. `<state>/` is not in the worktree, so the briefs and `.log` files survive the removal — which matters for a phase that ran as an in-session subagent, where there is no canonical `.jsonl` to name and those logs are the only transcript and the only proof each test went RED.
 
 ## The per-phase loop
 
@@ -79,21 +76,27 @@ skip it; if you skip a trigger that clearly fired, say so in RESULT.
 ## Where things stand  (summary of prior phases — the part you can't reconstruct)
 <3–8 lines: decisions taken, what's green/red, gotchas, the one thing that will bite you.>
 
+## Assumptions this brief rests on  (falsify them; report what was wrong in RESULT)
+<one line each. A count or inventory carries the filter/command that produced it, never the bare number.>
+
 ## Read these (don't trust this brief alone)
-- Live backlog / current state: prompts/sdlc-backlog.md
+- Live backlog / current state: <state>/backlog.md
 - Spec/PRD: <path>
-- Plan: docs/sdlc/plan.md
+- Plan: <the PR comment or issue holding it>
 - Other artifacts: <paths>
 
 ## Definition of done for THIS run
 1. Meet the GATE above.
-2. Update prompts/sdlc-backlog.md — item state, phase, the `Current` block, timestamp.
+2. Update <state>/backlog.md — item state, phase, the `Current` block, timestamp.
+   <A read-only phase whose output is a PR comment — Phase 9 review, say — still writes its
+   RESULT to the backlog, but is not asked to commit anything: never demand a commit from a
+   phase that has nothing committable.>
 3. Write your artifacts to <paths>.
 4. Any work outside this slice's scope → file it as an issue / backlog item. Do NOT act on it.
-5. Print a `RESULT` block, ≤10 lines: gate met (y/n), artifacts written, backlog updated, blockers, recommended next phase.
+5. Print a `RESULT` block, ≤10 lines: gate met (y/n), artifacts written, backlog updated, blockers, recommended next phase, and — last, mandatory — what in this brief was wrong ("nothing" is an answer; silence is not).
 ```
 
-Save it to `docs/sdlc/runs/NN-<phase>.brief.md`.
+Save it to `<state>/runs/NN-<phase>.brief.md`.
 
 ### 2. Spawn a fresh process, capture the transcript
 
@@ -102,8 +105,8 @@ Pick the **model tier that fits the phase** — cheap (haiku/sonnet) for mechani
 **PowerShell (Windows):**
 ```powershell
 $phase = "05-plan-review"
-$brief = "docs/sdlc/runs/$phase.brief.md"
-$log   = "docs/sdlc/runs/$phase.log"
+$brief = "<state>/runs/$phase.brief.md"
+$log   = "<state>/runs/$phase.log"
 $sid   = [guid]::NewGuid().Guid            # so you know exactly which transcript file it is
 
 Get-Content $brief -Raw |
@@ -115,37 +118,36 @@ Get-Content $brief -Raw |
 **bash:**
 ```bash
 phase="05-plan-review"; sid=$(uuidgen)
-cat "docs/sdlc/runs/$phase.brief.md" \
+cat "<state>/runs/$phase.brief.md" \
  | claude -p --session-id "$sid" --model opus --add-dir . \
      --permission-mode acceptEdits --verbose 2>&1 \
- | tee "docs/sdlc/runs/$phase.log"
+ | tee "<state>/runs/$phase.log"
 ```
 
 Notes:
 - `claude -p` reads the prompt from **stdin** when piped, avoiding command-line length/escaping limits.
 - Run **one process at a time**. The gates keep phases sequential, so there's no working-tree contention.
 - Add `--output-format stream-json` (with `--verbose`) if you want to parse the run programmatically; plain text is fine for human inspection.
+- If a phase dies (API error, timeout), re-dispatch changing **one variable at a time** — resume the session first, then a fresh process, then another model — so the cause is learnable rather than asserted. A phase that keeps dying at its write is re-briefed to write the artifact incrementally, so a crash costs a paragraph, not the phase.
 
 ### 3. Transcript capture — two records, both inspectable
 
-- **Convenience log:** the `tee`/`Tee-Object` above → `docs/sdlc/runs/NN-<phase>.log`, human-readable.
+- **Convenience log:** the `tee`/`Tee-Object` above → `<state>/runs/NN-<phase>.log`, human-readable.
 - **Canonical transcript:** the harness writes the complete session (every message, tool call, and result) to
   `~/.claude/projects/<project-slug>/<session-id>.jsonl`.
   `<project-slug>` is the working directory with path separators replaced by dashes; if unsure, list `~/.claude/projects/` and match by the newest `<session-id>.jsonl`. Because you passed `--session-id`, you know the filename exactly. Replay/inspect it later with `claude --resume <session-id>`.
-
-Together these satisfy "full inspection of the conversation — what it received and what it did": the `.brief.md` is the input, the `.jsonl`/`.log` is the entire conversation.
 
 ### 4. Consume thin — the conductor stays minimal
 
 The conductor reads back **only**:
 - the child's `RESULT` block (≤10 lines), and
-- the diff of `prompts/sdlc-backlog.md`.
+- the diff of `<state>/backlog.md`.
 
-It checks the gate against those, then advances or loops the phase. **It never reads the child's full transcript into its own context** — that would defeat the whole point. The transcript is for the human and the audit trail, on disk.
+It checks the gate against those, writes its decision (scope change, revised figure, deferral) into the backlog's `Decisions / notes`, then advances or loops the phase — the next brief must never carry a figure the backlog doesn't. **It never reads the child's full transcript into its own context.** The transcript is for the human and the audit trail, on disk.
 
 ## The backlog — schema
 
-`prompts/sdlc-backlog.md`, updated by every phase before it exits — and **deleted in the publishing commit (Phase 12)**, since it's run scaffolding, not a deliverable:
+`<state>/backlog.md`, updated by every phase before it exits. It is run scaffolding, not a deliverable, and the ignored state root keeps it out of the merged tree on its own — but it also dies with the worktree, so **its still-open items are filed to the tracker or the PR before Phase 13 sweeps** (see `SKILL.md`, Step 6):
 
 ```markdown
 # SDLC backlog — <feature / epic name>
@@ -153,14 +155,14 @@ It checks the gate against those, then advances or loops the phase. **It never r
 ## Current
 - **Slice:**  S2 — <title>
 - **Phase:**  8 — Implement → GREEN
-- **Run:**    docs/sdlc/runs/08-impl-S2.log   (session <sid>)
+- **Run:**    <state>/runs/08-impl-S2.log   (session <sid>)
 - **Updated:** 2026-07-06T14:20Z
 
 ## Slices
 | id | slice                       | state | phase | last run                         |
 |----|-----------------------------|-------|-------|----------------------------------|
-| S1 | <title>                     | Done  | 12    | docs/sdlc/runs/12-merge-S1.log   |
-| S2 | <title>                     | Doing | 8     | docs/sdlc/runs/08-impl-S2.log    |
+| S1 | <title>                     | Done  | 12    | <state>/runs/12-merge-S1.log   |
+| S2 | <title>                     | Doing | 8     | <state>/runs/08-impl-S2.log    |
 | S3 | <title>                     | Todo  | —     | —                                |
 
 ## Out-of-scope / filed  (feature-creep guard)
@@ -170,7 +172,7 @@ It checks the gate against those, then advances or loops the phase. **It never r
 - <one-liners a fresh reader needs; link ADRs>
 ```
 
-`state` ∈ `Todo | Doing | Done` (mirror your tracker's columns if it has different names). The **`Current` block is the contract**: any human or freshly-spawned agent reads it first and knows the live state without replaying anything.
+`state` ∈ `Todo | Doing | Done` (mirror your tracker's columns if it has different names). Mark a slice **test-only** or **impl-only** in its title when the plan pairs it with another slice for its RED or its GREEN — not every slice owns both halves of Phase 7/8. The **`Current` block is the contract**: any human or freshly-spawned agent reads it first and knows the live state without replaying anything. Before writing the next brief, **the conductor reads the target slice's row and RESULT, not just the phase number** — a slice already `Done` needs no RED dispatched against it, even when the phase counter says "next is 7".
 
 ## Permissions & safety
 

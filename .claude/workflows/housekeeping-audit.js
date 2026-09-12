@@ -8,7 +8,7 @@ export const meta = {
 //         includeComments: true,                 // treat code comments as documentation too
 //         externals: [{ name: 'Confluence: Platform space', how: 'mcp__atlassian__search or the URL' }],
 //         maxShards: 6, perShard: 8, maxFindingsPerShard: 25,
-//         reserve: 40000, chronicleDir: '.housekeeping/chronicles', libraryIndex: null,
+//         reserve: 40000, chronicleDir: '$HOME/.agent-state/<repo dir name>/housekeeping/chronicles', libraryIndex: null,
 //         tiers: { inventory: 'haiku', audit: 'sonnet', verify: 'sonnet', consolidate: 'sonnet' } }
 //
 // THIS SCRIPT IS READ-ONLY BY CONSTRUCTION. There is no edit, delete, commit, or post code path in
@@ -235,12 +235,16 @@ const perShardResults = await pipeline(
          - Anything that will take longer than a focused edit is effort 'L' and action 'file-ticket'.
          - Where you cannot establish which side is right, action 'ask-human'. That is a real answer
            here, not a failure — a guessed source of truth is how a correct document gets deleted.
+           A claim about what the code DOES at runtime is grounded only by running it and showing
+           the real output, never by reading it in its place; if you could not run it, you cannot
+           establish which side is right — action 'ask-human', and say in 'evidence' why it could
+           not be run and the command that would settle it.
          - Report at most ${args.maxFindingsPerShard ?? 25} findings, worst first, and say in
            'evidence' where you checked. A finding without a code anchor or a quoted external claim
            will be refuted, and should be.
 
          ${args.libraryIndex ? `Read the Library index at ${args.libraryIndex} and fold in what it records about this repo's conventions.` : ''}
-         Keep a chronicle at ${args.chronicleDir ?? '.housekeeping/chronicles'}/audit-shard-${i + 1}.md as you go.
+         Keep a chronicle at ${args.chronicleDir ?? '$HOME/.agent-state/<repo dir name>/housekeeping/chronicles'}/audit-shard-${i + 1}.md as you go.
          ${READ_ONLY} ${NO_SPAWN}
          Return {findings: [...]}; empty is a fine answer for documentation that holds up.`,
         { label: `audit:shard-${i + 1}`, phase: 'Audit',
@@ -273,8 +277,14 @@ const perShardResults = await pipeline(
          - Is the named sourceOfTruth right for THIS KIND OF CLAIM? Behaviour → code and tests.
            Intent, requirements, deadlines → the authoritative external. A recorded decision → the
            ADR. If the finding named the wrong one, return the right one.
-         Default to refuted:true when the evidence does not hold up. If it survives, set
-         refuted:false and 'proof': the exact lines (path:line) or the quoted external claim.
+         EXCEPTION — action 'ask-human': this finding is not claiming an answer, it is disclosing that
+         the auditor could not establish one (often because the claim was executable and could not be
+         run). Do not refute it for lacking the proof it was created to admit lacking. It survives on
+         its named reason and the command that would settle it, in 'evidence' — set refuted:false.
+         For every other finding: default to refuted:true when the evidence does not hold up. If it
+         survives, set refuted:false and 'proof': for a claim about what the code does at runtime, the
+         real output of running it — never a citation in its place; otherwise the exact lines (path:line)
+         or the quoted external claim.
          You may correct 'sourceOfTruth' and 'action'; leave them null to keep the finding's own.
          ${READ_ONLY} ${NO_SPAWN}`,
         { label: `verify:${norm(f.doc).split('/').pop().slice(0, 20)}-${f.kind}`, phase: 'Verify',

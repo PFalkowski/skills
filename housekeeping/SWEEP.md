@@ -1,7 +1,7 @@
 # SWEEP — the code half
 
 Step 5. Runs **after** the documentation is true, because half of these lenses judge the code
-against what the docs say it should be. Against drifted docs they measure a system nobody built.
+against what the docs say it should be.
 
 ## The lenses
 
@@ -19,11 +19,6 @@ it finds interesting and reports the set as complete.
 | `architecture-drift` | Departures from the architecture this repo **documents** — layering, DDD, ports & adapters | The documented rule being broken. An unstated rule is a proposal, not drift |
 | `smells` | Oversized units, deep nesting, primitive obsession, dead code, ancient TODOs | What it costs the next person to touch it |
 | `formatting` | Files the repo's own formatter would change; style rules configured but unenforced | The *setup* gap and a file count — not a list of files |
-
-Ordering inside a run is deliberate: `warnings` and `formatting` are cheap and load-bearing (they
-bury every later diff in noise if left), `architecture-drift` and `library-consistency` are the ones
-that pay for the whole exercise, and `smells` is the one most likely to produce taste dressed as a
-finding — which is why every candidate is refute-verified before a human sees it.
 
 ## What gets a candidate killed
 
@@ -66,5 +61,8 @@ back to the board or is explicitly dropped; **nothing is left implied**.
 ## Reporting the sweep
 
 Lead with `uncovered` — a lens that never ran, or a candidate whose verifier died, is a concern that
-was *not examined*, and it reads exactly like a clean one unless you say otherwise. Then the plan,
-then what was actually done, then the links to what was filed.
+was *not examined*, and it reads exactly like a clean one unless you say otherwise. An executable
+claim — what the code does at runtime — is grounded only by running it and showing the real output,
+never by an in-repo citation or a source link in its place; if it was not run it is withheld from the
+findings and listed under **Not run** with the reason and the command that would settle it. Then the
+plan, then what was actually done, then the links to what was filed.

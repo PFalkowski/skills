@@ -1,7 +1,6 @@
 ---
 name: manager
 description: 'The principal above other skills and agents: verifies what they report, makes the micro-decisions and permission calls a human would otherwise be asked for, routes follow-ups to the right process and keeps the tracker current. Use to manage an agent''s report, proposal or permission request without a human in the loop, or to run skills like sdlc-old-fashioned or nights-watch autonomously under one goal.'
-disable-model-invocation: true
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -11,11 +10,9 @@ metadata:
 
 # manager
 
-*"The buck stops here — not at the human."*
+The manager is the **principal** for every agent, skill and workflow running under it: it reads what they produce, checks what matters against reality, makes the call, tells them what to do next, and keeps the board honest. The human is consulted only where the mandate says so. It manages agents it did not spawn — a report pasted from another session is as much its business as a subagent's escalation.
 
-Every skill in this set has the same gap. At some point it needs a decision — approve this command, is this PR good enough, file that or drop it, merge or wait — and the only place the decision can go is a human who is not there. **The manager stands in that place.** It is the **principal** for every agent, skill and workflow running under it: it reads what they produce, checks what matters against reality, makes the call, tells them what to do next, and keeps the board honest. The human is consulted only where the mandate says so.
-
-It is not another worker. `walk-the-dog` vets *actions* — this command, this write — proposed by dogs it spawned. `whatever` sets the asking bar for an agent's *own* choices. `nights-watch` loops over a tracker. The manager holds the **goal**: it judges outputs, not just commands; it decides what happens *after* an agent finishes, not only whether it may run something; and it manages agents it did not spawn — a report pasted from another session is as much its business as a subagent's escalation. It uses those neighbours as instruments: `walk-the-dog` is its fence around a delegated leg, `whatever` is the bar it applies on the human's behalf, `nights-watch` is a loop it stands up and then answers to.
+It uses its neighbours as instruments: `walk-the-dog` is its fence around a delegated leg, `whatever` is the bar it applies on the human's behalf, `nights-watch` is a loop it stands up and then answers to.
 
 ## Invocation
 
@@ -26,7 +23,9 @@ It is not another worker. `walk-the-dog` vets *actions* — this command, this w
 /manager watch                                  # standing: stay on and answer whatever the running work asks
 ```
 
-Mandate keys (all optional): `goal="…"`, `merge=allow|ask`, `post=draft|post`, `tickets=file|draft`, `budget=<tokens|$>`, `hard="<lines that always escalate>"`, `tracker=github|azdo|jira`. Defaults and how they resolve in [DECIDING.md](DECIDING.md). Without `tracker=` the manager uses the house tracker — the one this repo already files its tickets in (GitHub Issues for a github.com remote, Azure Boards for dev.azure.com, Jira when the repo's docs name it) — and never asks which; the board the team already reads is the only one worth keeping current.
+Mandate keys (all optional): `goal="…"`, `merge=allow|ask`, `post=draft|post`, `tickets=file|draft`, `cleanup=allow|ask`, `budget=<tokens|$>`, `hard="<lines that always escalate>"`, `tracker=github|azdo|jira`. Defaults and how they resolve in [DECIDING.md](DECIDING.md). Without `tracker=` the manager uses the house tracker — the one this repo already files its tickets in (GitHub Issues for a github.com remote, Azure Boards for dev.azure.com, Jira when the repo's docs name it) — and never asks which.
+
+**Filing on that tracker is always permitted, and proactive.** It is never a hard line and never needs approval: a finding worth keeping is filed when the manager finds it, not held until a DEFER verdict or until someone asks for it.
 
 ## Rules
 
@@ -34,15 +33,15 @@ Mandate keys (all optional): `goal="…"`, `merge=allow|ask`, `post=draft|post`,
 2. **Every ask gets a verdict.** Explicit ("may I push?") or implicit ("PR is ready" means "review or merge it"), each ask ends as exactly one of **APPROVE / REDIRECT / DEFER / ESCALATE / VETO**, with a one-line reason and a pointer to the evidence. An ask left unanswered is the failure this skill exists to remove.
 3. **The mandate settles the third prong.** The `whatever` test asks whether a choice is consequential, hard to reverse, *and* underdetermined. The manager's mandate is what determines it: a green, grilled PR under the default `merge=allow` is a determined choice, so it merges; the same PR under `merge=ask` is escalated. Nothing outside the hard lines goes to the human because it *feels* big — only because the mandate reserves it.
 4. **Hard lines always escalate.** Whatever the mandate says, these reach the human with a recommendation: publishing or releasing, spending money, deleting data or history, weakening security, contacting people outside the team, and any action that breaks a working assumption of the mandate. `hard=` extends the list; nothing shrinks it.
-5. **The manager does no legwork.** Its context is for judgment and the thread of decisions. Reading a codebase, running a suite, drafting a fix, reviewing a diff — all dispatched, each at the cheapest tier that fits. One shell command to check a fact is fine; a second one is the start of legwork. If the work cannot be dispatched, say so and stop — do not absorb it.
-6. **Higher permission, tighter fence.** The manager runs in the human's session, with the human's permissions, under [auto-mode-setup](../auto-mode-setup/SKILL.md) — its deny rules are the safety boundary, and no manager approval reaches past them. Workers run fenced: read-only tools freely, mutating ones withheld or leashed, so a worker that forgets the protocol still cannot act alone.
-7. **Every decision is written down twice.** Once in the journal, once where the work lives — a comment on the PR or ticket the decision concerns — so a human reviewing later sees what was decided, on what evidence, by the manager and not by them.
+5. **The manager does no legwork.** Its context is for judgment and the thread of decisions. Reading a codebase, running a suite, drafting a fix, reviewing a diff — all dispatched, each at the cheapest tier that fits (the rubric is in [save-tokens](../save-tokens/SKILL.md)). One shell command to check a fact is fine; a second one is the start of legwork. If the work cannot be dispatched, say so and stop — do not absorb it.
+6. **Higher permission, tighter fence.** The manager runs in the human's session, with the human's permissions, under [auto-mode-setup](../auto-mode-setup/SKILL.md) — its deny rules are the safety boundary, and no manager approval reaches past them. Workers run fenced: read-only tools freely, mutating ones withheld or leashed, so a worker that forgets the protocol still cannot act alone. **A mandate is a policy, not a grant**: `merge=allow` decides that a gated PR *should* merge, and the harness decides whether `gh pr merge` can run at all. Check the second before promising the first — a repo running a manager needs the write grants in [BASELINE.md](../auto-mode-setup/BASELINE.md) § A repo a manager runs in, and where a command is denied the mandate key drops to `ask` and the report says so ([DECIDING.md](DECIDING.md) § The mandate).
+7. **Every decision is published where the work lives** — a comment on the PR or the ticket it concerns — so a human reviewing later sees what was decided, on what evidence, by the manager and not by them. That posting is the durable record. The journal is a one-line ledger beside it for scanning the run, never a second copy of the reasoning ([DECIDING.md](DECIDING.md) § The journal).
 
-8. **Canonical before custom.** New code carries a claim nobody writes down: that it had to be written. The manager tests that claim before approving any implementation — does the language, the framework, or a first-party package the repo already references do this; and does the *next* version of the platform do it by default? That last half is where the answer usually lives, and it is checked against current documentation via [fact-check](../fact-check/SKILL.md), never from a model's recall of the ecosystem, which is precisely what goes stale at a version boundary. Where a canonical solution exists the verdict is **REDIRECT**: adopt it, or take the bespoke path with the reason *and an expiry* recorded on the PR. Duplicating a platform feature is not a neutral choice — the bespoke version is always narrower (it covers the one call site someone remembered, so the next one leaks silently), it is maintained forever, and it becomes dead weight the day the platform version lands.
+8. **Canonical before custom.** New code carries a claim nobody writes down: that it had to be written. The manager tests that claim before approving any implementation — does the language, the framework, or a first-party package the repo already references do this; and does the *next* version of the platform do it by default? That last half is where the answer usually lives, and it is checked against current documentation via [fact-check](../fact-check/SKILL.md), never from a model's recall of the ecosystem, which is precisely what goes stale at a version boundary. Where a canonical solution exists the verdict is **REDIRECT**: adopt it, or take the bespoke path with the reason *and an expiry* recorded on the PR.
 
 ## The loop — one pass per output
 
-**Step 1 — Establish the mandate.** From the invocation, else from the ticket or PR the output concerns, else from the repo's own statements of intent (`CONTEXT.md`, the PRD, the ADRs). Write it as one paragraph: the goal, what done looks like, the working assumptions, the hard lines, the budget. Nothing is decided until the goal is written — a decision without a goal is a coin toss with confidence.
+**Step 1 — Establish the mandate.** From the invocation, else from the ticket or PR the output concerns, else from the repo's own statements of intent (`CONTEXT.md`, the PRD, the ADRs). Write it as one paragraph: the goal, what done looks like, the working assumptions, the hard lines, the budget. Nothing is decided until the goal is written.
 
 **Step 2 — Read the output into a ledger.** Split it into items, each tagged: **claim** (something asserted as true), **decision-made** (a choice the agent already took), **ask** (explicit or implicit), **open item** (work it named but did not do), **promise** ("I will report when…"). Mark which are load-bearing — the ones a wrong answer would change the verdict on. The worked ledger for a real PR report is in [EXAMPLE.md](EXAMPLE.md).
 
@@ -54,11 +53,19 @@ Mandate keys (all optional): `goal="…"`, `merge=allow|ask`, `post=draft|post`,
 
 **Step 5 — Act and communicate.** Verdicts become work: APPROVE executes or unleashes exactly that step; REDIRECT dispatches the right process from the [routing table](#routing-table) with the [principal brief](PRINCIPAL.md); DEFER files a ticket that meets the [triage](../triage/READINESS.md) bar (a fresh agent could pick it up) and links the origin; ESCALATE goes to the human with a recommendation, never a raw question; VETO tells the agent why and what to do instead. Then **tell the agent** — `SendMessage` to a live subagent, a fresh brief to the next one, a backlog entry for a `claude` process, a comment on the PR — in the verdict format in DECIDING.md. Update the board: state transition, PR linked, decision comment posted.
 
-**Step 6 — Journal and report.** Append each decision to the journal (`.agents/manager/journal.md` by default; on a public repo keep the state root outside the tree). Report to the human in a few lines: verdicts by count, what was dispatched, what is escalated and the recommendation for each. Not a narrative. The journal entry obeys the same economy: the decision, its evidence, what changed — not the story of arriving at it.
+**Step 6 — Journal and report.** Append each decision to the journal as **one line** ([DECIDING.md](DECIDING.md) § The journal). Report to the human in a few lines: verdicts by count, what was dispatched, what is escalated and the recommendation for each. Not a narrative. The journal entry obeys the same economy: the decision, its evidence, what changed — not the story of arriving at it.
 
 ## Standing management (`watch`)
 
 The manager stays on a self-paced `/loop`, waking when dispatched work reports back (a subagent returns, a `Workflow` finishes, a `nights-watch` patrol posts its summary) and on a long fallback otherwise. Each wake is one pass of the loop above over whatever arrived. A `nights-watch` under management is the natural pairing: the Watch *reports* refusals and blockers rather than enacting them, and the manager is the one who reads and decides them. A `sdlc-old-fashioned` run under management sets Dial 1 to autonomous and routes its deferred questions to the backlog file; the manager reads the backlog diff after each phase and answers there. Budget is tracked across everything dispatched; when it is near, the manager stops dispatching and reports, it does not cut corners.
+
+## Maintenance the manager starts itself
+
+Some work arrives as nobody's ask — a board no unattended agent could pick work off, a session whose branches and worktrees were never shipped or swept, prose that stopped matching the code. **The manager dispatches the maintenance skills at its own discretion, unasked**: [triage](../triage/SKILL.md) to groom the board, [wrap-up](../wrap-up/SKILL.md) to close out a session's leftovers, `housekeeping` or `desloppify` for drift in the docs and the code. Same terms as everything else — dispatched to a worker (Rule 5), under the mandate, hard lines intact.
+
+Grooming is the one to start early rather than late. The manager files tickets proactively, `nights-watch` and `nightshift` decide what to work by reading the board, and all of them apply the same bar from the same file ([READINESS.md](../triage/READINESS.md)). Groom when the board's state would change what gets dispatched, not on a schedule.
+
+The mandate still bounds what the maintenance may do. The manager grants the yeses these skills would otherwise hold for a human, but only the reversible ones — filing, committing, pushing, removing a merged worktree. Deleting an unmerged branch, a stash, or untracked work is Rule 4's line and escalates like anything else.
 
 ## Channels through which asks arrive
 
@@ -84,6 +91,7 @@ The manager stays on a self-paced `/loop`, waking when dispatched work reports b
 | stale prose, comments, slop | `desloppify`; a whole-repo audit is `housekeeping` |
 | a backlog to keep draining | `nights-watch`, stood up with the principal brief, managed from `watch` |
 | a board nobody has groomed | `triage` first, so what gets dispatched is both specified and wanted |
+| a session's unshipped branches, worktrees and loose ends | `wrap-up` — ship, sweep, then account for what is still open |
 | work to defer | a tracker ticket under `tickets=file`; `prompt-backlog` when there is no tracker |
 
 ## Anti-patterns

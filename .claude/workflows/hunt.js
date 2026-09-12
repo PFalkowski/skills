@@ -56,7 +56,8 @@ const CANDIDATES = { type: 'object', properties: { findings: { type: 'array', it
     subject: {type:'string', minLength: 1},       // NEVER empty: two flaws in one symbol differ here
     flaw: {type:'string', enum: FLAWS}, severity: {type:'string', enum: SEVERITIES},
     failurePath: {type:'string'}, evidence: {type:'string'} },
-  required: ['title','file','symbol','subject','flaw','severity','failurePath','evidence'] } } },
+  required: ['title','file','symbol','subject','flaw','severity','failurePath','evidence'] } },
+  notRun: { type: 'array', items: { type: 'string' } } },  // an executable claim not run: why, and the command that would settle it
   required: ['findings'] }
 const VERDICT = { type: 'object', properties: { refuted: {type:'boolean'}, why: {type:'string'},
   severity: {type:['string','null'], enum: [...SEVERITIES, null]}, repro: {type:['string','null']} },
@@ -103,6 +104,7 @@ const claim = n => {
 // evidence of a fix. An id that falls out of all of these is one the fire will mark fixed and
 // then report as a regression against a fix that never happened.
 const uncovered = []    // a lens that never ran (refused OR died) — the ONLY thing that holds the watermark
+const notRun = []       // a claim the hunter disclosed it could not run — reported, never holds the watermark
 const deferred = []     // found, not yet refuted — banked to carry.jsonl, does NOT hold the watermark
 const stillPresent = [] // known findings re-found unchanged — real, still there, NOT fixed
 const refuted = []      // killed by 2+ refuters — never real; not fixed either
@@ -115,7 +117,8 @@ const ANGLES = ['reachability: can an untrusted party actually reach this IN THE
                 'vulnerability: private-endpoint-only, VNet-internal, operator-only local tooling, or never ' +
                 'deployed all mean refuted. Prove the route inward or kill it; do not assume exposure',
                 'blast radius: granted it is real and reachable, what does it cost? does a caller already constrain it?',
-                'repro: make it happen — a runnable case with its real output, or the exact lines that prove it']
+                'repro: make it happen — a runnable case with its real output is the strongest evidence there is; ' +
+                'citing the lines that prove it, without running anything, does not promote the finding']
 
 const refute = async f => {
   const release = claim(3)
@@ -130,8 +133,10 @@ const refute = async f => {
        Break the finding into the smallest independently-checkable claims (attacker controls this
        value / no caller constrains it / this route crosses a trust boundary / the sink interprets
        it / the flaw's effect is what is claimed) and settle each SEPARATELY with the "fact-check"
-       skill: a runnable experiment and its output, or an authoritative source. Resolve one atom
-       before starting the next. Judged whole, a finding survives on its best atom; judged atom by
+       skill: an executable atom is grounded only by running it and showing the real output, never
+       by a citation or link in its place; a non-executable atom is grounded by an authoritative
+       source. Resolve one atom before starting the next. Judged whole, a finding survives on its
+       best atom; judged atom by
        atom, it stands or falls on its weakest — which is the one that matters. ANY atom that fails
        kills the finding: set refuted:true and name that atom in \`why\`. An unprovable atom counts
        as failed.
@@ -209,8 +214,12 @@ const hunted = await pipeline(
          Read each changed file IN FULL plus its callers: a diff is dangerous in context, not in
          isolation. A finding may live in a caller that the delta did not touch — report it.
          Truth before all: run the "fact-check" skill before any load-bearing claim enters a finding —
-         an advisory's affected range, an API's actual behavior, a version fact. Prove it with a runnable
-         experiment + output or independent authoritative sources. Unprovable = false, so drop it.
+         an advisory's affected range, an API's actual behavior, a version fact. An executable claim
+         is grounded only by running it and showing the real output, never by a citation or link in
+         its place; a non-executable claim is grounded by independent authoritative sources. If a
+         finding turns on an executable claim you could not run, it does not ship as a finding — add
+         one string to \`notRun\` naming the claim, why it could not be run, and the command that
+         would settle it. Any other unprovable claim: drop it, false.
          DECOMPOSE TO ATOMS — the single highest-leverage thing you do. A finding is a CHAIN of claims
          and is only as true as its weakest link, so never fact-check it as one lump. Break it into the
          smallest independently-checkable claims and prove each one on its own, resolving each before
@@ -247,6 +256,7 @@ const hunted = await pipeline(
       // open finding in its files fixed. Coverage is recorded from what came back, never inferred.
       if (!r) { uncovered.push(`${lens}: hunter died — delta unexamined by this lens`); return null }
       ran.add(lens)
+      for (const u of r.notRun ?? []) notRun.push(`${lens}: ${u}`)
       return r
     } finally { release() }
   },
@@ -308,7 +318,7 @@ for (const g of Object.values(groups)) {
   if (lenses.length > 1) for (const f of g) f.corroborated = lenses
 }
 confirmed.sort((a, b) => RANK[a.severity] - RANK[b.severity])
-return { confirmed, deferred, uncovered, stillPresent, refuted, dropped,
+return { confirmed, deferred, uncovered, notRun, stillPresent, refuted, dropped,
          range: args.range, visibility: args.visibility,
          // Recorded from what came back, not inferred from the absence of complaint.
          lensesRun: [...ran],
