@@ -151,6 +151,19 @@ function Select-Shown {
     [pscustomobject]@{ Shown = @($shown); Hidden = $hidden }
 }
 
+function Open-Report {
+    param([Parameter(Mandatory)][string]$Path)
+    try {
+        if ($IsWindows) { Start-Process -FilePath $Path }
+        elseif ($IsMacOS) { Start-Process -FilePath 'open' -ArgumentList $Path }
+        elseif ($IsLinux) { Start-Process -FilePath 'xdg-open' -ArgumentList $Path }
+        else { Start-Process -FilePath $Path }
+    }
+    catch {
+        "Could not open a browser automatically ($($_.Exception.Message)). The report is at: $Path"
+    }
+}
+
 function Test-Interactive {
     if ($env:CI) { return $false }
     if (-not [Environment]::UserInteractive) { return $false }
@@ -200,7 +213,7 @@ function Show-Board {
         ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $boardFile -Encoding utf8
 
     New-BoardHtml -Items $items -Hidden $selection.Hidden | Set-Content -LiteralPath $htmlFile -Encoding utf8
-    Start-Process -FilePath $htmlFile
+    Open-Report -Path $htmlFile
 
     if ($Html) { return }
 

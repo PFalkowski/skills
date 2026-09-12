@@ -17,10 +17,17 @@ metadata:
 pwsh -NoProfile -File "<skill-dir>/scripts/wip.ps1"
 ```
 
-Costs no model tokens — it is a plain PowerShell script. Run it with no arguments any time you
-need to decide what to pick up next; it prints one ranked board across every repository you have
-recent activity in, and also writes the same board as a styled HTML report (`board.html`, next to
-`board.json`) and opens it in your default browser. Pass `-Html` to open only the report and skip
+Costs no model tokens — it is a plain PowerShell script; needs `pwsh` (PowerShell 7+) and works
+the same on Windows, Linux and macOS. The repository list is never a configured path — it comes
+entirely from where you've actually run Claude Code (live sessions plus `~/.claude/projects/*/*.jsonl`
+transcripts), so it adapts automatically to wherever your checkouts live on each machine. The
+optional `wip://` protocol handler below is the one Windows-only piece (registry-based); everything
+else, including the HTML report, opens correctly on any of the three.
+
+Run it with no arguments any time you need to decide what to pick up next; it prints one ranked
+board across every repository you have recent activity in, and also writes the same board as a
+styled HTML report (`board.html`, next to `board.json`) and opens it in your default browser.
+Pass `-Html` to open only the report and skip
 the terminal text. The report's theme defaults to Auto (follows the OS/browser); the Light/Auto/Dark
 toggle in its header remembers your choice for next time. `wip -h` (or `-Help`) prints the full
 parameter reference and exits without touching anything.
