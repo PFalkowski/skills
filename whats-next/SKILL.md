@@ -60,7 +60,7 @@ rest into a count.
 ## `wip <n>` and `wip prune`
 
 `wip <n>` launches item `n` from the board most recently printed by a plain `wip` run (cached at
-`$env:AGENTS_STATE/whats-next/board.json`, or `~/.agents/whats-next/board.json` when
+`$env:AGENTS_STATE/whats-next/board.json`, or `~/.agent-state/whats-next/board.json` when
 `AGENTS_STATE` is unset). Re-run `wip` first if the board might be stale — each run overwrites
 that file, and the numbers only match the board you are currently looking at. It changes
 directory into the item's path, then resumes the session that last worked there if one is known,
