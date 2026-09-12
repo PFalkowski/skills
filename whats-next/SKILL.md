@@ -22,7 +22,8 @@ need to decide what to pick up next; it prints one ranked board across every rep
 recent activity in, and also writes the same board as a styled HTML report (`board.html`, next to
 `board.json`) and opens it in your default browser. Pass `-Html` to open only the report and skip
 the terminal text. The report's theme defaults to Auto (follows the OS/browser); the Light/Auto/Dark
-toggle in its header remembers your choice for next time.
+toggle in its header remembers your choice for next time. `wip -h` (or `-Help`) prints the full
+parameter reference and exits without touching anything.
 
 Wire it into the PowerShell profile once, so it is one word from any prompt. Open `$PROFILE`
 (`notepad $PROFILE`, creating it if it does not exist) and add:
