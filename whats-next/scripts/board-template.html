@@ -1,0 +1,321 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Work Board</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F5F6F8; --surface:#FFFFFF; --surface-2:#FBFBFD;
+    --border:#E1E4EA; --border-soft:#ECEEF2;
+    --ink:#171B21; --ink-soft:#5B6472; --ink-faint:#9199A6;
+    --accent:#B5652A; --accent-soft:#F3E6D9; --accent-ink:#7A431A;
+
+    --s-merge:#1F8A5F;  --s-merge-bg:#E4F5EC;
+    --s-review:#B8790A; --s-review-bg:#FBF0D9;
+    --s-nopr:#3266C7;   --s-nopr-bg:#E7EEFC;
+    --s-atrisk:#C4453C; --s-atrisk-bg:#FBE7E5;
+    --s-stale:#6B7280;  --s-stale-bg:#EEF0F2;
+    --s-backlog:#7647B8;--s-backlog-bg:#EFE6FA;
+    --s-asked:#0E8A96;  --s-asked-bg:#E1F5F7;
+
+    --shadow:0 1px 2px rgba(20,24,30,.04), 0 10px 26px -14px rgba(20,24,30,.14);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#12151A; --surface:#1A1E25; --surface-2:#1E222A;
+      --border:#2A2F38; --border-soft:#242830;
+      --ink:#E8EAED; --ink-soft:#A7AFBB; --ink-faint:#6B7280;
+      --accent:#E0924B; --accent-soft:#3A2A1C; --accent-ink:#F0B784;
+
+      --s-merge:#3FBE87;  --s-merge-bg:#143427;
+      --s-review:#E3A73B; --s-review-bg:#3A2C10;
+      --s-nopr:#6E9CF2;   --s-nopr-bg:#16233F;
+      --s-atrisk:#F0776D; --s-atrisk-bg:#3A1815;
+      --s-stale:#9AA3AF;  --s-stale-bg:#23262B;
+      --s-backlog:#B79AEF;--s-backlog-bg:#2A2038;
+      --s-asked:#4FC7D1;  --s-asked-bg:#113035;
+
+      --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 26px -14px rgba(0,0,0,.55);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#12151A; --surface:#1A1E25; --surface-2:#1E222A;
+    --border:#2A2F38; --border-soft:#242830;
+    --ink:#E8EAED; --ink-soft:#A7AFBB; --ink-faint:#6B7280;
+    --accent:#E0924B; --accent-soft:#3A2A1C; --accent-ink:#F0B784;
+
+    --s-merge:#3FBE87;  --s-merge-bg:#143427;
+    --s-review:#E3A73B; --s-review-bg:#3A2C10;
+    --s-nopr:#6E9CF2;   --s-nopr-bg:#16233F;
+    --s-atrisk:#F0776D; --s-atrisk-bg:#3A1815;
+    --s-stale:#9AA3AF;  --s-stale-bg:#23262B;
+    --s-backlog:#B79AEF;--s-backlog-bg:#2A2038;
+    --s-asked:#4FC7D1;  --s-asked-bg:#113035;
+
+    --shadow:0 1px 2px rgba(0,0,0,.35), 0 10px 26px -14px rgba(0,0,0,.55);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"IBM Plex Sans", system-ui, sans-serif;
+    padding:32px 20px 64px;
+  }
+  .wrap{max-width:880px; margin:0 auto;}
+  code, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace;}
+  .tabular{font-variant-numeric:tabular-nums;}
+
+  header{margin-bottom:22px;}
+  .eyebrow{
+    font-size:11px; font-weight:600; letter-spacing:.09em; text-transform:uppercase;
+    color:var(--accent-ink); margin:0 0 8px;
+  }
+  h1{
+    font-size:clamp(26px,4vw,34px); line-height:1.1; margin:0 0 8px;
+    letter-spacing:-.01em; text-wrap:balance;
+  }
+  .subtitle{color:var(--ink-soft); font-size:14.5px; margin:0; max-width:60ch;}
+  .jump-note{color:var(--ink-faint); font-size:12.5px; margin:12px 0 0; max-width:64ch;}
+  .jump-note code{font-family:"IBM Plex Mono",monospace; background:var(--surface-2); border:1px solid var(--border); border-radius:4px; padding:1px 5px;}
+  .stats{
+    display:flex; flex-wrap:wrap; gap:6px 18px; margin-top:14px;
+    font-size:13px; color:var(--ink-soft);
+  }
+  .stats b{color:var(--ink); font-weight:600;}
+
+  details.legend{
+    margin:20px 0 24px; background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; box-shadow:var(--shadow);
+  }
+  details.legend summary{
+    cursor:pointer; padding:10px 14px; font-size:12.5px; font-weight:600;
+    color:var(--ink-soft); list-style:none; display:flex; align-items:center; gap:6px;
+  }
+  details.legend summary::-webkit-details-marker{display:none;}
+  details.legend summary::before{content:"▸"; display:inline-block; transition:transform .15s;}
+  details.legend[open] summary::before{transform:rotate(90deg);}
+  .legend-grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+    gap:8px; padding:2px 14px 14px;
+  }
+  .legend-item{display:flex; gap:8px; align-items:baseline; font-size:12.5px; color:var(--ink-soft);}
+  .legend-rank{font-family:"IBM Plex Mono",monospace; color:var(--ink-faint); width:1.4em; flex:none;}
+
+  .controls{
+    position:sticky; top:0; z-index:5; background:var(--bg);
+    padding:10px 0 14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+  }
+  #search{
+    flex:1 1 200px; min-width:0; padding:9px 12px; border-radius:8px;
+    border:1px solid var(--border); background:var(--surface); color:var(--ink);
+    font-size:13.5px; font-family:inherit;
+  }
+  #repoFilter{
+    padding:9px 30px 9px 12px; border-radius:8px; border:1px solid var(--border);
+    background:var(--surface) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6"><path d="M0 0l5 6 5-6z" fill="%235B6472"/></svg>') no-repeat right 11px center;
+    color:var(--ink); font-size:13px; font-family:inherit; appearance:none; cursor:pointer;
+    max-width:220px;
+  }
+  #search:focus-visible, .chip:focus-visible, #repoFilter:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
+  .chip{
+    border:1px solid var(--border); background:var(--surface); color:var(--ink-soft);
+    border-radius:999px; padding:7px 13px; font-size:12.5px; font-weight:500;
+    cursor:pointer; white-space:nowrap;
+  }
+  .chip[aria-pressed="true"]{background:var(--accent-soft); border-color:var(--accent); color:var(--accent-ink);}
+
+  section.repo{
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    box-shadow:var(--shadow); margin-bottom:16px; overflow:hidden;
+  }
+  .repo-head{
+    display:flex; justify-content:space-between; align-items:baseline; gap:10px;
+    padding:12px 16px; border-bottom:1px solid var(--border-soft); background:var(--surface-2);
+  }
+  .repo-name{font-family:"IBM Plex Mono",monospace; font-size:13px; font-weight:500; color:var(--ink);}
+
+  .row{
+    display:grid; grid-template-columns:34px 84px 1fr; gap:12px; align-items:start;
+    padding:11px 16px; border-bottom:1px solid var(--border-soft);
+  }
+  .row:last-child{border-bottom:none;}
+  .rank{font-family:"IBM Plex Mono",monospace; font-size:13px; color:var(--ink-faint); padding-top:2px;}
+  .pill{
+    justify-self:start; font-size:11px; font-weight:600; letter-spacing:.03em;
+    padding:3px 8px; border-radius:6px; white-space:nowrap;
+  }
+  .pill-merge{color:var(--s-merge); background:var(--s-merge-bg);}
+  .pill-review{color:var(--s-review); background:var(--s-review-bg);}
+  .pill-nopr{color:var(--s-nopr); background:var(--s-nopr-bg);}
+  .pill-atrisk{color:var(--s-atrisk); background:var(--s-atrisk-bg);}
+  .pill-stale{color:var(--s-stale); background:var(--s-stale-bg);}
+  .pill-backlog{color:var(--s-backlog); background:var(--s-backlog-bg);}
+  .pill-asked{color:var(--s-asked); background:var(--s-asked-bg);}
+
+  .row-title{font-size:14px; line-height:1.4;}
+  .row-meta{margin-top:3px; font-size:12px; color:var(--ink-faint); font-family:"IBM Plex Mono",monospace;}
+  .here{
+    display:inline-block; margin-left:8px; font-size:10.5px; font-weight:700;
+    letter-spacing:.04em; color:var(--accent-ink); background:var(--accent-soft);
+    border-radius:5px; padding:1px 6px; vertical-align:middle;
+  }
+
+  .more-row{
+    padding:9px 16px 9px 50px; font-size:12.5px; color:var(--ink-faint); font-style:italic;
+    border-bottom:1px solid var(--border-soft);
+  }
+  .more-row:last-child{border-bottom:none;}
+
+  .cmd-group{display:flex; flex-direction:column; align-items:flex-start; gap:6px; margin-top:7px;}
+  .jump-btn{
+    font-family:"IBM Plex Mono",monospace; font-size:11.5px; line-height:1.5;
+    color:var(--ink-soft); background:var(--surface-2); border:1px solid var(--border);
+    border-radius:6px; padding:6px 9px; cursor:pointer; white-space:pre-wrap; word-break:break-all;
+  }
+  .jump-btn:hover{border-color:var(--accent); color:var(--accent-ink);}
+  .jump-btn:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
+  .jump-btn.copied{border-color:var(--s-merge); color:var(--s-merge); background:var(--s-merge-bg);}
+  .jump-btn.copied::after{content:" ✓ copied"; font-weight:600;}
+  .full-btn{display:block; width:100%; text-align:left;}
+  .resume-btn{
+    display:inline-flex; align-items:center; gap:6px; font-weight:600;
+    color:var(--accent-ink); background:var(--accent-soft); border-color:var(--accent);
+  }
+  .resume-btn:hover{filter:brightness(0.96);}
+  .resume-btn .play-icon{width:9px; height:9px; flex:none; fill:currentColor;}
+
+  .empty{
+    text-align:center; padding:40px 16px; color:var(--ink-faint); font-size:14px; display:none;
+  }
+
+  @media (max-width:520px){
+    .row{grid-template-columns:28px 1fr; grid-template-rows:auto auto;}
+    .pill{grid-column:2; grid-row:1;}
+    .rank{grid-row:1 / span 2;}
+    .row-title, .row-meta{grid-column:2;}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    details.legend summary::before{transition:transform .15s;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">whats-next · git worktree status</p>
+    <h1>Work Board</h1>
+    <p class="subtitle">Every worktree and pull request across your repositories, ranked hottest first — merge-ready work always floats above routine housekeeping.</p>
+    <div class="stats">
+      <span><b class="tabular">{{REPO_COUNT}}</b> repositories</span>
+      <span><b class="tabular">{{ITEM_COUNT}}</b> items shown</span>
+      <span>generated <b>{{DATE}}</b></span>
+    </div>
+    <p class="jump-note">Each item has a <b>▶ wip N</b> button and the full literal command underneath — either copies on click. If you've registered the optional <code>wip://</code> protocol handler (register-protocol.ps1), the ▶ button also launches it directly.</p>
+  </header>
+
+  <details class="legend">
+    <summary>Rank ladder — what each badge means</summary>
+    <div class="legend-grid">
+      <div class="legend-item"><span class="legend-rank tabular">1</span><span><b style="color:var(--s-merge)">MERGE</b> — PR is green, waiting on you to merge</span></div>
+      <div class="legend-item"><span class="legend-rank tabular">2</span><span><b style="color:var(--s-review)">REVIEW</b> — PR needs you: threads, conflicts, failing checks</span></div>
+      <div class="legend-item"><span class="legend-rank tabular">3</span><span><b style="color:var(--s-nopr)">NO PR</b> — branch pushed, nothing opened against it</span></div>
+      <div class="legend-item"><span class="legend-rank tabular">4</span><span><b style="color:var(--s-atrisk)">AT RISK</b> — unpushed or uncommitted work, unattended</span></div>
+      <div class="legend-item"><span class="legend-rank tabular">5</span><span><b style="color:var(--s-asked)">ASKED</b> — a background session is waiting on your answer</span></div>
+      <div class="legend-item"><span class="legend-rank tabular">6</span><span><b style="color:var(--s-backlog)">BACKLOG</b> — open items queued in <code>backlog.md</code></span></div>
+      <div class="legend-item"><span class="legend-rank tabular">7</span><span><b style="color:var(--s-stale)">STALE</b> — no commit in over a week, cleanup candidate</span></div>
+    </div>
+  </details>
+
+  <div class="controls">
+    <input id="search" type="text" placeholder="Filter by repo, branch, or title…" aria-label="Filter board">
+    <select id="repoFilter" aria-label="Filter by repository">
+      <option value="all">All repositories</option>
+      {{REPO_OPTIONS}}
+    </select>
+    <button class="chip" data-tier="all" aria-pressed="true">All</button>
+    <button class="chip" data-tier="merge" aria-pressed="false">Merge</button>
+    <button class="chip" data-tier="review" aria-pressed="false">Review</button>
+    <button class="chip" data-tier="nopr" aria-pressed="false">No PR</button>
+    <button class="chip" data-tier="atrisk" aria-pressed="false">At risk</button>
+    <button class="chip" data-tier="asked" aria-pressed="false">Asked</button>
+    <button class="chip" data-tier="backlog" aria-pressed="false">Backlog</button>
+    <button class="chip" data-tier="stale" aria-pressed="false">Stale</button>
+  </div>
+
+  <main id="board">
+{{BODY}}
+  </main>
+  <p class="empty" id="empty-state">Nothing matches that filter.</p>
+</div>
+
+<script>
+(function(){
+  var search = document.getElementById('search');
+  var repoFilter = document.getElementById('repoFilter');
+  var chips = Array.prototype.slice.call(document.querySelectorAll('.chip'));
+  var sections = Array.prototype.slice.call(document.querySelectorAll('section.repo'));
+  var empty = document.getElementById('empty-state');
+  var activeTier = 'all';
+
+  function apply(){
+    var q = search.value.trim().toLowerCase();
+    var repoWanted = repoFilter.value;
+    var anyVisible = false;
+    sections.forEach(function(sec){
+      var repoOk = repoWanted === 'all' || sec.getAttribute('data-repo') === repoWanted;
+      if (!repoOk){ sec.hidden = true; return; }
+      var secRows = Array.prototype.slice.call(sec.querySelectorAll('.row, .more-row'));
+      var secHasVisible = false;
+      secRows.forEach(function(row){
+        var tierOk = activeTier === 'all' || row.getAttribute('data-tier') === activeTier;
+        var textOk = !q || row.textContent.toLowerCase().indexOf(q) !== -1 || sec.getAttribute('data-repo').toLowerCase().indexOf(q) !== -1;
+        var show = tierOk && textOk;
+        row.hidden = !show;
+        if (show) secHasVisible = true;
+      });
+      sec.hidden = !secHasVisible;
+      if (secHasVisible) anyVisible = true;
+    });
+    empty.style.display = anyVisible ? 'none' : 'block';
+  }
+
+  search.addEventListener('input', apply);
+  repoFilter.addEventListener('change', apply);
+  chips.forEach(function(chip){
+    chip.addEventListener('click', function(){
+      chips.forEach(function(c){ c.setAttribute('aria-pressed','false'); });
+      chip.setAttribute('aria-pressed','true');
+      activeTier = chip.getAttribute('data-tier');
+      apply();
+    });
+  });
+
+  document.querySelectorAll('.jump-btn').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      var cmd = btn.getAttribute('data-cmd') || btn.textContent;
+      var done = function(){
+        btn.classList.add('copied');
+        setTimeout(function(){ btn.classList.remove('copied'); }, 1400);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(cmd).then(done).catch(done);
+      } else {
+        done();
+      }
+      if (btn.classList.contains('resume-btn')){
+        var n = btn.getAttribute('data-n');
+        var frame = document.createElement('iframe');
+        frame.style.display = 'none';
+        frame.src = 'wip://' + n;
+        document.body.appendChild(frame);
+        setTimeout(function(){ frame.remove(); }, 1000);
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
