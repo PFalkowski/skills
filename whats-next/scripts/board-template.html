@@ -68,6 +68,8 @@
   .tabular{font-variant-numeric:tabular-nums;}
 
   header{margin-bottom:22px;}
+  .header-top{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;}
+  .header-text{flex:1 1 320px; min-width:0;}
   .eyebrow{
     font-size:11px; font-weight:600; letter-spacing:.09em; text-transform:uppercase;
     color:var(--accent-ink); margin:0 0 8px;
@@ -77,6 +79,16 @@
     letter-spacing:-.01em; text-wrap:balance;
   }
   .subtitle{color:var(--ink-soft); font-size:14.5px; margin:0; max-width:60ch;}
+  .theme-toggle{
+    display:inline-flex; border:1px solid var(--border); border-radius:999px;
+    padding:2px; background:var(--surface); flex:none;
+  }
+  .theme-btn{
+    border:none; background:transparent; color:var(--ink-soft); font-family:inherit;
+    font-size:12px; font-weight:500; padding:6px 13px; border-radius:999px; cursor:pointer;
+  }
+  .theme-btn[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent-ink); font-weight:600;}
+  .theme-btn:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
   .jump-note{color:var(--ink-faint); font-size:12.5px; margin:12px 0 0; max-width:64ch;}
   .jump-note code{font-family:"IBM Plex Mono",monospace; background:var(--surface-2); border:1px solid var(--border); border-radius:4px; padding:1px 5px;}
   .stats{
@@ -204,9 +216,18 @@
 <body>
 <div class="wrap">
   <header>
-    <p class="eyebrow">whats-next · git worktree status</p>
-    <h1>Work Board</h1>
-    <p class="subtitle">Every worktree and pull request across your repositories, ranked hottest first — merge-ready work always floats above routine housekeeping.</p>
+    <div class="header-top">
+      <div class="header-text">
+        <p class="eyebrow">whats-next · git worktree status</p>
+        <h1>Work Board</h1>
+        <p class="subtitle">Every worktree and pull request across your repositories, ranked hottest first — merge-ready work always floats above routine housekeeping.</p>
+      </div>
+      <div class="theme-toggle" role="group" aria-label="Theme">
+        <button class="theme-btn" data-theme-choice="light" aria-pressed="false">Light</button>
+        <button class="theme-btn" data-theme-choice="auto" aria-pressed="true">Auto</button>
+        <button class="theme-btn" data-theme-choice="dark" aria-pressed="false">Dark</button>
+      </div>
+    </div>
     <div class="stats">
       <span><b class="tabular">{{REPO_COUNT}}</b> repositories</span>
       <span><b class="tabular">{{ITEM_COUNT}}</b> items shown</span>
@@ -252,6 +273,26 @@
 
 <script>
 (function(){
+  var THEME_KEY = 'wip-board-theme';
+  var themeBtns = Array.prototype.slice.call(document.querySelectorAll('.theme-btn'));
+  function applyTheme(choice){
+    if (choice === 'light' || choice === 'dark') { document.documentElement.setAttribute('data-theme', choice); }
+    else { document.documentElement.removeAttribute('data-theme'); }
+    themeBtns.forEach(function(b){
+      b.setAttribute('aria-pressed', b.getAttribute('data-theme-choice') === choice ? 'true' : 'false');
+    });
+  }
+  var savedTheme = 'auto';
+  try { savedTheme = localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) {}
+  applyTheme(savedTheme);
+  themeBtns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var choice = btn.getAttribute('data-theme-choice');
+      try { localStorage.setItem(THEME_KEY, choice); } catch (e) {}
+      applyTheme(choice);
+    });
+  });
+
   var search = document.getElementById('search');
   var repoFilter = document.getElementById('repoFilter');
   var chips = Array.prototype.slice.call(document.querySelectorAll('.chip'));

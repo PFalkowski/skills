@@ -37,8 +37,8 @@
 
 .PARAMETER Html
   Printing the board (Item omitted) always also writes a styled HTML report to board.html next
-  to board.json and opens it in the default browser. Pass -Html to print only that report and
-  skip the terminal text.
+  to board.json and opens it in the default browser. Pass -Html to print only that report, skip
+  the terminal text, and skip the one-time wip:// registration prompt below (it needs a terminal).
 #>
 [CmdletBinding()]
 param(
@@ -143,6 +143,41 @@ function Select-Shown {
     [pscustomobject]@{ Shown = @($shown); Hidden = $hidden }
 }
 
+function Test-Interactive {
+    if ($env:CI) { return $false }
+    if (-not [Environment]::UserInteractive) { return $false }
+    try {
+        if (-not $Host.UI.RawUI) { return $false }
+        $null = $Host.UI.RawUI.WindowSize
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
+function Invoke-ProtocolFirstRun {
+    if (-not $IsWindows) { return }
+    $marker = Join-Path $stateRoot 'protocol-prompted'
+    if (Test-Path -LiteralPath $marker) { return }
+
+    if (Test-Path 'HKCU:\Software\Classes\wip\shell\open\command') {
+        New-Item -ItemType File -Path $marker -Force | Out-Null
+        return
+    }
+    if (-not (Test-Interactive)) { return }
+
+    ''
+    $answer = Read-Host 'Register the wip:// protocol, so the report''s Resume button launches directly instead of only copying? One-time, user-scope, no admin. [y/N]'
+    New-Item -ItemType File -Path $marker -Force | Out-Null
+    if ($answer -match '^[Yy]') {
+        & (Join-Path $PSScriptRoot 'register-protocol.ps1')
+    }
+    else {
+        'Skipped. Run register-protocol.ps1 any time to enable it later.'
+    }
+}
+
 function Show-Board {
     $all = @(Get-Board -SinceDays $SinceDays -StaleDays $StaleDays)
     if ($all.Count -eq 0) {
@@ -189,6 +224,7 @@ function Show-Board {
     }
     ''
     '  wip <n> to go there.  wip prune to clear dead worktrees.'
+    Invoke-ProtocolFirstRun
 }
 
 function Start-Item {
