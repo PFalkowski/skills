@@ -19,6 +19,7 @@
     "./go-go-go",
     "./handoff",
     "./housekeeping",
+    "./invert",
     "./less-is-more",
     "./manager",
     "./merge-stack",

@@ -75,7 +75,9 @@ and takes the first that applies.
 
 ### Pre-mortem for the unknown column
 
-Two prompts reliably surface the missed ones:
+This is inversion: ask what would guarantee failure rather than what would produce success, then
+check whether the plan already does one of those things ([`invert`](../invert/SKILL.md)). Two
+prompts reliably surface the missed ones:
 
 - **"The user rejects this work. Why?"** Answer it three times with three different reasons. Each reason is
   an assumption; add it to the ledger and route it.
