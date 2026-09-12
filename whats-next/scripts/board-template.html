@@ -80,14 +80,24 @@
   }
   .subtitle{color:var(--ink-soft); font-size:14.5px; margin:0; max-width:60ch;}
   .theme-toggle{
-    display:inline-flex; border:1px solid var(--border); border-radius:999px;
-    padding:2px; background:var(--surface); flex:none;
+    position:relative; display:inline-flex; border:1px solid var(--border); border-radius:999px;
+    padding:2px; background:var(--surface); flex:none; touch-action:none; user-select:none;
   }
+  .theme-thumb{
+    position:absolute; top:2px; left:2px; bottom:2px;
+    width:calc((100% - 4px) / 3);
+    background:var(--accent-soft); border:1px solid var(--accent); border-radius:999px;
+    transform:translateX(calc(var(--thumb-index, 1) * 100%));
+    transition:transform .22s cubic-bezier(.4,0,.2,1);
+    pointer-events:none; z-index:0;
+  }
+  .theme-toggle.dragging .theme-thumb{transition:none;}
   .theme-btn{
+    position:relative; z-index:1; flex:1; text-align:center;
     border:none; background:transparent; color:var(--ink-soft); font-family:inherit;
     font-size:12px; font-weight:500; padding:6px 13px; border-radius:999px; cursor:pointer;
   }
-  .theme-btn[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent-ink); font-weight:600;}
+  .theme-btn[aria-pressed="true"]{color:var(--accent-ink); font-weight:600;}
   .theme-btn:focus-visible{outline:2px solid var(--accent); outline-offset:1px;}
   .jump-note{color:var(--ink-faint); font-size:12.5px; margin:12px 0 0; max-width:64ch;}
   .jump-note code{font-family:"IBM Plex Mono",monospace; background:var(--surface-2); border:1px solid var(--border); border-radius:4px; padding:1px 5px;}
@@ -223,9 +233,10 @@
         <p class="subtitle">Every worktree and pull request across your repositories, ranked hottest first — merge-ready work always floats above routine housekeeping.</p>
       </div>
       <div class="theme-toggle" role="group" aria-label="Theme">
-        <button class="theme-btn" data-theme-choice="light" aria-pressed="false">Light</button>
+        <div class="theme-thumb" aria-hidden="true"></div>
+        <button class="theme-btn" data-theme-choice="light" aria-pressed="false" aria-label="Light">&#9728;</button>
         <button class="theme-btn" data-theme-choice="auto" aria-pressed="true">Auto</button>
-        <button class="theme-btn" data-theme-choice="dark" aria-pressed="false">Dark</button>
+        <button class="theme-btn" data-theme-choice="dark" aria-pressed="false" aria-label="Dark">&#127769;</button>
       </div>
     </div>
     <div class="stats">
@@ -274,24 +285,70 @@
 <script>
 (function(){
   var THEME_KEY = 'wip-board-theme';
+  var THEME_ORDER = ['light', 'auto', 'dark'];
+  var themeToggle = document.querySelector('.theme-toggle');
+  var themeThumb = document.querySelector('.theme-thumb');
   var themeBtns = Array.prototype.slice.call(document.querySelectorAll('.theme-btn'));
+
+  function settleThumb(choice){
+    var idx = THEME_ORDER.indexOf(choice);
+    themeThumb.style.transform = '';
+    themeToggle.style.setProperty('--thumb-index', idx === -1 ? 1 : idx);
+  }
   function applyTheme(choice){
     if (choice === 'light' || choice === 'dark') { document.documentElement.setAttribute('data-theme', choice); }
     else { document.documentElement.removeAttribute('data-theme'); }
     themeBtns.forEach(function(b){
       b.setAttribute('aria-pressed', b.getAttribute('data-theme-choice') === choice ? 'true' : 'false');
     });
+    settleThumb(choice);
+  }
+  function chooseTheme(choice){
+    try { localStorage.setItem(THEME_KEY, choice); } catch (e) {}
+    applyTheme(choice);
   }
   var savedTheme = 'auto';
   try { savedTheme = localStorage.getItem(THEME_KEY) || 'auto'; } catch (e) {}
   applyTheme(savedTheme);
   themeBtns.forEach(function(btn){
     btn.addEventListener('click', function(){
-      var choice = btn.getAttribute('data-theme-choice');
-      try { localStorage.setItem(THEME_KEY, choice); } catch (e) {}
-      applyTheme(choice);
+      chooseTheme(btn.getAttribute('data-theme-choice'));
     });
   });
+
+  // Drag / swipe: the thumb follows the pointer while held, then snaps to
+  // whichever third of the track it was released over.
+  var dragTrackRect = null;
+  function nearestChoice(clientX){
+    var ratio = (clientX - dragTrackRect.left) / dragTrackRect.width;
+    var idx = Math.min(2, Math.max(0, Math.floor(ratio * 3)));
+    return THEME_ORDER[idx];
+  }
+  function followPointer(clientX){
+    var pad = 2;
+    var thumbWidth = dragTrackRect.width / 3;
+    var x = clientX - dragTrackRect.left - thumbWidth / 2;
+    x = Math.min(dragTrackRect.width - pad - thumbWidth, Math.max(pad, x));
+    themeThumb.style.transform = 'translateX(' + x + 'px)';
+  }
+  themeToggle.addEventListener('pointerdown', function(e){
+    dragTrackRect = themeToggle.getBoundingClientRect();
+    themeToggle.classList.add('dragging');
+    themeToggle.setPointerCapture(e.pointerId);
+    followPointer(e.clientX);
+  });
+  themeToggle.addEventListener('pointermove', function(e){
+    if (!dragTrackRect || !themeToggle.classList.contains('dragging')) return;
+    followPointer(e.clientX);
+  });
+  function endDrag(e){
+    if (!dragTrackRect || !themeToggle.classList.contains('dragging')) return;
+    themeToggle.classList.remove('dragging');
+    chooseTheme(nearestChoice(e.clientX));
+    dragTrackRect = null;
+  }
+  themeToggle.addEventListener('pointerup', endDrag);
+  themeToggle.addEventListener('pointercancel', endDrag);
 
   var search = document.getElementById('search');
   var repoFilter = document.getElementById('repoFilter');
