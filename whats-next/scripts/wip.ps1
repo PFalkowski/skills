@@ -50,7 +50,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'WhatsNext.psm1') -Force -DisableNameChecking
 
-$stateRoot = if ($env:AGENTS_STATE) { Join-Path $env:AGENTS_STATE 'whats-next' } else { Join-Path $HOME '.agents/whats-next' }
+$stateRoot = if ($env:AGENTS_STATE) { Join-Path $env:AGENTS_STATE 'whats-next' } else { Join-Path $HOME '.agent-state/whats-next' }
 $boardFile = Join-Path $stateRoot 'board.json'
 $marks = @{ 1 = 'MERGE'; 2 = 'REVIEW'; 3 = 'NO PR'; 4 = 'AT RISK'; 5 = 'ASKED'; 6 = 'BACKLOG'; 7 = 'STALE' }
 
