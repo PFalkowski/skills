@@ -21,10 +21,11 @@ These are one feature and are settled together here.
 
 ### Language and launcher
 
-C# on .NET 10. The launcher hashes the project's `*.cs`/`*.csproj` files (sorted, concatenated,
-SHA-256) and compares the result to a `source.sha256` marker written after the last successful
-build; a missing cache, missing/mismatched marker, or an unfinished build forces a rebuild, a
-match runs the cached binary straight away. A content hash is used, not a timestamp or a git
+C# on .NET 10. The launcher hashes every file under `src/WhatsNext` (excluding `bin`/`obj`) plus
+`Directory.Build.props` (sorted by relative path, concatenated, SHA-256) and compares the result
+to a `current.marker` file written after the last successful build; a missing cache,
+missing/mismatched marker, or an unfinished build forces a rebuild, a match runs the cached
+binary straight away. A content hash is used, not a timestamp or a git
 commit, because it stays correct across a checkout, a worktree, or a plain copy. Missing the
 .NET 10 SDK (`dotnet --list-sdks` has no `10.` entry) prints one plain-English line naming the
 requirement and an install link, then exits non-zero — no build attempt, no stack trace. The
