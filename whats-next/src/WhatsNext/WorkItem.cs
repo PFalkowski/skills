@@ -1,6 +1,6 @@
 namespace WhatsNext;
 
-public sealed record BoardEntry(
+public sealed record WorkItem(
     string Repo,
     string RepoRoot,
     int Rank,

@@ -49,6 +49,34 @@ internal sealed class GitFixture : IDisposable
         return path;
     }
 
+    // A branch whose upstream is gone (pushed once, then deleted on the remote) is the one pushed
+    // state that reaches the backlog/stale rungs: unlike a live pushed branch it does not match
+    // the pushed-with-open-pr rung, and unlike a branch that was never pushed it does not match
+    // the never-pushed rung either.
+    public string AddGoneUpstreamBranch(string branch)
+    {
+        var path = AddBranch(branch, push: true);
+        Git(Remote, "update-ref", "-d", $"refs/heads/{branch}");
+        Git(Repo, "fetch", "--prune");
+        return path;
+    }
+
+    public void SetCommitAge(string path, int daysAgo)
+    {
+        var date = DateTimeOffset.UtcNow.AddDays(-daysAgo).ToString("o");
+        Environment.SetEnvironmentVariable("GIT_COMMITTER_DATE", date);
+        Environment.SetEnvironmentVariable("GIT_AUTHOR_DATE", date);
+        try
+        {
+            Git(path, "commit", "--amend", "--no-edit", $"--date={date}");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("GIT_COMMITTER_DATE", null);
+            Environment.SetEnvironmentVariable("GIT_AUTHOR_DATE", null);
+        }
+    }
+
     public WorktreeFact Fact(string path) => WorktreeFactReader.Read(_cli, path);
 
     public PruneCandidate Verdict(

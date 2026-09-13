@@ -48,7 +48,7 @@ public sealed partial class StartItemRunner(SessionLauncher launcher, TextWriter
     [GeneratedRegex("[^A-Za-z0-9 ._/-]")]
     private static partial Regex AllowedLabelCharacters();
 
-    private static IReadOnlyList<BoardEntry> ReadBoard(string boardFilePath)
+    private static IReadOnlyList<WorkItem> ReadBoard(string boardFilePath)
     {
         if (!File.Exists(boardFilePath))
         {
@@ -56,7 +56,7 @@ public sealed partial class StartItemRunner(SessionLauncher launcher, TextWriter
         }
 
         using var stream = OpenForSharedRead(boardFilePath);
-        return JsonSerializer.Deserialize<List<BoardEntry>>(stream) ?? [];
+        return JsonSerializer.Deserialize<List<WorkItem>>(stream) ?? [];
     }
 
     private static FileStream OpenForSharedRead(string path) =>

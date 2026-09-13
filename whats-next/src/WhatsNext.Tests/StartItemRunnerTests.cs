@@ -20,7 +20,7 @@ public class StartItemRunnerTests
     public void Run_NumberOutOfRange_ThrowsWithExactMessage()
     {
         using var scratch = new ScratchDirectory();
-        scratch.WriteBoard(new BoardEntry("repo", scratch.Path, 1, "pr", "label", scratch.Path, null, null, null, false));
+        scratch.WriteBoard(new WorkItem("repo", scratch.Path, 1, "pr", "label", scratch.Path, null, null, null, false));
         var runner = new StartItemRunner(new SessionLauncher(new FakeExternalCli()), TextWriter.Null);
 
         var ex = Assert.Throws<InvalidOperationException>(() => runner.Run(scratch.BoardFilePath, 2));
@@ -33,7 +33,7 @@ public class StartItemRunnerTests
     {
         using var scratch = new ScratchDirectory();
         var goneDir = Path.Combine(scratch.Path, "gone");
-        scratch.WriteBoard(new BoardEntry("repo", goneDir, 1, "pr", "label", goneDir, null, null, null, false));
+        scratch.WriteBoard(new WorkItem("repo", goneDir, 1, "pr", "label", goneDir, null, null, null, false));
         var runner = new StartItemRunner(new SessionLauncher(new FakeExternalCli()), TextWriter.Null);
 
         var ex = Assert.Throws<InvalidOperationException>(() => runner.Run(scratch.BoardFilePath, 1));
@@ -46,7 +46,7 @@ public class StartItemRunnerTests
     {
         using var scratch = new ScratchDirectory();
         var sessionId = Guid.NewGuid().ToString();
-        scratch.WriteBoard(new BoardEntry("myrepo", scratch.Path, 1, "pr", "label", scratch.Path, "feat/x", sessionId, null, false));
+        scratch.WriteBoard(new WorkItem("myrepo", scratch.Path, 1, "pr", "label", scratch.Path, "feat/x", sessionId, null, false));
         var cli = new FakeExternalCli(attachedExitCode: 5);
         var output = new StringWriter();
         var runner = new StartItemRunner(new SessionLauncher(cli), output);
@@ -62,7 +62,7 @@ public class StartItemRunnerTests
     public void Run_EntryWithoutSessionId_StartsNewSessionAndPrintsHandoffLine()
     {
         using var scratch = new ScratchDirectory();
-        scratch.WriteBoard(new BoardEntry("myrepo", scratch.Path, 1, "worktree", "label", scratch.Path, null, null, null, false));
+        scratch.WriteBoard(new WorkItem("myrepo", scratch.Path, 1, "worktree", "label", scratch.Path, null, null, null, false));
         var cli = new FakeExternalCli(attachedExitCode: 0);
         var output = new StringWriter();
         var runner = new StartItemRunner(new SessionLauncher(cli), output);
@@ -77,7 +77,7 @@ public class StartItemRunnerTests
     public void Run_EntryWithNonGuidSessionId_ThrowsWithExactMessageAndNeverLaunches()
     {
         using var scratch = new ScratchDirectory();
-        scratch.WriteBoard(new BoardEntry("myrepo", scratch.Path, 1, "pr", "label", scratch.Path, "feat/x", "sess-1", null, false));
+        scratch.WriteBoard(new WorkItem("myrepo", scratch.Path, 1, "pr", "label", scratch.Path, "feat/x", "sess-1", null, false));
         var cli = new FakeExternalCli();
         var runner = new StartItemRunner(new SessionLauncher(cli), TextWriter.Null);
 
@@ -98,7 +98,7 @@ public class StartItemRunnerTests
 
         public string BoardFilePath => System.IO.Path.Combine(Path, "board.json");
 
-        public void WriteBoard(params BoardEntry[] entries) =>
+        public void WriteBoard(params WorkItem[] entries) =>
             File.WriteAllText(BoardFilePath, JsonSerializer.Serialize(entries));
 
         public void Dispose() => Directory.Delete(Path, recursive: true);

@@ -15,7 +15,7 @@ public class CommandInjectionTests
     public void Run_HostileBranchName_LabelHandedToLauncherHasNoMetacharacters()
     {
         using var scratch = new ScratchDirectory();
-        scratch.WriteBoard(new BoardEntry("myrepo", scratch.Path, 1, "worktree", "label", scratch.Path, HostileBranch, null, null, false));
+        scratch.WriteBoard(new WorkItem("myrepo", scratch.Path, 1, "worktree", "label", scratch.Path, HostileBranch, null, null, false));
         var cli = new FakeExternalCli();
         var runner = new StartItemRunner(new SessionLauncher(cli), TextWriter.Null);
 
@@ -38,7 +38,7 @@ public class CommandInjectionTests
         var pwnedFile = Path.Combine(scratch.Path, "pwned.txt");
         var argvLog = Path.Combine(scratch.Path, "argv.log");
         File.WriteAllText(Path.Combine(binDir, "claude.cmd"), "@echo off\r\necho %* >> argv.log\r\n");
-        scratch.WriteBoard(new BoardEntry("myrepo", scratch.Path, 1, "worktree", "label", scratch.Path, HostileBranch, null, null, false));
+        scratch.WriteBoard(new WorkItem("myrepo", scratch.Path, 1, "worktree", "label", scratch.Path, HostileBranch, null, null, false));
 
         var originalPath = Environment.GetEnvironmentVariable("PATH");
         try
@@ -73,7 +73,7 @@ public class CommandInjectionTests
 
         public string BoardFilePath => System.IO.Path.Combine(Path, "board.json");
 
-        public void WriteBoard(params BoardEntry[] entries) =>
+        public void WriteBoard(params WorkItem[] entries) =>
             File.WriteAllText(BoardFilePath, JsonSerializer.Serialize(entries));
 
         public void Dispose() => Directory.Delete(Path, recursive: true);
