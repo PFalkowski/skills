@@ -18,10 +18,23 @@ internal sealed class LauncherTestEnvironment : IDisposable
         _fakeBinDir = Path.Combine(_tempRoot, "fakebin");
         Directory.CreateDirectory(_fakeBinDir);
 
-        File.WriteAllText(
-            Path.Combine(_fakeBinDir, "dotnet.cmd"),
-            "@echo off\r\npwsh -NoProfile -File \"%~dp0FakeDotnet.ps1\" %*\r\nexit /b %ERRORLEVEL%\r\n");
-        File.WriteAllText(Path.Combine(_fakeBinDir, "FakeDotnet.ps1"), FakeDotnetScript);
+        if (OperatingSystem.IsWindows())
+        {
+            File.WriteAllText(
+                Path.Combine(_fakeBinDir, "dotnet.cmd"),
+                "@echo off\r\npwsh -NoProfile -File \"%~dp0FakeDotnet.ps1\" %*\r\nexit /b %ERRORLEVEL%\r\n");
+            File.WriteAllText(Path.Combine(_fakeBinDir, "FakeDotnet.ps1"), FakeDotnetScript);
+        }
+        else
+        {
+            var dotnetPath = Path.Combine(_fakeBinDir, "dotnet");
+            File.WriteAllText(dotnetPath, FakeDotnetShellScript.ReplaceLineEndings("\n"));
+            File.SetUnixFileMode(
+                dotnetPath,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+                UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+        }
     }
 
     public (int ExitCode, string StdOut) RunLauncher(bool sdkAvailable, int childExitCode, params string[] args)
@@ -100,6 +113,39 @@ internal sealed class LauncherTestEnvironment : IDisposable
             Write-Output ('FAKE_RUN ' + ($argv -join ' '))
             exit ([int]$env:FAKE_EXIT_CODE)
         }
+        exit 99
+        """;
+
+    // Same fake behaviour as FakeDotnetScript above, ported to POSIX shell: on non-Windows,
+    // pwsh resolves `dotnet` by executable bit, not by PATHEXT, so the fake must be a real
+    // executable named exactly "dotnet" rather than a "dotnet.cmd" pwsh would never find.
+    private const string FakeDotnetShellScript = """
+        #!/usr/bin/env bash
+        set -eu
+        if [ "$1" = "--list-sdks" ]; then
+            if [ "${FAKE_DOTNET_NO_SDK:-}" != "1" ]; then
+                echo "10.0.400 [/fake/sdk]"
+            fi
+            exit 0
+        fi
+        if [ "$1" = "publish" ]; then
+            echo "publish $*" >> "$FAKE_DOTNET_LOG"
+            prev=""
+            out_dir=""
+            for a in "$@"; do
+                if [ "$prev" = "-o" ]; then out_dir="$a"; fi
+                prev="$a"
+            done
+            mkdir -p "$out_dir"
+            touch "$out_dir/WhatsNext.dll"
+            exit 0
+        fi
+        case "$1" in
+            *WhatsNext.dll)
+                echo "FAKE_RUN $*"
+                exit "${FAKE_EXIT_CODE:-0}"
+                ;;
+        esac
         exit 99
         """;
 }
