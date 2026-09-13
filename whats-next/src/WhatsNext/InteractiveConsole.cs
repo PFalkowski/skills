@@ -3,7 +3,12 @@ namespace WhatsNext;
 public static class InteractiveConsole
 {
     public static bool IsInteractive(bool inputRedirected, bool outputRedirected, bool userInteractive, string? ci) =>
-        throw new NotImplementedException();
+        string.IsNullOrEmpty(ci) && userInteractive && !inputRedirected && !outputRedirected;
 
-    public static bool IsInteractive() => throw new NotImplementedException();
+    public static bool IsInteractive() =>
+        IsInteractive(
+            Console.IsInputRedirected,
+            Console.IsOutputRedirected,
+            Environment.UserInteractive,
+            Environment.GetEnvironmentVariable("CI"));
 }
