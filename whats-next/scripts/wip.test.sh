@@ -91,5 +91,54 @@ if [ "$status" -eq 0 ] || [ "$builds" -ne 0 ] || \
   fail=$((fail + 1))
 fi
 
+FAKE_BIN3="$TMP_ROOT/fakebin-crashed-lock"
+STATE_ROOT3="$TMP_ROOT/state-crashed-lock"
+PUBLISH_LOG3="$TMP_ROOT/publish-crashed-lock.log"
+: > "$PUBLISH_LOG3"
+make_fake_dotnet "$FAKE_BIN3"
+
+PATH="$FAKE_BIN3:$PATH" AGENTS_STATE="$STATE_ROOT3" FAKE_DOTNET_LOG="$PUBLISH_LOG3" FAKE_EXIT_CODE=0 "$LAUNCHER" >/dev/null
+bin_root3="$STATE_ROOT3/whats-next/bin"
+hash3=$(cat "$bin_root3/current.marker")
+rm -f "$bin_root3/current.marker"
+mkdir "$bin_root3/$hash3.lock.d"
+: > "$PUBLISH_LOG3"
+
+total=$((total + 1))
+start=$(date +%s)
+out=$(PATH="$FAKE_BIN3:$PATH" AGENTS_STATE="$STATE_ROOT3" FAKE_DOTNET_LOG="$PUBLISH_LOG3" FAKE_EXIT_CODE=44 "$LAUNCHER" 2>&1)
+status=$?
+elapsed=$(( $(date +%s) - start ))
+builds=$(wc -l < "$PUBLISH_LOG3" | tr -d ' ')
+if [ "$status" -ne 44 ] || [ "$builds" -ne 1 ] || [ "$elapsed" -ge 10 ] || printf '%s' "$out" | grep -q 'Timed out'; then
+  echo "FAIL: a lock dir orphaned before its pid file was written should self-heal after a short grace period (status=$status builds=$builds elapsed=${elapsed}s)"
+  echo "$out"
+  fail=$((fail + 1))
+fi
+
+FAKE_BIN4="$TMP_ROOT/fakebin-stuck-lock"
+STATE_ROOT4="$TMP_ROOT/state-stuck-lock"
+PUBLISH_LOG4="$TMP_ROOT/publish-stuck-lock.log"
+: > "$PUBLISH_LOG4"
+make_fake_dotnet "$FAKE_BIN4"
+
+PATH="$FAKE_BIN4:$PATH" AGENTS_STATE="$STATE_ROOT4" FAKE_DOTNET_LOG="$PUBLISH_LOG4" FAKE_EXIT_CODE=0 "$LAUNCHER" >/dev/null
+bin_root4="$STATE_ROOT4/whats-next/bin"
+hash4=$(cat "$bin_root4/current.marker")
+rm -f "$bin_root4/current.marker"
+stuck_lock_dir="$bin_root4/$hash4.lock.d"
+mkdir "$stuck_lock_dir"
+echo $$ > "$stuck_lock_dir/pid"
+
+total=$((total + 1))
+out=$(PATH="$FAKE_BIN4:$PATH" AGENTS_STATE="$STATE_ROOT4" WIP_LOCK_TIMEOUT_SECONDS=1 FAKE_DOTNET_LOG="$PUBLISH_LOG4" "$LAUNCHER" 2>&1)
+status=$?
+if [ "$status" -eq 0 ] || ! printf '%s' "$out" | grep -qF "$stuck_lock_dir"; then
+  echo "FAIL: the timeout message should name the stuck lock directory so a human can remove it by hand"
+  echo "$out"
+  fail=$((fail + 1))
+fi
+rm -rf "$stuck_lock_dir"
+
 echo "$((total - fail))/$total passed"
 [ "$fail" -eq 0 ]
