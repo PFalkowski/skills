@@ -116,7 +116,8 @@ public static partial class GitHubPullRequestFetch
             UnresolvedThreadCount: unresolvedThreadCount);
     }
 
-    public static string? FormatGitHubSlug(string? remoteUrl) => throw new NotImplementedException();
+    public static string? FormatGitHubSlug(string? remoteUrl) =>
+        ParseGitHubSlug(remoteUrl) is { } slug ? $"{slug.Owner}/{slug.Name}" : null;
 
     private static (string Owner, string Name)? ParseGitHubSlug(string? remoteUrl)
     {
