@@ -481,7 +481,9 @@ public class WorktreeRemovabilityTests
     private static string AddBrokenPointer(GitFixture fx)
     {
         var path = fx.AddBranch("broken-pointer", push: true, mergeToMain: true);
-        File.WriteAllText(Path.Combine(path, ".git"), "gitdir: C:/nowhere/at/all");
+        var gitPointer = Path.Combine(path, ".git");
+        File.SetAttributes(gitPointer, FileAttributes.Normal);
+        File.WriteAllText(gitPointer, "gitdir: C:/nowhere/at/all");
         return path;
     }
 }
