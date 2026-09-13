@@ -6,13 +6,12 @@ namespace WhatsNext.Tests;
 
 public class EndToEndBoardSnapshotTests
 {
-    private const string TempRootPlaceholder = "<FIXTURE-ROOT>";
+    private const string TempRootPlaceholder = "FIXTURE_ROOT";
 
     [Fact]
     public void BoardMatchesSnapshot_ReRecordWithWHATSNEXT_UPDATE_SNAPSHOT()
     {
         using var fx = new GitFixture();
-        var clock = new FakeClock(DateTimeOffset.UtcNow);
 
         var dirty = fx.AddBranch("dirty-worktree");
         File.AppendAllText(Path.Combine(dirty, "work.txt"), "uncommitted local edit\n");
@@ -21,6 +20,11 @@ public class EndToEndBoardSnapshotTests
 
         var stale = fx.AddGoneUpstreamBranch("stale-worktree");
         fx.SetCommitAge(stale, daysAgo: 30);
+
+        // Clock fixed well clear of that 30-day mark (not right on it) so the whole-day
+        // truncation in the "stale" label can never flip with git's own second-level rounding
+        // of the commit timestamp SetCommitAge just wrote.
+        var clock = new FakeClock(DateTimeOffset.UtcNow.AddHours(12));
 
         // Same branch name as a real, already-squash-merged pull request in the captured fixture -
         // gone upstream and not otherwise stale, so it should surface no board item at all.
