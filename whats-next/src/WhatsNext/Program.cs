@@ -44,8 +44,8 @@ static int RunBoard(WipOptions options)
 {
     var cli = new ProcessExternalCli();
     var stateRoot = WhatsNextStateRoot();
-    var (repos, liveSessions) = RepositoryDiscovery.Discover(cli, TranscriptProjectsRoot(), options.SinceDays);
-    var items = Board.Build(cli, repos, liveSessions, options.StaleDays);
+    var (repos, liveSessions, transcriptSessions) = RepositoryDiscovery.Discover(cli, TranscriptProjectsRoot(), options.SinceDays);
+    var items = Board.Build(cli, repos, liveSessions, transcriptSessions, options.StaleDays);
 
     if (items.Count == 0)
     {
@@ -116,7 +116,7 @@ static void RunProtocolFirstRun(IExternalCli cli, string stateRoot, string? laun
 static int RunPrune(WipOptions options)
 {
     var cli = new ProcessExternalCli();
-    var (repos, liveSessions) = RepositoryDiscovery.Discover(cli, TranscriptProjectsRoot(), options.SinceDays);
+    var (repos, liveSessions, _) = RepositoryDiscovery.Discover(cli, TranscriptProjectsRoot(), options.SinceDays);
     PrunePipeline.Run(
         cli, Console.Out, repos, liveSessions, Environment.CurrentDirectory, options.Apply, options.IncludeIgnored, options.Fetch);
     return 0;

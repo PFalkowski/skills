@@ -9,11 +9,12 @@ public static class BoardAssembly
         IReadOnlyList<string> worktreePaths,
         IReadOnlyList<PullRequestFact>? openPullRequests,
         IReadOnlyList<LiveSession> liveSessions,
-        int staleDays,
-        IReadOnlyList<TranscriptSession>? transcriptSessions = null)
+        IReadOnlyList<TranscriptSession> transcriptSessions,
+        int staleDays)
     {
         var pullRequestsByHead = IndexByHead(openPullRequests);
         var liveSessionsByPath = IndexByPath(liveSessions);
+        var newestTranscriptByPath = IndexNewestByPath(transcriptSessions);
         var items = new List<WorkItem>();
         var claimedPullRequestNumbers = new HashSet<int>();
 
@@ -26,12 +27,13 @@ public static class BoardAssembly
             }
 
             var running = FindByPath(liveSessionsByPath, fact.Path);
+            var newestTranscript = FindNewestByPath(newestTranscriptByPath, fact.Path);
             var pullRequest = fact.Branch is not null && pullRequestsByHead.TryGetValue(fact.Branch, out var found) ? found : null;
             var busy = running is not null;
-            var sessionId = running?.SessionId;
+            var sessionId = newestTranscript?.SessionId;
 
-            WorkItem NewItem(int rank, string kind, string label, string? url = null, bool alreadyOpen = false) =>
-                new(repoName, repoRoot, rank, kind, label, fact.Path, fact.Branch, sessionId, url, alreadyOpen);
+            WorkItem NewItem(int rank, string kind, string label, string? url = null, bool alreadyOpen = false, string? sessionIdOverride = null) =>
+                new(repoName, repoRoot, rank, kind, label, fact.Path, fact.Branch, sessionIdOverride ?? sessionId, url, alreadyOpen);
 
             if (pullRequest is not null)
             {
@@ -77,7 +79,7 @@ public static class BoardAssembly
 
             if (running is { State: "blocked", SessionId: not null })
             {
-                items.Add(NewItem(5, "session-question", "a background session is blocked, waiting on you"));
+                items.Add(NewItem(5, "session-question", "a background session is blocked, waiting on you", sessionIdOverride: running.SessionId));
                 continue;
             }
 
@@ -144,6 +146,26 @@ public static class BoardAssembly
     }
 
     private static LiveSession? FindByPath(Dictionary<string, LiveSession> byPath, string path) =>
+        Normalize(path) is { } key && byPath.TryGetValue(key, out var session) ? session : null;
+
+    private static Dictionary<string, TranscriptSession> IndexNewestByPath(IReadOnlyList<TranscriptSession> transcriptSessions)
+    {
+        var byPath = new Dictionary<string, TranscriptSession>();
+        foreach (var session in transcriptSessions)
+        {
+            if (Normalize(session.Cwd) is not { } key)
+            {
+                continue;
+            }
+            if (!byPath.TryGetValue(key, out var newest) || session.Written > newest.Written)
+            {
+                byPath[key] = session;
+            }
+        }
+        return byPath;
+    }
+
+    private static TranscriptSession? FindNewestByPath(Dictionary<string, TranscriptSession> byPath, string path) =>
         Normalize(path) is { } key && byPath.TryGetValue(key, out var session) ? session : null;
 
     private static string? Normalize(string? path) => path?.TrimEnd('/', '\\').ToLowerInvariant();

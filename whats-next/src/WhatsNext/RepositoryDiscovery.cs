@@ -5,13 +5,13 @@ namespace WhatsNext;
 // and the repository groups themselves.
 public static class RepositoryDiscovery
 {
-    public static (IReadOnlyList<RepositoryGroup> Repos, IReadOnlyList<LiveSession> LiveSessions) Discover(
+    public static (IReadOnlyList<RepositoryGroup> Repos, IReadOnlyList<LiveSession> LiveSessions, IReadOnlyList<TranscriptSession> TranscriptSessions) Discover(
         IExternalCli cli, string transcriptProjectsRoot, int sinceDays)
     {
         var liveSessions = LiveSessionFetch.Fetch(cli, transcriptProjectsRoot);
         var transcriptSessions = TranscriptReader.ReadSessions(transcriptProjectsRoot, sinceDays);
         var candidateDirectories = CandidateDirectories.From(liveSessions, transcriptSessions);
         var repos = RepositoryGrouping.From(cli, candidateDirectories);
-        return (repos, liveSessions);
+        return (repos, liveSessions, transcriptSessions);
     }
 }

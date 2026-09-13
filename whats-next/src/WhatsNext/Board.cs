@@ -5,14 +5,18 @@ namespace WhatsNext;
 public static class Board
 {
     public static IReadOnlyList<WorkItem> Build(
-        IExternalCli cli, IReadOnlyList<RepositoryGroup> repos, IReadOnlyList<LiveSession> liveSessions, int staleDays)
+        IExternalCli cli,
+        IReadOnlyList<RepositoryGroup> repos,
+        IReadOnlyList<LiveSession> liveSessions,
+        IReadOnlyList<TranscriptSession> transcriptSessions,
+        int staleDays)
     {
         var items = new List<WorkItem>();
         foreach (var repo in repos)
         {
             var remote = repo.Slug is not null ? GitHubPullRequestFetch.Fetch(cli, repo.Root, repo.OriginUrl) : null;
             items.AddRange(BoardAssembly.ForRepository(
-                cli, repo.Name, repo.Root, repo.Worktrees, remote?.PullRequests, liveSessions, staleDays));
+                cli, repo.Name, repo.Root, repo.Worktrees, remote?.PullRequests, liveSessions, transcriptSessions, staleDays));
         }
 
         return BoardSorting.Sort(items);
