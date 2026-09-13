@@ -1,17 +1,12 @@
 namespace WhatsNext;
 
-public interface IReportOpener
-{
-    void Open(string path);
-}
-
 public static class ReportOpening
 {
-    public static string? Open(IReportOpener opener, string path)
+    public static string? Open(IExternalCli cli, string path)
     {
         try
         {
-            opener.Open(path);
+            cli.OpenWithDefaultApplication(path);
             return null;
         }
         catch (Exception ex)

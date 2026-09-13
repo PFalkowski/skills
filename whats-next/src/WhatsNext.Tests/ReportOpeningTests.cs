@@ -10,20 +10,20 @@ public class ReportOpeningTests
     [Fact]
     public void ASuccessfulOpenReturnsNoMessageAndReachesTheOpener()
     {
-        var opener = new FakeReportOpener();
+        var cli = new FakeExternalCli();
 
-        var message = ReportOpening.Open(opener, @"C:\state\board.html");
+        var message = ReportOpening.Open(cli, @"C:\state\board.html");
 
         Assert.Null(message);
-        Assert.Equal(@"C:\state\board.html", opener.LastOpenedPath);
+        Assert.Equal(@"C:\state\board.html", cli.LastOpenedPath);
     }
 
     [Fact]
     public void AFailingOpenerYieldsTheFallbackMessageNamingThePath()
     {
-        var opener = new FakeReportOpener(new InvalidOperationException("no handler registered"));
+        var cli = new FakeExternalCli(throwOnOpen: new InvalidOperationException("no handler registered"));
 
-        var message = ReportOpening.Open(opener, @"C:\state\board.html");
+        var message = ReportOpening.Open(cli, @"C:\state\board.html");
 
         Assert.Equal(
             @"Could not open a browser automatically (no handler registered). The report is at: C:\state\board.html",
