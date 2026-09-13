@@ -12,7 +12,7 @@ public static partial class WorktreeFactReader
     private static readonly string[] OperationMarkers =
         ["rebase-merge", "rebase-apply", "BISECT_LOG", "CHERRY_PICK_HEAD", "MERGE_HEAD", "REVERT_HEAD", "sequencer"];
 
-    public static WorktreeFact Read(IExternalCli cli, string path)
+    public static WorktreeFact Read(IExternalCli cli, string path, IClock clock)
     {
         if (!Directory.Exists(path))
         {

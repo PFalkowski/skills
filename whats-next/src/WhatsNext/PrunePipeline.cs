@@ -88,7 +88,7 @@ public static class PrunePipeline
 
             foreach (var path in repo.Worktrees)
             {
-                var fact = WorktreeFactReader.Read(cli, path);
+                var fact = WorktreeFactReader.Read(cli, path, new SystemClock());
                 rows.Add(WorktreeRemoval.Evaluate(
                     cli, repo.Name, repo.Root, fact, currentDirectory, defaultRef, mergedHeads, livePaths, includeIgnored));
             }

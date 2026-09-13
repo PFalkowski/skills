@@ -77,7 +77,7 @@ internal sealed class GitFixture : IDisposable
         }
     }
 
-    public WorktreeFact Fact(string path) => WorktreeFactReader.Read(_cli, path);
+    public WorktreeFact Fact(string path, IClock? clock = null) => WorktreeFactReader.Read(_cli, path, clock ?? new SystemClock());
 
     public PruneCandidate Verdict(
         string path,

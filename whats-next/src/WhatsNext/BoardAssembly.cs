@@ -20,7 +20,7 @@ public static class BoardAssembly
 
         foreach (var worktreePath in worktreePaths)
         {
-            var fact = WorktreeFactReader.Read(cli, worktreePath);
+            var fact = WorktreeFactReader.Read(cli, worktreePath, new SystemClock());
             if (fact.Missing)
             {
                 continue;
