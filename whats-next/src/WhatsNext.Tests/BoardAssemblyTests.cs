@@ -267,6 +267,17 @@ public class BoardAssemblyTests
     }
 
     [Fact]
+    public void ANonLiveWorktreeWithARecentTranscriptStillCarriesThatSessionIdForResume()
+    {
+        using var fx = new GitFixture();
+        var worktree = fx.AddBranch("committed-unpushed-with-transcript");
+
+        var items = Board(fx, [worktree], transcriptSessions: [new TranscriptSession(worktree, "transcript-sess-1", DateTimeOffset.UtcNow)]);
+
+        Assert.Equal("transcript-sess-1", items[0].SessionId);
+    }
+
+    [Fact]
     public void ABlockedBackgroundSessionIsRank5()
     {
         using var fx = new GitFixture();
@@ -399,9 +410,11 @@ public class BoardAssemblyTests
         IReadOnlyList<PullRequestFact>? pullRequests = null,
         IReadOnlyList<LiveSession>? liveSessions = null,
         int staleDays = 7,
-        bool noRemote = false) =>
+        bool noRemote = false,
+        IReadOnlyList<TranscriptSession>? transcriptSessions = null) =>
         BoardAssembly.ForRepository(
-            new ProcessExternalCli(), "r", fx.Repo, worktrees, noRemote ? null : pullRequests ?? [], liveSessions ?? [], staleDays);
+            new ProcessExternalCli(), "r", fx.Repo, worktrees, noRemote ? null : pullRequests ?? [], liveSessions ?? [], staleDays,
+            transcriptSessions ?? []);
 
     private static PullRequestFact Pr(
         string? head = null,

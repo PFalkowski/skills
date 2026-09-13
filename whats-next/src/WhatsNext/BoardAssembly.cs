@@ -9,7 +9,8 @@ public static class BoardAssembly
         IReadOnlyList<string> worktreePaths,
         IReadOnlyList<PullRequestFact>? openPullRequests,
         IReadOnlyList<LiveSession> liveSessions,
-        int staleDays)
+        int staleDays,
+        IReadOnlyList<TranscriptSession>? transcriptSessions = null)
     {
         var pullRequestsByHead = IndexByHead(openPullRequests);
         var liveSessionsByPath = IndexByPath(liveSessions);
