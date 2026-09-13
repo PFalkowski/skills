@@ -26,7 +26,7 @@ public static class RepositoryGrouping
             var originUrl = originResult.ExitCode == 0 && originResult.StdOutLines.Count > 0 ? originResult.StdOutLines[0] : null;
             var slug = GitHubPullRequestFetch.FormatGitHubSlug(originUrl);
 
-            groups.Add(new RepositoryGroup(root, slug ?? Path.GetFileName(root), slug, WorktreePaths(cli, directory)));
+            groups.Add(new RepositoryGroup(root, slug ?? Path.GetFileName(root), slug, originUrl, WorktreePaths(cli, directory)));
         }
 
         return groups;

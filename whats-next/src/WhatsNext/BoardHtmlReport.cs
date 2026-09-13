@@ -6,28 +6,6 @@ namespace WhatsNext;
 
 public static class BoardHtmlReport
 {
-    private static readonly IReadOnlyDictionary<int, string> Marks = new Dictionary<int, string>
-    {
-        [1] = "MERGE",
-        [2] = "REVIEW",
-        [3] = "NO PR",
-        [4] = "AT RISK",
-        [5] = "ASKED",
-        [6] = "BACKLOG",
-        [7] = "STALE",
-    };
-
-    private static readonly IReadOnlyDictionary<int, string> Slugs = new Dictionary<int, string>
-    {
-        [1] = "merge",
-        [2] = "review",
-        [3] = "nopr",
-        [4] = "atrisk",
-        [5] = "asked",
-        [6] = "backlog",
-        [7] = "stale",
-    };
-
     public static string Render(
         IReadOnlyList<WorkItem> items,
         IReadOnlyDictionary<(string RepoRoot, int Rank), int> hidden,
@@ -102,13 +80,13 @@ public static class BoardHtmlReport
     {
         if (hidden.TryGetValue((root, rank), out var count))
         {
-            body.Append("<div class=\"more-row\">+").Append(count).Append(" more ").Append(Marks[rank]).Append("</div>");
+            body.Append("<div class=\"more-row\">+").Append(count).Append(" more ").Append(RankLabels.Marks[rank]).Append("</div>");
         }
     }
 
     private static void AppendRow(StringBuilder body, int number, WorkItem item, string fullCommandPrefix)
     {
-        var slug = Slugs[item.Rank];
+        var slug = RankLabels.Slugs[item.Rank];
         var where = item.Branch ?? Path.GetFileName(item.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         var labelHtml = Encode(item.Label);
         var whereHtml = Encode(where);
@@ -117,7 +95,7 @@ public static class BoardHtmlReport
 
         body.Append("<div class=\"row\" data-tier=\"").Append(slug).Append("\">")
             .Append("<div class=\"rank tabular\">").Append(number).Append("</div>")
-            .Append("<div class=\"pill pill-").Append(slug).Append("\">").Append(Marks[item.Rank]).Append("</div>")
+            .Append("<div class=\"pill pill-").Append(slug).Append("\">").Append(RankLabels.Marks[item.Rank]).Append("</div>")
             .Append("<div>")
             .Append("<div class=\"row-title\">").Append(labelHtml).Append(openTag).Append("</div>")
             .Append("<div class=\"row-meta\">").Append(whereHtml).Append("</div>")

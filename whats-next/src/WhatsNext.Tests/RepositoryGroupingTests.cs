@@ -59,5 +59,6 @@ public class RepositoryGroupingTests
         var group = Assert.Single(groups);
         Assert.Equal("acme/widgets", group.Slug);
         Assert.Equal("acme/widgets", group.Name);
+        Assert.Equal("https://github.com/acme/widgets.git", group.OriginUrl);
     }
 }

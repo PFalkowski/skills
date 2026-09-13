@@ -90,5 +90,6 @@ if [ "$up_to_date" -eq 0 ]; then
     trap - EXIT
 fi
 
+export WIP_LAUNCHER="$script_dir/wip"
 dotnet "$dll_path" "$@"
 exit $?

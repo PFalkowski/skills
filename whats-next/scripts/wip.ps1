@@ -106,5 +106,6 @@ if (-not $upToDate) {
     Publish-WhatsNext -Hash $hash
 }
 
+$env:WIP_LAUNCHER = $PSCommandPath
 & dotnet $dllPath @args
 exit $LASTEXITCODE
