@@ -6,6 +6,7 @@ public static class Board
 {
     public static IReadOnlyList<WorkItem> Build(
         IExternalCli cli,
+        IClock clock,
         IReadOnlyList<RepositoryGroup> repos,
         IReadOnlyList<LiveSession> liveSessions,
         IReadOnlyList<TranscriptSession> transcriptSessions,
@@ -16,7 +17,7 @@ public static class Board
         {
             var remote = repo.Slug is not null ? GitHubPullRequestFetch.Fetch(cli, repo.Root, repo.OriginUrl) : null;
             items.AddRange(BoardAssembly.ForRepository(
-                cli, repo.Name, repo.Root, repo.Worktrees, remote?.PullRequests, liveSessions, transcriptSessions, staleDays));
+                cli, clock, repo.Name, repo.Root, repo.Worktrees, remote?.PullRequests, liveSessions, transcriptSessions, staleDays));
         }
 
         return BoardSorting.Sort(items);

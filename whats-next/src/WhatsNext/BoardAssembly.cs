@@ -4,6 +4,7 @@ public static class BoardAssembly
 {
     public static IReadOnlyList<WorkItem> ForRepository(
         IExternalCli cli,
+        IClock clock,
         string repoName,
         string repoRoot,
         IReadOnlyList<string> worktreePaths,
@@ -20,7 +21,7 @@ public static class BoardAssembly
 
         foreach (var worktreePath in worktreePaths)
         {
-            var fact = WorktreeFactReader.Read(cli, worktreePath, new SystemClock());
+            var fact = WorktreeFactReader.Read(cli, worktreePath, clock);
             if (fact.Missing)
             {
                 continue;

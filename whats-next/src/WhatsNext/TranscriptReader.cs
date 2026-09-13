@@ -36,14 +36,14 @@ public static class TranscriptReader
         }
     }
 
-    public static IReadOnlyList<TranscriptSession> ReadSessions(string projectsRoot, int sinceDays = 14, DateTimeOffset? now = null)
+    public static IReadOnlyList<TranscriptSession> ReadSessions(string projectsRoot, IClock clock, int sinceDays = 14)
     {
         if (!Directory.Exists(projectsRoot))
         {
             return [];
         }
 
-        var cutoff = (now ?? DateTimeOffset.UtcNow).AddDays(-sinceDays).UtcDateTime;
+        var cutoff = clock.UtcNow.AddDays(-sinceDays).UtcDateTime;
         var sessions = new List<TranscriptSession>();
 
         foreach (var projectDirectory in Directory.EnumerateDirectories(projectsRoot))

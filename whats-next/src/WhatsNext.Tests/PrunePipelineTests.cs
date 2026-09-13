@@ -16,7 +16,7 @@ public class PrunePipelineTests
         var repos = new[] { new RepositoryGroup(fx.Repo, "repo", null, null, [worktree]) };
         var output = new StringWriter();
 
-        PrunePipeline.Run(new ProcessExternalCli(), output, repos, [], fx.Base, apply: false, includeIgnored: false, fetch: false);
+        PrunePipeline.Run(new ProcessExternalCli(), new SystemClock(), output, repos, [], fx.Base, apply: false, includeIgnored: false, fetch: false);
 
         Assert.True(Directory.Exists(worktree));
         var text = output.ToString();
@@ -33,7 +33,7 @@ public class PrunePipelineTests
         var repos = new[] { new RepositoryGroup(fx.Repo, "repo", null, null, [worktree]) };
         var output = new StringWriter();
 
-        PrunePipeline.Run(new ProcessExternalCli(), output, repos, [], fx.Base, apply: true, includeIgnored: false, fetch: false);
+        PrunePipeline.Run(new ProcessExternalCli(), new SystemClock(), output, repos, [], fx.Base, apply: true, includeIgnored: false, fetch: false);
 
         Assert.False(Directory.Exists(worktree));
         Assert.Contains($"removed {worktree}", output.ToString());
@@ -48,7 +48,7 @@ public class PrunePipelineTests
         var repos = new[] { new RepositoryGroup(fx.Repo, "repo", null, null, [worktree]) };
         var output = new StringWriter();
 
-        PrunePipeline.Run(new ProcessExternalCli(), output, repos, [], fx.Base, apply: false, includeIgnored: false, fetch: false);
+        PrunePipeline.Run(new ProcessExternalCli(), new SystemClock(), output, repos, [], fx.Base, apply: false, includeIgnored: false, fetch: false);
 
         var text = output.ToString();
         Assert.Contains("1 kept because removing them would destroy something:", text);
@@ -62,7 +62,7 @@ public class PrunePipelineTests
         var repos = new[] { new RepositoryGroup(fx.Repo, "repo", null, null, Array.Empty<string>()) };
         var output = new StringWriter();
 
-        PrunePipeline.Run(new ProcessExternalCli(), output, repos, [], fx.Base, apply: false, includeIgnored: false, fetch: false);
+        PrunePipeline.Run(new ProcessExternalCli(), new SystemClock(), output, repos, [], fx.Base, apply: false, includeIgnored: false, fetch: false);
 
         Assert.Contains("Add -Fetch to refresh.", output.ToString());
     }
@@ -74,7 +74,7 @@ public class PrunePipelineTests
         var repos = new[] { new RepositoryGroup(fx.Repo, "repo", null, null, Array.Empty<string>()) };
         var output = new StringWriter();
 
-        PrunePipeline.Run(new ProcessExternalCli(), output, repos, [], fx.Base, apply: false, includeIgnored: false, fetch: true);
+        PrunePipeline.Run(new ProcessExternalCli(), new SystemClock(), output, repos, [], fx.Base, apply: false, includeIgnored: false, fetch: true);
 
         Assert.DoesNotContain("Add -Fetch to refresh.", output.ToString());
     }
@@ -86,7 +86,7 @@ public class PrunePipelineTests
         var output = new StringWriter();
         var cli = new FakeExternalCli(new ExternalCliResult(0, [], []));
 
-        PrunePipeline.Run(cli, output, repos, [], "/repo", apply: false, includeIgnored: false, fetch: false);
+        PrunePipeline.Run(cli, new SystemClock(), output, repos, [], "/repo", apply: false, includeIgnored: false, fetch: false);
 
         Assert.Contains("Nothing safe to remove. 0 worktree(s) examined.", output.ToString());
     }

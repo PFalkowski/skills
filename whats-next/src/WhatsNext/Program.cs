@@ -43,9 +43,10 @@ static int RunItem(int number)
 static int RunBoard(WipOptions options)
 {
     var cli = new ProcessExternalCli();
+    var clock = new SystemClock();
     var stateRoot = WhatsNextStateRoot();
-    var (repos, liveSessions, transcriptSessions) = RepositoryDiscovery.Discover(cli, TranscriptProjectsRoot(), options.SinceDays);
-    var items = Board.Build(cli, repos, liveSessions, transcriptSessions, options.StaleDays);
+    var (repos, liveSessions, transcriptSessions) = RepositoryDiscovery.Discover(cli, clock, TranscriptProjectsRoot(), options.SinceDays);
+    var items = Board.Build(cli, clock, repos, liveSessions, transcriptSessions, options.StaleDays);
 
     if (items.Count == 0)
     {
@@ -57,7 +58,7 @@ static int RunBoard(WipOptions options)
     Directory.CreateDirectory(stateRoot);
 
     var launcherPath = Environment.GetEnvironmentVariable("WIP_LAUNCHER");
-    WriteBoardFiles(cli, stateRoot, shown, hidden, launcherPath);
+    WriteBoardFiles(cli, clock, stateRoot, shown, hidden, launcherPath);
 
     if (options.Html)
     {
@@ -74,6 +75,7 @@ static int RunBoard(WipOptions options)
 
 static void WriteBoardFiles(
     IExternalCli cli,
+    IClock clock,
     string stateRoot,
     IReadOnlyList<WorkItem> shown,
     IReadOnlyDictionary<(string RepoRoot, int Rank), int> hidden,
@@ -86,7 +88,7 @@ static void WriteBoardFiles(
     }
 
     var htmlFilePath = Path.Combine(stateRoot, "board.html");
-    var html = BoardHtmlReport.Render(shown, hidden, DateOnly.FromDateTime(DateTime.Now), launcherPath ?? "wip");
+    var html = BoardHtmlReport.Render(shown, hidden, DateOnly.FromDateTime(clock.UtcNow.LocalDateTime), launcherPath ?? "wip");
     var htmlError = AtomicWrite.WriteAllText(htmlFilePath, html);
     if (htmlError is not null)
     {
@@ -116,9 +118,10 @@ static void RunProtocolFirstRun(IExternalCli cli, string stateRoot, string? laun
 static int RunPrune(WipOptions options)
 {
     var cli = new ProcessExternalCli();
-    var (repos, liveSessions, _) = RepositoryDiscovery.Discover(cli, TranscriptProjectsRoot(), options.SinceDays);
+    var clock = new SystemClock();
+    var (repos, liveSessions, _) = RepositoryDiscovery.Discover(cli, clock, TranscriptProjectsRoot(), options.SinceDays);
     PrunePipeline.Run(
-        cli, Console.Out, repos, liveSessions, Environment.CurrentDirectory, options.Apply, options.IncludeIgnored, options.Fetch);
+        cli, clock, Console.Out, repos, liveSessions, Environment.CurrentDirectory, options.Apply, options.IncludeIgnored, options.Fetch);
     return 0;
 }
 

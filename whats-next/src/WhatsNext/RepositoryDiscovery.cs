@@ -6,10 +6,10 @@ namespace WhatsNext;
 public static class RepositoryDiscovery
 {
     public static (IReadOnlyList<RepositoryGroup> Repos, IReadOnlyList<LiveSession> LiveSessions, IReadOnlyList<TranscriptSession> TranscriptSessions) Discover(
-        IExternalCli cli, string transcriptProjectsRoot, int sinceDays)
+        IExternalCli cli, IClock clock, string transcriptProjectsRoot, int sinceDays)
     {
         var liveSessions = LiveSessionFetch.Fetch(cli, transcriptProjectsRoot);
-        var transcriptSessions = TranscriptReader.ReadSessions(transcriptProjectsRoot, sinceDays);
+        var transcriptSessions = TranscriptReader.ReadSessions(transcriptProjectsRoot, clock, sinceDays);
         var candidateDirectories = CandidateDirectories.From(liveSessions, transcriptSessions);
         var repos = RepositoryGrouping.From(cli, candidateDirectories);
         return (repos, liveSessions, transcriptSessions);

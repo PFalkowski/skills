@@ -19,7 +19,7 @@ public class TranscriptSessionReaderTests : IDisposable
             {"cwd":"C:\\work\\two","sessionId":"abc"}
             """);
 
-        var sessions = TranscriptReader.ReadSessions(_root);
+        var sessions = TranscriptReader.ReadSessions(_root, new SystemClock());
 
         var session = Assert.Single(sessions);
         Assert.Equal(@"C:\work\one", session.Cwd);
@@ -34,7 +34,7 @@ public class TranscriptSessionReaderTests : IDisposable
             : """{"note":"filler"}""");
         WriteTranscript("proj", "late", string.Join('\n', lines));
 
-        var sessions = TranscriptReader.ReadSessions(_root);
+        var sessions = TranscriptReader.ReadSessions(_root, new SystemClock());
 
         Assert.Empty(sessions);
     }
@@ -45,7 +45,7 @@ public class TranscriptSessionReaderTests : IDisposable
         var file = WriteTranscript("proj", "old", """{"cwd":"C:\\work\\old"}""");
         File.SetLastWriteTimeUtc(file, DateTime.UtcNow.AddDays(-30));
 
-        var sessions = TranscriptReader.ReadSessions(_root, sinceDays: 14);
+        var sessions = TranscriptReader.ReadSessions(_root, new SystemClock(), sinceDays: 14);
 
         Assert.Empty(sessions);
     }
@@ -55,7 +55,7 @@ public class TranscriptSessionReaderTests : IDisposable
     {
         WriteTranscript("proj", "mixed", "not json at all\n" + """{"cwd":"C:\\work\\mixed"}""");
 
-        var sessions = TranscriptReader.ReadSessions(_root);
+        var sessions = TranscriptReader.ReadSessions(_root, new SystemClock());
 
         var session = Assert.Single(sessions);
         Assert.Equal(@"C:\work\mixed", session.Cwd);
@@ -64,7 +64,7 @@ public class TranscriptSessionReaderTests : IDisposable
     [Fact]
     public void NoProjectsRootYieldsNoSessions()
     {
-        var sessions = TranscriptReader.ReadSessions(Path.Combine(_root, "does-not-exist"));
+        var sessions = TranscriptReader.ReadSessions(Path.Combine(_root, "does-not-exist"), new SystemClock());
 
         Assert.Empty(sessions);
     }

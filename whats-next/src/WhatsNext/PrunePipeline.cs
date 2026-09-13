@@ -10,6 +10,7 @@ public static class PrunePipeline
 
     public static void Run(
         IExternalCli cli,
+        IClock clock,
         TextWriter output,
         IReadOnlyList<RepositoryGroup> repos,
         IReadOnlyList<LiveSession> liveSessions,
@@ -18,7 +19,7 @@ public static class PrunePipeline
         bool includeIgnored,
         bool fetch)
     {
-        var rows = BuildCandidates(cli, repos, liveSessions, currentDirectory, includeIgnored, fetch);
+        var rows = BuildCandidates(cli, clock, repos, liveSessions, currentDirectory, includeIgnored, fetch);
         var removable = rows.Where(row => row.Removable).ToList();
         var holdingWork = rows.Where(row => HoldingWorkReasons.Contains(row.Reason)).ToList();
 
@@ -66,6 +67,7 @@ public static class PrunePipeline
 
     private static List<PruneCandidate> BuildCandidates(
         IExternalCli cli,
+        IClock clock,
         IReadOnlyList<RepositoryGroup> repos,
         IReadOnlyList<LiveSession> liveSessions,
         string currentDirectory,
@@ -88,7 +90,7 @@ public static class PrunePipeline
 
             foreach (var path in repo.Worktrees)
             {
-                var fact = WorktreeFactReader.Read(cli, path, new SystemClock());
+                var fact = WorktreeFactReader.Read(cli, path, clock);
                 rows.Add(WorktreeRemoval.Evaluate(
                     cli, repo.Name, repo.Root, fact, currentDirectory, defaultRef, mergedHeads, livePaths, includeIgnored));
             }

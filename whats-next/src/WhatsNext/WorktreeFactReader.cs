@@ -34,7 +34,7 @@ public static partial class WorktreeFactReader
         var age = cli.Run(path, "git", AgeArgs);
         var ageSeconds = age.ExitCode == 0 && age.StdOutLines.Count > 0 ? age.StdOutLines[0] : null;
 
-        return Parse(path, status.StdOutLines, adminDirectory, ageSeconds);
+        return Parse(path, status.StdOutLines, adminDirectory, ageSeconds, clock);
     }
 
     private static WorktreeFact MissingFact(string path) => new(
@@ -42,7 +42,7 @@ public static partial class WorktreeFactReader
         Upstream: null, UpstreamGone: false, Ahead: 0, Behind: 0, Dirty: false, DirtyCount: 0,
         IgnoredCount: 0, HeadOid: null, LastCommitAge: null, OperationInProgress: false);
 
-    private static WorktreeFact Parse(string path, IReadOnlyList<string> statusLines, string adminDirectory, string? ageSeconds)
+    private static WorktreeFact Parse(string path, IReadOnlyList<string> statusLines, string adminDirectory, string? ageSeconds, IClock clock)
     {
         var isMain = Directory.Exists(adminDirectory) &&
             string.Equals(Path.GetFileName(adminDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)), ".git", StringComparison.Ordinal);
@@ -119,7 +119,7 @@ public static partial class WorktreeFactReader
         TimeSpan? lastCommitAge = null;
         if (ageSeconds is not null && long.TryParse(ageSeconds, out var epochSeconds))
         {
-            lastCommitAge = DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeSeconds(epochSeconds);
+            lastCommitAge = clock.UtcNow - DateTimeOffset.FromUnixTimeSeconds(epochSeconds);
         }
 
         return new WorktreeFact(
