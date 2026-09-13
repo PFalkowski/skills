@@ -1,8 +1,9 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace WhatsNext;
 
-public sealed class ProcessExternalCli : IExternalCli
+public sealed partial class ProcessExternalCli : IExternalCli
 {
     public ExternalCliResult Run(string workingDirectory, string fileName, IReadOnlyList<string> args)
     {
@@ -26,7 +27,13 @@ public sealed class ProcessExternalCli : IExternalCli
 
     private static Process Start(string workingDirectory, string fileName, IReadOnlyList<string> args, bool redirect)
     {
-        var startInfo = new ProcessStartInfo(ResolveExecutable(fileName))
+        var resolvedFileName = ResolveExecutable(fileName);
+        if (IsBatchTarget(resolvedFileName))
+        {
+            RefuseUnsafeArguments(resolvedFileName, args);
+        }
+
+        var startInfo = new ProcessStartInfo(resolvedFileName)
         {
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = redirect,
@@ -70,6 +77,28 @@ public sealed class ProcessExternalCli : IExternalCli
 
         return fileName;
     }
+
+    private static bool IsBatchTarget(string resolvedFileName)
+    {
+        var extension = Path.GetExtension(resolvedFileName);
+        return extension.Equals(".cmd", StringComparison.OrdinalIgnoreCase) ||
+            extension.Equals(".bat", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void RefuseUnsafeArguments(string resolvedFileName, IReadOnlyList<string> args)
+    {
+        for (var position = 0; position < args.Count; position++)
+        {
+            if (!SafeArgumentCharacters().IsMatch(args[position]))
+            {
+                throw new InvalidOperationException(
+                    $"Refused to pass argument {position} to '{resolvedFileName}': it contains a character outside the safe set.");
+            }
+        }
+    }
+
+    [GeneratedRegex("^[A-Za-z0-9 ._/:=@,-]*$")]
+    private static partial Regex SafeArgumentCharacters();
 
     private static IReadOnlyList<string> SplitLines(string text)
     {
