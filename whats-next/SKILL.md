@@ -17,7 +17,15 @@ metadata:
 pwsh -NoProfile -File "<skill-dir>/scripts/wip.ps1"
 ```
 
-Costs no model tokens — it is a plain PowerShell script; needs `pwsh` (PowerShell 7+) and works
+or, from any POSIX shell (Linux, macOS, WSL, Git Bash):
+
+```sh
+"<skill-dir>/scripts/wip"
+```
+
+Costs no model tokens — it calls no LLM. Both are thin launchers that build the board tool (a
+.NET 10 console app) from source into a cached binary the first time they run, then reuse that
+binary until the source changes; either way you need the .NET 10 SDK, and the board itself works
 the same on Windows, Linux and macOS. The repository list is never a configured path — it comes
 entirely from where you've actually run Claude Code (live sessions plus `~/.claude/projects/*/*.jsonl`
 transcripts), so it adapts automatically to wherever your checkouts live on each machine. The
@@ -29,8 +37,8 @@ board across every repository you have recent activity in, and also writes the s
 styled HTML report (`board.html`, next to `board.json`) and opens it in your default browser.
 Pass `-Html` to open only the report and skip
 the terminal text. The report's theme defaults to Auto (follows the OS/browser); the Light/Auto/Dark
-toggle in its header remembers your choice for next time. `wip -h` (or `-Help`) prints the full
-parameter reference and exits without touching anything.
+toggle in its header remembers your choice for next time. `wip -h` (or `-?`/`--help`) prints the
+full parameter reference and exits without touching anything.
 
 Wire it into the PowerShell profile once, so it is one word from any prompt. Open `$PROFILE`
 (`notepad $PROFILE`, creating it if it does not exist) and add:
@@ -39,8 +47,14 @@ Wire it into the PowerShell profile once, so it is one word from any prompt. Ope
 function wip { pwsh -NoProfile -File "<skill-dir>/scripts/wip.ps1" @args }
 ```
 
-Reload it (`. $PROFILE`) or open a new terminal. From then on, `wip`, `wip <n>`, and `wip prune`
-work from any directory.
+On a POSIX shell, add the equivalent to your shell's own startup file (`.bashrc`, `.zshrc`, ...):
+
+```sh
+wip() { "<skill-dir>/scripts/wip" "$@"; }
+```
+
+Reload it (`. $PROFILE`, or `. ~/.bashrc`/`. ~/.zshrc`) or open a new terminal. From then on,
+`wip`, `wip <n>`, and `wip prune` work from any directory.
 
 ### Optional: one-click Resume from the HTML report
 
