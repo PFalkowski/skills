@@ -58,14 +58,14 @@ static int RunBoard(WipOptions options)
     Directory.CreateDirectory(stateRoot);
 
     var launcherPath = Environment.GetEnvironmentVariable("WIP_LAUNCHER");
-    WriteBoardFiles(cli, clock, stateRoot, shown, hidden, launcherPath);
+    WriteBoardFiles(cli, clock, stateRoot, items, shown, hidden, launcherPath);
 
     if (options.Html)
     {
         return 0;
     }
 
-    PrintTerminalBoard(Console.Out, shown, hidden);
+    BoardTerminalReport.Print(Console.Out, items, hidden, options.PerRank);
     Console.WriteLine();
     Console.WriteLine("  wip <n> to go there.  wip prune to clear dead worktrees.");
 
@@ -77,11 +77,12 @@ static void WriteBoardFiles(
     IExternalCli cli,
     IClock clock,
     string stateRoot,
+    IReadOnlyList<WorkItem> items,
     IReadOnlyList<WorkItem> shown,
     IReadOnlyDictionary<(string RepoRoot, int Rank), int> hidden,
     string? launcherPath)
 {
-    var boardError = AtomicWrite.WriteAllText(Path.Combine(stateRoot, "board.json"), JsonSerializer.Serialize(shown));
+    var boardError = AtomicWrite.WriteAllText(Path.Combine(stateRoot, "board.json"), JsonSerializer.Serialize(items));
     if (boardError is not null)
     {
         Console.Error.WriteLine(boardError);
@@ -123,52 +124,6 @@ static int RunPrune(WipOptions options)
     PrunePipeline.Run(
         cli, clock, Console.Out, repos, liveSessions, Environment.CurrentDirectory, options.Apply, options.IncludeIgnored, options.Fetch);
     return 0;
-}
-
-static void PrintTerminalBoard(
-    TextWriter output, IReadOnlyList<WorkItem> items, IReadOnlyDictionary<(string RepoRoot, int Rank), int> hidden)
-{
-    string? currentRoot = null;
-    int currentRank = 0;
-    for (var i = 0; i < items.Count; i++)
-    {
-        var entry = items[i];
-        if (entry.RepoRoot != currentRoot || entry.Rank != currentRank)
-        {
-            if (currentRoot is not null)
-            {
-                PrintHiddenCount(output, hidden, currentRoot, currentRank);
-            }
-            if (entry.RepoRoot != currentRoot)
-            {
-                output.WriteLine();
-                output.WriteLine($"  {entry.Repo}");
-            }
-            currentRoot = entry.RepoRoot;
-            currentRank = entry.Rank;
-        }
-
-        var where = entry.Branch ?? Path.GetFileName(entry.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        if (entry.AlreadyOpen)
-        {
-            where += "   [a session is already open here]";
-        }
-        output.WriteLine($"{i + 1,4}  {RankLabels.Marks[entry.Rank],-8}  {entry.Label}");
-        output.WriteLine($"        {"",-8}  {where}");
-    }
-    if (currentRoot is not null)
-    {
-        PrintHiddenCount(output, hidden, currentRoot, currentRank);
-    }
-}
-
-static void PrintHiddenCount(
-    TextWriter output, IReadOnlyDictionary<(string RepoRoot, int Rank), int> hidden, string repoRoot, int rank)
-{
-    if (hidden.TryGetValue((repoRoot, rank), out var count))
-    {
-        output.WriteLine($"        {"",-8}  ... and {count} more {RankLabels.Marks[rank]}");
-    }
 }
 
 static string WhatsNextStateRoot()
