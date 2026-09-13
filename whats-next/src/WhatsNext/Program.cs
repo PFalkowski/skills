@@ -14,7 +14,7 @@ root.SetAction(parseResult =>
     }
 
     var boardFilePath = Path.Combine(WhatsNextStateRoot(), "board.json");
-    var runner = new StartItemRunner(new SessionLauncher(new RealProcessStarter()), Console.Out);
+    var runner = new StartItemRunner(new SessionLauncher(new ProcessExternalCli()), Console.Out);
     try
     {
         return runner.Run(boardFilePath, item.Value);

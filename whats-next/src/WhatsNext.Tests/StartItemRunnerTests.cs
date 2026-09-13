@@ -9,7 +9,7 @@ public class StartItemRunnerTests
     public void Run_NoBoardFile_ThrowsWithExactMessage()
     {
         using var scratch = new ScratchDirectory();
-        var runner = new StartItemRunner(new SessionLauncher(new FakeProcessStarter(0)), TextWriter.Null);
+        var runner = new StartItemRunner(new SessionLauncher(new FakeExternalCli()), TextWriter.Null);
 
         var ex = Assert.Throws<InvalidOperationException>(() => runner.Run(scratch.BoardFilePath, 1));
 
@@ -21,7 +21,7 @@ public class StartItemRunnerTests
     {
         using var scratch = new ScratchDirectory();
         scratch.WriteBoard(new BoardEntry("repo", scratch.Path, 1, "pr", "label", scratch.Path, null, null, null, false));
-        var runner = new StartItemRunner(new SessionLauncher(new FakeProcessStarter(0)), TextWriter.Null);
+        var runner = new StartItemRunner(new SessionLauncher(new FakeExternalCli()), TextWriter.Null);
 
         var ex = Assert.Throws<InvalidOperationException>(() => runner.Run(scratch.BoardFilePath, 2));
 
@@ -34,7 +34,7 @@ public class StartItemRunnerTests
         using var scratch = new ScratchDirectory();
         var goneDir = Path.Combine(scratch.Path, "gone");
         scratch.WriteBoard(new BoardEntry("repo", goneDir, 1, "pr", "label", goneDir, null, null, null, false));
-        var runner = new StartItemRunner(new SessionLauncher(new FakeProcessStarter(0)), TextWriter.Null);
+        var runner = new StartItemRunner(new SessionLauncher(new FakeExternalCli()), TextWriter.Null);
 
         var ex = Assert.Throws<InvalidOperationException>(() => runner.Run(scratch.BoardFilePath, 1));
 
@@ -45,16 +45,17 @@ public class StartItemRunnerTests
     public void Run_EntryWithSessionId_ResumesAndPrintsHandoffLine()
     {
         using var scratch = new ScratchDirectory();
-        scratch.WriteBoard(new BoardEntry("myrepo", scratch.Path, 1, "pr", "label", scratch.Path, "feat/x", "sess-1", null, false));
-        var starter = new FakeProcessStarter(exitCode: 5);
+        var sessionId = Guid.NewGuid().ToString();
+        scratch.WriteBoard(new BoardEntry("myrepo", scratch.Path, 1, "pr", "label", scratch.Path, "feat/x", sessionId, null, false));
+        var cli = new FakeExternalCli(attachedExitCode: 5);
         var output = new StringWriter();
-        var runner = new StartItemRunner(new SessionLauncher(starter), output);
+        var runner = new StartItemRunner(new SessionLauncher(cli), output);
 
         var exitCode = runner.Run(scratch.BoardFilePath, 1);
 
         Assert.Equal(5, exitCode);
-        Assert.Equal(["-r", "sess-1", "-n", "myrepo feat/x"], starter.LastStartInfo!.ArgumentList);
-        Assert.Contains($"-> {scratch.Path}  (resuming sess-1)", output.ToString());
+        Assert.Equal(["-r", sessionId, "-n", "myrepo feat/x"], cli.LastRunAttached!.Value.Args);
+        Assert.Contains($"-> {scratch.Path}  (resuming {sessionId})", output.ToString());
     }
 
     [Fact]
@@ -62,14 +63,28 @@ public class StartItemRunnerTests
     {
         using var scratch = new ScratchDirectory();
         scratch.WriteBoard(new BoardEntry("myrepo", scratch.Path, 1, "worktree", "label", scratch.Path, null, null, null, false));
-        var starter = new FakeProcessStarter(exitCode: 0);
+        var cli = new FakeExternalCli(attachedExitCode: 0);
         var output = new StringWriter();
-        var runner = new StartItemRunner(new SessionLauncher(starter), output);
+        var runner = new StartItemRunner(new SessionLauncher(cli), output);
 
         runner.Run(scratch.BoardFilePath, 1);
 
-        Assert.Equal(["-n", "myrepo worktree"], starter.LastStartInfo!.ArgumentList);
+        Assert.Equal(["-n", "myrepo worktree"], cli.LastRunAttached!.Value.Args);
         Assert.Contains($"-> {scratch.Path}  (new session)", output.ToString());
+    }
+
+    [Fact]
+    public void Run_EntryWithNonGuidSessionId_ThrowsWithExactMessageAndNeverLaunches()
+    {
+        using var scratch = new ScratchDirectory();
+        scratch.WriteBoard(new BoardEntry("myrepo", scratch.Path, 1, "pr", "label", scratch.Path, "feat/x", "sess-1", null, false));
+        var cli = new FakeExternalCli();
+        var runner = new StartItemRunner(new SessionLauncher(cli), TextWriter.Null);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => runner.Run(scratch.BoardFilePath, 1));
+
+        Assert.Equal("Session id in the board is invalid. Run wip to rebuild the board.", ex.Message);
+        Assert.Null(cli.LastRunAttached);
     }
 
     private sealed class ScratchDirectory : IDisposable

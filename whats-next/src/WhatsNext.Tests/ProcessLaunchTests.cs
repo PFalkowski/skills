@@ -5,37 +5,35 @@ namespace WhatsNext.Tests;
 public class ProcessLaunchTests
 {
     [Fact]
-    public void LaunchAndWait_SetsWorkingDirectoryAndInheritsConsole()
+    public void LaunchAndWait_RunsClaudeAttachedInTheTargetDirectory()
     {
-        var starter = new FakeProcessStarter(exitCode: 0);
-        var launcher = new SessionLauncher(starter);
+        var cli = new FakeExternalCli(attachedExitCode: 0);
+        var launcher = new SessionLauncher(cli);
 
         launcher.LaunchAndWait("/some/worktree", ["-n", "label"]);
 
-        var startInfo = starter.LastStartInfo!;
-        Assert.Equal("/some/worktree", startInfo.WorkingDirectory);
-        Assert.False(startInfo.RedirectStandardOutput);
-        Assert.False(startInfo.RedirectStandardError);
-        Assert.False(startInfo.RedirectStandardInput);
-        Assert.False(startInfo.UseShellExecute);
+        var call = cli.LastRunAttached!.Value;
+        Assert.Equal("/some/worktree", call.WorkingDirectory);
+        Assert.Equal("claude", call.FileName);
+        Assert.Equal(["-n", "label"], call.Args);
     }
 
     [Fact]
     public void LaunchAndWait_PassesArgsElementwise()
     {
-        var starter = new FakeProcessStarter(exitCode: 0);
-        var launcher = new SessionLauncher(starter);
+        var cli = new FakeExternalCli(attachedExitCode: 0);
+        var launcher = new SessionLauncher(cli);
 
         launcher.LaunchAndWait("/dir", ["-r", "abc-123", "-n", "repo branch"]);
 
-        Assert.Equal(["-r", "abc-123", "-n", "repo branch"], starter.LastStartInfo!.ArgumentList);
+        Assert.Equal(["-r", "abc-123", "-n", "repo branch"], cli.LastRunAttached!.Value.Args);
     }
 
     [Fact]
     public void LaunchAndWait_ReturnsChildExitCode()
     {
-        var starter = new FakeProcessStarter(exitCode: 7);
-        var launcher = new SessionLauncher(starter);
+        var cli = new FakeExternalCli(attachedExitCode: 7);
+        var launcher = new SessionLauncher(cli);
 
         var exitCode = launcher.LaunchAndWait("/dir", ["-n", "label"]);
 

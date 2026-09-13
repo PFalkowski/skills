@@ -8,4 +8,6 @@ public readonly record struct ExternalCliResult(
 public interface IExternalCli
 {
     ExternalCliResult Run(string workingDirectory, string fileName, IReadOnlyList<string> args);
+
+    int RunAttached(string workingDirectory, string fileName, IReadOnlyList<string> args);
 }

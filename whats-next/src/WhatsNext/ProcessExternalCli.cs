@@ -30,6 +30,9 @@ public sealed class ProcessExternalCli : IExternalCli
             SplitLines(stdErrTask.GetAwaiter().GetResult()));
     }
 
+    public int RunAttached(string workingDirectory, string fileName, IReadOnlyList<string> args) =>
+        throw new NotImplementedException();
+
     private static IReadOnlyList<string> SplitLines(string text)
     {
         var lines = text.Split('\n').Select(line => line.TrimEnd('\r')).ToList();
