@@ -26,6 +26,12 @@ sha256() {
     fi
 }
 
+lock_dir_age_seconds() {
+    now=$(date +%s)
+    mtime=$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo "$now")
+    echo $((now - mtime))
+}
+
 hash_source() {
     (
         cd "$repo_root"
@@ -50,11 +56,18 @@ fi
 if [ "$up_to_date" -eq 0 ]; then
     mkdir -p "$bin_root"
     lock_dir="$bin_root/$hash.lock.d"
+    lock_grace_seconds=3
+    lock_timeout_seconds="${WIP_LOCK_TIMEOUT_SECONDS:-60}"
     waited=0
-    deadline=$(($(date +%s) + 60))
+    deadline=$(($(date +%s) + lock_timeout_seconds))
     while ! mkdir "$lock_dir" 2>/dev/null; do
         owner_pid=$(cat "$lock_dir/pid" 2>/dev/null || echo '')
-        if [ -n "$owner_pid" ] && ! kill -0 "$owner_pid" 2>/dev/null; then
+        if [ -n "$owner_pid" ]; then
+            if ! kill -0 "$owner_pid" 2>/dev/null; then
+                rm -rf "$lock_dir"
+                continue
+            fi
+        elif [ "$(lock_dir_age_seconds "$lock_dir")" -ge "$lock_grace_seconds" ]; then
             rm -rf "$lock_dir"
             continue
         fi
@@ -63,7 +76,7 @@ if [ "$up_to_date" -eq 0 ]; then
             waited=1
         fi
         if [ "$(date +%s)" -ge "$deadline" ]; then
-            echo "Timed out waiting for another wip build to finish; run wip again"
+            echo "Timed out waiting for another wip build to finish after ${lock_timeout_seconds}s; remove $lock_dir by hand and run wip again"
             exit 1
         fi
         sleep 0.2
