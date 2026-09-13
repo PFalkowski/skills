@@ -74,6 +74,27 @@ public class StartItemRunnerTests
     }
 
     [Fact]
+    public void Run_NumberBeyondTheOldPerRankCutoff_ResolvesTheCorrectItem()
+    {
+        using var scratch = new ScratchDirectory();
+        var beyondCutoffPath = Path.Combine(scratch.Path, "sixth");
+        Directory.CreateDirectory(beyondCutoffPath);
+        var entries = Enumerable.Range(1, 5)
+            .Select(n => new WorkItem($"repo{n}", Path.Combine(scratch.Path, $"repo{n}"), 1, "pr", "label", Path.Combine(scratch.Path, $"repo{n}"), null, null, null, false))
+            .Append(new WorkItem("sixth-repo", beyondCutoffPath, 1, "worktree", "label", beyondCutoffPath, null, null, null, false))
+            .ToArray();
+        scratch.WriteBoard(entries);
+        var cli = new FakeExternalCli(attachedExitCode: 0);
+        var output = new StringWriter();
+        var runner = new StartItemRunner(new SessionLauncher(cli), output);
+
+        runner.Run(scratch.BoardFilePath, 6);
+
+        Assert.Equal(["-n", "sixth-repo worktree"], cli.LastRunAttached!.Value.Args);
+        Assert.Contains($"-> {beyondCutoffPath}  (new session)", output.ToString());
+    }
+
+    [Fact]
     public void Run_EntryWithNonGuidSessionId_ThrowsWithExactMessageAndNeverLaunches()
     {
         using var scratch = new ScratchDirectory();
