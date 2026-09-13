@@ -16,6 +16,20 @@ public class CliParsingTests
         Assert.Contains("Usage", result.StdOut);
     }
 
+    // Ports Test-Interactive (wip.ps1 at 5fe502c): CI set, a redirected stream, or a
+    // non-interactive session all mean "not interactive".
+    [Theory]
+    [InlineData(true, false, true, null, false)]
+    [InlineData(false, true, true, null, false)]
+    [InlineData(false, false, true, "true", false)]
+    [InlineData(false, false, false, null, false)]
+    [InlineData(false, false, true, null, true)]
+    public void IsInteractive_ReflectsConsoleAndEnvironmentState(
+        bool inputRedirected, bool outputRedirected, bool userInteractive, string? ci, bool expected)
+    {
+        Assert.Equal(expected, InteractiveConsole.IsInteractive(inputRedirected, outputRedirected, userInteractive, ci));
+    }
+
     private static (int ExitCode, string StdOut) RunCli(params string[] args)
     {
         var dllPath = Path.Combine(AppContext.BaseDirectory, "WhatsNext.dll");
