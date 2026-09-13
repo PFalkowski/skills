@@ -7,3 +7,7 @@
 # Checked out CRLF, the first fails with `env: 'bash\r': No such file or directory` and the
 # second silently gives every value a trailing carriage return.
 omv-dev-server/scripts/* text eol=lf
+
+# The whats-next POSIX launcher has no extension either, and the same CRLF-shebang failure
+# applies on a Windows checkout.
+whats-next/scripts/wip text eol=lf
