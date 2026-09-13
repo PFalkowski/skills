@@ -261,7 +261,7 @@ public class BoardAssemblyTests
         File.AppendAllText(Path.Combine(dirty, "work.txt"), "edit");
 
         var items = Board(fx, [dirty, unpushed]);
-        var sorted = items.OrderBy(item => item.Kind, StringComparer.Ordinal).ToList();
+        var sorted = BoardSorting.Sort(items);
 
         Assert.Equal("committed-unpushed", sorted[0].Kind);
     }
