@@ -6,7 +6,18 @@ public sealed class SessionLauncher(IProcessStarter starter)
 {
     public int LaunchAndWait(string workingDirectory, IReadOnlyList<string> claudeArgs)
     {
-        _ = starter;
-        throw new NotImplementedException();
+        var startInfo = new ProcessStartInfo("claude")
+        {
+            WorkingDirectory = workingDirectory,
+            UseShellExecute = false,
+        };
+        foreach (var arg in claudeArgs)
+        {
+            startInfo.ArgumentList.Add(arg);
+        }
+
+        var process = starter.Start(startInfo);
+        process.WaitForExit();
+        return process.ExitCode;
     }
 }
