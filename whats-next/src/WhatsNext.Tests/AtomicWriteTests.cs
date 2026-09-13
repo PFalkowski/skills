@@ -25,6 +25,28 @@ public class AtomicWriteTests
     }
 
     [Fact]
+    public async Task WriteAllText_DestinationHeldOpenLongerThanTheOldTwoHundredMillisecondBound_RetryStillSucceeds()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var path = Path.Combine(Directory.CreateTempSubdirectory("wip-atomicwrite-").FullName, "board.json");
+        File.WriteAllText(path, "old");
+        using var heldOpen = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+
+        var writeTask = Task.Run(() => AtomicWrite.WriteAllText(path, "new"));
+        await Task.Delay(250);
+        heldOpen.Dispose();
+
+        var error = await writeTask;
+
+        Assert.Null(error);
+        Assert.Equal("new", File.ReadAllText(path));
+    }
+
+    [Fact]
     public void WriteAllText_DestinationHeldOpenForTheWholeBound_ReturnsCleanFailureNeverThrows()
     {
         var path = Path.Combine(Directory.CreateTempSubdirectory("wip-atomicwrite-").FullName, "board.json");
