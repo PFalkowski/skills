@@ -9,6 +9,7 @@ public static class BoardHtmlReport
     public static string Render(
         IReadOnlyList<WorkItem> items,
         IReadOnlyDictionary<(string RepoRoot, int Rank), int> hidden,
+        int perRank,
         DateOnly date,
         string fullCommandPrefix)
     {
@@ -29,7 +30,7 @@ public static class BoardHtmlReport
         var body = new StringBuilder();
         foreach (var root in repoOrder)
         {
-            AppendSection(body, root, byRepo[root], hidden, fullCommandPrefix);
+            AppendSection(body, root, byRepo[root], hidden, perRank, fullCommandPrefix);
         }
 
         var repoOptions = new StringBuilder();
@@ -52,6 +53,7 @@ public static class BoardHtmlReport
         string root,
         List<(int Number, WorkItem Item)> rows,
         IReadOnlyDictionary<(string RepoRoot, int Rank), int> hidden,
+        int perRank,
         string fullCommandPrefix)
     {
         var repoName = Encode(rows[0].Item.Repo);
@@ -59,29 +61,58 @@ public static class BoardHtmlReport
         body.Append("<div class=\"repo-head\"><span class=\"repo-name\">").Append(repoName).Append("</span></div>");
 
         int? currentRank = null;
+        var occurrenceInRank = 0;
+        var overflow = new StringBuilder();
+        int? overflowStartNumber = null;
         foreach (var (number, item) in rows)
         {
             if (currentRank is { } previousRank && previousRank != item.Rank)
             {
-                AppendMoreRow(body, hidden, root, previousRank);
+                AppendOverflow(body, overflow, overflowStartNumber, hidden, root, previousRank);
+                overflow.Clear();
+                overflowStartNumber = null;
+                occurrenceInRank = 0;
             }
             currentRank = item.Rank;
-            AppendRow(body, number, item, fullCommandPrefix);
+            occurrenceInRank++;
+
+            if (occurrenceInRank <= perRank)
+            {
+                AppendRow(body, number, item, fullCommandPrefix);
+            }
+            else
+            {
+                overflowStartNumber ??= number;
+                AppendRow(overflow, number, item, fullCommandPrefix);
+            }
         }
         if (currentRank is { } lastRank)
         {
-            AppendMoreRow(body, hidden, root, lastRank);
+            AppendOverflow(body, overflow, overflowStartNumber, hidden, root, lastRank);
         }
         body.Append("</section>");
     }
 
-    private static void AppendMoreRow(
-        StringBuilder body, IReadOnlyDictionary<(string RepoRoot, int Rank), int> hidden, string root, int rank)
+    private static void AppendOverflow(
+        StringBuilder body,
+        StringBuilder overflow,
+        int? firstHiddenNumber,
+        IReadOnlyDictionary<(string RepoRoot, int Rank), int> hidden,
+        string root,
+        int rank)
     {
-        if (hidden.TryGetValue((root, rank), out var count))
+        if (!hidden.TryGetValue((root, rank), out var count))
         {
-            body.Append("<div class=\"more-row\">+").Append(count).Append(" more ").Append(RankLabels.Marks[rank]).Append("</div>");
+            return;
         }
+
+        var mark = RankLabels.Marks[rank];
+        var targetId = $"more-{firstHiddenNumber}";
+        body.Append("<button type=\"button\" class=\"more-row more-toggle\" aria-expanded=\"false\" data-target=\"")
+            .Append(targetId).Append("\" data-more-text=\"+").Append(count).Append(" more ").Append(mark)
+            .Append("\" data-fewer-text=\"Show fewer ").Append(mark).Append("\">+").Append(count).Append(" more ")
+            .Append(mark).Append("</button>");
+        body.Append("<div class=\"hidden-rows\" id=\"").Append(targetId).Append("\" hidden>").Append(overflow).Append("</div>");
     }
 
     private static void AppendRow(StringBuilder body, int number, WorkItem item, string fullCommandPrefix)

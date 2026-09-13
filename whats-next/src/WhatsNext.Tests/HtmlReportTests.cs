@@ -94,7 +94,7 @@ public class HtmlReportTests
     {
         var html = RenderThreeInOneGroup();
 
-        var toggleStart = html.IndexOf("more-toggle", StringComparison.Ordinal);
+        var toggleStart = html.IndexOf("class=\"more-row more-toggle\"", StringComparison.Ordinal);
         var toggleTag = html[toggleStart..html.IndexOf('>', toggleStart)];
         var target = ExtractAttribute(toggleTag, "data-target");
 

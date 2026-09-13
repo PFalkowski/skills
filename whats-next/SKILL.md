@@ -106,7 +106,8 @@ hottest item, not alphabetically and not by item count. A repository holding one
 listed above a repository holding ten rank-4 items — a pull request waiting on you cannot hide
 behind routine work somewhere else. Within a repository, its own items stay together and sort by
 rank. Each repository shows at most `-PerRank` (default 5) items per rank before collapsing the
-rest into a count.
+rest into a count. The terminal keeps that collapsed count as plain text; the HTML report turns it
+into a toggle that reveals the collapsed rows in place, each with its own working resume button.
 
 ## `wip <n>` and `wip prune`
 

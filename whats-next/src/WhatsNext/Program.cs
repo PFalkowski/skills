@@ -54,11 +54,11 @@ static int RunBoard(WipOptions options)
         return 0;
     }
 
-    var (shown, hidden) = BoardSorting.SelectShown(items, options.PerRank);
+    var (_, hidden) = BoardSorting.SelectShown(items, options.PerRank);
     Directory.CreateDirectory(stateRoot);
 
     var launcherPath = Environment.GetEnvironmentVariable("WIP_LAUNCHER");
-    WriteBoardFiles(cli, clock, stateRoot, items, shown, hidden, launcherPath);
+    WriteBoardFiles(cli, clock, stateRoot, items, hidden, options.PerRank, launcherPath);
 
     if (options.Html)
     {
@@ -78,8 +78,8 @@ static void WriteBoardFiles(
     IClock clock,
     string stateRoot,
     IReadOnlyList<WorkItem> items,
-    IReadOnlyList<WorkItem> shown,
     IReadOnlyDictionary<(string RepoRoot, int Rank), int> hidden,
+    int perRank,
     string? launcherPath)
 {
     var boardError = AtomicWrite.WriteAllText(Path.Combine(stateRoot, "board.json"), JsonSerializer.Serialize(items));
@@ -89,7 +89,7 @@ static void WriteBoardFiles(
     }
 
     var htmlFilePath = Path.Combine(stateRoot, "board.html");
-    var html = BoardHtmlReport.Render(shown, hidden, DateOnly.FromDateTime(clock.UtcNow.LocalDateTime), launcherPath ?? "wip");
+    var html = BoardHtmlReport.Render(items, hidden, perRank, DateOnly.FromDateTime(clock.UtcNow.LocalDateTime), launcherPath ?? "wip");
     var htmlError = AtomicWrite.WriteAllText(htmlFilePath, html);
     if (htmlError is not null)
     {
