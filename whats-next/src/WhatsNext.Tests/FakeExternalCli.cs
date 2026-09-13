@@ -6,8 +6,11 @@ internal sealed class FakeExternalCli(ExternalCliResult runResult = default, int
 
     public (string WorkingDirectory, string FileName, IReadOnlyList<string> Args)? LastRunAttached { get; private set; }
 
+    public int RunCallCount { get; private set; }
+
     public ExternalCliResult Run(string workingDirectory, string fileName, IReadOnlyList<string> args)
     {
+        RunCallCount++;
         LastRun = (workingDirectory, fileName, args);
         return runResult;
     }
