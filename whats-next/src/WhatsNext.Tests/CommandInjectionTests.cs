@@ -49,8 +49,11 @@ public class CommandInjectionTests
             runner.Run(scratch.BoardFilePath, 1);
 
             Assert.False(File.Exists(pwnedFile));
+            // .NET quotes the whole "myrepo <branch>" argument because it contains a space; that
+            // wrapping quote is expected and harmless. What must never survive is a command
+            // separator or redirect coming from the hostile branch name's own content.
             var recordedArgs = File.ReadAllText(argvLog);
-            Assert.DoesNotMatch("[\"&|<>^!]", recordedArgs);
+            Assert.DoesNotMatch("[&|<>^!]", recordedArgs);
         }
         finally
         {

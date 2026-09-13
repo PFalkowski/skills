@@ -1,8 +1,9 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace WhatsNext;
 
-public sealed class StartItemRunner(SessionLauncher launcher, TextWriter output)
+public sealed partial class StartItemRunner(SessionLauncher launcher, TextWriter output)
 {
     public int Run(string boardFilePath, int number)
     {
@@ -18,9 +19,14 @@ public sealed class StartItemRunner(SessionLauncher launcher, TextWriter output)
             throw new InvalidOperationException($"{entry.Path} is gone. Run wip to rebuild the board.");
         }
 
-        var label = string.IsNullOrEmpty(entry.Branch)
+        if (!string.IsNullOrEmpty(entry.SessionId) && !Guid.TryParse(entry.SessionId, out _))
+        {
+            throw new InvalidOperationException("Session id in the board is invalid. Run wip to rebuild the board.");
+        }
+
+        var label = SanitizeLabel(string.IsNullOrEmpty(entry.Branch)
             ? $"{entry.Repo} {entry.Kind}"
-            : $"{entry.Repo} {entry.Branch}";
+            : $"{entry.Repo} {entry.Branch}");
 
         IReadOnlyList<string> claudeArgs;
         if (string.IsNullOrEmpty(entry.SessionId))
@@ -36,6 +42,11 @@ public sealed class StartItemRunner(SessionLauncher launcher, TextWriter output)
 
         return launcher.LaunchAndWait(entry.Path, claudeArgs);
     }
+
+    private static string SanitizeLabel(string label) => AllowedLabelCharacters().Replace(label, "_");
+
+    [GeneratedRegex("[^A-Za-z0-9 ._/-]")]
+    private static partial Regex AllowedLabelCharacters();
 
     private static IReadOnlyList<BoardEntry> ReadBoard(string boardFilePath)
     {
