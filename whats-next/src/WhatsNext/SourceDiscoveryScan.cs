@@ -24,6 +24,15 @@ public static class SourceDiscoveryScan
             return (config, updatedDiscovery);
         }
 
+        var candidate = new SourceCandidate(SourceKind.GitHubIssues, slug, null);
+        var identityFingerprint = SourceDiscoveryRun.IdentityFingerprint(candidate);
+        var alreadyOffered = discovery.DeclinedFingerprints.Contains(identityFingerprint)
+            || config.Sources.Any(s => s.Kind == candidate.Kind && s.RepoSlug == candidate.RepoSlug);
+        if (alreadyOffered)
+        {
+            return (config, updatedDiscovery);
+        }
+
         var source = new Source(Guid.NewGuid().ToString(), SourceKind.GitHubIssues, SourceOrigin.Discovered, slug, null);
         return (config with { Sources = [.. config.Sources, source] }, updatedDiscovery);
     }
