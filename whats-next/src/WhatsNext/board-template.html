@@ -185,10 +185,14 @@
   }
 
   .more-row{
+    display:block; width:100%; font:inherit; text-align:left; border:none; background:none;
     padding:9px 16px 9px 50px; font-size:12.5px; color:var(--ink-faint); font-style:italic;
     border-bottom:1px solid var(--border-soft);
   }
   .more-row:last-child{border-bottom:none;}
+  .more-toggle{cursor:pointer;}
+  .more-toggle:hover, .more-toggle[aria-expanded="true"]{color:var(--accent-ink);}
+  .more-toggle:focus-visible{outline:2px solid var(--accent); outline-offset:-2px;}
 
   .cmd-group{display:flex; flex-direction:column; align-items:flex-start; gap:6px; margin-top:7px;}
   .jump-btn{
@@ -387,6 +391,17 @@
       chip.setAttribute('aria-pressed','true');
       activeTier = chip.getAttribute('data-tier');
       apply();
+    });
+  });
+
+  document.querySelectorAll('.more-toggle').forEach(function(btn){
+    var target = document.getElementById(btn.getAttribute('data-target'));
+    if (!target) return;
+    btn.addEventListener('click', function(){
+      var expanded = btn.getAttribute('aria-expanded') === 'true';
+      target.hidden = expanded;
+      btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+      btn.textContent = btn.getAttribute(expanded ? 'data-more-text' : 'data-fewer-text');
     });
   });
 

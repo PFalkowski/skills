@@ -1,0 +1,62 @@
+[
+  {
+    "Repo": "skills",
+    "RepoRoot": "FIXTURE_ROOT/repo",
+    "Rank": 2,
+    "Kind": "pr-no-worktree",
+    "Label": "PR #202 needs review attention - whats-next: port the board to C# on .NET 10 (S0 of the multi-source rework)",
+    "Path": "FIXTURE_ROOT/repo",
+    "Branch": null,
+    "SessionId": null,
+    "Url": "https://github.com/PFalkowski/skills/pull/202",
+    "AlreadyOpen": false
+  },
+  {
+    "Repo": "skills",
+    "RepoRoot": "FIXTURE_ROOT/repo",
+    "Rank": 3,
+    "Kind": "pushed-no-pr",
+    "Label": "pushed-without-pr is pushed with no pull request",
+    "Path": "FIXTURE_ROOT/pushed-without-pr",
+    "Branch": "pushed-without-pr",
+    "SessionId": null,
+    "Url": null,
+    "AlreadyOpen": true
+  },
+  {
+    "Repo": "skills",
+    "RepoRoot": "FIXTURE_ROOT/repo",
+    "Rank": 4,
+    "Kind": "committed-unpushed",
+    "Label": "unpushed-commits has commits that were never pushed",
+    "Path": "FIXTURE_ROOT/unpushed-commits",
+    "Branch": "unpushed-commits",
+    "SessionId": null,
+    "Url": null,
+    "AlreadyOpen": false
+  },
+  {
+    "Repo": "skills",
+    "RepoRoot": "FIXTURE_ROOT/repo",
+    "Rank": 4,
+    "Kind": "dirty-at-risk",
+    "Label": "1 uncommitted file(s) and nobody sitting in it",
+    "Path": "FIXTURE_ROOT/dirty-worktree",
+    "Branch": "dirty-worktree",
+    "SessionId": null,
+    "Url": null,
+    "AlreadyOpen": false
+  },
+  {
+    "Repo": "skills",
+    "RepoRoot": "FIXTURE_ROOT/repo",
+    "Rank": 7,
+    "Kind": "stale",
+    "Label": "no commit in 30 days - cleanup candidate",
+    "Path": "FIXTURE_ROOT/stale-worktree",
+    "Branch": "stale-worktree",
+    "SessionId": null,
+    "Url": null,
+    "AlreadyOpen": false
+  }
+]

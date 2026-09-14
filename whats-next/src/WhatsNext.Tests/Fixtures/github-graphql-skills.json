@@ -1,0 +1,440 @@
+{
+  "data": {
+    "repository": {
+      "defaultBranchRef": {
+        "name": "main"
+      },
+      "open": {
+        "nodes": [
+          {
+            "number": 202,
+            "title": "whats-next: port the board to C# on .NET 10 (S0 of the multi-source rework)",
+            "isDraft": false,
+            "headRefName": "feat/whats-next-sources",
+            "reviewDecision": null,
+            "mergeable": "MERGEABLE",
+            "url": "https://github.com/PFalkowski/skills/pull/202",
+            "reviewThreads": {
+              "nodes": []
+            },
+            "commits": {
+              "nodes": [
+                {
+                  "commit": {
+                    "statusCheckRollup": {
+                      "state": "FAILURE"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "merged": {
+        "nodes": [
+          {
+            "headRefName": "feat/wip-theme-toggle-slider",
+            "headRefOid": "10720f680df6c915e90df487f981cbf7ad40aec7"
+          },
+          {
+            "headRefName": "feat/wip-help-flag",
+            "headRefOid": "d67b1d834ea2befa27f23c55bb5a62085b57eb94"
+          },
+          {
+            "headRefName": "feat/wip-protocol-first-run-prompt",
+            "headRefOid": "c0d4369f3f011ddf5936b712c67c3c05d2af747c"
+          },
+          {
+            "headRefName": "feat/wip-protocol-handler",
+            "headRefOid": "e30177655c6c36ab2dc41c63cd5111eff7ba5bd9"
+          },
+          {
+            "headRefName": "feat/wip-protocol-handler",
+            "headRefOid": "13aebe9efb3eff23844aa8660579a65d99b28525"
+          },
+          {
+            "headRefName": "fix/omv-container-uid-passwd",
+            "headRefOid": "879a592aeba4be5f4f82591b06cc4dc8e8dec9a3"
+          },
+          {
+            "headRefName": "docs/no-automatic-grill",
+            "headRefOid": "0bc69c30ff082d7ec74a4db96df1554089277536"
+          },
+          {
+            "headRefName": "feat/invert-sidecar",
+            "headRefOid": "48961bf0b60b85a383ecc0532bbf53a1c12cda39"
+          },
+          {
+            "headRefName": "fix/whats-next-retired-state-path",
+            "headRefOid": "721d9c23ad6032d102434d0bec88121b1cb8df20"
+          },
+          {
+            "headRefName": "feat/adr-0001-migration",
+            "headRefOid": "53ff87516c83a690fd660cefde7a4d82194ad35f"
+          },
+          {
+            "headRefName": "feat/whats-next-skill",
+            "headRefOid": "50ec86855eaba902c78778a2b88165d6ea42d3ff"
+          },
+          {
+            "headRefName": "docs/accept-adr-0001",
+            "headRefOid": "e36c7f9e1d7809e77ae4002e89ec43b7a3cf0532"
+          },
+          {
+            "headRefName": "feat/save-tokens-first-run-setup",
+            "headRefOid": "6c14d989911d25d171f98f09970dfbf09c57429f"
+          },
+          {
+            "headRefName": "perf/trim-always-loaded-prefix",
+            "headRefOid": "9583206600b1a20b32974827768111b2afd851bc"
+          },
+          {
+            "headRefName": "feat/ackchyually-nit-marker",
+            "headRefOid": "10a97b18f621ea48157269140e3afd84c36cde64"
+          },
+          {
+            "headRefName": "evolve/execution-grounded-finding-gate",
+            "headRefOid": "7367df6cc18d4d63236260bcedf7e36de21770cf"
+          },
+          {
+            "headRefName": "chore/skill-prose-debloat",
+            "headRefOid": "a77e82bea1fbf21c8dbbb2232818ed7317e0012f"
+          },
+          {
+            "headRefName": "feat/token-budget",
+            "headRefOid": "414c235996bf50597b2c8157a85fb8d0bd85dfd1"
+          },
+          {
+            "headRefName": "adr/agent-state-location",
+            "headRefOid": "7d57025dc6b5eaa7a5103c9615d1f8e08ef41ee3"
+          },
+          {
+            "headRefName": "sdlc/phase13-lessons-643-644",
+            "headRefOid": "36b68c7e1fd7f8f0c6597ff3046a37a09758796f"
+          },
+          {
+            "headRefName": "fix/omv-aspm-and-backup-guards",
+            "headRefOid": "5de59eabf5c0e253e9e3074d80ec40b7a7323588"
+          },
+          {
+            "headRefName": "feat/link-skills-claude-md",
+            "headRefOid": "e1ece7b4fdbfce9e750625540c7d238dd49336bb"
+          },
+          {
+            "headRefName": "feat/migrate-state-roots",
+            "headRefOid": "e942b098a5d3888ea79a855adffb8eea9bf4b13a"
+          },
+          {
+            "headRefName": "chore/correct-library-ci-entry",
+            "headRefOid": "35f2a1510ea3d7bf5888c35fa246cafaf51c82c9"
+          },
+          {
+            "headRefName": "nw/133",
+            "headRefOid": "715ec1cc1db5374d262fce50ad479a2923bd9b6a"
+          },
+          {
+            "headRefName": "fix/library-notes-ci-path-resolved",
+            "headRefOid": "c1dc7d8fa800fcfafde3c7661f40a2492782502e"
+          },
+          {
+            "headRefName": "feat/claude-md-house-defaults",
+            "headRefOid": "2ff40b37c066b30b5c6deb88ed6955476a9234ba"
+          },
+          {
+            "headRefName": "nw/119",
+            "headRefOid": "94b22ffcf6a2a4997118b253ab483589773a5b53"
+          },
+          {
+            "headRefName": "feat/manager-cleanup-permissions",
+            "headRefOid": "4a25ab27916be6d0dcedf7b4263ac9176b452887"
+          },
+          {
+            "headRefName": "feat/restore-clean-room",
+            "headRefOid": "c6a8d1023ec747347fbf1d54408e4751f0c11087"
+          },
+          {
+            "headRefName": "chore/nights-watch-library",
+            "headRefOid": "1d0d4a2124f83b24f8863318682472861a27dc17"
+          },
+          {
+            "headRefName": "evolve/manager-maintenance-wrapup-handoff",
+            "headRefOid": "e6e5db5adcb4bcc150e6b6705225b5a43f7ae73e"
+          },
+          {
+            "headRefName": "fix/nights-watch-pinned-notice",
+            "headRefOid": "107b1fb30f72fbb48b6b219a6aea60d717d89cae"
+          },
+          {
+            "headRefName": "feat/dead-branch-guard",
+            "headRefOid": "5ea8068ff7630b53dd485de283b8bdec9c95ecfa"
+          },
+          {
+            "headRefName": "evolve/sdlc-old-fashioned-run-lessons",
+            "headRefOid": "f8cec49e544b4c3b93f43d4a82c58cd58c8205e4"
+          },
+          {
+            "headRefName": "reflect-drift-pushback",
+            "headRefOid": "8295819cbc2cc341854b9d4a719596b31843d0a8"
+          },
+          {
+            "headRefName": "evolve/go-go-go-agent-invocable",
+            "headRefOid": "eb3d4eeb2df92d5fd1c29139d51ec334643243c5"
+          },
+          {
+            "headRefName": "claude-md-rules-only",
+            "headRefOid": "0ff1e51e10982fb5aa688f446b7940af12f78bd5"
+          },
+          {
+            "headRefName": "claude-md-defaults",
+            "headRefOid": "3ef0c9cc5c24cf7d3c318ae1a11086661ba3c1bf"
+          },
+          {
+            "headRefName": "evolve/manager-proactive-tickets",
+            "headRefOid": "1f192738f4a312ec2f9d082640fad53ca0bbd3c6"
+          },
+          {
+            "headRefName": "desloppify/approved-slices",
+            "headRefOid": "51dbc8a8963f2b8eada97fa9419610e12d4e636f"
+          },
+          {
+            "headRefName": "fix/omv-container-uid-passwd",
+            "headRefOid": "da6ef724df79fd9ed4b57145e620b05ca0b99fd8"
+          },
+          {
+            "headRefName": "reflect-skill",
+            "headRefOid": "113524261150671164637b794fee3bb0ec163c0e"
+          },
+          {
+            "headRefName": "evolve/sdlc-workflow-gate",
+            "headRefOid": "f8f239c420e842bd0e9aa96f7e2384a67e7e6b68"
+          },
+          {
+            "headRefName": "docs/auto-mode-headless-verification",
+            "headRefOid": "a8d1bf71c0784fbd3fb5905387d9bfea321e3302"
+          },
+          {
+            "headRefName": "nights-watch/notice-lease",
+            "headRefOid": "e24ca96403ed11a43b7c4a9387e202752581ff23"
+          },
+          {
+            "headRefName": "docs/omv-removable-disk-traps",
+            "headRefOid": "07b815d24dfed79cc4e9c995c7b6bfeb3b8d28a7"
+          },
+          {
+            "headRefName": "evolve/measurement-not-a-rate",
+            "headRefOid": "480b9b3aa933aaac2bb2d60739db3b547d70801b"
+          },
+          {
+            "headRefName": "feat/manager-house-tracker",
+            "headRefOid": "9d03391c835c26b7e871f5e8e5fc789957164429"
+          },
+          {
+            "headRefName": "feat/guide-me-through",
+            "headRefOid": "2a093586b67bd7215a809baa56468f62df0d28f9"
+          },
+          {
+            "headRefName": "feat/handoff-lite-flag",
+            "headRefOid": "37405c956c6036281ef8dbedebae93f6f4f25a25"
+          },
+          {
+            "headRefName": "manager/canonical-before-custom",
+            "headRefOid": "5158322393cfe138a2ee490e445ad307c759efff"
+          },
+          {
+            "headRefName": "feat/manager-skill",
+            "headRefOid": "850d582c4494f517e7e2cc50ecdae17f31a96e6e"
+          },
+          {
+            "headRefName": "skill-description-rule",
+            "headRefOid": "1c7052e9097b26e464fa47210649e41b0a91b07c"
+          },
+          {
+            "headRefName": "nightshift/reversibility-by-consequence",
+            "headRefOid": "e1a60e682d02fe43a65328550ddd46cc34d7f724"
+          },
+          {
+            "headRefName": "nights-watch/surface-blocking-decisions",
+            "headRefOid": "3b83255b42e25b14ccef05c6abb6651edeabfe19"
+          },
+          {
+            "headRefName": "fix/issue-104",
+            "headRefOid": "e3d58da67a7a1504089bc8aa72908cde308828d6"
+          },
+          {
+            "headRefName": "fix/issue-47",
+            "headRefOid": "0fad1f72e8b4796957a6f0020243c73964b6cc91"
+          },
+          {
+            "headRefName": "fix/issue-87",
+            "headRefOid": "f28baab325fc2cc3f1ecce2121f9a67f28b44a93"
+          },
+          {
+            "headRefName": "fix/issue-105",
+            "headRefOid": "44abb185b7f35e2689307462a2e04037af64b9bf"
+          },
+          {
+            "headRefName": "fix/issue-88",
+            "headRefOid": "0de1273ba4105d4956824eca822f631bdb161a6b"
+          },
+          {
+            "headRefName": "fix/issue-107",
+            "headRefOid": "2c5b4eb0eaf4d87b2c16a3d0bcebaea6a965e225"
+          },
+          {
+            "headRefName": "fix/issue-106",
+            "headRefOid": "39721776060b8e18caf5be205ca9fdbe70cf0626"
+          },
+          {
+            "headRefName": "evolve/fix-pr-still-open-check",
+            "headRefOid": "2d1d93045333f39466777602e0ea4d3d99838749"
+          },
+          {
+            "headRefName": "chore/land-desloppify-review-minors",
+            "headRefOid": "9cf3e134c14a28d9bdb68c59fcf5385cf12b81a6"
+          },
+          {
+            "headRefName": "docs/dual-runtime-install",
+            "headRefOid": "06b04c49a70f2ac250ec5eca7a7c68617c2ffc32"
+          },
+          {
+            "headRefName": "feat/desloppify-skill",
+            "headRefOid": "9794c9d7403b1b4ab64de0a5a6cb85566b6fd8fa"
+          },
+          {
+            "headRefName": "fix/nights-watch-shared-worktree-guardrails",
+            "headRefOid": "bdfb9d7efb1f4ec4bd93596e812519760b0e76ae"
+          },
+          {
+            "headRefName": "fix/gitignore-after-flatten",
+            "headRefOid": "9a54603fc16bbd8224147717c95c75098f00ab13"
+          },
+          {
+            "headRefName": "evolve/hunt-report-default-remote-tracker",
+            "headRefOid": "5781ebb7c2759eda5ee31d638839b1e7970eb6db"
+          },
+          {
+            "headRefName": "chore/skill-attribution-footer",
+            "headRefOid": "58b80226b8404d95b7f3a04bc8e95b35a9549eb4"
+          },
+          {
+            "headRefName": "quality/sdlc-quality-standard",
+            "headRefOid": "85123f5f4fa27a60a3cd7cdd822932d1e31b3b2d"
+          },
+          {
+            "headRefName": "chore/remove-skills-subtree",
+            "headRefOid": "fc512b4283fdd028eb593617abf3165ee7ba6bd4"
+          },
+          {
+            "headRefName": "feat/nights-watch-always-delegate",
+            "headRefOid": "5c09ba6200e21dbabfd45af4dd36ed150fc0b1dc"
+          },
+          {
+            "headRefName": "feat/fix-windows-terminal-rendering",
+            "headRefOid": "233ed98a4d2e546952a5c0a52dd1208484e417d2"
+          },
+          {
+            "headRefName": "feat/omv-dev-server-skill",
+            "headRefOid": "538f938d93ba4df46109cad89bacb5ff422bfdca"
+          },
+          {
+            "headRefName": "triage/label-vocabulary",
+            "headRefOid": "5031e3653dbfc6e3354f51d2144e0d8cc67a1a72"
+          },
+          {
+            "headRefName": "nw/merge-stack-native-stacks",
+            "headRefOid": "77d77fd818adf048346ac40ea19e49779c1397b1"
+          },
+          {
+            "headRefName": "nw/recurring-improvement-agents-root",
+            "headRefOid": "7a7df2b82962f138140c867f724aa37e09e9ea07"
+          },
+          {
+            "headRefName": "fix/windows-terminal-rendering-invocable-only",
+            "headRefOid": "7b766a5583965ca6b54acc6a487d2fe2ad8f2edd"
+          },
+          {
+            "headRefName": "feat/fix-windows-terminal-rendering",
+            "headRefOid": "5cb21ff05da2c23450ac0d224a709df23276bfc7"
+          },
+          {
+            "headRefName": "fix/housekeeping-description",
+            "headRefOid": "455cc95b0e6f352a85c52955da266b0d6ccfd422"
+          },
+          {
+            "headRefName": "feat/wrap-up-skill",
+            "headRefOid": "5d522300e95504f83e9e3e7dfb78739ab374b851"
+          },
+          {
+            "headRefName": "worktree-add-fix-pr-skill",
+            "headRefOid": "8bf64dce3c69e9e8938a3de61008ff4083c31273"
+          },
+          {
+            "headRefName": "feat/housekeeping",
+            "headRefOid": "f925082f012cf8703bb60bb5e99deedd7982e3c0"
+          },
+          {
+            "headRefName": "add-no-comment-skill",
+            "headRefOid": "312165baf14d96d0e422f2237008026c261e018d"
+          },
+          {
+            "headRefName": "add-auto-mode-setup-skill",
+            "headRefOid": "1e4d2ccb93cb19c136d01b0b5571b7067ad1df69"
+          },
+          {
+            "headRefName": "feat/elastic-work-selection",
+            "headRefOid": "4008bec82d73fdf10672bf74149dbf94763a0b04"
+          },
+          {
+            "headRefName": "feat/triage-skill",
+            "headRefOid": "373740d2715d85461786606310930db7714800f5"
+          },
+          {
+            "headRefName": "feat/judged-intake",
+            "headRefOid": "c5d52abde9b7844b691f91ab68f4e251c627df83"
+          },
+          {
+            "headRefName": "feat/code-review-grill-sibling-sweep",
+            "headRefOid": "5cb6a3c75c7c7f1d24e28e492039cc8fd40a6671"
+          },
+          {
+            "headRefName": "feat/statusline-skill",
+            "headRefOid": "66ceed9a944a200b544623178bd29a2045b410f4"
+          },
+          {
+            "headRefName": "feat/postmortem-index-and-compaction",
+            "headRefOid": "6e01f064a12c5cc95f0609e8b0ee60d21da8d58f"
+          },
+          {
+            "headRefName": "feat/handoff-lite",
+            "headRefOid": "c2bfb261a0dbb5faf5500a45f74fa8d32a48da41"
+          },
+          {
+            "headRefName": "feat/research-journal-skill",
+            "headRefOid": "f1aab52dfa5cbd4a5eb1953ea988e7ddc3107a95"
+          },
+          {
+            "headRefName": "feat/clean-room-skill",
+            "headRefOid": "631e826bd112162780adf9c7ed9fede7ecbd5885"
+          },
+          {
+            "headRefName": "feat/sdlc-dynamic-workflow-context-discipline",
+            "headRefOid": "82af115fcbadfeec54bae46c5862d3cf4a878a75"
+          },
+          {
+            "headRefName": "feat/nights-watch-hunt-taxonomy",
+            "headRefOid": "682565632cd6e8b1b092d7de3e4525baf177cb1c"
+          },
+          {
+            "headRefName": "docs/workflow-crlf-dispatch-caveat",
+            "headRefOid": "2fb22cc52f2796e5b9213cba011a11d4d7954860"
+          },
+          {
+            "headRefName": "sdlc-runs-gitignore",
+            "headRefOid": "b46cc442e47196ccdc184577c5572354e4c0a8fc"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,108 @@
+#!/bin/sh
+set -eu
+
+script_dir=$(cd "$(dirname "$0")" && pwd)
+repo_root=$(cd "$script_dir/.." && pwd)
+src_root="$repo_root/src/WhatsNext"
+state_root="${AGENTS_STATE:-$HOME/.agent-state}/whats-next"
+bin_root="$state_root/bin"
+
+sdk_found=0
+for line in $(dotnet --list-sdks | awk '{print $1}'); do
+    case "$line" in
+        10.*) sdk_found=1 ;;
+    esac
+done
+if [ "$sdk_found" -eq 0 ]; then
+    echo ".NET 10 SDK not found. Install it from https://dotnet.microsoft.com/download/dotnet/10.0 and try again."
+    exit 1
+fi
+
+sha256() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum | awk '{print $1}'
+    else
+        shasum -a 256 | awk '{print $1}'
+    fi
+}
+
+lock_dir_age_seconds() {
+    now=$(date +%s)
+    mtime=$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo "$now")
+    echo $((now - mtime))
+}
+
+hash_source() {
+    (
+        cd "$repo_root"
+        find "src/WhatsNext" -type f ! -path '*/bin/*' ! -path '*/obj/*' | sort
+        echo "Directory.Build.props"
+    ) | while IFS= read -r rel; do
+        size=$(wc -c < "$repo_root/$rel" | tr -d ' ')
+        printf '%s\n%s\n' "$rel" "$size"
+        cat "$repo_root/$rel"
+    done | sha256
+}
+
+hash=$(hash_source)
+marker="$bin_root/current.marker"
+dll_path="$bin_root/$hash/WhatsNext.dll"
+
+up_to_date=0
+if [ -f "$marker" ] && [ -f "$dll_path" ] && [ "$(cat "$marker")" = "$hash" ]; then
+    up_to_date=1
+fi
+
+if [ "$up_to_date" -eq 0 ]; then
+    mkdir -p "$bin_root"
+    lock_dir="$bin_root/$hash.lock.d"
+    lock_grace_seconds=3
+    lock_timeout_seconds="${WIP_LOCK_TIMEOUT_SECONDS:-60}"
+    waited=0
+    deadline=$(($(date +%s) + lock_timeout_seconds))
+    while ! mkdir "$lock_dir" 2>/dev/null; do
+        owner_pid=$(cat "$lock_dir/pid" 2>/dev/null || echo '')
+        if [ -n "$owner_pid" ]; then
+            if ! kill -0 "$owner_pid" 2>/dev/null; then
+                rm -rf "$lock_dir"
+                continue
+            fi
+        elif [ "$(lock_dir_age_seconds "$lock_dir")" -ge "$lock_grace_seconds" ]; then
+            rm -rf "$lock_dir"
+            continue
+        fi
+        if [ "$waited" -eq 0 ]; then
+            echo "Another wip build is already in progress, waiting..."
+            waited=1
+        fi
+        if [ "$(date +%s)" -ge "$deadline" ]; then
+            echo "Timed out waiting for another wip build to finish after ${lock_timeout_seconds}s; remove $lock_dir by hand and run wip again"
+            exit 1
+        fi
+        sleep 0.2
+    done
+    echo $$ > "$lock_dir/pid"
+    cleanup_lock() { rm -rf "$lock_dir"; }
+    trap cleanup_lock EXIT
+
+    if [ "$waited" -eq 1 ] && [ -f "$marker" ] && [ "$(cat "$marker")" = "$hash" ]; then
+        :
+    else
+        out_dir="$bin_root/$hash"
+        dotnet publish "$src_root" -c Release -o "$out_dir"
+        tmp_marker="$marker.tmp"
+        printf '%s' "$hash" > "$tmp_marker"
+        mv -f "$tmp_marker" "$marker"
+        for existing in "$bin_root"/*/; do
+            existing_name=$(basename "$existing")
+            [ "$existing_name" = "$hash" ] || rm -rf "$existing"
+        done
+    fi
+
+    cleanup_lock
+    trap - EXIT
+fi
+
+export WIP_LAUNCHER="$script_dir/wip"
+dotnet "$dll_path" "$@"
+exit $?
