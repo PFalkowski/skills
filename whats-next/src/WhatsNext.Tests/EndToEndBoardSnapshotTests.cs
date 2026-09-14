@@ -65,11 +65,17 @@ public class EndToEndBoardSnapshotTests
     {
         var normalized = items.Select(item => item with
         {
-            RepoRoot = item.RepoRoot.Replace(tempRoot, TempRootPlaceholder),
-            Path = item.Path.Replace(tempRoot, TempRootPlaceholder),
+            RepoRoot = NormalizePath(item.RepoRoot, tempRoot),
+            Path = NormalizePath(item.Path, tempRoot),
         });
         return JsonSerializer.Serialize(normalized, new JsonSerializerOptions { WriteIndented = true });
     }
+
+    // The snapshot fixture is compared across OSes (CI runs Linux, this repo is authored on
+    // Windows); RepositoryGrouping deliberately renders paths with the OS-native separator, so
+    // the snapshot itself picks one separator to stay diff-stable everywhere.
+    private static string NormalizePath(string path, string tempRoot) =>
+        path.Replace(tempRoot, TempRootPlaceholder).Replace('\\', '/');
 
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
 
