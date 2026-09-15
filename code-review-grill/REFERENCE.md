@@ -4,17 +4,33 @@
 
 | Emoji | Severity | Meaning |
 |---|---|---|
-| 🔥 | Blocker / critical | Correctness, security, or data-loss bug; must fix before merge. |
-| ⚠️ | Major | Real problem with material impact; should fix. |
-| ⛏️ | Minor / nit | Style, readability, small improvement; optional. |
+| 🔥 | Blocker | Meets [the bar](#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr) and has no workaround; must fix before merge. Posted inline. |
+| ⚠️ | Major | Meets the bar with a workaround or narrower reach; fix in this PR. Posted inline. |
+| 📦 | Carried | Verified true, fails the bar. One class ticket per defect shape plus a count in the summary thread; no inline thread, no fix in this PR. |
+| ⛏️ | Minor | Mechanical or style finding on a changed line (typo, import, lint, formatting, naming). Meets the bar; a count in the summary thread only, never an inline thread. |
 | ✅ | Reviewed-clean | Agent examined this area and found nothing. |
-| ❓ | Uncertain | Needs author input or more info to judge. |
+| ❓ | Uncertain | Needs author input or more info to judge. Listed in the summary thread as an open question. |
 
 Use `–` in an agent's cell when that agent did not flag the row.
 
+## The bar — what may be posted inline or fixed in this PR
+
+The bar sits between "verified true" and "post it inline / fix it in this PR". It runs after verification, never instead of it, and it never changes what a reviewer reports. A verified finding is 🔥 or ⚠️ only if both prongs hold:
+
+1. **In the diff** (`scope: diff`). It sits on a line the PR changed, or on code the change newly reaches or whose contract it changes. Everything else is `scope: sibling` (the same defect shape at a site the PR did not touch) or `scope: pre-existing` (a defect on untouched code the change does not reach).
+2. **Merge-relevant kind.** `behaviour` (breaks behaviour), `data` (loses, corrupts or leaks data, including any security defect), `rollback` (blocks a rollback), `gate` (breaches a rule the repo documents as a gate). `perf`, `observability`, `tests`, `docs`, `architecture` and `style` are not merge-relevant by default; a repo that documents one of them as a gate makes that finding `gate`.
+
+Both prongs are mechanical: no likelihood or value judgment re-scores a finding.
+
+Everything else verified true is 📦 Carried: one class ticket per defect shape (reuse an existing ticket for the same shape), the count in one summary thread, no inline thread, no commit and no test in this PR. Dependents a fix would break are `scope: diff` by prong 1 and are always fixed; only sibling sites are carried. A Carried finding of kind `data` is filed at blocker priority and named to the human in the report: the bar decides where it is fixed, not whether.
+
+**The summary thread** is one PR-level comment per review round: inline threads posted this round (count and IDs), Carried findings grouped by shape with their ticket links, the Minor count, the ❓ open questions, and the Not run list.
+
+**Re-review.** When the PR was grilled before, one fresh single reviewer scores each previous fix as fixed / partial / regressed and grills only the delta since the last reviewed head. The same bar decides what posts.
+
 ### The nit marker
 
-Every ⛏️ finding posted to a pull request opens its body with this line, verbatim, above the finding text:
+A ⛏️ finding is not posted inline by default. When the user names its ID anyway, its body opens with this line, verbatim, above the finding text:
 
 ```markdown
 ![Ackchyually](https://raw.githubusercontent.com/PFalkowski/skills/main/code-review-grill/assets/ackchyually.png)
@@ -47,7 +63,9 @@ It marks the comment as optional at a glance, so a reader scrolling a thread tel
 
 ```
 - location:    path/to/file.ext:LINE   (the line in the diff, RIGHT side unless noted)
-- severity:    🔥 | ⚠️ | ⛏️ | ❓
+- scope:       diff | sibling | pre-existing   (bar prong 1)
+- kind:        behaviour | data | rollback | gate | perf | observability | tests | docs | architecture | style   (bar prong 2)
+- severity:    🔥 | ⚠️ | ⛏️ | ❓   (the reviewer's read; the lead sets the final severity by the bar)
 - finding:     one-sentence statement of the problem
 - suggested:   concrete fix (code or precise instruction)
 - verification:
@@ -92,6 +110,8 @@ Output:    The standard finding payload, one block per finding, INCLUDING a veri
 Tools:     Read/Grep the attached files and their dependents. Run snippets/tests to verify executable
            claims. (Add WebSearch/WebFetch if claims need checking.)
 Boundaries: Review only this diff and what it touches. Do not propose unrelated refactors. No unverified findings.
+           Report sibling and pre-existing sites with their scope set rather than withholding them;
+           the lead applies the bar, you do not.
 ```
 
 **Per-concern worker (quorum)** — one per included concern:
@@ -114,26 +134,30 @@ Tools:     Read/Grep the attached files + dependents. Run snippets/tests to conf
            + WebSearch + WebFetch — verify every doc/API/version/standards claim against ≥2 authoritative
            sources; attach deep links. Apply the fact-check skill.
 Boundaries: Stay in your concern. Do not duplicate other concerns; flag cross-cutting issues briefly
-            and let the lead dedupe. Review only this diff and its ripple set.
+            and let the lead dedupe. Review only this diff and its ripple set. Report sibling and
+            pre-existing sites with their scope set rather than withholding them; the lead applies
+            the bar, you do not.
 ```
 
 ## Table templates
 
-The `Verified` column names the method (snippet / in-repo / source); the copy-paste-ready artifact itself goes **below the table**, one block per finding ID, so the user can replicate each one directly.
+The `Scope` column carries `diff` / `sibling` / `pre-existing` and, after it, the kind; the `Severity` (single) or `Consensus` (quorum) column is the lead's result of applying the bar. The `Verified` column names the method (snippet / in-repo / source); the copy-paste-ready artifact itself goes **below the table**, one block per finding ID, so the user can replicate each one directly.
 
 **Single-agent:**
 ```
-| ID | Location         | Finding                              | Severity | Suggested fix                 | Verified |
-|----|------------------|--------------------------------------|----------|-------------------------------|----------|
-| F1 | `src/Repo.cs:42` | SQL built by string-concat of userId | 🔥       | Parameterise (`SqlParameter`) | snippet  |
+| ID | Location         | Scope            | Finding                              | Severity | Suggested fix                 | Verified |
+|----|------------------|------------------|--------------------------------------|----------|-------------------------------|----------|
+| F1 | `src/Repo.cs:42` | diff · data      | SQL built by string-concat of userId | 🔥       | Parameterise (`SqlParameter`) | snippet  |
+| F2 | `src/Repo.cs:88` | diff · perf      | N+1 query in loop                    | 📦       | Ticket: batch-load orders     | snippet  |
+| F3 | `src/Audit.cs:17`| sibling · data   | Same string-concat shape as F1       | 📦       | Ticket: same shape as F1      | snippet  |
 ```
 
-**Quorum** — include a column only for the concerns you actually spawned; `Votes` = agents-flagging / agents-total; `Consensus` = lead's final severity:
+**Quorum** — include a column only for the concerns you actually spawned; `Votes` = agents-flagging / agents-total; `Consensus` = lead's final severity after the bar:
 ```
-| ID | Location         | Finding                   | 🔒Sec | 🏛Arch | 🧹Qual | 📚Docs | ⚡Perf | 🧪Test | Votes | Consensus | Verified |
-|----|------------------|---------------------------|-------|--------|--------|--------|--------|--------|-------|-----------|----------|
-| F1 | `src/Repo.cs:42` | SQL string-concat userId  | 🔥    | –      | ⚠️     | –      | –      | –      | 2/6   | 🔥        | snippet  |
-| F2 | `src/Repo.cs:88` | N+1 query in loop         | –     | –      | –      | –      | ⚠️     | –      | 1/6   | ⚠️        | snippet  |
+| ID | Location         | Scope        | Finding                   | 🔒Sec | 🏛Arch | 🧹Qual | 📚Docs | ⚡Perf | 🧪Test | Votes | Consensus | Verified |
+|----|------------------|--------------|---------------------------|-------|--------|--------|--------|--------|--------|-------|-----------|----------|
+| F1 | `src/Repo.cs:42` | diff · data  | SQL string-concat userId  | 🔥    | –      | ⚠️     | –      | –      | –      | 2/6   | 🔥        | snippet  |
+| F2 | `src/Repo.cs:88` | diff · perf  | N+1 query in loop         | –     | –      | –      | –      | ⚠️     | –      | 1/6   | 📦        | snippet  |
 ```
 
 **Verification artifacts** (below the table):
@@ -155,7 +179,7 @@ Command: k6 run loadtest/retry-backoff.js against a staging deploy.
 ## Posting mechanics (Step 7 — never auto-post; post only user-selected findings)
 
 ### GitHub
-Resolve repo + PR head, then post each selected finding as an inline review comment. Post **one first** and confirm the response has a numeric `id` before sending the rest.
+Resolve repo + PR head, then post each selected 🔥/⚠️ finding as an inline review comment. Post **one first** and confirm the response has a numeric `id` before sending the rest.
 ```bash
 OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 HEAD_SHA=$(gh pr view <PR> --json headRefOid -q .headRefOid)
@@ -181,7 +205,14 @@ gh api "repos/$OWNER_REPO/pulls/<PR>/comments" \
 - `line` is the line **in the file at `commit_id`**; it must fall on a line in the PR diff or GitHub rejects it.
 - To batch instead of one-at-a-time, `POST repos/$OWNER_REPO/pulls/<PR>/reviews` with a `comments` array of `{path,line,side,body}` and `event=COMMENT` — but the one-at-a-time form above is what lets you confirm the first thread landed.
 
-### Azure DevOps
-Delegate to **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)** — it encodes the `pullRequestThreads` JSON schema, left/right anchoring, and the Windows console-encoding workarounds. Build the finding bodies here; let that skill post the threads.
+The summary thread and the Carried tickets, when the user approves them:
+```bash
+gh issue create --title "<defect shape>" --body "<sites as path:line, the verification artifact, found reviewing PR #<PR>>"
+gh pr comment <PR> --body "<the summary thread, § The bar>"
+```
+File the tickets first so the summary thread can link them. A Carried `data` finding gets the repo's blocker label or priority.
 
-**Always**: never auto-post. Present the table, ask which findings to post, post only those.
+### Azure DevOps
+Delegate to **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)** — it encodes the `pullRequestThreads` JSON schema, left/right anchoring, and the Windows console-encoding workarounds. Build the finding bodies here; let that skill post the threads. The summary thread is a PR thread with no file anchor; Carried tickets are work items (`az boards work-item create`).
+
+**Always**: never auto-post. Present the table, ask which findings to post and whether to post the summary thread and file the Carried tickets, then do only that.
