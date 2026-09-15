@@ -47,7 +47,7 @@ public class EndToEndBoardSnapshotTests
                 [dirty, unpushed, stale, squashMergedLike, pushedNoPr]),
         };
 
-        var items = Board.Build(cli, clock, repos, liveSessions, transcriptSessions: [], staleDays: 7);
+        var items = Board.Build(cli, clock, repos, sources: [], liveSessions, transcriptSessions: [], staleDays: 7);
 
         var actualJson = Serialize(items, fx.Base);
 

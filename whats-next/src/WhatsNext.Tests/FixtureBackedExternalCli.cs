@@ -14,7 +14,7 @@ internal sealed class FixtureBackedExternalCli(string gitHubGraphQlResponse, str
         {
             return _git.Run(workingDirectory, fileName, args);
         }
-        if (fileName == "gh" && args.Contains("owner=PFalkowski") && args.Contains("name=skills"))
+        if (fileName == "gh" && args.Contains("-f"))
         {
             return new ExternalCliResult(0, [gitHubGraphQlResponse], []);
         }
