@@ -9,6 +9,7 @@ public static class BoardAssembly
         string repoRoot,
         IReadOnlyList<string> worktreePaths,
         IReadOnlyList<PullRequestFact>? openPullRequests,
+        IReadOnlyList<TicketFact>? tickets,
         IReadOnlyList<LiveSession> liveSessions,
         IReadOnlyList<TranscriptSession> transcriptSessions,
         int staleDays)
@@ -18,6 +19,7 @@ public static class BoardAssembly
         var newestTranscriptByPath = IndexNewestByPath(transcriptSessions);
         var items = new List<WorkItem>();
         var claimedPullRequestNumbers = new HashSet<int>();
+        var worktreesByBranch = new Dictionary<string, (string Path, string? SessionId)>();
 
         foreach (var worktreePath in worktreePaths)
         {
@@ -32,6 +34,11 @@ public static class BoardAssembly
             var pullRequest = fact.Branch is not null && pullRequestsByHead.TryGetValue(fact.Branch, out var found) ? found : null;
             var busy = running is not null;
             var sessionId = newestTranscript?.SessionId;
+
+            if (fact.Branch is not null)
+            {
+                worktreesByBranch[fact.Branch] = (fact.Path, sessionId);
+            }
 
             WorkItem NewItem(int rank, string kind, string label, string? url = null, bool alreadyOpen = false, string? sessionIdOverride = null) =>
                 new(repoName, repoRoot, rank, kind, label, fact.Path, fact.Branch, sessionIdOverride ?? sessionId, url, alreadyOpen);
@@ -115,6 +122,8 @@ public static class BoardAssembly
                 repoName, repoRoot, rank.Value, "pr-no-worktree", $"{label} - {pullRequest.Title}",
                 repoRoot, Branch: null, SessionId: null, pullRequest.Url, AlreadyOpen: false));
         }
+
+        items.AddRange(TicketWorkItems.ForRepository(repoName, repoRoot, tickets, worktreesByBranch));
 
         return items;
     }

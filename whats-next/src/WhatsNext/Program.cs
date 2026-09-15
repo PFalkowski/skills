@@ -46,7 +46,8 @@ static int RunBoard(WipOptions options)
     var clock = new SystemClock();
     var stateRoot = WhatsNextStateRoot();
     var (repos, liveSessions, transcriptSessions) = RepositoryDiscovery.Discover(cli, clock, TranscriptProjectsRoot(), options.SinceDays);
-    var items = Board.Build(cli, clock, repos, liveSessions, transcriptSessions, options.StaleDays);
+    var sources = SourceWiring.EnsureSources(cli, stateRoot, repos);
+    var items = Board.Build(cli, clock, repos, sources, liveSessions, transcriptSessions, options.StaleDays);
 
     if (items.Count == 0)
     {
