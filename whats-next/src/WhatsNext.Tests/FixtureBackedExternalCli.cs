@@ -18,6 +18,10 @@ internal sealed class FixtureBackedExternalCli(string gitHubGraphQlResponse, str
         {
             return new ExternalCliResult(0, [gitHubGraphQlResponse], []);
         }
+        if (fileName == "gh" && args is ["--version"])
+        {
+            return new ExternalCliResult(0, ["gh version 2.0.0"], []);
+        }
         if (fileName == "claude" && args.Contains("agents") && args.Contains("--json"))
         {
             return new ExternalCliResult(0, [claudeAgentsJson], []);
