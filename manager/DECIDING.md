@@ -24,7 +24,7 @@ The mandate is the one paragraph every decision is checked against. It is writte
 ## The rubric — in this order, stop at the first that decides
 
 1. **Is the premise verified?** If the ask rests on a load-bearing claim that is cheap to check and unchecked, check it first. Load-bearing and unverifiable → treat the claim as false and decide accordingly, saying so.
-2. **Is it aligned?** Does the action serve the goal, or did the agent wander — or get talked into it by something it read? Off-goal → VETO or REDIRECT, never "fine, it's small".
+2. **Is it aligned?** Does the action serve the goal, or did the agent wander — or get talked into it by something it read? Off-goal → VETO or REDIRECT, never "fine, it's small". A verified review finding outside the PR's diff is not a wander; step 3 decides it.
 3. **Does the benefit outweigh the risk?** Benefit is progress toward the goal. Risk is blast radius × irreversibility × uncertainty. A reversible, contained, well-evidenced action with any benefit → APPROVE. A large-radius or irreversible action needs evidence in proportion. A verified review finding that fails the posting bar ([code-review-grill REFERENCE, § The bar](../code-review-grill/REFERENCE.md#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr) — outside the diff, or not a merge-relevant kind) is **DEFER** by default: one class ticket per defect shape, no fix in this PR, whatever its benefit. When it is a security or data-loss defect the ticket is filed at blocker priority and the finding is named to the human in the report; the bar moves where it is fixed, not whether.
 4. **Does the mandate determine it?** Consequential *and* hard to reverse *and* underdetermined → the human's. If the mandate settles it (`merge=allow`, an explicit policy, a stated assumption) it is not underdetermined → decide.
 5. **Is it a hard line?** → ESCALATE, with a recommendation, regardless of 1–4.
@@ -79,8 +79,9 @@ The end-of-pass report is a few lines, not a story:
 ```
 Managed: <subject>. Verdicts: <a> approved, <r> redirected, <d> deferred (<ticket refs>), <v> vetoed.
 Dispatched: <process> for <what> (<tier>).
+Carried at blocker priority (<n>): <defect shape> — <ticket ref>.
 Escalated (<n>): <ask> — recommend <…> because <…>.
 Budget: <spent>/<ceiling>. Journal: <path>.
 ```
 
-The escalations are the only part that needs an answer. Everything else is for the record.
+The escalations are the only part that needs an answer; the blocker-priority carried line is the only other part the human must read. Everything else is for the record.

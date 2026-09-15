@@ -4,10 +4,10 @@
 
 | Emoji | Severity | Meaning |
 |---|---|---|
-| 🔥 | Blocker | Meets [the bar](#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr) and has no workaround; must fix before merge. Posted inline. |
-| ⚠️ | Major | Meets the bar with a workaround or narrower reach; fix in this PR. Posted inline. |
+| 🔥 | Blocker | Meets [the bar](#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr) and has no workaround; must be resolved before merge. Posted inline by this skill; fixed in this PR by whichever skill owns the fix (`fix-pr`, or a lifecycle phase). |
+| ⚠️ | Major | Meets the bar with a workaround or narrower reach. Posted inline by this skill; fixed in this PR by the fixing skill. |
 | 📦 | Carried | Verified true, fails the bar. One class ticket per defect shape plus a count in the summary thread; no inline thread, no fix in this PR. |
-| ⛏️ | Minor | Mechanical or style finding on a changed line (typo, import, lint, formatting, naming). Meets the bar; a count in the summary thread only, never an inline thread. |
+| ⛏️ | Minor | Mechanical or style finding on a changed line (typo, import, lint, formatting, naming). Fixed in this PR by the fixing skill, never ticketed or carried; a count in the summary thread, no inline thread unless the user names its ID. |
 | ✅ | Reviewed-clean | Agent examined this area and found nothing. |
 | ❓ | Uncertain | Needs author input or more info to judge. Listed in the summary thread as an open question. |
 
@@ -15,22 +15,24 @@ Use `–` in an agent's cell when that agent did not flag the row.
 
 ## The bar — what may be posted inline or fixed in this PR
 
-The bar sits between "verified true" and "post it inline / fix it in this PR". It runs after verification, never instead of it, and it never changes what a reviewer reports. A verified finding is 🔥 or ⚠️ only if both prongs hold:
+The bar sits between "verified true" and "post it inline / fix it in this PR". It runs after verification, never instead of it, and it never changes what a reviewer reports. This skill posts and never edits code; "fixed in this PR" names what the bar permits the fixing skill to do. A verified finding is 🔥 or ⚠️ only if both prongs hold, tested in order:
 
-1. **In the diff** (`scope: diff`). It sits on a line the PR changed, or on code the change newly reaches or whose contract it changes. Everything else is `scope: sibling` (the same defect shape at a site the PR did not touch) or `scope: pre-existing` (a defect on untouched code the change does not reach).
-2. **Merge-relevant kind.** `behaviour` (breaks behaviour), `data` (loses, corrupts or leaks data, including any security defect), `rollback` (blocks a rollback), `gate` (breaches a rule the repo documents as a gate). `perf`, `observability`, `tests`, `docs`, `architecture` and `style` are not merge-relevant by default; a repo that documents one of them as a gate makes that finding `gate`.
+1. **In the diff** (`scope: diff`). The finding's line is in `git diff <base>...HEAD`, or it is a caller or dependent in the Step-3 dependent set (code the change newly reaches or whose contract it changes). Otherwise it is `scope: sibling` (the same defect shape as a fix in the diff, at a site the PR did not touch) or, for anything else at all, `scope: pre-existing`.
+2. **Merge-relevant kind.** `behaviour` (breaks behaviour), `data` (loses, corrupts or leaks data, including any security defect), `rollback` (blocks a rollback), `gate` (breaches a rule the repo documents as a gate). `perf`, `observability`, `tests`, `docs`, `architecture` and `style` are not merge-relevant by default. A finding is `gate` only when a named repo file states the rule and states that it gates review or merge; cite that `path:line` in the finding, or the kind stands as the reviewer reported it.
 
-Both prongs are mechanical: no likelihood or value judgment re-scores a finding.
+No likelihood or value judgment re-scores a finding. The one exception to prong 2 is a mechanical or style finding on a changed line: it is ⛏️, fixed in this PR, never carried.
 
-Everything else verified true is 📦 Carried: one class ticket per defect shape (reuse an existing ticket for the same shape), the count in one summary thread, no inline thread, no commit and no test in this PR. Dependents a fix would break are `scope: diff` by prong 1 and are always fixed; only sibling sites are carried. A Carried finding of kind `data` is filed at blocker priority and named to the human in the report: the bar decides where it is fixed, not whether.
+Everything else verified true is 📦 Carried: one class ticket per defect shape (reuse an existing ticket for the same shape), the count in one summary thread, no inline thread, no commit and no test in this PR. A *defect shape* is the class a defect belongs to (swallowed exit code, unbounded read, missing guard, unvalidated boundary; Step 3). A *class ticket* is one ticket for that shape listing every site as `path:line`, not one ticket per site. Dependents a fix would break are `scope: diff` by prong 1 and are always fixed; only sibling sites are carried. A Carried finding of kind `data` is filed at blocker priority whatever the posting answer or policy says, and named to the human in the report.
 
-**The summary thread** is one PR-level comment per review round: inline threads posted this round (count and IDs), Carried findings grouped by shape with their ticket links, the Minor count, the ❓ open questions, and the Not run list.
+**The summary thread** is one PR-level comment per review round: `Reviewed at <head sha>`, inline threads posted this round (count and IDs), Carried findings grouped by shape with their ticket links, the Minor count, the ❓ open questions, and the Not run list.
 
-**Re-review.** When the PR was grilled before, one fresh single reviewer scores each previous fix as fixed / partial / regressed and grills only the delta since the last reviewed head. The same bar decides what posts.
+## Re-review
+
+When the PR was grilled before, one fresh single reviewer scores each previous fix as fixed / partial / regressed and grills only the delta since the head the newest summary thread names. With no summary thread on the PR, re-review the whole three-dot diff and say so. The brief carries what survives of the previous round: the summary thread, and the findings table when this session still holds it. The same bar decides what posts.
 
 ### The nit marker
 
-A ⛏️ finding is not posted inline by default. When the user names its ID anyway, its body opens with this line, verbatim, above the finding text:
+A ⛏️ finding is not posted inline by default; the `nights-watch` Grill, which posts every verified finding inline by its own rule ([GRILL.md](../nights-watch/GRILL.md)), is the standing exception. When a ⛏️ is posted, its body opens with this line, verbatim, above the finding text:
 
 ```markdown
 ![Ackchyually](https://raw.githubusercontent.com/PFalkowski/skills/main/code-review-grill/assets/ackchyually.png)
@@ -109,9 +111,9 @@ Output:    The standard finding payload, one block per finding, INCLUDING a veri
            withheld.
 Tools:     Read/Grep the attached files and their dependents. Run snippets/tests to verify executable
            claims. (Add WebSearch/WebFetch if claims need checking.)
-Boundaries: Review only this diff and what it touches. Do not propose unrelated refactors. No unverified findings.
-           Report sibling and pre-existing sites with their scope set rather than withholding them;
-           the lead applies the bar, you do not.
+Boundaries: Judge this diff and what it touches; do not propose unrelated refactors; no unverified
+           findings. A defect you find outside the diff is still reported, with scope set to sibling
+           or pre-existing. The lead applies the bar, you do not.
 ```
 
 **Per-concern worker (quorum)** — one per included concern:
@@ -134,9 +136,9 @@ Tools:     Read/Grep the attached files + dependents. Run snippets/tests to conf
            + WebSearch + WebFetch — verify every doc/API/version/standards claim against ≥2 authoritative
            sources; attach deep links. Apply the fact-check skill.
 Boundaries: Stay in your concern. Do not duplicate other concerns; flag cross-cutting issues briefly
-            and let the lead dedupe. Review only this diff and its ripple set. Report sibling and
-            pre-existing sites with their scope set rather than withholding them; the lead applies
-            the bar, you do not.
+            and let the lead dedupe. Judge this diff and its ripple set; a defect you find outside
+            them is still reported, with scope set to sibling or pre-existing. The lead applies the
+            bar, you do not.
 ```
 
 ## Table templates
@@ -149,7 +151,7 @@ The `Scope` column carries `diff` / `sibling` / `pre-existing` and, after it, th
 |----|------------------|------------------|--------------------------------------|----------|-------------------------------|----------|
 | F1 | `src/Repo.cs:42` | diff · data      | SQL built by string-concat of userId | 🔥       | Parameterise (`SqlParameter`) | snippet  |
 | F2 | `src/Repo.cs:88` | diff · perf      | N+1 query in loop                    | 📦       | Ticket: batch-load orders     | snippet  |
-| F3 | `src/Audit.cs:17`| sibling · data   | Same string-concat shape as F1       | 📦       | Ticket: same shape as F1      | snippet  |
+| F3 | `src/Audit.cs:17` | sibling · data  | Same string-concat shape as F1       | 📦       | Ticket: same shape as F1      | snippet  |
 ```
 
 **Quorum** — include a column only for the concerns you actually spawned; `Votes` = agents-flagging / agents-total; `Consensus` = lead's final severity after the bar:
@@ -207,10 +209,10 @@ gh api "repos/$OWNER_REPO/pulls/<PR>/comments" \
 
 The summary thread and the Carried tickets, when the user approves them:
 ```bash
-gh issue create --title "<defect shape>" --body "<sites as path:line, the verification artifact, found reviewing PR #<PR>>"
+gh issue create --title "<defect shape>" --body "<sites as path:line, the verification artifact, found reviewing PR #N>"
 gh pr comment <PR> --body "<the summary thread, § The bar>"
 ```
-File the tickets first so the summary thread can link them. A Carried `data` finding gets the repo's blocker label or priority.
+File the tickets first so the summary thread can link them. A Carried `data` finding gets the repo's blocker label or priority, and is filed even when the user declined the rest.
 
 ### Azure DevOps
 Delegate to **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)** — it encodes the `pullRequestThreads` JSON schema, left/right anchoring, and the Windows console-encoding workarounds. Build the finding bodies here; let that skill post the threads. The summary thread is a PR thread with no file anchor; Carried tickets are work items (`az boards work-item create`).
