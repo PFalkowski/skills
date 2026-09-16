@@ -20,7 +20,7 @@ The bar sits between "verified true" and "post it inline / fix it in this PR". I
 1. **In the diff** (`scope: diff`). The finding's line is in `git diff <base>...HEAD`, or it is a caller or dependent in the Step-3 dependent set (code the change newly reaches or whose contract it changes). Otherwise it is `scope: sibling` (the same defect shape as a fix in the diff, at a site the PR did not touch) or, for anything else at all, `scope: pre-existing`.
 2. **Merge-relevant kind.** `behaviour` (breaks behaviour), `data` (loses, corrupts or leaks data, including any security defect), `rollback` (reverting the commit would not undo it: a migration, a rewritten record, a changed wire format), `gate` (breaches a documented gate). `perf`, `observability`, `tests`, `docs`, `architecture` and `style` are not merge-relevant by default. A finding is `gate` only when a named file states the rule and states that it gates review or merge: a file in the repo under review, or the rules of the process that dispatched this review (`sdlc-old-fashioned`'s phase table, `nights-watch`'s Oath, or a `manager` mandate quoted in the brief). Cite the `path:line`, or quote the mandate line, in the finding; otherwise the kind stands as the reviewer reported it.
 
-No likelihood or value judgment re-scores a finding. A finding that fails prong 2 on a changed line is still ⛏️ in two cases: mechanical (typo, import, lint, formatting), fixed in this PR; any other `style` finding, counted in the summary thread, neither fixed nor carried. Neither case demotes a finding that passes prong 2.
+No likelihood or value judgment re-scores a finding. A `behaviour` or `data` finding names in `expected` the contract the code breaks; a snippet shows what the code does, the contract is what says that is wrong, and a finding with no citable contract is ❓. A finding that fails prong 2 on a changed line is still ⛏️ in two cases: mechanical (typo, import, lint, formatting), fixed in this PR; any other `style` finding, counted in the summary thread, neither fixed nor carried. Neither case demotes a finding that passes prong 2.
 
 Before a 🔥/⚠️ whose artifact is `in-repo` or `source` is offered, the lead re-runs the grep or opens the link itself. One that does not reproduce downgrades to ❓.
 
@@ -77,6 +77,8 @@ It marks the comment as optional at a glance, so a reader scrolling a thread tel
 - kind:        behaviour | data | rollback | gate | perf | observability | tests | docs | architecture | style   (bar prong 2)
 - severity:    🔥 | ⚠️ | ⛏️ | ❓   (the reviewer's read; the lead sets the final severity by the bar)
 - finding:     one-sentence statement of the problem
+- expected:    the contract the code breaks, cited: a test, doc, caller or spec at path:line, or a
+               deep link (behaviour and data findings; with none the finding is ❓)
 - suggested:   the fix in one line (the guard to add, the call to make, the name to use); never a patch,
                the author writes the code
 - verification:
@@ -204,7 +206,7 @@ SELECT * FROM u WHERE id=1 OR 1=1
 Fix: pass `userId` as a `SqlParameter`.
 ````
 
-Line one is the severity, the ID and the finding with its consequence in one sentence. `Reproduce` is the verification artifact verbatim: the command and its output, the `path:line` and the quoted lines, or the deep link and the quoted text. `Fix` is one line for the author to act on, never a patch for the reviewer to vet. No preamble, no restatement of the code, no praise.
+Line one is the severity, the ID and the finding with its consequence in one sentence. `Reproduce` is the verification artifact verbatim: the command and its output, the `path:line` and the quoted lines, or the deep link and the quoted text; for a `behaviour` or `data` finding, the `expected` contract follows it on one line. `Fix` is one line for the author to act on, never a patch for the reviewer to vet. No preamble, no restatement of the code, no praise.
 
 ### GitHub
 Resolve repo + PR head, then post each selected 🔥/⚠️ finding as an inline review comment. Post **one first** and confirm the response has a numeric `id` before sending the rest.
