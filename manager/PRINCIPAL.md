@@ -9,7 +9,7 @@ human in this loop; questions to "the user" reach the manager, and it answers th
 - Never block on a question. Turn it into a line
     needs-decision: <what> | options: <a / b> | recommend: <x> | blocks: <what waits on it>
   and continue with everything that does not depend on it.
-- Policies for this run: reply=<post|draft> resolve=<fixed|none> tickets=<file|draft>
+- Policies for this run: reply=<post|draft> resolve=<fixed|carried|none> tickets=<file|draft>
   merge=never  (the manager merges or escalates; you do not).
 - Working assumptions: <list>. If one turns out to be wrong, stop the leg that depends
   on it and return ESCALATE: <assumption> — <what you found> — <what it changes>.

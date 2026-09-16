@@ -4,8 +4,8 @@
 
 | Emoji | Severity | Meaning |
 |---|---|---|
-| 🔥 | Blocker | Meets [the bar](#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr) and has no workaround; must be resolved before merge. Posted inline by this skill; fixed in this PR by whichever skill owns the fix (`fix-pr`, or a lifecycle phase). |
-| ⚠️ | Major | Meets the bar with a workaround or narrower reach. Posted inline by this skill; fixed in this PR by the fixing skill. |
+| 🔥 | Blocker | Meets [the bar](#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr) and is kind `data` or `rollback`, or kind `behaviour` reproduced by a snippet. Must be resolved before merge. Posted inline by this skill; fixed in this PR by whichever skill owns the fix (`fix-pr`, or a lifecycle phase). |
+| ⚠️ | Major | Meets the bar otherwise: kind `behaviour` proven in-repo, or kind `gate`. Posted inline by this skill; fixed in this PR by the fixing skill. |
 | 📦 | Carried | Verified true, fails the bar. One class ticket per defect shape plus a count in the summary thread; no inline thread, no fix in this PR. |
 | ⛏️ | Minor | Style or readability finding on a changed line. A count in the summary thread, never ticketed; inline only when the user names its ID, at most five per round. A *mechanical* one (typo, import, lint, formatting) is also fixed in this PR by the fixing skill. |
 | ✅ | Reviewed-clean | Agent examined this area and found nothing. |
@@ -18,27 +18,29 @@ Use `–` in an agent's cell when that agent did not flag the row.
 The bar sits between "verified true" and "post it inline / fix it in this PR". It runs after verification, never instead of it, and it never changes what a reviewer reports. This skill posts and never edits code; "fixed in this PR" names what the bar permits the fixing skill to do. A verified finding is 🔥 or ⚠️ only if both prongs hold, tested in order:
 
 1. **In the diff** (`scope: diff`). The finding's line is in `git diff <base>...HEAD`, or it is a caller or dependent in the Step-3 dependent set (code the change newly reaches or whose contract it changes). Otherwise it is `scope: sibling` (the same defect shape as a fix in the diff, at a site the PR did not touch) or, for anything else at all, `scope: pre-existing`.
-2. **Merge-relevant kind.** `behaviour` (breaks behaviour), `data` (loses, corrupts or leaks data, including any security defect), `rollback` (blocks a rollback), `gate` (breaches a rule the repo documents as a gate). `perf`, `observability`, `tests`, `docs`, `architecture` and `style` are not merge-relevant by default. A finding is `gate` only when a named repo file states the rule and states that it gates review or merge; cite that `path:line` in the finding, or the kind stands as the reviewer reported it.
+2. **Merge-relevant kind.** `behaviour` (breaks behaviour), `data` (loses, corrupts or leaks data, including any security defect), `rollback` (reverting the commit would not undo it: a migration, a rewritten record, a changed wire format), `gate` (breaches a documented gate). `perf`, `observability`, `tests`, `docs`, `architecture` and `style` are not merge-relevant by default. A finding is `gate` only when a named file states the rule and states that it gates review or merge: a file in the repo under review, or the phase table or mandate of the process that dispatched this review. Cite that `path:line` in the finding, or the kind stands as the reviewer reported it.
 
-No likelihood or value judgment re-scores a finding. Two exceptions to prong 2, both on a changed line only: a mechanical finding (typo, import, lint, formatting) is ⛏️ and fixed in this PR; any other `style` finding is ⛏️, counted in the summary thread, neither fixed nor carried.
+No likelihood or value judgment re-scores a finding. A finding that fails prong 2 on a changed line is still ⛏️ in two cases: mechanical (typo, import, lint, formatting), fixed in this PR; any other `style` finding, counted in the summary thread, neither fixed nor carried. Neither case demotes a finding that passes prong 2.
 
-In quorum mode a 🔥/⚠️ candidate that one agent alone flagged (`Votes` 1/N) and whose artifact is not a snippet is not posted inline: it goes to the summary thread as a ❓ open question with its artifact. A snippet that reproduces the defect is proof enough on its own.
+Before a 🔥/⚠️ whose artifact is `in-repo` or `source` is offered, the lead re-runs the grep or opens the link itself. One that does not reproduce goes to the Not run list with the command that would settle it.
+
+A bar-passing finding whose line is not in the PR diff (a dependent outside the changed hunks) cannot anchor an inline thread; it goes in the summary thread under **Off-diff blockers** with its real `path:line` and artifact, and is fixed in this PR like any other.
 
 Everything else verified true is 📦 Carried: one class ticket per defect shape (reuse an existing ticket for the same shape), the count in one summary thread, no inline thread, no commit and no test in this PR. A *defect shape* is the class a defect belongs to (swallowed exit code, unbounded read, missing guard, unvalidated boundary; Step 3). A *class ticket* is one ticket for that shape listing every site as `path:line`, not one ticket per site. Dependents a fix would break are `scope: diff` by prong 1 and are always fixed; only sibling sites are carried. A Carried finding of kind `data` is drafted at blocker priority and named first in the report whatever the posting answer; it is filed on the same yes as the other tickets.
 
-**The summary thread** is one PR-level comment per review round: `Reviewed at <head sha>`, inline threads posted this round (count and IDs), Carried findings grouped by shape with their ticket links, the Minor count, the ❓ open questions, the Not run list, and on a re-review the fix scores and the per-kind won't-fix rate. When the three-dot diff exceeds 400 changed lines or 20 files, one line says so and suggests a split: defect detection collapses past that size, and a review that cannot be read is not a review.
+**The summary thread** is one PR-level comment per review round, in this order: `Reviewed at <head sha>`; the **size line** when the three-dot diff exceeds 400 changed lines or 20 files (the counts and the suggestion to split); inline threads posted this round (ID and kind each); Off-diff blockers; on a re-review, new ⚠️ findings with their artifacts, the fix scores, and the won't-fix rate; Carried findings grouped by shape with their ticket links; the Minor count; the ❓ open questions; the Not run list.
 
 ## Re-review
 
-When the PR was grilled before, one fresh single reviewer scores each previous fix as fixed / partial / regressed and grills only the delta since the head the newest summary thread names. With no summary thread on the PR, re-review the whole three-dot diff and say so. The brief carries what survives of the previous round: the summary thread, and the findings table when this session still holds it.
+When the PR was grilled before, one fresh single reviewer scores each previous fix as fixed / partial / regressed and grills only the delta since the head the newest summary thread names. With no summary thread on the PR, re-review the whole three-dot diff and say so. The brief carries what survives of the previous round: every summary thread on the PR, and the findings table when this session still holds it.
 
-The same bar decides what posts, and the round converges: only 🔥 is offered inline; a new ⚠️ goes to the summary thread; no new ⛏️ posts. Before offering anything, read the threads already on the PR: a finding on the same path and defect shape as an open thread is a reply on that thread, not a new one, and one whose thread was resolved with a fix is dropped.
+The same bar decides what posts, and the round converges: only 🔥 is offered inline; a new ⚠️ goes to the summary thread; no ⛏️ posts. Before offering anything, read the threads already on the PR: a finding on the same path and defect shape as an open thread is a reply on that thread, not a new one, and one whose thread was resolved with a fix is dropped.
 
-Score every earlier inline thread as *resolved* (a fix commit or a resolved thread) or *won't-fix* (declined in a reply, or unresolved with the line unchanged), by kind. The summary thread reports the won't-fix rate per kind over all rounds. A kind above 10% is named in the report with the proposal to add it to the repo's skip list; the reviewer never drops it on its own.
+Score every earlier inline thread as *resolved* (a fix commit or a resolved thread) or *won't-fix* (declined in a reply, or unresolved with the line unchanged), by the kind its summary thread recorded. The won't-fix rate per kind is won't-fix threads over all inline threads of that kind across this PR's summary threads. A kind with five or more threads and a rate above 10% is named in the report with the proposal to add it to the repo's skip list (§ Brief templates); the reviewer never drops it on its own.
 
 ### The nit marker
 
-A ⛏️ finding is not posted inline by default; the `nights-watch` Grill, which posts every verified finding inline by its own rule ([GRILL.md](../nights-watch/GRILL.md)), is the standing exception. When a ⛏️ is posted, its body opens with this line, verbatim, above the finding text:
+A ⛏️ finding is not posted inline by default. The `nights-watch` Grill is the standing exception: by its own rule ([GRILL.md](../nights-watch/GRILL.md)) it posts every verified finding inline, ⛏️ and 📦 included, and takes only the `scope` and `kind` columns from the bar. When a ⛏️ is posted, its body opens with this line, verbatim, above the finding text:
 
 ```markdown
 ![Ackchyually](https://raw.githubusercontent.com/PFalkowski/skills/main/code-review-grill/assets/ackchyually.png)
@@ -96,7 +98,7 @@ An executable claim is grounded only by running it and showing the real output, 
 
 ## Brief templates
 
-Pass these to the `Agent` tool verbatim, filling the brackets. Always attach: the diff, the changed files at full context, the Step-3 ripple set, the **Step-4 house rules** (the project's documented patterns/ADRs/architectural style) so every reviewer judges the diff against them, and the **skip list**: generated code, lockfiles, vendored and build-output directories, and whatever CI already enforces (lint, format, spellcheck, the analyzers in Step 4's linter config). Nothing on the skip list is reported; a tool already decides it.
+Pass these to the `Agent` tool verbatim, filling the brackets. Always attach: the diff, the changed files at full context, the Step-3 ripple set, the **Step-4 house rules** (the project's documented patterns/ADRs/architectural style) so every reviewer judges the diff against them, and the **skip list**: generated code, lockfiles, vendored and build-output directories, whatever CI already enforces (lint, format, spellcheck, the analyzers in Step 4's linter config), and the entries under a `Review skip` heading in the repo's `CLAUDE.md` or `REVIEW.md` when one exists (read in Step 4). Nothing on the skip list is reported; a tool or the team already decides it.
 
 All briefs use the **grilling stance**: interrogate the diff one hunk at a time to a verified conclusion (what must be true for this to be correct? what input breaks it? what caller relied on the old behavior?); settle every doubt by running code or grepping the repo, never by speculating.
 
@@ -189,7 +191,7 @@ Command: k6 run loadtest/retry-backoff.js against a staging deploy.
 
 ### Comment body
 
-One inline comment is read in the seconds between two other things. It holds four parts and nothing else, in this order, under twelve lines:
+An inline comment holds four parts and nothing else, in this order, under twelve lines:
 
 ````markdown
 🔥 **F1** `userId` reaches the SQL string unescaped, so any caller can read every row.
