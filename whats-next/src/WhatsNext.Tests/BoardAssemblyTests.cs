@@ -399,7 +399,7 @@ public class BoardAssemblyTests
     public void ARepositoryWithNoRemoteDataYieldsNoItemsAndNoError()
     {
         var items = BoardAssembly.ForRepository(
-            new ProcessExternalCli(), new SystemClock(), "local-only", @"C:\nowhere", [], null, [], [], staleDays: 7);
+            new ProcessExternalCli(), new SystemClock(), "local-only", @"C:\nowhere", [], null, null, [], [], staleDays: 7);
 
         Assert.Empty(items);
     }
@@ -411,9 +411,10 @@ public class BoardAssemblyTests
         IReadOnlyList<LiveSession>? liveSessions = null,
         int staleDays = 7,
         bool noRemote = false,
-        IReadOnlyList<TranscriptSession>? transcriptSessions = null) =>
+        IReadOnlyList<TranscriptSession>? transcriptSessions = null,
+        IReadOnlyList<TicketFact>? tickets = null) =>
         BoardAssembly.ForRepository(
-            new ProcessExternalCli(), new SystemClock(), "r", fx.Repo, worktrees, noRemote ? null : pullRequests ?? [], liveSessions ?? [],
+            new ProcessExternalCli(), new SystemClock(), "r", fx.Repo, worktrees, noRemote ? null : pullRequests ?? [], tickets, liveSessions ?? [],
             transcriptSessions ?? [], staleDays);
 
     private static PullRequestFact Pr(
