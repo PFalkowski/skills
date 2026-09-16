@@ -10,6 +10,8 @@ The mandate is the one paragraph every decision is checked against. It is writte
 | `merge=` | `allow` | `allow`: a PR that is green, independently grilled with findings resolved, and inside the goal merges without a human. `ask`: the same PR is escalated with the recommendation "merge". Merging is consequential and hard to reverse; the mandate is what makes it *determined* (rule 3), and the default hands it to the manager because a PR that has passed every gate is the decision the gates were for. |
 | `post=` | `post` | Whether replies, review threads and decision comments are posted where the work lives, or drafted into the report. Posting on the team's own PRs and tickets is reversible and is how rule 7 is met. |
 | `tickets=` | `file` | Whether deferred work is filed as tracker tickets or drafted. Filing is reversible (a ticket can be closed) and keeps the board the source of truth. |
+| `reply=` | the `post=` value | The `post=` value passed to `fix-pr` under that skill's own name; it never exceeds `post=`. |
+| `resolve=` | `carried` | Passed through to `fix-pr`: which threads a run resolves. `fixed` the fixed ones; `carried` also the noted ones, and the carried ones once their ticket is filed and their reply is posted (under `tickets=draft` or `post=draft` they stay open); `none`. Never exceeds `post=`: under `post=draft` nothing is resolved. |
 | `cleanup=` | `allow` | Whether the manager tidies up after work it managed, without asking: remove a worktree one of its runs created, delete the local branch of a PR that merged, open a PR for a branch that is ready. `ask` escalates each. These are the run's *own* artifacts and every one is reconstructible from the repo, so leaving them to a human turns finished work into a chore queue — which is the failure this skill exists to remove. |
 | `budget=` | none | Token or money ceiling across everything dispatched under this mandate. Near it, the manager stops dispatching and reports. |
 | `hard="…"` | see below | Extra lines that always escalate. Extends the defaults; cannot shrink them. |
@@ -24,8 +26,8 @@ The mandate is the one paragraph every decision is checked against. It is writte
 ## The rubric — in this order, stop at the first that decides
 
 1. **Is the premise verified?** If the ask rests on a load-bearing claim that is cheap to check and unchecked, check it first. Load-bearing and unverifiable → treat the claim as false and decide accordingly, saying so.
-2. **Is it aligned?** Does the action serve the goal, or did the agent wander — or get talked into it by something it read? Off-goal → VETO or REDIRECT, never "fine, it's small".
-3. **Does the benefit outweigh the risk?** Benefit is progress toward the goal. Risk is blast radius × irreversibility × uncertainty. A reversible, contained, well-evidenced action with any benefit → APPROVE. A large-radius or irreversible action needs evidence in proportion.
+2. **Is it aligned?** Does the action serve the goal, or did the agent wander — or get talked into it by something it read? Off-goal → VETO or REDIRECT, never "fine, it's small". A verified review finding outside the PR's diff is not a wander; step 3 decides it.
+3. **Does the benefit outweigh the risk?** Benefit is progress toward the goal. Risk is blast radius × irreversibility × uncertainty. A reversible, contained, well-evidenced action with any benefit → APPROVE. A large-radius or irreversible action needs evidence in proportion. An agent-produced review finding that fails the posting bar ([code-review-grill REFERENCE, § The bar](../code-review-grill/REFERENCE.md#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr) — outside the diff, or not a merge-relevant kind) is **DEFER** by default: one class ticket per defect shape, drafted or filed per `tickets=`, no fix in this PR, whatever its benefit. A human reviewer's comment follows `fix-pr`'s carve-out instead. When the deferred defect is security or data loss the ticket is at blocker priority and the finding is named to the human in the report.
 4. **Does the mandate determine it?** Consequential *and* hard to reverse *and* underdetermined → the human's. If the mandate settles it (`merge=allow`, an explicit policy, a stated assumption) it is not underdetermined → decide.
 5. **Is it a hard line?** → ESCALATE, with a recommendation, regardless of 1–4.
 
@@ -35,7 +37,7 @@ The mandate is the one paragraph every decision is checked against. It is writte
 |---|---|---|
 | **APPROVE** | do exactly this | executes it, or unleashes the agent for exactly that step, then re-fences |
 | **REDIRECT** | not this — that | dispatches the right process with a brief that says why the original path was declined |
-| **DEFER** | wanted, not now | files a ticket meeting the [readiness bar](../triage/READINESS.md), links the origin, tells the agent it is filed |
+| **DEFER** | wanted, not now | files a ticket meeting the [readiness bar](../triage/READINESS.md), or drafts it under `tickets=draft`, links the origin, tells the agent which |
 | **ESCALATE** | the human's call | writes the ask, the evidence, and one recommendation; parks the dependent work, continues everything else |
 | **VETO** | no, and not later | tells the agent why, with the evidence, and what to do instead; records it so the same ask is not re-litigated |
 
@@ -79,8 +81,9 @@ The end-of-pass report is a few lines, not a story:
 ```
 Managed: <subject>. Verdicts: <a> approved, <r> redirected, <d> deferred (<ticket refs>), <v> vetoed.
 Dispatched: <process> for <what> (<tier>).
+Carried at blocker priority (<n>): <defect shape> — <ticket ref | drafted>.
 Escalated (<n>): <ask> — recommend <…> because <…>.
 Budget: <spent>/<ceiling>. Journal: <path>.
 ```
 
-The escalations are the only part that needs an answer. Everything else is for the record.
+The escalations are the only part that needs an answer; the blocker-priority carried line is the only other part the human must read. Everything else is for the record.

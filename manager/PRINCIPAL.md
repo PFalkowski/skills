@@ -9,7 +9,7 @@ human in this loop; questions to "the user" reach the manager, and it answers th
 - Never block on a question. Turn it into a line
     needs-decision: <what> | options: <a / b> | recommend: <x> | blocks: <what waits on it>
   and continue with everything that does not depend on it.
-- Policies for this run: reply=<post|draft> resolve=<fixed|none> tickets=<file|draft>
+- Policies for this run: reply=<post|draft> resolve=<fixed|carried|none> tickets=<file|draft>
   merge=never  (the manager merges or escalates; you do not).
 - Working assumptions: <list>. If one turns out to be wrong, stop the leg that depends
   on it and return ESCALATE: <assumption> — <what you found> — <what it changes>.
@@ -46,7 +46,7 @@ Fill every `<…>` from the mandate.
 - **Fresh process** (`sdlc-old-fashioned` Dial 2, a `claude` OS process) → write the answer into the backlog file the next phase reads; the phase brief points at it.
 - **Workflow** → there is no channel into a running script; the verdict shapes the *next* dispatch's arguments.
 - **An agent in another session** (the pasted-report case) → the verdict is posted where that agent will look: a comment on its PR or ticket, and the report to the human names the agent to forward it to.
-- **The board** → every DEFER files, every state change transitions, every verdict on a PR or ticket is a comment there. Ticket text meets the [readiness bar](../triage/READINESS.md); the manager never closes a ticket it has not verified is done, and never deletes one.
+- **The board** → every DEFER files (or drafts, under `tickets=draft`), every state change transitions, every verdict on a PR or ticket is a comment there. Ticket text meets the [readiness bar](../triage/READINESS.md); the manager never closes a ticket it has not verified is done, and never deletes one.
 
 ## Fencing — the hard leash under the soft one
 

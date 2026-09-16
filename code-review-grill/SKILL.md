@@ -23,11 +23,12 @@ Adapted from grill-me's interrogation discipline, applied to code:
 - **Answer by exploring, never by speculating.** grill-me's rule "if the codebase can answer it, explore instead of asking" becomes: settle an executable doubt by running it; a codebase doubt by grepping; a doc/API doubt by checking the docs — the claim decides which, not convenience. That *is* the [verification](#step-5--run-the-review-fresh-adversarial-grilling) every finding must carry. An un-run hypothesis is not a finding.
 - **Carry a recommended answer.** Like grill-me proposing an answer per question, every finding ships a concrete suggested fix.
 
-## Step 0 — Pick the stance (ALWAYS ask)
+## Step 0 — Pick the stance (ask, unless this is a re-review)
 
-Ask the user: **single adversarial agent** or **quorum**?
+Unless the PR was grilled before, ask the user: **single adversarial agent** or **quorum**?
 - **Single** — one fresh reviewer over the whole diff. Fast, cheap, good default for small/contained changes.
 - **Quorum** — one fresh subagent per concern, run in parallel, each with a sharp brief (objective / output / tools / boundaries) and effort sized to the diff. If the user names concerns, use exactly those; if not, the orchestrator picks the relevant subset from the diff. Concern menu + the auto-pick heuristic live in **[REFERENCE.md](REFERENCE.md)**.
+- **Re-review** (the PR was grilled before) — no ask: single, one fresh reviewer, briefed with what survives of the previous round and only the delta since the last reviewed head. It scores each previous fix fixed / partial / regressed and grills only the delta (REFERENCE, § Re-review).
 
 > **Azure DevOps PRs:** delegate the whole resolve → diff → post pipeline to
 > [AZURE-DEVOPS.md](AZURE-DEVOPS.md) (its steps 1–5) from the start, not
@@ -46,7 +47,7 @@ git fetch origin <base>
 git diff --stat <base>...HEAD
 git diff       <base>...HEAD
 ```
-Read the changed files at **full context**, not just the hunks — a change is only correct in the surrounding code (mirrors `AZURE-DEVOPS.md` step 3).
+Read the changed files at **full context**, not just the hunks — a change is only correct in the surrounding code (mirrors `AZURE-DEVOPS.md` step 3). On a re-review, the delta is `<last-reviewed-head>..HEAD`, the head the newest summary thread names (REFERENCE, § Re-review); the full three-dot diff is context only. With no summary thread, review the full three-dot diff and say so.
 
 **Consider materializing a worktree at PR-head** (`git worktree add`) to do that reading. It's just a checkout — no restore/build — so its cost scales with repo size, not solution complexity; don't confuse it with building the solution. It turns full-context reads and ripple-tracing into plain Read/Grep/Glob calls on real paths instead of repeated `git show <ref>:<path>`, gives real 1-indexed line numbers for free (useful later when posting inline comments), and — unlike switching the current checkout — doesn't disturb whatever the user has checked out if the PR branch isn't already local. Skip it for a small diff where a couple of `git show`s are just as fast; for a large or heavy repo (monorepo, submodules, huge history) where even a checkout isn't obviously cheap, ask the user before creating one rather than deciding silently.
 
@@ -54,7 +55,7 @@ Read the changed files at **full context**, not just the hunks — a change is o
 
 For every changed public symbol, signature, invariant, or config key, grep callers and dependents **repo-wide** (`git grep`, on the worktree if you made one, or on the ref directly if not). An invariant dropped in one file may be silently relied on in another. The lead gathers this dependent set once and hands it to the reviewer(s) so they judge the change in context, not in isolation.
 
-**Then trace the *sibling* ripple — the one most reviews miss.** The grep above answers "who depended on what changed?" It does not answer the other half: **"is this a *class* of defect, and are there un-fixed instances of the same shape?"** For every fix in the diff, name the defect's *shape* — swallowed exit code, unbounded read, missing guard, un-disposed handle, unvalidated boundary, hardcoded assumption — then grep for that shape, not for the symbol. Report each sibling as fixed-here, explicitly-triaged, or a finding.
+**Then trace the *sibling* ripple — the one most reviews miss.** The grep above answers "who depended on what changed?" It does not answer the other half: **"is this a *class* of defect, and are there un-fixed instances of the same shape?"** For every fix in the diff, name the defect's *shape* — swallowed exit code, unbounded read, missing guard, un-disposed handle, unvalidated boundary, hardcoded assumption — then grep for that shape, not for the symbol. Report each sibling as fixed-here, explicitly-triaged, or a finding with `scope: sibling` (the bar carries it to a class ticket; it never blocks this PR).
 
 The tell is a diff that changes one of several structurally parallel things — one of N timer functions, one of N repository methods, one of N adapters implementing a port, one of N call sites of the same helper. When you see that, ask why the other N−1 are untouched and require an answer, rather than assuming the author checked.
 
@@ -67,7 +68,7 @@ The tell is a diff that changes one of several structurally parallel things — 
 Read what the repo actually has (don't assume locations):
 - `README*`, `CONTRIBUTING*`, `CONTEXT.md`, `ARCHITECTURE*`, `docs/**` and any wiki/handbook checked into the repo.
 - **ADRs** — `docs/adr/**`, `docs/decisions/**`, `adr/**` (Architectural Decision Records capture *why* a pattern is mandated; a diff that violates an accepted ADR is a finding).
-- Coding guidelines & enforced style — `CODING_GUIDELINES*`, `STYLEGUIDE*`, `.editorconfig`, linter/analyzer config (`.eslintrc*`, `ruff.toml`, `*.ruleset`, `Directory.Build.props`), and `CLAUDE.md`/`AGENTS.md` if present.
+- Coding guidelines & enforced style — `CODING_GUIDELINES*`, `STYLEGUIDE*`, `.editorconfig`, linter/analyzer config (`.eslintrc*`, `ruff.toml`, `*.ruleset`, `Directory.Build.props`), and `CLAUDE.md`/`AGENTS.md`/`REVIEW.md` if present, including any `Review skip` entries for the skip list (REFERENCE, § Brief templates).
 - Infer the **architectural style** from layout and dependencies (DDD / hexagonal / clean / MVC / n-tier / vertical-slice) and the naming/layering it implies.
 
 Distill this into a short **house-rules brief** (the documented patterns, the architectural style, the layering/dependency direction, naming and error-handling conventions, and any ADR a changed file falls under) and attach it to **every** reviewer. Reviewers judge the diff against these rules and flag deviations as findings; if the repo documents *nothing*, say so — that absence is itself worth noting.
@@ -78,7 +79,7 @@ Spawn via the **Agent tool** — never review from the calling context. Each rev
 - **Single:** one fresh reviewer; brief = the whole diff + full-file context + the Step-3 ripple set + the Step-4 house rules; stance = find correctness bugs, risks, omissions, **and deviations from the documented conventions/architecture**, assume guilty until proven innocent.
 - **Quorum:** one fresh subagent **per chosen concern, in parallel (one message)**, each with a sharp objective / output / tools / boundaries brief (templates in REFERENCE). The **documentation/conventions concern is on by default** (see auto-pick in REFERENCE) — it owns the Step-4 house rules: it checks the diff for conformance to the project's ADRs, coding guidelines, and architectural style, *and* gets `WebSearch` + `WebFetch` to apply **[fact-check](../fact-check/SKILL.md)** on doc/API/version claims against ≥2 authoritative sources, handing back deep-linked evidence. Budget low (per orchestrate): one worker per concern, do not over-spawn.
 
-Each agent returns the **standard finding payload** (location `path:line` · description · severity emoji · suggested fix · **verification**) defined in REFERENCE.
+Each agent returns the **standard finding payload** (location `path:line` · scope · kind · description · expected contract · severity emoji · suggested fix · **verification**) defined in REFERENCE.
 
 **Every finding must be verified before it is reported — no unverified claims.** A finding raised "from reading" is a hypothesis, not a finding. The claim's type fixes which method below grounds it — it is not a menu to pick from, and **the agent must state which method it used in enough detail that the user can replicate it in one step** (per [fact-check](../fact-check/SKILL.md)):
 - **Runnable snippet** — for anything executable (logic bug, off-by-one, regex, boundary, encoding, null/overflow, async/ordering, perf claim): write a minimal self-contained snippet (or failing test) that exercises the issue, run it, and report the snippet verbatim plus its actual output, so the user reproduces by copy-paste.
@@ -93,17 +94,23 @@ The lead merges agent outputs into **one table** (templates + severity legend in
 - **Dedupe:** same location + same issue raised by multiple agents → **one row**, with each flagging agent's emoji in its column.
 - Assign finding **IDs** (`F1`, `F2`, …), fill per-agent severity emoji, compute **Votes** (flagged / total agents — quorum only), and set a **Consensus** severity.
 - **Carry each finding's verification through:** the table gets a `Verified` column naming the method; the copy-paste-ready artifact (snippet+output, in-repo proof, or deep link) is reproduced verbatim below the table, keyed by finding ID. An executable finding whose agent returned no usable artifact is withheld from the table and moved to a **Not run** list, one line each naming the claim, why it wasn't run, and the command that would settle it; a non-executable finding with no usable artifact downgrades to ❓ instead.
-- Order by consensus severity, blockers first.
+- **Apply the bar** (REFERENCE, § The bar) to every verified finding, after verification: fill the `Scope` column from the payload's `scope` and `kind`; a finding is 🔥 or ⚠️ only when `scope` is `diff` and `kind` is merge-relevant, whatever any agent's emoji, 🔥 against ⚠️ by kind and artifact as the legend states; a `behaviour` finding with no cited `expected` contract is ❓; a mechanical finding on a changed line that fails prong 2 is ⛏️ and fixed in the PR; any other `style` finding on a changed line is ⛏️, counted only; everything else verified true becomes 📦 Carried. Re-run every `in-repo` and `source` artifact behind a 🔥/⚠️ before it is offered. Group the Carried rows by defect shape and draft one class ticket per shape; draft the summary thread with the size line when it applies. A Carried `data` finding is drafted at blocker priority and named first in the report.
+- Order by consensus severity: 🔥, ⚠️, 📦, ⛏️, then ❓.
+- **Write each 🔥/⚠️ comment body** to the four-part template (REFERENCE, § Comment body) now, so what the user approves in Step 7 is what gets posted.
 
 ## Step 7 — Offer to post (ALWAYS prompt; NEVER auto-post)
 
 > **Driven by `go-go-go`:** its whatever-mode already covers the post-or-not decision, so skip this
-> step's ask and post **every** finding (fixed or not) via the mechanics below — one thread first,
-> confirm it landed, then the rest.
+> step's ask and post **every** 🔥/⚠️ finding on a diff line (fixed or not) inline via the mechanics below
+> — one thread first, confirm it landed, then the rest — then the summary thread, with the off-diff
+> blockers in it and the Carried tickets filed.
+> On a re-review, 🔥 only (REFERENCE, § Re-review).
 
-> **Under a standing posting policy** — a `manager` mandate (`post=`), or a `CLAUDE.md` that names who
-> answers this step: the ask goes to that principal instead of the human. Post the findings it selects,
-> by the same mechanics.
+> **Under a standing posting policy** — a `manager` mandate (`post=`, `tickets=`), a `CLAUDE.md` that
+> names who answers this step, or a lifecycle or patrol that dispatched this review (`sdlc-old-fashioned`
+> with its dial on autonomous, `nights-watch`): the three questions go to that principal instead of the
+> human. An attended `sdlc-old-fashioned` run still asks the human.
+> Post the findings it selects, by the same mechanics.
 
 This step runs after **every** review — single adversarial or quorum alike, when invoked standalone. The moment the table is presented, the orchestrator must:
 
@@ -111,8 +118,8 @@ This step runs after **every** review — single adversarial or quorum alike, wh
    - **GitHub** → `gh pr view --json number,url,title -q '.number, .url'` (or `gh pr list --head <branch>`).
    - **Azure DevOps** → resolve via **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)**.
    - If no PR exists for the branch, say so and stop after the table (offer to open one only if asked).
-2. **Ask two things explicitly:** (a) *do you want to post comments to PR #N (`<url>`)?* and (b) *which finding IDs?* (e.g. `F1,F3`, `all blockers`, `none`). Default is **post nothing** until the user names IDs.
-3. Post **only** the selected subset. Post **one** thread first, confirm it landed (numeric `id` in the response), then the rest. Each comment body includes the finding's severity, ID, description, suggested fix, and its verification artifact. A ⛏️ nit opens with the nit marker (REFERENCE, § The nit marker) above all of it.
+2. **Ask three things explicitly:** (a) *do you want to post comments to PR #N (`<url>`)?*, (b) *which finding IDs?* — offer only the 🔥/⚠️ rows whose line is in the PR diff (e.g. `F1,F3`, `all blockers`, `none`), and on a re-review only the 🔥 rows; off-diff 🔥/⚠️ rows go in the summary thread (REFERENCE, § The bar); 📦 rows are never offered inline, and ⛏️ rows only when the user names them, the first five per round and none on a re-review, and (c) *post the summary thread and file the Carried class tickets?* Default is **post nothing and file nothing** until the user answers. A Carried `data` finding is named first in the report whatever the answer; its ticket is filed with the others on yes.
+3. Post **only** the selected subset. Post **one** thread first, confirm it landed (numeric `id` in the response), then the rest; file the tickets, then the summary thread that links them. Each inline comment is the four-part body drafted in Step 6 (REFERENCE, § Comment body). A ⛏️ the user named anyway opens with the nit marker (REFERENCE, § The nit marker) above all of it.
 
 - **GitHub** → inline review comments via `gh api` (path + line + body).
 - **Azure DevOps** → delegate to **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)** (its thread/encoding workarounds).
