@@ -18,9 +18,9 @@ Use `–` in an agent's cell when that agent did not flag the row.
 The bar sits between "verified true" and "post it inline / fix it in this PR". It runs after verification, never instead of it, and it never changes what a reviewer reports. This skill posts and never edits code; "fixed in this PR" names what the bar permits the fixing skill to do. A verified finding is 🔥 or ⚠️ only if both prongs hold, tested in order:
 
 1. **In the diff** (`scope: diff`). The finding's line is in `git diff <base>...HEAD`, or it is a caller or dependent in the Step-3 dependent set (code the change newly reaches or whose contract it changes). Otherwise it is `scope: sibling` (the same defect shape as a fix in the diff, at a site the PR did not touch) or, for anything else at all, `scope: pre-existing`.
-2. **Merge-relevant kind.** `behaviour` (breaks behaviour), `data` (loses, corrupts or leaks data, including any security defect), `rollback` (reverting the commit would not undo it: a migration, a rewritten record, a changed wire format), `gate` (breaches a documented gate). `perf`, `observability`, `tests`, `docs`, `architecture` and `style` are not merge-relevant by default. A finding is `gate` only when a named file states the rule and states that it gates review or merge: a file in the repo under review, or the rules of the process that dispatched this review (`sdlc-old-fashioned`'s phase table, `nights-watch`'s Oath, or a `manager` mandate quoted in the brief). Cite the `path:line`, or quote the mandate line, in the finding; otherwise the kind stands as the reviewer reported it.
+2. **Merge-relevant kind.** `behaviour` (breaks behaviour), `data` (loses, corrupts or leaks data, including any security defect), `rollback` (reverting the commit would not undo it: a migration, a rewritten record, a changed wire format), `gate` (breaches a documented gate). `perf`, `observability`, `tests`, `docs`, `architecture` and `style` are not merge-relevant by default. A finding is `gate` only when a named file or the dispatching mandate states the rule and states that it gates review or merge: a file in the repo under review, the rules of the process that dispatched this review (`sdlc-old-fashioned`'s phase table, `nights-watch`'s Oath), or the `manager` mandate attached to the brief. Cite the `path:line`, or quote the mandate line, in the finding; otherwise the kind stands as the reviewer reported it.
 
-No likelihood or value judgment re-scores a finding. A `behaviour` or `data` finding names in `expected` the contract the code breaks; a snippet shows what the code does, the contract is what says that is wrong, and a finding with no citable contract is ❓. A finding that fails prong 2 on a changed line is still ⛏️ in two cases: mechanical (typo, import, lint, formatting), fixed in this PR; any other `style` finding, counted in the summary thread, neither fixed nor carried. Neither case demotes a finding that passes prong 2.
+No likelihood or value judgment re-scores a finding. A `behaviour` finding names in `expected` the contract the code breaks; a snippet shows what the code does, the contract is what says that is wrong, and a `behaviour` finding with no cited contract is ❓. A `data` finding needs none: its artifact shows the breach. A finding that fails prong 2 on a changed line is still ⛏️ in two cases: mechanical (typo, import, lint, formatting), fixed in this PR; any other `style` finding, counted in the summary thread, neither fixed nor carried. Neither case demotes a finding that passes prong 2.
 
 Before a 🔥/⚠️ whose artifact is `in-repo` or `source` is offered, the lead re-runs the grep or opens the link itself. One that does not reproduce downgrades to ❓.
 
@@ -78,7 +78,7 @@ It marks the comment as optional at a glance, so a reader scrolling a thread tel
 - severity:    🔥 | ⚠️ | ⛏️ | ❓   (the reviewer's read; the lead sets the final severity by the bar)
 - finding:     one-sentence statement of the problem
 - expected:    the contract the code breaks, cited: a test, doc, caller or spec at path:line, or a
-               deep link (behaviour and data findings; with none the finding is ❓)
+               deep link (behaviour findings; one with no cited contract is ❓)
 - suggested:   the fix in one line (the guard to add, the call to make, the name to use); never a patch,
                the author writes the code
 - verification:
@@ -100,7 +100,7 @@ An executable claim is grounded only by running it and showing the real output, 
 
 ## Brief templates
 
-Pass these to the `Agent` tool verbatim, filling the brackets. Always attach: the diff, the changed files at full context, the Step-3 ripple set, the **Step-4 house rules** (the project's documented patterns/ADRs/architectural style) so every reviewer judges the diff against them, and the **skip list**: generated code, lockfiles, vendored and build-output directories, whatever CI already enforces (lint, format, spellcheck, the analyzers in Step 4's linter config), and the entries under a `Review skip` heading in the repo's `CLAUDE.md` or `REVIEW.md` when one exists (read in Step 4). Nothing on the skip list is reported; a tool or the team already decides it.
+Pass these to the `Agent` tool verbatim, filling the brackets. Always attach: the standard finding payload (§ above), the diff, the changed files at full context, the Step-3 ripple set, the `manager` mandate when one dispatched the review, the **Step-4 house rules** (the project's documented patterns/ADRs/architectural style) so every reviewer judges the diff against them, and the **skip list**: generated code, lockfiles, vendored and build-output directories, whatever CI already enforces (lint, format, spellcheck, the analyzers in Step 4's linter config), and the entries under a `Review skip` heading in the repo's `CLAUDE.md` or `REVIEW.md` when one exists (read in Step 4). Nothing on the skip list is reported; a tool or the team already decides it.
 
 All briefs use the **grilling stance**: interrogate the diff one hunk at a time to a verified conclusion (what must be true for this to be correct? what input breaks it? what caller relied on the old behavior?); settle every doubt by running code or grepping the repo, never by speculating.
 
@@ -110,8 +110,9 @@ Objective: Grill this diff hunk-by-hunk. Assume it is wrong until proven right; 
            what must be true for it to be correct, what input breaks it, and what caller/test relied
            on the old behavior. Find correctness bugs, security issues, broken invariants, omissions,
            AND deviations from the attached house rules (ADRs / coding guidelines / architectural style).
-Output:    The standard finding payload, one block per finding, INCLUDING a verification artifact for
-           each. The claim's type fixes the method — snippet+output, in-repo path:line proof, or
+Output:    The standard finding payload, one block per finding, with scope, kind and (for a behaviour
+           finding) the expected contract filled, INCLUDING a verification artifact for each. The
+           claim's type fixes the method — snippet+output, in-repo path:line proof, or
            authoritative deep link — it is not a choice among them; split a mixed finding into atoms
            and ground each by its own type rather than withholding the whole thing. An executable
            claim — what the code does at runtime — is grounded only by running it and showing the real
@@ -131,7 +132,8 @@ Boundaries: Judge this diff and what it touches; do not propose unrelated refact
 ```
 Objective: Grill this diff for <CONCERN> only (see scope: <one-line scope from the menu>), hunk-by-hunk:
            for each relevant change ask what must be true for it to be correct and what breaks it.
-Output:    The standard finding payload for <CONCERN> findings only; '✅ nothing found' if clean.
+Output:    The standard finding payload for <CONCERN> findings only, with scope, kind and (for a
+           behaviour finding) the expected contract filled; '✅ nothing found' if clean.
            Every finding MUST carry a verification artifact whose method the claim's type fixes —
            snippet+actual output, in-repo path:line proof, or authoritative deep link — never a choice
            among them; split a mixed finding into atoms and ground each by its own type rather than
@@ -206,7 +208,7 @@ SELECT * FROM u WHERE id=1 OR 1=1
 Fix: pass `userId` as a `SqlParameter`.
 ````
 
-Line one is the severity, the ID and the finding with its consequence in one sentence. `Reproduce` is the verification artifact verbatim: the command and its output, the `path:line` and the quoted lines, or the deep link and the quoted text; for a `behaviour` or `data` finding, the `expected` contract follows it on one line. `Fix` is one line for the author to act on, never a patch for the reviewer to vet. No preamble, no restatement of the code, no praise.
+Line one is the severity, the ID and the finding with its consequence in one sentence. `Reproduce` is the verification artifact verbatim: the command and its output, the `path:line` and the quoted lines, or the deep link and the quoted text; for a `behaviour` finding, the `expected` contract follows it on one line. `Fix` is one line for the author to act on, never a patch for the reviewer to vet. No preamble, no restatement of the code, no praise.
 
 ### GitHub
 Resolve repo + PR head, then post each selected 🔥/⚠️ finding as an inline review comment. Post **one first** and confirm the response has a numeric `id` before sending the rest.
