@@ -37,6 +37,27 @@ Three constraints:
 
 **Bias it toward rejection and say so in the prompt.** When the judge is unsure, the answer is no.
 
+## Grooming — `needs-triage` tickets get a lane, not a verdict
+
+The judge reads ticket text and answers admit-or-decline; it never writes. A ticket nobody has triaged fails that
+reading every patrol and stays untriaged, so on a judged board the `needs-triage` lane only grows. Grooming is the
+step that drains it, and it is the [triage](../triage/SKILL.md) skill dispatched, not the judge widened:
+
+- **One fresh `sonnet` agent per ticket**, running that skill's "Triaging one ticket" steps in full — it reads the
+  code, reproduces a bug, verifies the load-bearing claims — which is exactly what the judge is forbidden to do.
+  It writes what that skill's outcome table writes: the state label and the brief or notes behind it.
+- **Only under a recorded delegation.** The triage skill treats agent-readiness as a human attestation unless the
+  owner delegates it; the groom reads the repo's label doc for that delegation and its date, and without one it
+  posts its notes as a comment and leaves the label untouched.
+- **It assigns a lane; it never closes.** `ready-for-agent`, `ready-for-human`, `needs-info` are lanes. A `wontfix`
+  verdict is a refusal, so it goes to the patrol summary and the decision digest and is never enacted.
+- **It touches only `needs-triage`.** A ticket already in a lane was someone's judgment; regrading it is not the
+  groom's job.
+- **The judge still runs.** Whatever the groom marks agent-ready enters the same patrol's candidate set and faces
+  judged intake and the gate like any other ticket — the groom's label is a lane, not an admission.
+- **The summary lists every groomed ticket with the lane it got**, beside the declined list. That is how a human
+  audits the delegation.
+
 ## Tier rubric — lowest sufficient model
 
 The rubric is [save-tokens](../save-tokens/SKILL.md) § *Send each job to the cheapest tier that does it*: default **`sonnet`**, off it only when the ticket clearly matches another row, the lower tier when torn. Effort follows tier: `low` for haiku-class chores, default for sonnet, `high` only for the opus row. Record the assigned tier in the claim comment.
