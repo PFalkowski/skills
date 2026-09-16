@@ -7,7 +7,7 @@
 | 🔥 | Blocker | Meets [the bar](#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr) and has no workaround; must be resolved before merge. Posted inline by this skill; fixed in this PR by whichever skill owns the fix (`fix-pr`, or a lifecycle phase). |
 | ⚠️ | Major | Meets the bar with a workaround or narrower reach. Posted inline by this skill; fixed in this PR by the fixing skill. |
 | 📦 | Carried | Verified true, fails the bar. One class ticket per defect shape plus a count in the summary thread; no inline thread, no fix in this PR. |
-| ⛏️ | Minor | Mechanical or style finding on a changed line (typo, import, lint, formatting, naming). Fixed in this PR by the fixing skill, never ticketed or carried; a count in the summary thread, no inline thread unless the user names its ID. |
+| ⛏️ | Minor | Style or readability finding on a changed line. A count in the summary thread, never ticketed; inline only when the user names its ID, at most five per round. A *mechanical* one (typo, import, lint, formatting) is also fixed in this PR by the fixing skill. |
 | ✅ | Reviewed-clean | Agent examined this area and found nothing. |
 | ❓ | Uncertain | Needs author input or more info to judge. Listed in the summary thread as an open question. |
 
@@ -20,15 +20,21 @@ The bar sits between "verified true" and "post it inline / fix it in this PR". I
 1. **In the diff** (`scope: diff`). The finding's line is in `git diff <base>...HEAD`, or it is a caller or dependent in the Step-3 dependent set (code the change newly reaches or whose contract it changes). Otherwise it is `scope: sibling` (the same defect shape as a fix in the diff, at a site the PR did not touch) or, for anything else at all, `scope: pre-existing`.
 2. **Merge-relevant kind.** `behaviour` (breaks behaviour), `data` (loses, corrupts or leaks data, including any security defect), `rollback` (blocks a rollback), `gate` (breaches a rule the repo documents as a gate). `perf`, `observability`, `tests`, `docs`, `architecture` and `style` are not merge-relevant by default. A finding is `gate` only when a named repo file states the rule and states that it gates review or merge; cite that `path:line` in the finding, or the kind stands as the reviewer reported it.
 
-No likelihood or value judgment re-scores a finding. The one exception to prong 2 is a mechanical or style finding on a changed line: it is ⛏️, fixed in this PR, never carried.
+No likelihood or value judgment re-scores a finding. Two exceptions to prong 2, both on a changed line only: a mechanical finding (typo, import, lint, formatting) is ⛏️ and fixed in this PR; any other `style` finding is ⛏️, counted in the summary thread, neither fixed nor carried.
 
-Everything else verified true is 📦 Carried: one class ticket per defect shape (reuse an existing ticket for the same shape), the count in one summary thread, no inline thread, no commit and no test in this PR. A *defect shape* is the class a defect belongs to (swallowed exit code, unbounded read, missing guard, unvalidated boundary; Step 3). A *class ticket* is one ticket for that shape listing every site as `path:line`, not one ticket per site. Dependents a fix would break are `scope: diff` by prong 1 and are always fixed; only sibling sites are carried. A Carried finding of kind `data` is filed at blocker priority whatever the posting answer or policy says, and named to the human in the report.
+In quorum mode a 🔥/⚠️ candidate that one agent alone flagged (`Votes` 1/N) and whose artifact is not a snippet is not posted inline: it goes to the summary thread as a ❓ open question with its artifact. A snippet that reproduces the defect is proof enough on its own.
 
-**The summary thread** is one PR-level comment per review round: `Reviewed at <head sha>`, inline threads posted this round (count and IDs), Carried findings grouped by shape with their ticket links, the Minor count, the ❓ open questions, and the Not run list.
+Everything else verified true is 📦 Carried: one class ticket per defect shape (reuse an existing ticket for the same shape), the count in one summary thread, no inline thread, no commit and no test in this PR. A *defect shape* is the class a defect belongs to (swallowed exit code, unbounded read, missing guard, unvalidated boundary; Step 3). A *class ticket* is one ticket for that shape listing every site as `path:line`, not one ticket per site. Dependents a fix would break are `scope: diff` by prong 1 and are always fixed; only sibling sites are carried. A Carried finding of kind `data` is drafted at blocker priority and named first in the report whatever the posting answer; it is filed on the same yes as the other tickets.
+
+**The summary thread** is one PR-level comment per review round: `Reviewed at <head sha>`, inline threads posted this round (count and IDs), Carried findings grouped by shape with their ticket links, the Minor count, the ❓ open questions, the Not run list, and on a re-review the fix scores and the per-kind won't-fix rate. When the three-dot diff exceeds 400 changed lines or 20 files, one line says so and suggests a split: defect detection collapses past that size, and a review that cannot be read is not a review.
 
 ## Re-review
 
-When the PR was grilled before, one fresh single reviewer scores each previous fix as fixed / partial / regressed and grills only the delta since the head the newest summary thread names. With no summary thread on the PR, re-review the whole three-dot diff and say so. The brief carries what survives of the previous round: the summary thread, and the findings table when this session still holds it. The same bar decides what posts.
+When the PR was grilled before, one fresh single reviewer scores each previous fix as fixed / partial / regressed and grills only the delta since the head the newest summary thread names. With no summary thread on the PR, re-review the whole three-dot diff and say so. The brief carries what survives of the previous round: the summary thread, and the findings table when this session still holds it.
+
+The same bar decides what posts, and the round converges: only 🔥 is offered inline; a new ⚠️ goes to the summary thread; no new ⛏️ posts. Before offering anything, read the threads already on the PR: a finding on the same path and defect shape as an open thread is a reply on that thread, not a new one, and one whose thread was resolved with a fix is dropped.
+
+Score every earlier inline thread as *resolved* (a fix commit or a resolved thread) or *won't-fix* (declined in a reply, or unresolved with the line unchanged), by kind. The summary thread reports the won't-fix rate per kind over all rounds. A kind above 10% is named in the report with the proposal to add it to the repo's skip list; the reviewer never drops it on its own.
 
 ### The nit marker
 
@@ -69,7 +75,8 @@ It marks the comment as optional at a glance, so a reader scrolling a thread tel
 - kind:        behaviour | data | rollback | gate | perf | observability | tests | docs | architecture | style   (bar prong 2)
 - severity:    🔥 | ⚠️ | ⛏️ | ❓   (the reviewer's read; the lead sets the final severity by the bar)
 - finding:     one-sentence statement of the problem
-- suggested:   concrete fix (code or precise instruction)
+- suggested:   the fix in one line (the guard to add, the call to make, the name to use); never a patch,
+               the author writes the code
 - verification:
     method:    snippet | in-repo | source      (fixed by the claim's type, not chosen)
     detail:    the actual proof, copy-paste-ready (see below) — NOT "I checked" with no artifact
@@ -89,7 +96,7 @@ An executable claim is grounded only by running it and showing the real output, 
 
 ## Brief templates
 
-Pass these to the `Agent` tool verbatim, filling the brackets. Always attach: the diff, the changed files at full context, the Step-3 ripple set, and the **Step-4 house rules** (the project's documented patterns/ADRs/architectural style) so every reviewer judges the diff against them.
+Pass these to the `Agent` tool verbatim, filling the brackets. Always attach: the diff, the changed files at full context, the Step-3 ripple set, the **Step-4 house rules** (the project's documented patterns/ADRs/architectural style) so every reviewer judges the diff against them, and the **skip list**: generated code, lockfiles, vendored and build-output directories, and whatever CI already enforces (lint, format, spellcheck, the analyzers in Step 4's linter config). Nothing on the skip list is reported; a tool already decides it.
 
 All briefs use the **grilling stance**: interrogate the diff one hunk at a time to a verified conclusion (what must be true for this to be correct? what input breaks it? what caller relied on the old behavior?); settle every doubt by running code or grepping the repo, never by speculating.
 
@@ -112,8 +119,8 @@ Output:    The standard finding payload, one block per finding, INCLUDING a veri
 Tools:     Read/Grep the attached files and their dependents. Run snippets/tests to verify executable
            claims. (Add WebSearch/WebFetch if claims need checking.)
 Boundaries: Judge this diff and what it touches; do not propose unrelated refactors; no unverified
-           findings. A defect you find outside the diff is still reported, with scope set to sibling
-           or pre-existing. The lead applies the bar, you do not.
+           findings; nothing from the attached skip list. A defect you find outside the diff is still
+           reported, with scope set to sibling or pre-existing. The lead applies the bar, you do not.
 ```
 
 **Per-concern worker (quorum)** — one per included concern:
@@ -136,9 +143,9 @@ Tools:     Read/Grep the attached files + dependents. Run snippets/tests to conf
            + WebSearch + WebFetch — verify every doc/API/version/standards claim against ≥2 authoritative
            sources; attach deep links. Apply the fact-check skill.
 Boundaries: Stay in your concern. Do not duplicate other concerns; flag cross-cutting issues briefly
-            and let the lead dedupe. Judge this diff and its ripple set; a defect you find outside
-            them is still reported, with scope set to sibling or pre-existing. The lead applies the
-            bar, you do not.
+            and let the lead dedupe. Judge this diff and its ripple set, nothing from the attached
+            skip list; a defect you find outside them is still reported, with scope set to sibling
+            or pre-existing. The lead applies the bar, you do not.
 ```
 
 ## Table templates
@@ -180,6 +187,23 @@ Command: k6 run loadtest/retry-backoff.js against a staging deploy.
 
 ## Posting mechanics (Step 7 — never auto-post; post only user-selected findings)
 
+### Comment body
+
+One inline comment is read in the seconds between two other things. It holds four parts and nothing else, in this order, under twelve lines:
+
+````markdown
+🔥 **F1** `userId` reaches the SQL string unescaped, so any caller can read every row.
+
+Reproduce:
+```sh
+$ python3 -c 'uid="1 OR 1=1"; print(f"SELECT * FROM u WHERE id={uid}")'
+SELECT * FROM u WHERE id=1 OR 1=1
+```
+Fix: pass `userId` as a `SqlParameter`.
+````
+
+Line one is the severity, the ID and the finding with its consequence in one sentence. `Reproduce` is the verification artifact verbatim: the command and its output, the `path:line` and the quoted lines, or the deep link and the quoted text. `Fix` is one line for the author to act on, never a patch for the reviewer to vet. No preamble, no restatement of the code, no praise.
+
 ### GitHub
 Resolve repo + PR head, then post each selected 🔥/⚠️ finding as an inline review comment. Post **one first** and confirm the response has a numeric `id` before sending the rest.
 ```bash
@@ -187,7 +211,7 @@ OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 HEAD_SHA=$(gh pr view <PR> --json headRefOid -q .headRefOid)
 
 gh api "repos/$OWNER_REPO/pulls/<PR>/comments" \
-  -f body="🔥 **F1** SQL built by string-concat of \`userId\`. Parameterise via \`SqlParameter\`." \
+  -f body="$(cat f1.md)" \
   -f commit_id="$HEAD_SHA" \
   -f path="src/Repo.cs" \
   -F line=42 \
@@ -212,7 +236,7 @@ The summary thread and the Carried tickets, when the user approves them:
 gh issue create --title "<defect shape>" --body "<sites as path:line, the verification artifact, found reviewing PR #N>"
 gh pr comment <PR> --body "<the summary thread, § The bar>"
 ```
-File the tickets first so the summary thread can link them. A Carried `data` finding gets the repo's blocker label or priority, and is filed even when the user declined the rest.
+File the tickets first so the summary thread can link them. A Carried `data` finding gets the repo's blocker label or priority. When the user declines the tickets it stays a drafted ticket, named first in the report.
 
 ### Azure DevOps
 Delegate to **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)** — it encodes the `pullRequestThreads` JSON schema, left/right anchoring, and the Windows console-encoding workarounds. Build the finding bodies here; let that skill post the threads. The summary thread is a PR thread with no file anchor; Carried tickets are work items (`az boards work-item create`).

@@ -94,14 +94,16 @@ The lead merges agent outputs into **one table** (templates + severity legend in
 - **Dedupe:** same location + same issue raised by multiple agents → **one row**, with each flagging agent's emoji in its column.
 - Assign finding **IDs** (`F1`, `F2`, …), fill per-agent severity emoji, compute **Votes** (flagged / total agents — quorum only), and set a **Consensus** severity.
 - **Carry each finding's verification through:** the table gets a `Verified` column naming the method; the copy-paste-ready artifact (snippet+output, in-repo proof, or deep link) is reproduced verbatim below the table, keyed by finding ID. An executable finding whose agent returned no usable artifact is withheld from the table and moved to a **Not run** list, one line each naming the claim, why it wasn't run, and the command that would settle it; a non-executable finding with no usable artifact downgrades to ❓ instead.
-- **Apply the bar** (REFERENCE, § The bar) to every verified finding, after verification: fill the `Scope` column from the payload's `scope` and `kind`; a finding is 🔥 or ⚠️ only when `scope` is `diff` and `kind` is merge-relevant, whatever any agent's emoji; a mechanical finding on a changed line is ⛏️ (fixed in the PR, never ticketed); everything else verified true becomes 📦 Carried. Group the Carried rows by defect shape and draft one class ticket per shape; draft the summary thread. A Carried `data` finding is drafted at blocker priority and named in the report.
+- **Apply the bar** (REFERENCE, § The bar) to every verified finding, after verification: fill the `Scope` column from the payload's `scope` and `kind`; a finding is 🔥 or ⚠️ only when `scope` is `diff` and `kind` is merge-relevant, whatever any agent's emoji; a `style` finding on a changed line is ⛏️ (the mechanical ones fixed in the PR, none ticketed); in quorum, a 🔥/⚠️ with `Votes` 1/N and no snippet artifact becomes ❓ for the summary thread; everything else verified true becomes 📦 Carried. Group the Carried rows by defect shape and draft one class ticket per shape; draft the summary thread, with the size line when the diff is over 400 changed lines or 20 files. A Carried `data` finding is drafted at blocker priority and named first in the report.
 - Order by consensus severity: 🔥, ⚠️, 📦, then ⛏️.
+- **Write each 🔥/⚠️ comment body** to the four-part template (REFERENCE, § Comment body) now, so what the user approves in Step 7 is what gets posted.
 
 ## Step 7 — Offer to post (ALWAYS prompt; NEVER auto-post)
 
 > **Driven by `go-go-go`:** its whatever-mode already covers the post-or-not decision, so skip this
 > step's ask and post **every** 🔥/⚠️ finding (fixed or not) inline via the mechanics below — one thread
 > first, confirm it landed, then the rest — then the summary thread, with the Carried tickets filed.
+> On a re-review, 🔥 only (REFERENCE, § Re-review).
 
 > **Under a standing posting policy** — a `manager` mandate (`post=`, `tickets=`), or a `CLAUDE.md` that
 > names who answers this step: the three questions go to that principal instead of the human. Post the
@@ -113,8 +115,8 @@ This step runs after **every** review — single adversarial or quorum alike, wh
    - **GitHub** → `gh pr view --json number,url,title -q '.number, .url'` (or `gh pr list --head <branch>`).
    - **Azure DevOps** → resolve via **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)**.
    - If no PR exists for the branch, say so and stop after the table (offer to open one only if asked).
-2. **Ask three things explicitly:** (a) *do you want to post comments to PR #N (`<url>`)?*, (b) *which finding IDs?* — offer only the 🔥/⚠️ rows (e.g. `F1,F3`, `all blockers`, `none`); 📦 and ⛏️ rows are not offered inline, and (c) *post the summary thread and file the Carried class tickets?* Default is **post nothing and file nothing** until the user answers. The one exception: a Carried `data` finding's ticket is filed whatever the answer, and named in the report.
-3. Post **only** the selected subset. Post **one** thread first, confirm it landed (numeric `id` in the response), then the rest; file the tickets, then the summary thread that links them. Each inline comment body includes the finding's severity, ID, description, suggested fix, and its verification artifact. A ⛏️ the user named anyway opens with the nit marker (REFERENCE, § The nit marker) above all of it.
+2. **Ask three things explicitly:** (a) *do you want to post comments to PR #N (`<url>`)?*, (b) *which finding IDs?* — offer only the 🔥/⚠️ rows (e.g. `F1,F3`, `all blockers`, `none`), and on a re-review only the 🔥 rows; 📦 rows are never offered inline, and ⛏️ rows only when the user names them, five at most per round, and (c) *post the summary thread and file the Carried class tickets?* Default is **post nothing and file nothing** until the user answers. A Carried `data` finding is named first in the report whatever the answer; its ticket is filed with the others on yes.
+3. Post **only** the selected subset. Post **one** thread first, confirm it landed (numeric `id` in the response), then the rest; file the tickets, then the summary thread that links them. Each inline comment is the four-part body drafted in Step 6 (REFERENCE, § Comment body). A ⛏️ the user named anyway opens with the nit marker (REFERENCE, § The nit marker) above all of it.
 
 - **GitHub** → inline review comments via `gh api` (path + line + body).
 - **Azure DevOps** → delegate to **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)** (its thread/encoding workarounds).
