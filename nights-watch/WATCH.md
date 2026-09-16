@@ -95,7 +95,7 @@ export const meta = {
 //                     chronicleDir}],         // a DIR — opus only; the workhorse writes one file per agent
 //         libraryIndex: '<repo>/.nights-watch/library/INDEX.md',
 //         workhorsePath: '<abs path to the skills repo>/.claude/workflows/sdlc-workhorse.js',
-//         lockDir: '~/.agent-state/<repo-slug>/nights-watch/locks',   // where claim advertisements live
+//         lockDir: '<state root>/locks',           // the watcher resolves the root (SKILL.md § Where the run state lives) — the script never guesses it
 //         lockTtlMin: 90,                          // staleness marker written into owner.md
 //         startedAt: '07-20 09:30',                // the WATCHER's clock at dispatch (MM-DD HH:mm).
 //                                                  // The script has none — Date.now() throws in here.

@@ -15,7 +15,7 @@ The **Library** is committed at the main repo root, so it survives clones and tr
     <slug>.md              # one durable fact per file
 ```
 
-Everything else records only *that* a run happened, so it lives under the house state root from [agent-state.md](../docs/agent-state.md) — outside the tree, so it outlives the worktree that wrote it:
+Everything else records only *that* a run happened, so it lives under the house state root from [agent-state.md](../docs/agent-state.md) — wherever the repo's `AGENTS_STATE` setting puts it, and by default outside the tree, so it outlives the worktree that wrote it ([SKILL.md](SKILL.md) § Where the run state lives):
 
 ```
 ~/.agent-state/<repo-slug>/nights-watch/
