@@ -101,8 +101,9 @@ The lead merges agent outputs into **one table** (templates + severity legend in
 ## Step 7 — Offer to post (ALWAYS prompt; NEVER auto-post)
 
 > **Driven by `go-go-go`:** its whatever-mode already covers the post-or-not decision, so skip this
-> step's ask and post **every** 🔥/⚠️ finding (fixed or not) inline via the mechanics below — one thread
-> first, confirm it landed, then the rest — then the summary thread, with the Carried tickets filed.
+> step's ask and post **every** 🔥/⚠️ finding on a diff line (fixed or not) inline via the mechanics below
+> — one thread first, confirm it landed, then the rest — then the summary thread, with the off-diff
+> blockers in it and the Carried tickets filed.
 > On a re-review, 🔥 only (REFERENCE, § Re-review).
 
 > **Under a standing posting policy** — a `manager` mandate (`post=`, `tickets=`), a `CLAUDE.md` that
