@@ -10,8 +10,8 @@ The mandate is the one paragraph every decision is checked against. It is writte
 | `merge=` | `allow` | `allow`: a PR that is green, independently grilled with findings resolved, and inside the goal merges without a human. `ask`: the same PR is escalated with the recommendation "merge". Merging is consequential and hard to reverse; the mandate is what makes it *determined* (rule 3), and the default hands it to the manager because a PR that has passed every gate is the decision the gates were for. |
 | `post=` | `post` | Whether replies, review threads and decision comments are posted where the work lives, or drafted into the report. Posting on the team's own PRs and tickets is reversible and is how rule 7 is met. |
 | `tickets=` | `file` | Whether deferred work is filed as tracker tickets or drafted. Filing is reversible (a ticket can be closed) and keeps the board the source of truth. |
-| `reply=` | `post` | Passed through to `fix-pr`: whether thread replies are posted or drafted. |
-| `resolve=` | `carried` | Passed through to `fix-pr`: which threads a run resolves. `fixed` the fixed ones; `carried` also the carried and noted ones once their reply is posted; `none`. |
+| `reply=` | the `post=` value | The `post=` value passed to `fix-pr` under that skill's own name; it never exceeds `post=`. |
+| `resolve=` | `carried` | Passed through to `fix-pr`: which threads a run resolves. `fixed` the fixed ones; `carried` also the noted ones, and the carried ones once their ticket is filed (under `tickets=draft` they stay open); `none`. |
 | `cleanup=` | `allow` | Whether the manager tidies up after work it managed, without asking: remove a worktree one of its runs created, delete the local branch of a PR that merged, open a PR for a branch that is ready. `ask` escalates each. These are the run's *own* artifacts and every one is reconstructible from the repo, so leaving them to a human turns finished work into a chore queue — which is the failure this skill exists to remove. |
 | `budget=` | none | Token or money ceiling across everything dispatched under this mandate. Near it, the manager stops dispatching and reports. |
 | `hard="…"` | see below | Extra lines that always escalate. Extends the defaults; cannot shrink them. |
@@ -37,7 +37,7 @@ The mandate is the one paragraph every decision is checked against. It is writte
 |---|---|---|
 | **APPROVE** | do exactly this | executes it, or unleashes the agent for exactly that step, then re-fences |
 | **REDIRECT** | not this — that | dispatches the right process with a brief that says why the original path was declined |
-| **DEFER** | wanted, not now | files a ticket meeting the [readiness bar](../triage/READINESS.md), links the origin, tells the agent it is filed |
+| **DEFER** | wanted, not now | files a ticket meeting the [readiness bar](../triage/READINESS.md), or drafts it under `tickets=draft`, links the origin, tells the agent which |
 | **ESCALATE** | the human's call | writes the ask, the evidence, and one recommendation; parks the dependent work, continues everything else |
 | **VETO** | no, and not later | tells the agent why, with the evidence, and what to do instead; records it so the same ask is not re-litigated |
 

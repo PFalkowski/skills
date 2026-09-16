@@ -5,7 +5,7 @@
 | Emoji | Severity | Meaning |
 |---|---|---|
 | 🔥 | Blocker | Meets [the bar](#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr) and is kind `data` or `rollback`, or kind `behaviour` reproduced by a snippet. Must be resolved before merge. Posted inline by this skill; fixed in this PR by whichever skill owns the fix (`fix-pr`, or a lifecycle phase). |
-| ⚠️ | Major | Meets the bar otherwise: kind `behaviour` proven in-repo, or kind `gate`. Posted inline by this skill; fixed in this PR by the fixing skill. |
+| ⚠️ | Major | Meets the bar otherwise: kind `behaviour` proven in-repo or by source, or kind `gate`. Posted inline by this skill; fixed in this PR by the fixing skill. |
 | 📦 | Carried | Verified true, fails the bar. One class ticket per defect shape plus a count in the summary thread; no inline thread, no fix in this PR. |
 | ⛏️ | Minor | Style or readability finding on a changed line. A count in the summary thread, never ticketed; inline only when the user names its ID, at most five per round. A *mechanical* one (typo, import, lint, formatting) is also fixed in this PR by the fixing skill. |
 | ✅ | Reviewed-clean | Agent examined this area and found nothing. |
@@ -18,11 +18,11 @@ Use `–` in an agent's cell when that agent did not flag the row.
 The bar sits between "verified true" and "post it inline / fix it in this PR". It runs after verification, never instead of it, and it never changes what a reviewer reports. This skill posts and never edits code; "fixed in this PR" names what the bar permits the fixing skill to do. A verified finding is 🔥 or ⚠️ only if both prongs hold, tested in order:
 
 1. **In the diff** (`scope: diff`). The finding's line is in `git diff <base>...HEAD`, or it is a caller or dependent in the Step-3 dependent set (code the change newly reaches or whose contract it changes). Otherwise it is `scope: sibling` (the same defect shape as a fix in the diff, at a site the PR did not touch) or, for anything else at all, `scope: pre-existing`.
-2. **Merge-relevant kind.** `behaviour` (breaks behaviour), `data` (loses, corrupts or leaks data, including any security defect), `rollback` (reverting the commit would not undo it: a migration, a rewritten record, a changed wire format), `gate` (breaches a documented gate). `perf`, `observability`, `tests`, `docs`, `architecture` and `style` are not merge-relevant by default. A finding is `gate` only when a named file states the rule and states that it gates review or merge: a file in the repo under review, or the phase table or mandate of the process that dispatched this review. Cite that `path:line` in the finding, or the kind stands as the reviewer reported it.
+2. **Merge-relevant kind.** `behaviour` (breaks behaviour), `data` (loses, corrupts or leaks data, including any security defect), `rollback` (reverting the commit would not undo it: a migration, a rewritten record, a changed wire format), `gate` (breaches a documented gate). `perf`, `observability`, `tests`, `docs`, `architecture` and `style` are not merge-relevant by default. A finding is `gate` only when a named file states the rule and states that it gates review or merge: a file in the repo under review, or the rules of the process that dispatched this review (`sdlc-old-fashioned`'s phase table, `nights-watch`'s Oath, a `manager` mandate). Cite that `path:line` in the finding, or the kind stands as the reviewer reported it.
 
 No likelihood or value judgment re-scores a finding. A finding that fails prong 2 on a changed line is still ⛏️ in two cases: mechanical (typo, import, lint, formatting), fixed in this PR; any other `style` finding, counted in the summary thread, neither fixed nor carried. Neither case demotes a finding that passes prong 2.
 
-Before a 🔥/⚠️ whose artifact is `in-repo` or `source` is offered, the lead re-runs the grep or opens the link itself. One that does not reproduce goes to the Not run list with the command that would settle it.
+Before a 🔥/⚠️ whose artifact is `in-repo` or `source` is offered, the lead re-runs the grep or opens the link itself. One that does not reproduce downgrades to ❓.
 
 A bar-passing finding whose line is not in the PR diff (a dependent outside the changed hunks) cannot anchor an inline thread; it goes in the summary thread under **Off-diff blockers** with its real `path:line` and artifact, and is fixed in this PR like any other.
 
@@ -36,11 +36,11 @@ When the PR was grilled before, one fresh single reviewer scores each previous f
 
 The same bar decides what posts, and the round converges: only 🔥 is offered inline; a new ⚠️ goes to the summary thread; no ⛏️ posts. Before offering anything, read the threads already on the PR: a finding on the same path and defect shape as an open thread is a reply on that thread, not a new one, and one whose thread was resolved with a fix is dropped.
 
-Score every earlier inline thread as *resolved* (a fix commit or a resolved thread) or *won't-fix* (declined in a reply, or unresolved with the line unchanged), by the kind its summary thread recorded. The won't-fix rate per kind is won't-fix threads over all inline threads of that kind across this PR's summary threads. A kind with five or more threads and a rate above 10% is named in the report with the proposal to add it to the repo's skip list (§ Brief templates); the reviewer never drops it on its own.
+Score every earlier inline thread a summary thread recorded as *resolved* (a fix commit or a resolved thread) or *won't-fix* (declined in a reply, or unresolved with the line unchanged), by the kind its summary thread recorded. The won't-fix rate per kind is won't-fix threads over all inline threads of that kind across this PR's summary threads. A kind with five or more threads and a rate above 10% is named in the report with the proposal to add it to the repo's skip list (§ Brief templates); the reviewer never drops it on its own.
 
 ### The nit marker
 
-A ⛏️ finding is not posted inline by default. The `nights-watch` Grill is the standing exception: by its own rule ([GRILL.md](../nights-watch/GRILL.md)) it posts every verified finding inline, ⛏️ and 📦 included, and takes only the `scope` and `kind` columns from the bar. When a ⛏️ is posted, its body opens with this line, verbatim, above the finding text:
+A ⛏️ finding is not posted inline by default. The `nights-watch` Grill is the standing exception: by its own rules ([GRILL.md](../nights-watch/GRILL.md)) it posts every verified finding, ⛏️ and 📦 included, anchored as that file says, and takes only the `scope` and `kind` columns from the bar. When a ⛏️ is posted, its body opens with this line, verbatim, above the finding text:
 
 ```markdown
 ![Ackchyually](https://raw.githubusercontent.com/PFalkowski/skills/main/code-review-grill/assets/ackchyually.png)
@@ -53,7 +53,7 @@ It marks the comment as optional at a glance, so a reader scrolling a thread tel
 | Emoji | Concern | Scope |
 |---|---|---|
 | 🔒 | security | Injection, authz/authn, secrets, unsafe deserialization, SSRF, crypto misuse, dependency risk. |
-| 🏛 | architecture | Boundaries, coupling, layering, abstraction fit, ripple/blast radius, backward compatibility. |
+| 🏛 | architecture | Boundaries, coupling, layering, abstraction fit, ripple/blast radius, backward compatibility, rollback safety (migrations, rewritten records, wire formats). |
 | 🧹 | code-quality | Correctness bugs, error handling, naming, dead code, duplication, readability, idiom. |
 | 📚 | documentation & conventions | **Conformance to the project's house rules** (Step 4): ADRs, coding guidelines, patterns/practices, and the documented architectural style (DDD vs n-tier vs hexagonal vs vertical-slice — layering and dependency direction). Plus doc/comment accuracy, public-API docs, README/changelog drift; **fact-checks claims against authoritative sources** (web). |
 | ⚡ | performance | Hot paths, allocations, N+1 / unbounded queries, sync-over-async, complexity regressions. |
@@ -62,7 +62,7 @@ It marks the comment as optional at a glance, so a reader scrolling a thread tel
 
 **Auto-pick heuristic** (when the user picks quorum but names no concerns) — **always include 🧹 code-quality and 📚 documentation & conventions**; add the rest when the diff shows their trigger:
 - 🔒 if it touches auth, SQL/query building, crypto, file/network I/O, deserialization, secrets, or dependencies.
-- 🏛 if it changes public signatures, module boundaries, or has a wide Step-3 ripple set.
+- 🏛 if it changes public signatures, module boundaries, a migration, a stored data shape or a wire format, or has a wide Step-3 ripple set.
 - ⚡ if it touches loops over data, queries, caching, concurrency, or known hot paths.
 - 🔭 if it adds or changes a production code path — a failure mode, a background/scheduled job, an integration point, error handling — or removes instrumentation.
 - 🧪 if it adds/changes behaviour but no tests, or weakens existing tests.

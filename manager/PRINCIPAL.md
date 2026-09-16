@@ -46,7 +46,7 @@ Fill every `<…>` from the mandate.
 - **Fresh process** (`sdlc-old-fashioned` Dial 2, a `claude` OS process) → write the answer into the backlog file the next phase reads; the phase brief points at it.
 - **Workflow** → there is no channel into a running script; the verdict shapes the *next* dispatch's arguments.
 - **An agent in another session** (the pasted-report case) → the verdict is posted where that agent will look: a comment on its PR or ticket, and the report to the human names the agent to forward it to.
-- **The board** → every DEFER files, every state change transitions, every verdict on a PR or ticket is a comment there. Ticket text meets the [readiness bar](../triage/READINESS.md); the manager never closes a ticket it has not verified is done, and never deletes one.
+- **The board** → every DEFER files (or drafts, under `tickets=draft`), every state change transitions, every verdict on a PR or ticket is a comment there. Ticket text meets the [readiness bar](../triage/READINESS.md); the manager never closes a ticket it has not verified is done, and never deletes one.
 
 ## Fencing — the hard leash under the soft one
 

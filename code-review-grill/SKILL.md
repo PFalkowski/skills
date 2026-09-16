@@ -107,7 +107,8 @@ The lead merges agent outputs into **one table** (templates + severity legend in
 
 > **Under a standing posting policy** — a `manager` mandate (`post=`, `tickets=`), a `CLAUDE.md` that
 > names who answers this step, or a lifecycle or patrol that dispatched this review (`sdlc-old-fashioned`
-> on its autonomy dial, `nights-watch`): the three questions go to that principal instead of the human.
+> with its dial on autonomous, `nights-watch`): the three questions go to that principal instead of the
+> human. An attended `sdlc-old-fashioned` run still asks the human.
 > Post the findings it selects, by the same mechanics.
 
 This step runs after **every** review — single adversarial or quorum alike, when invoked standalone. The moment the table is presented, the orchestrator must:
@@ -116,7 +117,7 @@ This step runs after **every** review — single adversarial or quorum alike, wh
    - **GitHub** → `gh pr view --json number,url,title -q '.number, .url'` (or `gh pr list --head <branch>`).
    - **Azure DevOps** → resolve via **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)**.
    - If no PR exists for the branch, say so and stop after the table (offer to open one only if asked).
-2. **Ask three things explicitly:** (a) *do you want to post comments to PR #N (`<url>`)?*, (b) *which finding IDs?* — offer only the 🔥/⚠️ rows (e.g. `F1,F3`, `all blockers`, `none`), and on a re-review only the 🔥 rows; 📦 rows are never offered inline, and ⛏️ rows only when the user names them, the first five per round and none on a re-review, and (c) *post the summary thread and file the Carried class tickets?* Default is **post nothing and file nothing** until the user answers. A Carried `data` finding is named first in the report whatever the answer; its ticket is filed with the others on yes.
+2. **Ask three things explicitly:** (a) *do you want to post comments to PR #N (`<url>`)?*, (b) *which finding IDs?* — offer only the 🔥/⚠️ rows whose line is in the PR diff (e.g. `F1,F3`, `all blockers`, `none`), and on a re-review only the 🔥 rows; off-diff 🔥/⚠️ rows go in the summary thread (REFERENCE, § The bar); 📦 rows are never offered inline, and ⛏️ rows only when the user names them, the first five per round and none on a re-review, and (c) *post the summary thread and file the Carried class tickets?* Default is **post nothing and file nothing** until the user answers. A Carried `data` finding is named first in the report whatever the answer; its ticket is filed with the others on yes.
 3. Post **only** the selected subset. Post **one** thread first, confirm it landed (numeric `id` in the response), then the rest; file the tickets, then the summary thread that links them. Each inline comment is the four-part body drafted in Step 6 (REFERENCE, § Comment body). A ⛏️ the user named anyway opens with the nit marker (REFERENCE, § The nit marker) above all of it.
 
 - **GitHub** → inline review comments via `gh api` (path + line + body).
