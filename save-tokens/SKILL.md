@@ -1,6 +1,6 @@
 ---
 name: save-tokens
-description: 'Spends a session''s tokens on the task: the cheapest subagent tier that fits, noise kept out of the main context, and a one-line call for /clear, /compact, /rewind, a model change or a handoff when cheapest. Triggers: a subagent dispatch, a noisy command, a task boundary, "save tokens", "what is eating my tokens".'
+description: 'Spends a session''s tokens on the task: the cheapest subagent tier that fits, noise kept out of the main context, and a one-line call for /clear, /compact, /rewind, a model change, or a fresh session it launches with a handoff. Triggers: a new user request, a subagent dispatch, a noisy command, "save tokens", "what is eating my tokens".'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -120,17 +120,57 @@ of MCP tools nobody has called. The user has the gauge: a status line with the c
 
 | Trigger | Say |
 |---|---|
-| The next request is a different task from the conversation so far | "`/clear` first (`/rename` before it if you want this session back): the last N turns are about X and would ride along every turn." |
 | A milestone closed and what came before it is dead weight now (PR open, bug found, phase done) | "`/compact keep: the goal, the decision on X, paths A and B; drop: the debugging of Y`", with the keep and drop lines written out. When the same things must survive every compaction, a `# Compact instructions` section in `CLAUDE.md` says it once, and a `SessionStart` hook matched on `compact` can re-inject a short brief after each one. On a 1M-context model, `/autocompact 200k` (v2.1.221+) puts the safety net back where it was. |
 | The user is stepping away for a while, or says so | "`/compact` before you go: the cache expires after an hour on a subscription and five minutes on an API key, and summarising is much cheaper while the conversation is still cached." On an API key, `promptCacheTtl: 1h` in settings (or `ENABLE_PROMPT_CACHING_1H=1`) makes breaks under an hour free. |
 | The last few turns went somewhere not worth keeping | "`/rewind` to before them, not `/compact`: rewinding cuts turns off the end and costs nothing, compacting rewrites everything and always costs." |
-| A big task is greenlit in a context that is full or mostly about something else | Ask: *if this task restarted in a clean session, how much of this conversation would be re-read?* Little, and the state fits a short note: write it with [`handoff`](../handoff/SKILL.md) and recommend a fresh session, or spawn a subagent with the note when the job is fire-and-forget. Entangled state: `/compact` instead. Never clear or compact on the user's behalf; a fresh session is theirs to start. |
 | The tier is wrong for the stretch ahead: routine work on the strongest model, or the model clearly tried with full context and still failed | Recommend `/model` or `/effort`, at a boundary only. A model switch re-prefills the whole conversation at full price, and an effort switch does too on most models (not on Fable 5.1); right after `/clear` or `/compact` it is nearly free. Both remember the last choice as the next session's default. For a session that is known to be grunt work: `MAX_THINKING_TOKENS=0 claude` (no effect on Fable). |
 | The agent had to search for the file the user meant | Once, after the search: "@-mention the file next time; it is attached to the message with no Read call. Once per conversation: a second mention attaches a second copy." |
 | A `/loop`, or a reminder or cron task in this session, is being set up in a long session | "Run it from a fresh session in another terminal: each firing is a full turn carrying this whole conversation, and after an hour idle it is a cache miss on top." A `/schedule` routine runs in the cloud and is exempt. |
 | A fresh session, or MCP tools sit unused in the tool list, or `CLAUDE.md` carries workflow prose | "`/context` shows what is loaded before you type; `/model` and `/effort` show what is set. `/mcp disable <server>` turns a server off for this session. Workflow instructions move from `CLAUDE.md` into skills, which load only when used." Offer the `CLAUDE.md` edit. |
 | The right quiet invocation is now known for a command the project runs all day | Propose the one-line `CLAUDE.md` addition, written the way the user would type it (*run one test file: `npx vitest run <file> --reporter=dot`*); it saves a turn and a few hundred lines in every session after. If the user would rather not leave quieting to the agent at all, a `PreToolUse` hook on `Bash` can rewrite a noisy command before it runs by returning `hookSpecificOutput.updatedInput.command` ([worked example](https://code.claude.com/docs/en/costs#offload-processing-to-hooks-and-skills)); offer to add it to `settings.json`. |
 | The same noisy job is handed off again and again | Write a subagent definition in `.claude/agents/<name>.md` with `model: haiku` (or `sonnet`) and say so in one line; without one it runs on the main session's model. |
+
+### A new request: keep going, compact, or start fresh
+
+On each new user request, before starting it, judge how much of this conversation it needs.
+
+| The request | Do |
+|---|---|
+| Builds on the work in hand, or arrives mid-task | Keep going and say nothing. |
+| Builds on this session, but the context is heavy with finished detail | Recommend `/compact` with keep and drop lines, as in the milestone row above. |
+| Needs little of this context | Offer a fresh session, below. State too entangled for a short note: `/compact` instead. A fire-and-forget job: spawn a subagent with the note instead. |
+
+A fresh session:
+
+1. Write the [`handoff`](../handoff/SKILL.md) `lite` note to `handoff.md` in a folder of its own in
+   the scratchpad (the system temp directory when there is none), never in the target worktree,
+   where the next `git add -A` would commit it. Beside it write a launcher that
+   reads the note at run time, so multi-line text and quotes survive:
+   - Windows, `launch.ps1`: `claude (Get-Content -Raw "$PSScriptRoot\handoff.md")`
+   - macOS and Linux, `launch.sh` (made executable):
+     `cd "<dir>" && claude "$(cat "$(dirname "$0")/handoff.md")"`
+2. Show the note and the command, then ask in one line: "This needs little of our context. Start it
+   fresh? (yes)"
+3. On yes, run the command yourself and do not start the request here. It opens a new terminal
+   window in `<dir>` running interactive `claude` with the note as its first prompt, so the user
+   types nothing else. Never clear or compact on the user's behalf.
+
+`<dir>` and the launcher are absolute paths. Never pass the command inline through `wt`: it splits
+its own command line on `;`, and a quoted `-Command` string can be taken as the program name.
+
+```powershell
+wt -w new -d "<dir>" pwsh -NoExit -File "<launch.ps1>"
+# no wt:
+Start-Process pwsh -ArgumentList '-NoExit','-File','"<launch.ps1>"' -WorkingDirectory "<dir>"
+```
+
+```bash
+open -a Terminal "<launch.sh>"            # macOS
+x-terminal-emulator -e bash "<launch.sh>" # Linux
+```
+
+No terminal launcher (SSH, no display): tell the user to run the launcher in a new terminal, or to
+run `/clear` and paste the note (`/rename` first if they want this session back).
 
 ## Anti-patterns
 
