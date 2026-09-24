@@ -18,6 +18,7 @@ jobs:
           set -e
           bash scripts/check-links.sh
           bash scripts/check-descriptions.sh
+          bash scripts/check-template-skills.sh
           bash scripts/check-state-paths.sh
           bash scripts/check-state-paths.test.sh
           bash scripts/check-finding-gate.sh

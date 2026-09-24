@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Exercises link-skills.ps1's CLAUDE.md installation offer (-ClaudeMd Skip/Replace/Append/Merge/
-# Ask) against real pwsh, with -Dest pointed at a throwaway directory so the real skill-linking
+# Exercises link-skills.ps1's CLAUDE.md installation offer (-ClaudeMd Skip/Import/Replace/Append/
+# Merge/Ask) against real pwsh, with -Dest pointed at a throwaway directory so the real skill-linking
 # half of the script never touches ~/.claude/skills or ~/.agents/skills, and -ClaudeMdPath pointed
 # at a fixture file so the real ~/.claude/CLAUDE.md is never touched either.
 #
@@ -10,7 +10,7 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$ROOT/link-skills.ps1"
-REPO_CLAUDE_MD="$ROOT/CLAUDE.md"
+REPO_CLAUDE_MD="$ROOT/templates/CLAUDE.md"
 
 if ! command -v pwsh >/dev/null 2>&1; then
   echo "SKIP: 'pwsh' is not on PATH -- link-skills.ps1 tests not run"
@@ -104,6 +104,19 @@ check "Append keeps the original content as a prefix" bash -c "case \"\$1\" in \
 check "Append's tail matches the repo's CLAUDE.md" bash -c "case \"\$1\" in *\"\$2\") exit 0;; *) exit 1;; esac" _ "$after" "$repo_content"
 check "Append inserted more than just concatenation (a separator line)" [ "${#after}" -gt "$(( ${#original} + ${#repo_content} ))" ]
 check "Append also backs up the pre-append file" bash -c "[ \"\$(find "$(dirname "$claude_md")" -maxdepth 1 -name 'CLAUDE.md.bak-*' | wc -l)\" -ge 1 ]"
+
+# --- Import appends one @ line naming the template, once -------------------------------------
+
+claude_md="$WORK/import/CLAUDE.md"
+mkdir -p "$(dirname "$claude_md")"
+fixture "$claude_md"
+original="$(cat "$claude_md")"
+run -ClaudeMd Import -ClaudeMdPath "$claude_md" >/dev/null 2>&1
+out="$(run -ClaudeMd Import -ClaudeMdPath "$claude_md" 2>&1)"
+after="$(cat "$claude_md")"
+check "Import keeps the original content as a prefix" bash -c "case \"\$1\" in \"\$2\"*) exit 0;; *) exit 1;; esac" _ "$after" "$original"
+check "Import adds exactly one @ line ending in templates/CLAUDE.md" [ "$(grep -c '^@.*templates/CLAUDE.md' "$claude_md")" -eq 1 ]
+check "a second Import reports the file unchanged ('=')" bash -c "printf '%s' \"\$1\" | grep -qE '^=.*CLAUDE.md'" _ "$out"
 
 # --- Non-interactive run with no -ClaudeMd neither prompts nor writes -----------------------
 
