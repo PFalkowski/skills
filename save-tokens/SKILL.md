@@ -142,8 +142,9 @@ On each new user request, before starting it, judge how much of this conversatio
 
 A fresh session:
 
-1. Write the [`handoff`](../handoff/SKILL.md) `lite` note to `handoff.md` in a folder of its own: in
-   the target worktree when one exists, otherwise the scratchpad. Beside it write a launcher that
+1. Write the [`handoff`](../handoff/SKILL.md) `lite` note to `handoff.md` in a folder of its own in
+   the scratchpad (the system temp directory when there is none), never in the target worktree,
+   where the next `git add -A` would commit it. Beside it write a launcher that
    reads the note at run time, so multi-line text and quotes survive:
    - Windows, `launch.ps1`: `claude (Get-Content -Raw "$PSScriptRoot\handoff.md")`
    - macOS and Linux, `launch.sh` (made executable):
