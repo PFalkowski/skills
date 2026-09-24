@@ -1,6 +1,7 @@
 ---
 name: runbook
 description: 'Turns "guide me through X" into a committed runbook and walks the user through it. Use for "walk me through" or a procedure touching accounts or hardware.'
+disable-model-invocation: true
 license: MIT
 metadata:
   author: Piotr Falkowski
