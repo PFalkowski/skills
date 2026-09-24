@@ -22,4 +22,4 @@ Offer a `code-review-grill` when the diff has executable code and being wrong is
 Ask before pushing, before opening a pull request (PR), and before crossing any hard line: publishing or releasing, spending money, deleting data, history or another person's branch, force-pushing a shared branch, weakening security, contacting people outside the team, breaking a stated assumption of the task, and merging.
 
 # What good looks like
-In this order: software that works and is worth having; security by design; then simplicity, maintainability, and the least context a reader or an agent must load. `less-is-more` and `no-comment` bind every line of production code and are review gates, not advice.
+In this order: software that works and is worth having; security by design; then simplicity, maintainability, and the least context a reader or an agent must load. `less-is-more` and `no-comment` bind every line of production code and are review gates, not advice. Before a plan or a hard-to-reverse change, invert it: name what would guarantee failure and make each impossible (`/invert` runs the full pass). `wrap-up` closes every session that leaves work behind.
