@@ -1,6 +1,7 @@
 ---
 name: context-reduction
 description: 'Shrinks a repo''s docs, comments and agent artifacts by moving the truth into code, tests and git history. Use for "prune the docs" or "too many comments".'
+disable-model-invocation: true
 license: MIT
 metadata:
   author: Piotr Falkowski
