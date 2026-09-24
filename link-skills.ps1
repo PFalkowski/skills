@@ -25,8 +25,8 @@
     Junctions need no admin rights and no developer mode. macOS/Linux users:
     see `ln -s` in README.md.
 
-    It also offers to install the repo's own CLAUDE.md — the canonical global
-    instruction file — to -ClaudeMdPath. See -ClaudeMd below; left unset it
+    It also offers to install templates/CLAUDE.md, the portable global
+    instruction file, to -ClaudeMdPath. See -ClaudeMd below; left unset it
     never prompts and never writes, so this half can never block an
     unattended run (a caller must pass -ClaudeMd Ask to be prompted at all);
     like the junction half above it never touches a file that already
@@ -40,9 +40,10 @@ param(
         (Join-Path $env:USERPROFILE '.agents\skills')
     ),
 
-    # How to reconcile the repo's CLAUDE.md with whatever is already at
-    # -ClaudeMdPath: Skip, Replace, Append, Merge, or Ask (prompt for one of
-    # the other four). Left unset, the default is unconditionally Skip —
+    # How to reconcile templates/CLAUDE.md with whatever is already at
+    # -ClaudeMdPath: Skip, Import (append an @ import of the template),
+    # Replace, Append, Merge, or Ask (prompt for one of the others). Left
+    # unset, the default is unconditionally Skip —
     # never Ask — because there is no reliable way to tell from inside the
     # process whether reading stdin will ever return: a caller can hold a
     # live console handle while stdin is redirected to a pipe nobody writes
@@ -51,7 +52,7 @@ param(
     # a guess-based default block forever instead of skipping. Only an
     # explicit -ClaudeMd Ask enters the prompt branch, and even then it falls
     # back to Skip off anything that isn't a real interactive console.
-    [ValidateSet('Skip', 'Replace', 'Append', 'Merge', 'Ask')]
+    [ValidateSet('Skip', 'Import', 'Replace', 'Append', 'Merge', 'Ask')]
     [string]$ClaudeMd,
 
     # Override the CLAUDE.md destination when testing or targeting one file only.
@@ -147,7 +148,7 @@ function Remove-WrappingCodeFence {
 }
 
 function Install-ClaudeMd {
-    $repoClaudeMd = Join-Path $repo 'CLAUDE.md'
+    $repoClaudeMd = Join-Path $repo 'templates' 'CLAUDE.md'
     if (-not (Test-Path $repoClaudeMd)) { return }  # nothing to offer
     New-Item -ItemType Directory -Force -Path (Split-Path $ClaudeMdPath -Parent) | Out-Null
 
@@ -169,13 +170,14 @@ function Install-ClaudeMd {
 
     if ($mode -eq 'Ask') {
         $question = if ($existing) {
-            "CLAUDE.md at $ClaudeMdPath differs from this repo's. [S]kip/[R]eplace/[A]ppend/[M]erge (default S)"
+            "CLAUDE.md at $ClaudeMdPath differs from this repo's. [S]kip/[I]mport/[R]eplace/[A]ppend/[M]erge (default S)"
         }
         else {
-            "Install this repo's CLAUDE.md to $ClaudeMdPath`? [S]kip/[R]eplace (default S)"
+            "Install this repo's CLAUDE.md to $ClaudeMdPath`? [S]kip/[I]mport/[R]eplace (default S)"
         }
         $answer = Read-Host $question
         $mode = switch -Regex ($answer) {
+            '^[Ii]' { 'Import' }
             '^[Rr]' { 'Replace' }
             '^[Aa]' { 'Append' }
             '^[Mm]' { 'Merge' }
@@ -185,8 +187,25 @@ function Install-ClaudeMd {
 
     switch ($mode) {
         'Skip' {
-            if ($existing) { "!  CLAUDE.md (differs from the repo's -- left untouched; re-run with -ClaudeMd Replace, Append or Merge to update)" }
-            else { "!  CLAUDE.md (not installed; re-run with -ClaudeMd Replace to install)" }
+            if ($existing) { "!  CLAUDE.md (differs from the repo's -- left untouched; re-run with -ClaudeMd Import, Replace, Append or Merge to update)" }
+            else { "!  CLAUDE.md (not installed; re-run with -ClaudeMd Import or Replace to install)" }
+        }
+
+        'Import' {
+            $import = '@' + ($repoClaudeMd -replace '\\', '/')
+            if ($existing -and (Get-Content -Path $ClaudeMdPath) -contains $import) {
+                "=  CLAUDE.md (already imports $import)"
+                return
+            }
+            if ($existing) {
+                $backup = Backup-ClaudeMd
+                Add-Content -Path $ClaudeMdPath -Value "`n$import"
+                "~  CLAUDE.md (import appended; existing file backed up to $backup)"
+            }
+            else {
+                Set-Content -Path $ClaudeMdPath -Value $import
+                "+  CLAUDE.md (imports $import)"
+            }
         }
 
         'Replace' {
