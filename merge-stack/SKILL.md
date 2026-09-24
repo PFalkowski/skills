@@ -1,6 +1,6 @@
 ---
 name: merge-stack
-description: 'Lands a chain of stacked PRs bottom-up while avoiding the two traps that break the chain: a squash-merged parent phantom-conflicting the next child, and a deleted parent branch auto-closing it. Use for: "merge the stack", "land the chain", "ship the stacked PRs", after building a stack of dependent PRs.'
+description: 'Lands a chain of stacked PRs bottom-up without phantom conflicts or auto-closed children. Use for "merge the stack" or "land the chain".'
 license: MIT
 metadata:
   author: Piotr Falkowski

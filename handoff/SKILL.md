@@ -1,6 +1,6 @@
 ---
 name: handoff
-description: 'Writes a minimal, lossless handover note - ordered action points plus only state the receiver can''t reconstruct - to cross a context boundary. Use for: a fresh session, another agent/model, or /clear or /compact survival; "hand this off", "write a handover", "continue in a new session", "wrap up before you compact". Add `lite` ("quick handover", "carry this over", "context is filling up") to skip the file and emit the note inline as one paste-ready block.'
+description: 'Writes a minimal, lossless handover note for a fresh session or agent; `lite` prints it inline. Use for "hand this off", "write a handover", or before /clear.'
 license: MIT
 metadata:
   author: Piotr Falkowski

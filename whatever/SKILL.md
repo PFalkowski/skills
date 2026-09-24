@@ -1,6 +1,6 @@
 ---
 name: whatever
-description: 'Decide and proceed on low-stakes, reversible choices instead of asking. Use for cheap/housekeeping forks (branch, naming, cleanup, "should I also do X"); save questions for consequential, hard-to-reverse, preference calls. Triggers: urge to ask permission, or "just progress", "stop asking", "whatever, just do it".'
+description: 'Decides and proceeds on low-stakes, reversible choices instead of asking. Use on the urge to ask permission, or for "stop asking" or "just do it".'
 license: MIT
 metadata:
   author: Piotr Falkowski

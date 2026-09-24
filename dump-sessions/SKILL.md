@@ -1,6 +1,6 @@
 ---
 name: dump-sessions
-description: 'Dump a handover for every recently-active Claude Code session from on-disk transcripts, surviving a crash or power loss. Triggers: "dump all sessions", "handover for all my sessions", "power''s about to go / UPS", "I''m moving machines", "what was I working on everywhere". For one session use handoff; for Windows Terminal tabs use snapshot-terminal-sessions.'
+description: 'Dumps a handover for every recently active Claude Code session from its transcript. Use for "dump all sessions" or before a power cut or machine move.'
 disable-model-invocation: true
 license: MIT
 metadata:

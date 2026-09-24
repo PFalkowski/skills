@@ -1,6 +1,6 @@
 ---
 name: go-go-go
-description: 'Drives the repo from its current state — uncommitted work, open tasks, a stalled PR — to a raised, reviewed PR without stopping for low-stakes decisions. Triggers: "go go go", "just ship it", "make it happen", "finish and PR this".'
+description: 'Drives the current work to a raised, reviewed PR without stopping for low-stakes decisions. Use for "go go go" or "just ship it".'
 license: MIT
 metadata:
   author: Piotr Falkowski

@@ -1,6 +1,6 @@
 ---
 name: invert
-description: 'Solve a problem backwards — name what would guarantee failure, then make each of those impossible. Use on a plan that reads as a list of steps with no way to be wrong, when the forward path is stuck, or before a change that is hard to reverse.'
+description: 'Solves a problem backwards: name what would guarantee failure, then make each impossible. Use on a plan or before a change that is hard to reverse.'
 disable-model-invocation: true
 license: MIT
 metadata:

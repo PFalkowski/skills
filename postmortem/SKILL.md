@@ -1,6 +1,6 @@
 ---
 name: postmortem
-description: 'Writes a structured incident postmortem to LESSONS-LEARNED.md. Triggers: any non-trivial production failure or incident.'
+description: 'Writes a structured incident postmortem to LESSONS-LEARNED.md. Use after any non-trivial production failure.'
 disable-model-invocation: true
 license: MIT
 metadata:

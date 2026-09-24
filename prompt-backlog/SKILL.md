@@ -1,6 +1,6 @@
 ---
 name: prompt-backlog
-description: 'Captures deferred work as an ordered backlog of ready-to-run prompts a fresh agent can run verbatim, tagged with why it was asked. Triggers: "do this next", "later", "remind me to", "add to the backlog", "queue this up", "we should do X at some point", "follow-up".'
+description: 'Captures deferred work as ordered, ready-to-run prompts for a fresh agent. Use for "later", "remind me to", "add to the backlog", or "queue this up".'
 license: MIT
 metadata:
   author: Piotr Falkowski

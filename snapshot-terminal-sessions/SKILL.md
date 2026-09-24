@@ -1,6 +1,6 @@
 ---
 name: snapshot-terminal-sessions
-description: 'Snapshots Windows Terminal tabs running Claude Code sessions and writes a `wt`-based .ps1 that resumes each later instead of restarting. Triggers: "wrap up", "snapshot sessions", "snapshot terminals", "save my session layout/tabs", closing everything down without losing track of which repos had Claude sessions open.'
+description: 'Snapshots Windows Terminal tabs running Claude Code into a .ps1 that resumes each later. Use for "snapshot sessions" or before closing everything down.'
 disable-model-invocation: true
 license: MIT
 metadata:

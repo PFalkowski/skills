@@ -18,9 +18,9 @@ done
 
 Two things a worker needs to know before calling a change verified:
 
-- **`check-descriptions.sh` does fail the build**, on a description over 1024 chars, an unquoted
-  `": "`, or a description naming its own slash command; it only warns (exit 0) for the 320-1024
-  char band. Run against the tree at `dfb4d27` it exits 0 with warnings and no failures — read its
+- **`check-descriptions.sh` does fail the build**, on a description over 200 chars, an unquoted
+  `": "`, or a description naming its own slash command; it only warns (exit 0) for the 161-200
+  char band. Run against the tree at `dfb4d27` (then with a 320-1024 band) it exits 0 with warnings and no failures — read its
   output, not just its exit code.
 - **The `node --test` line used to name one path literally.** Before commit `3b56c40`,
   `archive/clean-room/screen-brief.test.mjs` was hard-coded inside a `set -e` block while
