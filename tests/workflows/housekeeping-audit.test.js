@@ -1,4 +1,4 @@
-// Tests for housekeeping-audit.js — run: node .claude/workflows/housekeeping-audit.test.js
+// Tests for housekeeping-audit.js — run: node tests/workflows/housekeeping-audit.test.js
 //
 // What this guards, in order of how expensive the failure is:
 //   1. SILENCE READ AS CLEAN. A dead auditor, an unread external, a dead verifier — every one of
@@ -16,7 +16,7 @@
 const fs = require('fs')
 const path = require('path')
 
-const SRC = fs.readFileSync(path.join(__dirname, 'housekeeping-audit.js'), 'utf8')
+const SRC = fs.readFileSync(path.join(__dirname, '../../workflows', 'housekeeping-audit.js'), 'utf8')
   .replace(/^export const meta = \{[\s\S]*?^\}$/m, '')
 
 async function run ({ args, agentFn, budget = {} }) {

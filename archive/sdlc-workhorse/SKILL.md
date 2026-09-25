@@ -109,7 +109,7 @@ Invoking this skill **is** the user's opt-in to multi-agent orchestration. It sp
 
 > **Isolate first.** Dispatch from a dedicated worktree + branch (`EnterWorktree`) so the main checkout stays clean. At `parallel: 1` the slices share that tree; above 1 each slice gets its own and you get a PR stack — hand it to `merge-stack`.
 
-> Running from a repo other than this one? Named resolution reads `.claude/workflows/` in the current repo; elsewhere pass `scriptPath` at this repo's copy instead of `name`.
+> From a plugin install the name is `pfalkowski-skills:sdlc-workhorse`. A `not found` error lists the names this session has.
 
 ## Reporting the result
 

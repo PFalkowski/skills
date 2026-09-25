@@ -1,4 +1,4 @@
-// Tests for grill.js — run: node .claude/workflows/grill.test.js
+// Tests for grill.js — run: node tests/workflows/grill.test.js
 //
 // The defect class this guards is THE WALL (#46): an agent inside a Workflow cannot spawn, and
 // nothing throws when it tries — so the only place independence can be real is the script's own
@@ -10,7 +10,7 @@
 const fs = require('fs')
 const path = require('path')
 
-const SRC = fs.readFileSync(path.join(__dirname, 'grill.js'), 'utf8')
+const SRC = fs.readFileSync(path.join(__dirname, '../../workflows', 'grill.js'), 'utf8')
   .replace(/^export const meta = \{[\s\S]*?^\}$/m, '')
 
 async function runGrill ({ args, agentFn, budget = {} }) {

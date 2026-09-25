@@ -12,7 +12,7 @@ metadata:
 
 Pick the model by **evidence, not vibes or price-tag intuition.** The deliverable is a per-task-class recommendation backed by a rubric score and an **actual-dollar** cost — never a token count, never a guess.
 
-The bake-off itself runs as a **Workflow** (`.claude/workflows/model-bake-off.js`). That is deliberate: three of this skill's rules are structural, not advisory, and prose cannot enforce them.
+The bake-off itself runs as a **Workflow** ([`model-bake-off.js`](model-bake-off.js)). That is deliberate: three of this skill's rules are structural, not advisory, and prose cannot enforce them.
 
 | Rule | How the workflow enforces it |
 |---|---|
@@ -57,7 +57,7 @@ Workflow({
 
 Invoking this skill **is** the user's opt-in to multi-agent orchestration — the bake-off cannot be run any other way. It spends real tokens on every candidate, so confirm the candidate list before dispatching.
 
-> Running the skill from a repo other than this one? Named resolution reads `.claude/workflows/` in the current repo. Elsewhere, pass `scriptPath` pointing at this repo's copy instead of `name`.
+> The script is archived with this skill and installed nowhere: pass `scriptPath` at [`model-bake-off.js`](model-bake-off.js) instead of `name`.
 
 ## 3. Report the verdict
 

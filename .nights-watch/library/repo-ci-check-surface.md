@@ -11,7 +11,7 @@ type: convention
 bash scripts/check-links.sh
 bash scripts/check-descriptions.sh
 bash dead-branch-guard/scripts/pre-push.test.sh
-for t in .claude/workflows/*.test.js clean-room/*.test.mjs; do
+for t in tests/workflows/*.test.js clean-room/*.test.mjs; do
   node --test "$t"
 done
 ```

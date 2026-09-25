@@ -50,9 +50,9 @@ Workflow({ name: 'housekeeping-audit', args: {
 Shards are cut **by code area**, so the README and the ADR that contradict each other land with the
 same auditor. Every finding is refute-verified.
 
-> **Running against a repo other than this one** — which is the normal case here. Named resolution
-> reads `.claude/workflows/` in the *current* repo, so pass `scriptPath` at this repo's copy
-> (`<skills-repo>/.claude/workflows/housekeeping-audit.js`) instead of `name`. Same for the other two.
+> **Name.** A plugin install names the three workflows `pfalkowski-skills:housekeeping-audit` and so
+> on; a development install through `link-skills.ps1` names them bare, as above. A `not found` error
+> lists the names this session has.
 
 Read `uncovered` before anything else — a dead auditor means part of the surface was never looked
 at.

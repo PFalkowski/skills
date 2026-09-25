@@ -1,4 +1,4 @@
-// Tests for hunt.js — run: node .claude/workflows/hunt.test.js
+// Tests for hunt.js — run: node tests/workflows/hunt.test.js
 //
 // WHY THIS EXISTS, and how to use it.
 //
@@ -22,7 +22,7 @@
 const fs = require('fs')
 const path = require('path')
 
-const SRC = fs.readFileSync(path.join(__dirname, 'hunt.js'), 'utf8')
+const SRC = fs.readFileSync(path.join(__dirname, '../../workflows', 'hunt.js'), 'utf8')
   .replace(/^export const meta = \{[\s\S]*?^\}$/m, '')
 
 async function runHunt ({ args, agentFn, budget = {} }) {
