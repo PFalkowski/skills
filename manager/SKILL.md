@@ -1,6 +1,6 @@
 ---
 name: manager
-description: 'The principal above other skills and agents: verifies what they report, makes the micro-decisions and permission calls a human would otherwise be asked for, routes follow-ups to the right process and keeps the tracker current. Use to manage an agent''s report, proposal or permission request without a human in the loop, or to run skills like sdlc-old-fashioned or nights-watch autonomously under one goal.'
+description: 'The principal over other skills and agents: verifies their reports and makes the calls a human would be asked for. Use to run skills autonomously.'
 license: MIT
 metadata:
   author: Piotr Falkowski

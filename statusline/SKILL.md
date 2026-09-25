@@ -1,6 +1,6 @@
 ---
 name: statusline
-description: 'Installs a Claude Code status line: worktree, branch, model, tokens, rate limits, cost. Use for: cost/tokens/metrics in the status line, footer, or status bar; customizing or debugging the status line; a blank status line; what fields the status line payload contains.'
+description: 'Installs a Claude Code status line showing worktree, branch, model, tokens, rate limits and cost. Use to add, customize or debug it.'
 disable-model-invocation: true
 license: MIT
 metadata:

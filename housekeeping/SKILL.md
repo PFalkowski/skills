@@ -1,6 +1,6 @@
 ---
 name: housekeeping
-description: 'Audits a repository''s docs against the code and read-only externals (Confluence, Jira, Azure DevOps), then sweeps the code for warnings, gaps, and drift; a human approves before anything is deleted or filed. Use for "housekeeping", "tidy up the repo", "are our docs still true", a documentation audit. Distinct from context-reduction (deletion campaign; this audits without committing to it) and desloppify (the hotspot pass that calls this for a broad pass).'
+description: 'Audits a repo''s docs against the code and read-only externals, then sweeps the code for drift; a human approves deletions. Use for "are our docs still true".'
 license: MIT
 metadata:
   author: Piotr Falkowski

@@ -1,6 +1,6 @@
 ---
 name: fact-check
-description: 'Ground a claim: run a local experiment for executable claims (math, code, regex, data, performance) or confirm 2+ authoritative sources for documentable claims. Triggers: "fact-check", "is this true", "are you sure", "verify this", before asserting a load-bearing fact, or when being wrong is costly.'
+description: 'Grounds a claim with a local experiment or two authoritative sources. Use for "fact-check", "are you sure", or before asserting a load-bearing fact.'
 license: MIT
 metadata:
   author: Piotr Falkowski

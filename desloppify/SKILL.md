@@ -1,6 +1,6 @@
 ---
 name: desloppify
-description: 'Strips stale prose, duplication, dead paths, and excess abstraction from a codebase, preserving behavior and architecture. Triggers: bloated, confusing, inconsistent, over-commented, costly-to-load agent-grown code, or documentation an agent generated across a long session (ADRs, plans, tickets, handovers). Distinct from context-reduction (prose), housekeeping (docs+code audit), less-is-more (single change).'
+description: 'Strips stale prose, duplication, dead paths and excess abstraction from agent-grown code without changing behavior. Use when code or its docs are bloated.'
 license: MIT
 metadata:
   author: Piotr Falkowski

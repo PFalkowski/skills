@@ -1,6 +1,6 @@
 ---
 name: less-is-more
-description: 'Make the smallest change that fits the repo''s architecture, measured in cognitive load, not line count: change existing code rather than bolt on parallel paths, but split dense cleverness into named parts even when that adds lines. Use for writing or changing production code, especially when tempted to add a helper, wrapper, flag, or class beside existing code, or when a diff grows beyond the task.'
+description: 'Makes the smallest change that fits the repo''s architecture, measured in cognitive load. Use when writing production code or tempted to add a helper or flag.'
 license: MIT
 metadata:
   author: Piotr Falkowski

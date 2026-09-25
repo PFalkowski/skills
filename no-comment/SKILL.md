@@ -1,6 +1,6 @@
 ---
 name: no-comment
-description: 'Fixes code instead of commenting it. Triggers: writing a comment; reviewing code with comments.'
+description: 'Fixes code instead of commenting it. Use when writing a comment or reviewing code with comments.'
 license: MIT
 metadata:
   author: Piotr Falkowski

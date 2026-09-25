@@ -1,6 +1,6 @@
 ---
 name: nights-watch
-description: 'Autonomous loop over issue tracker, codebase, or open PRs; never merges, approves, or enacts a refusal. Triggers: ticket pickup; "man the wall"; "watch the backlog"; one ticket by the book; vulnerability scans of recent changes; open PRs reviewed on a cadence. For speed use go-go-go; for a backlog file use nightshift.'
+description: 'An autonomous loop over the issue tracker, codebase or open PRs that never merges or approves. Use for "man the wall", "watch the backlog", or ticket pickup.'
 license: MIT
 metadata:
   author: Piotr Falkowski

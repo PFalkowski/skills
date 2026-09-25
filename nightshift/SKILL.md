@@ -1,6 +1,6 @@
 ---
 name: nightshift
-description: 'Autonomously implements backlog work overnight using TDD (Red → Green → Refactor) per item. Triggers: unattended run on a list of work items, "overnight run", "autonomous backlog", "ralph wiggum loop".'
+description: 'Implements a list of backlog items unattended, test-first per item. Use for "overnight run" or "autonomous backlog".'
 license: MIT
 metadata:
   author: Piotr Falkowski

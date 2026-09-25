@@ -1,6 +1,6 @@
 ---
 name: fix-pr
-description: 'Resolves the review comments on a pull request. Triggers: address, fix, or work through PR review comments or reviewer feedback; a PR with unresolved threads to act on; another skill needing a PR''s comments resolved headlessly.'
+description: 'Resolves the review comments on a pull request. Use to address reviewer feedback or a PR with unresolved threads.'
 license: MIT
 metadata:
   author: Piotr Falkowski
