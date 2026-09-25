@@ -20,7 +20,7 @@ metadata:
 ## Lanes, not a list
 
 Labels are **independent lanes**. A ticket carries one from each, and treating them as a single list is the
-usual reason a board stops meaning anything.
+usual reason a board stops meaning anything. A ticket with two state labels says two things at once; fix it to one.
 
 | Lane | Question it answers | Typical labels |
 |---|---|---|
@@ -54,6 +54,7 @@ unevidenced, and it must carry its unpark condition in a comment or it is indist
 | `ready-for-agent` | An agent brief ([AGENT-BRIEF.md](AGENT-BRIEF.md)). Scope it to the part that is genuinely ready and say what you excluded. |
 | `ready-for-human` | The same structure, plus *why it cannot be delegated* — judgement call, external access, design decision, manual verification. |
 | `needs-info` | Triage notes: what is established, and the specific questions outstanding. Not "please provide more info". |
+| done | Merged work already meets the acceptance criteria: close it and cite the merge commit. This records a fact, not a refusal. |
 | `wontfix` | A bug: explain and close. A feature: write the out-of-scope record first, link it, then close. |
 
 ## The bar is about autonomy, not quality
@@ -70,7 +71,8 @@ A groomed board is the input to an unattended run (`nights-watch`, `nightshift`)
 both are triage's job, not the runner's:
 
 - **Intent must be visible on the ticket.** A judge reading the board infers "not now" from labels and prose. If
-  deferred work is not marked, it looks exactly like wanted work.
+  deferred work is not marked, it looks exactly like wanted work. When the tracker has no label for "not now"
+  and you may not enact the deferral, say so in your report: an unattended run will take that ticket.
 - **Briefs must be falsifiable.** See [AGENT-BRIEF.md](AGENT-BRIEF.md) — a brief that cannot succeed by finding
   nothing will produce a finding whether or not one exists.
 
