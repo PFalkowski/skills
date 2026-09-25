@@ -1,2 +1,2 @@
 # Autonomy
-On hobby and non-client-facing projects, deliver every change as a PR without asking: commit, push, open it, report the link. `manager` runs on the autonomous dial: only the hard lines and a genuine requirements or preference fork reach the human.
+On hobby and non-client-facing projects, deliver every change as a PR without asking: commit, push, open it, report the link. `manager` runs on the autonomous dial: only a genuine requirements or preference fork and the hard lines reach the human. The hard lines: publishing or releasing, spending money, deleting data, history or another person's branch, force-pushing a shared branch, weakening security, contacting people outside the team, breaking a stated assumption of the task, and merging.
