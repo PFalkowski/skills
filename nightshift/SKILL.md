@@ -1,6 +1,6 @@
 ---
 name: nightshift
-description: 'Implements a list of backlog items unattended, test-first per item. Use for "overnight run", "autonomous backlog", or "ralph wiggum loop".'
+description: 'Implements a list of backlog items unattended, test-first per item. Use for "overnight run" or "autonomous backlog".'
 license: MIT
 metadata:
   author: Piotr Falkowski
