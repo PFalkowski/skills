@@ -117,7 +117,8 @@ else {
 }
 if ($mark) {
     New-Item -ItemType Directory -Force -Path (Split-Path $WorkflowsPath -Parent) | Out-Null
-    New-Item -ItemType ($IsWindows ? 'Junction' : 'SymbolicLink') -Path $WorkflowsPath -Target $workflows | Out-Null
+    $linkType = if ($env:OS -eq 'Windows_NT') { 'Junction' } else { 'SymbolicLink' }
+    New-Item -ItemType $linkType -Path $WorkflowsPath -Target $workflows | Out-Null
     "$mark  workflows ($WorkflowsPath)"
 }
 
@@ -171,7 +172,7 @@ function Remove-WrappingCodeFence {
 }
 
 function Install-ClaudeMd {
-    $repoClaudeMd = Join-Path $repo 'templates' 'CLAUDE.md'
+    $repoClaudeMd = Join-Path $repo 'templates/CLAUDE.md'
     if (-not (Test-Path $repoClaudeMd)) { return }  # nothing to offer
     New-Item -ItemType Directory -Force -Path (Split-Path $ClaudeMdPath -Parent) | Out-Null
 
