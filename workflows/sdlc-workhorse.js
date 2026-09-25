@@ -1,7 +1,7 @@
 export const meta = {
   name: 'sdlc-workhorse',
   description: 'The full SDLC as an executable pipeline: baseline → spec → grill → plan → adversarial review → slice → TDD fanout → grill the diff → document → retrospective. Autonomous, evidence-gated, stops at irreversible lines.',
-  whenToUse: 'A load-bearing change that deserves the full lifecycle, run unattended. Dispatched by the sdlc-workhorse skill, which gathers the goal and settings. The attended, human-at-every-gate variant is the sdlc-old-fashioned skill.',
+  whenToUse: 'A load-bearing change that deserves the full lifecycle, run unattended. Dispatched by sdlc-old-fashioned in dynamic-workflow mode, and by nights-watch for load-bearing tickets.',
   phases: [
     { title: 'Baseline', detail: 'catalogue the repo pitfalls and prove the guardrails are green before touching anything' },
     { title: 'Spec', detail: 'problem, goal, scope, non-goals, success criteria' },
