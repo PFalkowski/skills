@@ -101,9 +101,8 @@ console.log('\nquorum — THE SEAM: the script convenes it, one agent per concer
       tests: [finding({ summary: 'no regression test', file: 'c.js' })],
     } }) })
   // If a single agent were told "you are a quorum", this would be 1. That is the bug.
-  // +1: the quality-standard lens the script appends when the caller's list lacks it.
   await t('dispatches ONE review agent PER CONCERN, not one agent told to be several',
-    () => reviewCalls(r).length === concerns.length + 1)
+    () => reviewCalls(r).length === [...concerns, 'quality-standard'].length)
   await t('...each labelled with its own concern', () =>
     concerns.every(c => reviewCalls(r).some(x => x.opts.label === `review:s1:${c}`)))
   await t('...each reviewer is given exactly one lens', () =>
@@ -173,13 +172,16 @@ const nitOn = (rule, refute = 'confirmed') => {
   await t('...and the refuters are told which rule they are attacking',
     () => r.calls.filter(c => c.opts.label.startsWith('refute:') && c.opts.phase === 'Review')
       .every(c => /Rule: no-comment/.test(c.prompt)))
+  await t('...and what refutes it: outside the diff, a why-comment, a smaller change that breaks the test',
+    () => r.calls.filter(c => c.opts.label.startsWith('refute:') && c.opts.phase === 'Review')
+      .every(c => /not in this slice's diff/.test(c.prompt) && /why rather than what/.test(c.prompt)
+        && /keep the slice's test green/.test(c.prompt)))
 }
 {
   const r = await runWorkhorse({ args: baseArgs(), agentFn: nitOn(null) })
   await t('a verified behaviour nit does not block', () => r.mergeReady === true)
 }
 {
-  // e.g. the cited comment is outside this slice's diff, so the refuters kill it.
   const r = await runWorkhorse({ args: baseArgs(), agentFn: nitOn('no-comment', 'refuted') })
   await t('a refuted quality finding does not block', () => r.mergeReady === true)
 }
@@ -332,6 +334,8 @@ console.log('\ninvert reaches the plan and its review — read by path, since th
     && !/Use the "invert" skill/.test(promptFor(r, l))
   await t('the plan agent is told to read invert/SKILL.md', () => inverts('plan:r1'))
   await t('...and so is the plan reviewer', () => inverts('plan-review:r1'))
+  await t('...who files a failure the plan does not block as a finding',
+    () => /does not already block is a finding/.test(promptFor(r, 'plan-review:r1')))
   const planSchema = r.calls.find(c => c.opts.label === 'plan:r1').opts.schema
   await t('every failure mode must say what blocks it', () =>
     (planSchema.properties.failureModes.items.required || []).includes('blockedBy'))

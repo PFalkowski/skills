@@ -63,7 +63,8 @@ const maxClaimsPerGate = cfg.maxClaimsPerGate ?? 5
 const reviewStance = cfg.reviewStance || 'single'
 const QUALITY_LENS = 'quality-standard'
 const callerConcerns = cfg.reviewConcerns || ['correctness', 'documentation']
-const reviewConcerns = callerConcerns.includes(QUALITY_LENS) ? callerConcerns : [...callerConcerns, QUALITY_LENS]
+const appendsQualityLens = !callerConcerns.includes(QUALITY_LENS)
+const reviewConcerns = appendsQualityLens ? [...callerConcerns, QUALITY_LENS] : callerConcerns
 const reserve = cfg.reserve ?? 60000                    // output tokens held back per slice
 // NOT `parallel` — that is the Workflow-injected fan-out helper this script calls in five
 // places. A top-level `const parallel = <number>` shadows it, and every one of those calls
@@ -118,7 +119,7 @@ if (tiersFloored.length) {
   say(`premise gates floored to ${PREMISE_FLOOR} (a premise phase may be raised, never lowered): ` +
       tiersFloored.join(', '))
 }
-if (reviewStance === 'quorum' && reviewConcerns !== callerConcerns) {
+if (reviewStance === 'quorum' && appendsQualityLens) {
   say(`quorum: ${QUALITY_LENS} lens appended to reviewConcerns (less-is-more and no-comment gate every diff)`)
 }
 
@@ -155,7 +156,7 @@ const FACT_CHECK_RULE =
   `not establish and treat it as an open question. Discovering mid-check that your premise is WRONG is a SUCCESS of ` +
   `this process, not a setback — say so and change the artifact.`
 
-// The three steps are the fallback brief, not a copy of the method, for the same reason proven() defers to fact-check.
+// The three steps are the fallback brief, not a copy of the method: a copy goes stale the day invert improves.
 const INVERT_RULE =
   `Apply the "invert" skill. It is manual-only, so the Skill tool will refuse it: read its SKILL.md instead — ` +
   `~/.claude/skills/invert/SKILL.md, else the first hit of ` +
@@ -170,9 +171,11 @@ const QUALITY_RULE =
   `replace; a comment that survives says why, not what.`
 const QUALITY_REVIEW_RULE =
   `${QUALITY_RULE} Grade the diff against both. A breach is a finding with rule "less-is-more" or "no-comment", and ` +
-  `it blocks merge like a bug whatever severity you give it. It is refuted if the lines it cites are not in this ` +
-  `slice's diff (git diff <base>...HEAD); for no-comment, if the comment says why rather than what; for ` +
-  `less-is-more, if the smaller change it names does not keep the slice's test green.`
+  `it blocks merge like a bug whatever severity you give it.`
+const QUALITY_REFUTE_RULE =
+  `A quality finding is refuted if the lines it cites are not in this slice's diff; for no-comment, if the comment ` +
+  `says why rather than what; for less-is-more, if the smaller change it names does not keep the slice's test green.`
+const isQualityFinding = f => f.rule && f.rule !== 'behaviour'
 
 // Several skills this workflow composes are INTERACTIVE by design — grill-me and
 // grill-with-docs interview a user; code-review-grill has two ALWAYS-ASK gates.
@@ -720,7 +723,8 @@ for (let round = 1; round <= maxPlanRounds; round++) {
       `not here to be agreeable.\n\n<spec>\n${sharpSpec}\n</spec>\n\n<plan>\n${planText}\n</plan>\n\n${pitfallRule}\n\n` +
       `Hunt specifically for: hidden coupling; failure modes it does not handle; a wrong abstraction; a materially ` +
       `cheaper path to the same outcome; and the big one — does it actually satisfy the spec, or a nearby easier ` +
-      `problem? Mark a finding mustFix only if shipping this plan unchanged would be a defect.\n\n${INVERT_RULE}\n\n` +
+      `problem? Mark a finding mustFix only if shipping this plan unchanged would be a defect.\n\n${INVERT_RULE} A failure ` +
+      `this plan does not already block is a finding (category "unhandled-failure").\n\n` +
       `Use the "grill-with-docs" skill if available.\n\n${NO_HUMAN_RULE}\n\n${CHRONICLE_RULE(chronicle('plan-review'))}`,
       { label: `plan-review:r${round}`, phase: 'Plan review', model: tiers.planReview, schema: PLAN_REVIEW_SCHEMA }
     ),
@@ -922,7 +926,8 @@ const built = await pipeline(
     // Verify before reporting: a plausible-but-wrong finding costs a real fix cycle.
     const verified = await parallel(findings.map(f => () =>
       proven(f.summary, f.failureScenario, 'Review',
-        `Slice: ${slice.title}\nCriterion: ${slice.acceptanceCriterion}\nRule: ${f.rule || 'behaviour'}`)
+        `Slice: ${slice.title}\nCriterion: ${slice.acceptanceCriterion}\nRule: ${f.rule || 'behaviour'}` +
+        (isQualityFinding(f) ? `\n${QUALITY_REFUTE_RULE}` : ''))
         .then(v => ({ ...f, confirmed: v.proven, evidence: v.why }))
     ))
     const real = verified.filter(Boolean).filter(f => f.confirmed)
@@ -945,7 +950,7 @@ if (blockerFindings.length) {
   say(`${blockerFindings.length} verified blocker/major finding(s) — these are real defects, not opinions.`)
 }
 // Decided here, not by the reviewer's severity label: one word ("nit") must not talk a breach past the gate.
-const ruleFindings = verifiedFindings.filter(f => f.rule && f.rule !== 'behaviour')
+const ruleFindings = verifiedFindings.filter(isQualityFinding)
 
 // ---------------------------------------------------------------------------
 // PHASE 10 — Document. Docs ship in the same PR as the code, not "later".

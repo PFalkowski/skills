@@ -31,7 +31,7 @@ State both choices up front, then run accordingly:
 **Dial 2 — Execution model: how each phase runs.** Whichever you pick, state the **model tier and reasoning effort** per phase up front rather than leaving it to chance — cheap tiers for mechanical phases, the strongest tier for anything adversarial or hard to reverse.
 - **Fresh process per phase** *(recommended default)* — each phase runs as its **own `claude` OS process** the conductor spawns, handed a written brief + the live `backlog.md`, with its **full transcript captured to disk**. The conductor reads back only the phase's short result and the backlog diff — never the whole transcript — so its context stays minimal and every step is independently auditable in its own console log. This is the model the rest of this skill assumes; mechanics in **`references/handover-protocol.md`**.
 - **In-session subagents** — each phase a fresh subagent via the `Agent` tool. Lighter to launch, but transcripts aren't separate inspectable consoles and the orchestrator inherits more of each phase. Use when you don't need per-step process isolation or a standalone audit log.
-- **Dynamic workflow** — the conductor dispatches `workflows/sdlc-workhorse.js`, this lifecycle as a script with model tier and effort set per phase **in code**, and **never authors an ad-hoc script**. The gates become control flow rather than conductor judgement, and independent slices can be pipelined. It is autonomous by construction (Dial 1 is autonomous in this mode) and ends at a merge-ready report the conductor consumes. Dispatch args, the fallback when the name is not found, and the report fields: **`references/workflow-mode.md`**.
+- **Dynamic workflow** — the conductor dispatches `workflows/sdlc-workhorse.js`, never an ad-hoc script: this lifecycle with model tier and effort set per phase **in code**, the gates as control flow, independent slices pipelined. When, dispatch args, fallback and report fields: **`references/workflow-mode.md`**.
 - **Single agent** — one context carries every phase. Simplest, but context bloats and phase independence is lost. Reserve it for the smaller end of old-fashioned work.
 
 ## Step 0.7 — Orient, then isolate on a worktree
@@ -134,10 +134,10 @@ The conductor holds the gates and the backlog; it does **not** carry the work. E
 | Optimises for | correctness, design, paper trail | speed to a raised PR |
 | Starts from | the repo's guardrails, then a problem to specify | whatever state the repo is in |
 | Requirements | grilled until sharp; the plan grilled before code | inferred; ask only on hard ambiguity |
-| Gates held by | attended: the conductor, with the human; autonomous: the conductor, by the manager's verdicts; dynamic workflow: the script's control flow | nothing; four stop conditions |
+| Gates held by | attended: the conductor, with the human; autonomous: the conductor, deferring to the backlog; dynamic workflow: the script's control flow | nothing; four stop conditions |
 | Questions | attended: block; autonomous: reversible → default + logged, irreversible → stop | decided and noted |
 | Best for | features, subsystems, high-stakes change | fixes, chores, spikes, "just ship it" |
 
-Handing the whole lifecycle off and walking away is the dynamic-workflow mode ([references/workflow-mode.md](references/workflow-mode.md)): it ends at a merge-ready report rather than a merge, because the script has no code path that can cross an irreversible line.
+Running the lifecycle as one script is the dynamic-workflow mode ([references/workflow-mode.md](references/workflow-mode.md)).
 
 When in doubt, ask the user one question: *"proper full lifecycle, or just ship it?"* — then, if it's the lifecycle: *"are you staying at the gates, or should it run itself?"*

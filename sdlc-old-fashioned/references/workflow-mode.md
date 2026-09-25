@@ -5,8 +5,8 @@ skill's; this file holds only what is particular to running them as [`workflows/
 
 ## When
 
-The conductor dispatches that script and **never authors its own**. It is autonomous by construction and ends
-at a merge-ready report. Confirm first that this session has a `Workflow` tool; if it does not, say so and run
+The conductor dispatches that script and **never authors its own**. It is autonomous by construction (Dial 1 is
+autonomous in this mode) and ends at a merge-ready report. Confirm first that this session has a `Workflow` tool; if it does not, say so and run
 the lifecycle as fresh process per phase instead.
 
 ## Dispatch
@@ -35,15 +35,15 @@ Workflow({
 })
 ```
 
-Without `backlogPath` and `chronicleDir` the script writes under `~/.agent-state/<repo-slug>/sdlc-workhorse/`,
-the default nights-watch relies on.
+Without `backlogPath` or `chronicleDir` the prompts carry the placeholder
+`$HOME/.agent-state/<repo dir name>/sdlc-workhorse/…` for the agents to resolve.
 
 **If the name is not found**, dispatch by `scriptPath` instead, resolved rather than guessed:
 
 - link install: the skills repo is the parent of the junction target of `~/.claude/skills/sdlc-old-fashioned`
   (`readlink`, or `(Get-Item ~/.claude/skills/sdlc-old-fashioned -Force).Target`); the script is
   `<repo>/workflows/sdlc-workhorse.js`. A lexical `..` through the junction does not reach it.
-- plugin install: the `installPath` of `pfalkowski-skills` in `~/.claude/plugins/installed_plugins.json`, plus
+- plugin install: the `installPath` of the `pfalkowski-skills@<marketplace>` entry in `~/.claude/plugins/installed_plugins.json`, plus
   `/workflows/sdlc-workhorse.js`.
 
 `test -f` the path. If neither the name nor the path resolves, **stop and report blocked** — never improvise a
