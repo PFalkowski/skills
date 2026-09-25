@@ -57,7 +57,7 @@ Verified: 4 claims checked — 4 held (gh pr checks; fact-check on the F1 test a
   A2 APPROVE   #6 resilience owned by the ORM store only — is the working assumption; grill to confirm nothing else lost retry
   A3 REDIRECT  #8 "ready" → code-review-grill first — no independent review yet; a reviewer that never saw the rationale
   A4 DEFER     #9 F5 parity → ticket #531; #10 F7 ShouldHandle → #532; #11 F8 alert → #533 — each with the origin PR and the readiness brief
-  A5 DEFER     #12 F9–F18 nits → one ticket #534, Haiku-tier, batched — not worth a PR each
+  A5 DEFER     #12 F9–F18 nits → one ticket #534, low effort, batched — not worth a PR each
   A6 APPROVE   merge, once the grill is clean and its findings worked — merge=allow; checks green, F1 change verified pinned, ADR noted
   A7 APPROVE   #13 — the manager holds the check itself; no further CI report needed from you
 Next for you (in order):

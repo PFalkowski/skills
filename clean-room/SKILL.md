@@ -1,6 +1,6 @@
 ---
 name: clean-room
-description: 'Reimplement behaviour you may not copy — from a codebase under an incompatible licence (AGPL/GPL/SSPL/proprietary), a competitor product, prior art owned by a former employer, or an inspected binary — as two separated passes with a screened brief as the only thing that crosses: STUDY may read the source and writes prose only, BUILD never sees it and writes all the code. Produces an auditable answer to how you know it was not copied, plus the attribution record. Use for: reimplementing without copying, Chinese wall, AGPL/GPL contamination, reading a competitor repo before building a feature, a licence or IP question attached to work about to start. Not for permissive code you can simply depend on and credit, your own code, or a borrowing too small to justify the ceremony.'
+description: 'Reimplements behaviour you may not copy, such as GPL code or a competitor''s product, through study and build passes that share only a screened brief.'
 disable-model-invocation: true
 license: MIT
 metadata:

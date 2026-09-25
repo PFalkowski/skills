@@ -105,6 +105,7 @@ Spawn prompt template:
 ```
 Description: "NightShift item: <next item title>"
 Subagent: general-purpose
+Model: the house worker tier from CLAUDE.md; never hard-code one
 Prompt: """
 You are running a single NightShift loop iteration in Phase 2.
 The user is asleep — do NOT do pre-flight, do NOT ask questions.
@@ -121,9 +122,7 @@ Do NOT spawn a further subagent — the parent will do that for the next item.
 """
 ```
 
-Anthropic prompt cache TTL is 5 minutes. A test run that takes longer than that uncaches the entire parent context.
-
-After the subagent returns, the parent reads the backlog (cheap, the file has been updated) and decides whether to spawn the next or exit.
+Subagents run in the background by default: wait for the completion notice, never poll or guess the result. Then the parent reads the backlog (cheap, the file has been updated) and decides whether to spawn the next or exit.
 
 ### Alternative: in-place compression (short backlogs only)
 
@@ -134,9 +133,7 @@ Use this only when:
 Compression recipe between items:
 - Summarize completed items into a 5-line status block in your own context.
 - Discard tool-result transcripts older than 2 items back.
-- Re-read CLAUDE.md / saved memories at the top of each iteration so they re-cache.
-
-If a single item runs > 5 minutes (test suite duration), abandon in-place compression and switch to spawning — the cache miss math no longer favors staying.
+- Re-read CLAUDE.md / saved memories at the top of each iteration.
 
 ## Exit + summary
 
@@ -177,7 +174,9 @@ If the `Folded into skills` line reads "none", that's fine — not every run pro
 
 ### 3. Return control
 
-If running under the parent agent, return a one-line status. If running standalone (e.g. via `/loop`), simply terminate.
+If running under the parent agent, return a one-line status. If running standalone, simply terminate.
+
+To keep an unattended session working until the backlog is finished, set `/goal every item in <backlog path> is done, blocked-on-question or failed-after-retries` after the user's "go". A scheduled firing's prompt says "NightShift Phase 2 on <backlog path>", never `/nightshift`, so it never re-runs pre-flight.
 
 ## Anti-patterns to avoid in the loop
 

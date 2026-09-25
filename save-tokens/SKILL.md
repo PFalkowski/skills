@@ -1,6 +1,6 @@
 ---
 name: save-tokens
-description: 'Spends a session''s tokens on the task: the cheapest subagent tier that fits, noise kept out of the main context, and a one-line call for /clear, /compact, /rewind, a model change, or a fresh session it launches with a handoff. Triggers: a new user request, a subagent dispatch, a noisy command, "save tokens", "what is eating my tokens".'
+description: 'Spends tokens on the task: cheapest fitting subagent, noise out of context, a fresh session when cheaper. Use on a new request, a dispatch, or "save tokens".'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -21,8 +21,10 @@ on with the work.
 ## Settings worth checking once
 
 Session-level advice is spent every session; these are set once and then hold. Check them the first
-time this skill runs in a machine's config, or when the user asks what is eating their tokens. Say
-what applies in one line with the value to set, and move on. Do not re-offer what is already set.
+time this skill runs in a machine's config, when the user asks what is eating their tokens, or when a
+session's first turn already carries a large prefix. Say what applies in one line with the value to
+set, and move on. Do not re-offer what is already set. Settings are the user's call: suggest, and
+change nothing without their yes.
 
 Read the machine before changing it. On a subscription plan `/usage` attributes recent usage to
 individual skills, subagents, plugins and MCP servers, and flags any behaviour at 10% or more of the
@@ -34,9 +36,11 @@ estimates and other machines are not included.
 
 | Check | Do | Why |
 |---|---|---|
-| `CLAUDE_CODE_SUBAGENT_MODEL` in `settings.json` `env` | Set it to `sonnet` | An unset subagent inherits the **main session's** model, so every worker in an Opus session bills at Opus. From v2.1.251 a per-dispatch `model`, and a definition's own `model:`, take precedence over it, so adversarial phases keep the strong tier; before that version the variable overrode both. It does not move the built-in `Explore` and `Plan` agents, which still inherit the main model - give `Explore` a user-scope definition with `model: haiku` to cover them. |
+| `CLAUDE_CODE_SUBAGENT_MODEL` in `settings.json` `env` | Set it to the house worker tier from `CLAUDE.md` | An unset subagent inherits the **main session's** model, so every worker in a session on the strongest tier bills at it. From v2.1.251 a per-dispatch `model`, and a definition's own `model:`, take precedence over it, so adversarial phases keep the strong tier; before that version the variable overrode both. It does not move the built-in `Explore` and `Plan` agents, which still inherit the main model - give `Explore` a user-scope definition with the worker tier's `model:` and `effort: low` to cover them. |
 | A plugin enabled at user scope but used in one or two projects | Disable it in user settings; enable it in that project's `.claude/settings.local.json` | A plugin loads its skills **and** its MCP server into every session in every repository. One measured at 3,721 tokens per turn in repositories that never called it. The key is `plugin-name@marketplace-name`; a bare plugin name is silently ignored. `.claude/settings.json` is shared with everyone in the repository, so a personal choice belongs in the local file instead. |
 | An MCP server that fails to connect | `claude mcp list`, then `claude mcp remove <name>` | It costs a failed connection attempt every session, and its error banner hides real MCP problems behind it. With no `-s` the command removes the server from whichever scope it lives in; `-s user` fails outright on a project- or local-scoped one. |
+| A built-in tool, connector or MCP server the user never calls | Name the lever that removes it: `permissions.deny` on the tool (`"Artifact"`), disconnect the claude.ai connector, or `claude mcp remove` | Every eager tool schema rides in every request. The `Artifact` tool measured about 10,900 tokens, and a deny rule drops its schema, not just its calls. Leave tool search on: turning it off added about 26,000. |
+| `CLAUDE.md` carries workflows, history or rationale, or a skill description runs past one short sentence | Offer the trim: `CLAUDE.md` keeps only what binds every session, and a description says what and when in one sentence | Both load in every request, whether or not the session needs them. |
 | `bashOutputMaxChars` (v2.1.261+) | Measure before changing it | Anything above the cap spills to a file and only a preview stays. The default is 30,000 characters, and the value is clamped into 4,000-128,000. Lowering it pays only if the preview is usually enough: a spill the agent has to read back costs a whole extra turn carrying the whole context, far more than the characters saved. |
 
 Measuring a machine's fixed per-turn cost, when a number is needed rather than a guess: run the
@@ -50,29 +54,31 @@ claude -p "reply with exactly: ok" --strict-mcp-config --mcp-config '{"mcpServer
 claude -p "reply with exactly: ok" --settings '{"enabledPlugins":{"<plugin>@<marketplace>":false}}'
 ```
 
-Neither form edits anything on disk. Runs minutes apart can differ by a few hundred tokens as the
+Neither form edits anything on disk. `claude -p` has no `Artifact` tool, and an interactive session's
+first turn goes out before MCP servers connect, so measure the tool in an interactive session and
+MCP with `-p`. Runs minutes apart can differ by a few hundred tokens as the
 git status snapshot changes, so treat that as the noise floor.
 
 ## What the agent does itself
 
 ### Send each job to the cheapest tier that does it
 
-Set `model` on every subagent dispatch; a grep does not need the strongest tier. What an unset
-dispatch falls back to, and which built-ins ignore it, is in
+Set `model` on every subagent dispatch, and never below the house worker tier set in `CLAUDE.md`.
+What an unset dispatch falls back to, and which built-ins ignore it, is in
 [Settings worth checking once](#settings-worth-checking-once).
 
 | Tier | The job smells like | Examples |
 |---|---|---|
-| `haiku` | Read-only discovery, mechanical, verifiable by grep or build alone | find the callers of X, a rename sweep, a version bump, formatting, a commit message, summarising a log |
-| `sonnet` (default) | Normal engineering: a localised change plus its tests | a bug with a repro, a small feature in an existing pattern, new test coverage, a refactor inside one module |
-| `opus`, or `fable` where offered | Cross-cutting reasoning where a wrong design costs more than the tier premium, and anything adversarial | plan review, security review, a concurrency bug with no repro, a public API, grading another agent's diff |
+| Worker tier, low effort | Read-only discovery, mechanical, verifiable by grep or build alone | find the callers of X, a rename sweep, a version bump, formatting, a commit message, summarising a log |
+| Worker tier, medium effort (default) | Normal engineering: a localised change plus its tests | a bug with a repro, a small feature in an existing pattern, new test coverage, a refactor inside one module |
+| Strongest tier available | Cross-cutting reasoning where a wrong design costs more than the tier premium, and anything adversarial or hard to reverse | plan review, security review, a concurrency bug with no repro, a public API, grading another agent's diff |
 
-When torn, take the lower tier. Before retrying a tier up, re-read the brief: a vague brief fails at
-every tier, and a haiku brief must say exactly what to do and what to return. Then the two questions
-decide the dial: *it had the context, clearly tried, and still got it wrong* is a bigger model; *it
-skipped a file, did not run the tests, or stopped part-way* is more effort. Effort stays at the
-model's default; `effort:` exists only in a subagent definition file, for a job that recurs. A failed
-attempt escalates one tier on retry, once.
+When torn, take the lower row. Before retrying a row up, re-read the brief: a vague brief fails at
+every tier, and a low-effort brief must say exactly what to do and what to return. Then the two
+questions decide the dial: *it had the context, clearly tried, and still got it wrong* is a bigger
+model; *it skipped a file, did not run the tests, or stopped part-way* is more effort. `effort` is
+set per call in a Workflow `agent()` and in a subagent definition file; a plain dispatch runs at the
+model's default. A failed attempt escalates one row on retry, once.
 
 ### Keep noise out of the context that thinks
 
@@ -128,7 +134,7 @@ of MCP tools nobody has called. The user has the gauge: a status line with the c
 | A `/loop`, or a reminder or cron task in this session, is being set up in a long session | "Run it from a fresh session in another terminal: each firing is a full turn carrying this whole conversation, and after an hour idle it is a cache miss on top." A `/schedule` routine runs in the cloud and is exempt. |
 | A fresh session, or MCP tools sit unused in the tool list, or `CLAUDE.md` carries workflow prose | "`/context` shows what is loaded before you type; `/model` and `/effort` show what is set. `/mcp disable <server>` turns a server off for this session. Workflow instructions move from `CLAUDE.md` into skills, which load only when used." Offer the `CLAUDE.md` edit. |
 | The right quiet invocation is now known for a command the project runs all day | Propose the one-line `CLAUDE.md` addition, written the way the user would type it (*run one test file: `npx vitest run <file> --reporter=dot`*); it saves a turn and a few hundred lines in every session after. If the user would rather not leave quieting to the agent at all, a `PreToolUse` hook on `Bash` can rewrite a noisy command before it runs by returning `hookSpecificOutput.updatedInput.command` ([worked example](https://code.claude.com/docs/en/costs#offload-processing-to-hooks-and-skills)); offer to add it to `settings.json`. |
-| The same noisy job is handed off again and again | Write a subagent definition in `.claude/agents/<name>.md` with `model: haiku` (or `sonnet`) and say so in one line; without one it runs on the main session's model. |
+| The same noisy job is handed off again and again | Write a subagent definition in `.claude/agents/<name>.md` with the worker tier's `model:` and an `effort:` from the table above, and say so in one line; without one it runs on the main session's model. |
 
 ### A new request: keep going, compact, or start fresh
 

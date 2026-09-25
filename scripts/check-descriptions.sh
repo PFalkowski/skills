@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Fails on a SKILL.md description over 1024 characters, naming its own slash command, or with an unquoted ": "; warns above 320.
+# Fails on a SKILL.md description over 200 characters, naming its own slash command, or with an unquoted ": "; warns above 160.
 # Prints the cost split by whether the description is actually in context: disable-model-invocation excludes it entirely.
 set -u
 cd "$(dirname "$0")/.."
-hard=1024 soft=320 status=0 total=0 loaded=0
+hard=200 soft=160 status=0 total=0 loaded=0
 for f in */SKILL.md; do
   raw=$(grep -m1 '^description:' "$f" | sed -E 's/^description:[ ]*//')
   case "$raw" in

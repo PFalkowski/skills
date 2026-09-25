@@ -28,7 +28,7 @@ const say = (m) => log(startedAt ? `[${startedAt}] ${m}` : m)
 //         files: ['src/a.ts', ...], manifests: [...],   // NAMES only (Oath rule 2), capped by the watcher
 //         logsCmd: null, visibility: 'public',          // resolved at step 0, before the muster
 //         lenses: ['injection', 'authz', ...],          // what the delta can trigger, already budget-planned
-//         tiers: { injection: 'sonnet', refute: 'sonnet' },
+//         tiers: { injection: 'opus', refute: 'opus' }, efforts: { injection: 'high' },
 //         known: { '<fingerprint>': 'high', ... },      // ledger status=reported ONLY — never pending
 //         fixed: ['<fingerprint>', ...],                // ledger status=fixed — a reappearance is a regression
 //         carry: [{...finding, lens, id, range, attempts}],  // carry.jsonl — found earlier, still unrefuted
@@ -146,7 +146,7 @@ const refute = async f => {
        If the code it describes is GONE — fixed or deleted since — refute it and say so plainly in
        your reason: that is a fix, not a bad finding.`,
       { label: `refute:${String(f.id).slice(0, 24)}`, phase: 'Refuters',
-        model: args.tiers?.refute ?? 'sonnet', isolation: 'worktree', schema: VERDICT })))).filter(Boolean)
+        model: args.tiers?.refute ?? 'opus', isolation: 'worktree', schema: VERDICT })))).filter(Boolean)
     // Every refuter agent died — infrastructure, not a verdict. Defer it: an unrefuted candidate
     // is not a refuted one, and treating an API failure as "not real" is how a live vulnerability
     // gets marked fixed by a machine that never looked at it.
@@ -248,8 +248,8 @@ const hunted = await pipeline(
                      only when nothing fits, and say so in your chronicle: the vocabulary may need a word.
          Return {findings: [...]}; empty is a fine and common answer.`,
         { label: `hunter:${lens}`, phase: 'Hunters', schema: CANDIDATES,
-          model: args.tiers?.[lens] ?? 'sonnet',
-          effort: (args.tiers?.[lens] ?? 'sonnet') === 'opus' ? 'high' : undefined,
+          model: args.tiers?.[lens] ?? 'opus',
+          effort: args.efforts?.[lens] ?? 'medium',
           isolation: 'worktree' })   // hunters run fact-check experiments — never in the user's tree
       // A dead agent returns null. Silence is not a clean hunt: without this the lens stays in
       // `lensesRun`, the watermark advances over a delta it never read, and the fire marks every

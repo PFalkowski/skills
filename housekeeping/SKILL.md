@@ -1,6 +1,6 @@
 ---
 name: housekeeping
-description: 'Audits a repository''s docs against the code and read-only externals (Confluence, Jira, Azure DevOps), then sweeps the code for warnings, gaps, and drift; a human approves before anything is deleted or filed. Use for "housekeeping", "tidy up the repo", "are our docs still true", a documentation audit. Distinct from context-reduction (deletion campaign; this audits without committing to it) and desloppify (the hotspot pass that calls this for a broad pass).'
+description: 'Audits a repo''s docs against the code and read-only externals, then sweeps the code for drift; a human approves deletions. Use for "are our docs still true".'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -43,7 +43,6 @@ Workflow({ name: 'housekeeping-audit', args: {
   externals: [{ name: 'Confluence: Platform space', how: '<MCP tool / CLI / URL>' }],
   maxShards: 6, perShard: 8, reserve: 40000,
   chronicleDir: '~/.agent-state/<repo-slug>/housekeeping/chronicles',
-  tiers: { inventory: 'haiku', audit: 'sonnet', verify: 'sonnet', consolidate: 'sonnet' },
 } })
 ```
 
@@ -80,7 +79,6 @@ Workflow({ name: 'housekeeping-cleanup', args: {
   startedAt: '<MM-DD HH:mm>',
   dispositions: [ /* ONLY the approved findings, verbatim ids from step 1 */ ],
   chronicleDir: '~/.agent-state/<repo-slug>/housekeeping/chronicles',
-  tiers: { edit: 'sonnet', check: 'sonnet' },
 } })
 ```
 
@@ -107,7 +105,7 @@ Workflow({ name: 'housekeeping-sweep', args: {
   docsAreTrue: true,           // steps 1–3 ran; the house rules can be trusted
   intendedArchitecture: '<what the ADRs actually state — not what you would prefer>',
   checks: { build: '<build cmd>', test: '<test cmd>', lint: '<lint cmd>' },
-  maxLenses: 6, reserve: 40000, tiers: { lens: 'sonnet', verify: 'sonnet', plan: 'sonnet' },
+  maxLenses: 6, reserve: 40000,
 } })
 ```
 

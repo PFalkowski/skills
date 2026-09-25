@@ -1,7 +1,7 @@
 ---
 name: fix-windows-terminal-rendering
 disable-model-invocation: true
-description: 'Repoints Windows'' terminal host from conhost.exe to Windows Terminal, or reverts it. Triggers: rows smash together, redraws over itself, layout breaks on resize, Ctrl+L fails to repaint; or host is Windows Terminal and an alternate-screen TUI still corrupts — suspect ConPTY desync, fixed via full-repaint switch.'
+description: 'Fixes terminal rendering corruption on Windows by switching the terminal host or forcing full repaints. Use when rows smash together or redraw over themselves.'
 license: MIT
 metadata:
   author: Piotr Falkowski

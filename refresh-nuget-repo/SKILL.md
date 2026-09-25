@@ -1,6 +1,6 @@
 ---
 name: refresh-nuget-repo
-description: 'Autonomously refreshes a dormant .NET/NuGet library repo: review, correctness fixes, modernization, CI/CD via Trusted Publishing; the .NET/NuGet specialization of restomod. Triggers: refresh, modernize, revive, or bring back to life a .NET/NuGet repo; fix its bugs; add or improve CI/CD; migrate NuGet publishing off long-lived API keys.'
+description: 'Refreshes a dormant .NET/NuGet library: correctness fixes, modernization, and CI/CD with Trusted Publishing. Use to revive or modernize a NuGet repo.'
 disable-model-invocation: true
 license: MIT
 metadata:

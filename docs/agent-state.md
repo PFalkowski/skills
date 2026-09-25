@@ -164,9 +164,9 @@ them finds nothing and starts a fresh journal on top of a real history.
 [`scripts/check-state-paths.sh`](../scripts/check-state-paths.sh), wired
 into CI and covered by [`scripts/check-state-paths.test.sh`](../scripts/check-state-paths.test.sh),
 enforces three things and **fails the build** on any match. A check that
-cannot fail is not enforcement: `scripts/check-descriptions.sh`'s 320–1024
-character warn band currently carries thirteen unresolved warnings with no
-build consequence, which is the standing evidence for choosing a failing
+cannot fail is not enforcement: `scripts/check-descriptions.sh` once had a
+320–1024 character warn band that carried thirteen unresolved warnings with
+no build consequence, which is the standing evidence for choosing a failing
 check here.
 
 1. It scans every `*.md` file inside each skill directory (not only

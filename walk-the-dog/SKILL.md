@@ -1,6 +1,6 @@
 ---
 name: walk-the-dog
-description: 'Delegate work to subagents while the main agent vets every side-effecting action they propose, approving safe ones itself and escalating only consequential decisions. Triggers: a subagent doing the work without running anything unsafe; "walk the dog"; "keep it on a leash".'
+description: 'Delegates work to subagents while the main agent vets every side-effecting action they propose. Use for "walk the dog" or "keep it on a leash".'
 license: MIT
 metadata:
   author: Piotr Falkowski

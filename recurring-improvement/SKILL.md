@@ -1,6 +1,6 @@
 ---
 name: recurring-improvement
-description: 'Evolves skills from feedback, then runs due recurring maintenance. Triggers: tune-up, improvement run, kaizen, do the rounds, what have we missed since last time. Distinct from neat (feature SDLC), go-go-go (ship now), prompt-backlog (one-off deferred work), evolve-skill (single feedback→edit, done here in bulk).'
+description: 'Evolves skills from collected feedback, then runs due recurring maintenance. Use for "tune-up", "improvement run", or "do the rounds".'
 disable-model-invocation: true
 license: MIT
 metadata:

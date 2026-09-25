@@ -11,7 +11,7 @@ export const meta = {
 //         concerns: ['security', 'architecture'],   // quorum lenses; ignored for single
 //         known: ['src/a.ts:missing-null-check', ...],  // threads already posted on this PR by an
 //                                                   // earlier grill — dedup keys, see GRILL.md
-//         tiers: { review: 'sonnet', verify: 'sonnet', docs: 'haiku' },
+//         tiers: { review: 'opus', verify: 'opus', docs: 'opus' },
 //         reserve: 40000, chronicleDir, libraryIndex }
 //
 // THE WALL (PFalkowski/skills#46): an agent() running inside a Workflow has no Agent/Task tool and
@@ -103,7 +103,7 @@ const houseRules = await agent(
    expectations, and any documented decisions a change could violate. Also read the Library index
    at ${args.libraryIndex} and fold in entries about this repo's conventions and gotchas.
    Return a terse rulebook (aim under 40 lines). ${NO_SPAWN}`,
-  { label: 'house-rules', phase: 'House rules', model: args.tiers?.docs ?? 'haiku' })
+  { label: 'house-rules', phase: 'House rules', model: args.tiers?.docs ?? 'opus', effort: 'low' })
 if (!houseRules) say('house-rules agent died — each reviewer will read the docs itself')
 
 const grillPrompt = concern =>
@@ -147,7 +147,7 @@ const reviews = await parallel(lenses.map(concern => () => (async () => {
   try {
     const r = await agent(grillPrompt(concern),
       { label: concern ? `grill:${concern}` : 'grill', phase: 'Reviewers',
-        model: args.tiers?.review ?? 'sonnet', schema: FINDINGS,
+        model: args.tiers?.review ?? 'opus', schema: FINDINGS,
         isolation: 'worktree' })   // reviewers run diffs and repro experiments — never in the user's tree
     // A dead agent returns null, and silence is not a clean review: without this the concern
     // would look covered, the ledger would mark the PR grilled, and the gate ran degraded.
@@ -190,7 +190,7 @@ const verified = await parallel(candidates.map(f => () => (async () => {
        in-repo or documentable claim, the exact lines or an authoritative reference, as before.
        ${NO_SPAWN}`,
       { label: `verify:${norm(f.title).slice(0, 24)}`, phase: 'Verifiers',
-        model: args.tiers?.verify ?? 'sonnet', schema: VERDICT, isolation: 'worktree' })
+        model: args.tiers?.verify ?? 'opus', schema: VERDICT, isolation: 'worktree' })
     // A dead verifier is not a verdict: an unverified finding must not post (the skill's rule —
     // speculation is not a finding) and must not vanish either. It blocks the ledger entry so
     // the next grill re-finds and re-verifies it.

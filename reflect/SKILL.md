@@ -1,6 +1,6 @@
 ---
 name: reflect
-description: 'Enumerate the assumptions a task rests on, rank each by how much work it carries, and route it: look up, verify, default, or ask; token-box obstacles off the objective and push back on a wrong request. Triggers: before starting; the urge to ask; many steps on one obstacle; "what are you assuming", "sanity check", "is this worth it".'
+description: 'Lists the assumptions a task rests on and routes each to look up, verify, default or ask. Use before starting, or for "what are you assuming" or "sanity check".'
 license: MIT
 metadata:
   author: Piotr Falkowski

@@ -1,6 +1,6 @@
 ---
 name: sdlc-old-fashioned
-description: 'Runs a gated lifecycle, delegating phases to their owning skills. Use for: properly, by the book, rigorous, full-lifecycle, production-grade, hardened, spec-first, or design-first work; "no shortcuts"; real features, public APIs, or load-bearing changes; also weigh before a bare "run this as a workflow" / "use dynamic workflow" request on load-bearing work, since that phrasing defaults to skipping every gate below. Not for quick fixes, spikes, or prototypes - use go-go-go.'
+description: 'Runs a gated lifecycle, each phase delegated to its owning skill. Use for load-bearing work done "by the book", or a bare "run this as a workflow" request.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -92,7 +92,7 @@ The thirteen phases above are mandatory. These six are not. Each carries a **tri
 | [`reflect`](../reflect/SKILL.md) | before Phases 3 and 5 | The spec or plan rests on more assumptions than you can afford to grill. Ledger them and rank by **load**: the high-load inferred ones set the grill's agenda and the `fact-check` list; the low-load ones are defaulted in one line and never grilled. Choosing where the adversarial passes go is what keeps them to a few. |
 | [`fact-check`](../fact-check/SKILL.md) | during Phases 4–5 | The design rests on a claim that is expensive to be wrong about: a library's actual behaviour, a rate limit, a performance characteristic, a cost, a regex. Ground it by local experiment or two authoritative sources **before** the plan depends on it. Cheapest possible place to kill a wrong assumption. |
 | [`housekeeping`](../housekeeping/SKILL.md) | around Phase 11 | Phase 11 finds the docs have drifted from the code more widely than this change touches. Audits doc-versus-code drift, bloat and gaps rather than patching only what you happened to notice. |
-| [`context-reduction`](../context-reduction/SKILL.md) | after Phase 10 | Phase 9 keeps surfacing prose the code should have carried. This is `no-comment` at repository scale — a gated deletion campaign, not a per-comment decision — so run it as its own work, not inside a slice. |
+| [`context-reduction`](../context-reduction/SKILL.md) | after Phase 10 | Phase 9 keeps surfacing prose the code should have carried. This is `no-comment` at repository scale — a gated deletion campaign, not a per-comment decision — so suggest the human run `/context-reduction` (manual-only) as its own work, not inside a slice. |
 | [`postmortem`](../postmortem/SKILL.md) | with Phase 13 | The run involved a production incident, or a bug that had already escaped to users. Appends the entry to `LESSONS-LEARNED.md` — which **Phase 1 reads on the next run**. That is the loop closing, and it is the only optional step that makes future runs better rather than this one. |
 
 **Root-cause analysis — bug work only.** When the change is a fix rather than a feature, Phase 2 is an RCA: establish the actual cause, not the symptom, and let the Phase 7 failing test encode that cause. A fix aimed at a symptom passes its own test and leaves the bug in place. Keep it proportionate — if the RCA needs more than a short stretch of reasoning, it is its own piece of work: run it as a separate phase with its own brief (delegate to `diagnose`, or whatever debugging skill the setup has), rather than inflating Phase 2.

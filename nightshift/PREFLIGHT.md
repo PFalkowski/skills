@@ -14,7 +14,7 @@ If any item lacks acceptance criteria, ask: "What's the observable outcome that 
 
 ### Multi-cycle naming on the same date
 
-If the project organises run records by date and a backlog file already exists for today's date directory, do NOT overwrite — increment a numeric suffix (`nightshift-backlog-2.md`, `nightshift-backlog-3.md`, …) per the [SKILL.md multi-run convention](SKILL.md#multiple-runs-on-the-same-date). Confirm with the user which cycle suffix you are writing into before proceeding.
+If a run record already exists in today's date directory under the state root, do NOT overwrite — increment a numeric suffix (`run-2.md`, `run-3.md`, …) per the [SKILL.md multi-run convention](SKILL.md#multiple-runs-on-the-same-date). Confirm with the user which cycle suffix you are writing into before proceeding.
 
 ## 2. Design ambiguity sweep
 
@@ -37,7 +37,7 @@ Inline answers into the item's `**Notes:**` block — not in chat. Future-you in
 
 ## 4. Build / test plumbing (discovery, not assumption)
 
-Walk the discovery order from SKILL.md (`CLAUDE.md` → CI workflow → build manifest → saved memory → README) and write what you find into a `## NightShift detected conventions` block at the top of the backlog. Confirm with the user before locking it in.
+Walk the discovery order from SKILL.md (`CLAUDE.md` / `AGENTS.md` → CI workflow → build manifest → saved memory → README) and write what you find into a `## NightShift detected conventions` block at the top of the backlog. Confirm with the user before locking it in.
 
 - [ ] **Build command** — record verbatim (e.g. `dotnet build <sln>.sln`, `npm run build`, `cargo build`, `make`, `./gradlew build`, `mix compile`).
 - [ ] **Test command(s)** — there may be more than one (unit / integration / e2e). Record each with its trigger condition.
@@ -47,7 +47,7 @@ Walk the discovery order from SKILL.md (`CLAUDE.md` → CI workflow → build ma
 
 ## 5. Permission staging
 
-The loop must NOT trigger interactive permission prompts. Pre-approve via `.claude/settings.local.json`. Use the `update-config` skill to apply changes safely — it knows the schema.
+The loop must NOT trigger interactive permission prompts. Offer the user `/auto-mode-setup` first: it sets up auto mode with the deny rules for unattended runs, and replaces the per-command staging below. Otherwise pre-approve via `.claude/settings.local.json`. Use the `update-config` skill to apply changes safely — it knows the schema.
 
 Derive the allow-list from the build/test commands you discovered in section 4, plus the always-safe read-only git operations. Universal baseline:
 
@@ -82,8 +82,7 @@ Then layer per-toolchain entries. Examples (pick the ones that match what sectio
 
 Ask explicitly and inline the answers at the top of the backlog as a `## NightShift policy` block:
 - [ ] Should NightShift commit per item? (default: **yes** — one commit per Green)
-- [ ] Should it push? (default: **NO** — leave for morning review)
-- [ ] Should it open PRs? (default: **NO**)
+- [ ] Should it push and open PRs? (default: the delivery rule of the installed `CLAUDE.md`; with none, **NO** — leave for morning review)
 - [ ] Branch policy — are we on a working branch already, or should NightShift create one?
 - [ ] Off-limits paths — files / directories NightShift must not touch (e.g. production config, generated code)
 
@@ -102,5 +101,5 @@ User says "go" → enter Phase 2.
 
 - **Don't accept "use your judgment"** as an answer to a design question that has multiple defensible options. Make the user pick now, or you'll pick wrong at 3 a.m.
 - **Don't skip the green-baseline run.** Trusting that "tests probably pass" eats a retry budget on item 1.
-- **Don't pre-approve `git push`** without an explicit request. The default policy is local-only.
+- **Don't pre-approve `git push`** unless the delivery policy says push.
 - **Don't enter Phase 2 because the user said "looks good".** They have to literally say "go" or equivalent unambiguous authorization.

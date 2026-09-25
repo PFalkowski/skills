@@ -1,6 +1,7 @@
 ---
 name: runbook
-description: 'Turns "guide me through X" into a committed runbook at docs/runbooks/<slug>.md and walks the user through it, each step marked You (only the user can do it) or Assistant (done once the user reports back). Triggers: "guide me through", "walk me through", "how do I do X step by step", "write a runbook", any procedure touching accounts, consoles, payments or hardware.'
+description: 'Turns "guide me through X" into a committed runbook and walks the user through it. Use for "walk me through" or a procedure touching accounts or hardware.'
+disable-model-invocation: true
 license: MIT
 metadata:
   author: Piotr Falkowski

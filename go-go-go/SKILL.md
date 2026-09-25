@@ -1,6 +1,6 @@
 ---
 name: go-go-go
-description: 'Drives the repo from its current state — uncommitted work, open tasks, a stalled PR — to a raised, reviewed PR without stopping for low-stakes decisions. Triggers: "go go go", "just ship it", "make it happen", "finish and PR this".'
+description: 'Drives the current work to a raised, reviewed PR without stopping for low-stakes decisions. Use for "go go go" or "just ship it".'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -47,9 +47,9 @@ Everything else: decide and report the outcome.
 
 If there is a backlog or goal with pending items:
 
-1. **Single small item** (≤ 1 task, clearly spec'd) → implement inline in this session using TDD (red → green → refactor). Cheapest model that can handle the complexity: prefer Haiku-class for mechanical tasks, Sonnet for moderate reasoning, Opus only for genuinely hard design problems.
+1. **Single small item** (≤ 1 task, clearly spec'd) → implement inline in this session using TDD (red → green → refactor).
 
-2. **Multiple items or overnight scope** → invoke `nightshift` (skip re-doing pre-flight if acceptance criteria are already clear; tell it to go directly to Phase 2 with "go" already given). Pass `--model=<cheapest-fit>` per item type.
+2. **Multiple items or overnight scope** → invoke `nightshift` (skip re-doing pre-flight if acceptance criteria are already clear; tell it to go directly to Phase 2 with "go" already given).
 
 3. **Single well-defined goal with no backlog file** → loop with a focused subagent (Agent tool, Explore or claude subagent type per task) until done. Budget 3–10 tool calls for simple, 10–20 for moderate.
 
@@ -92,7 +92,7 @@ If the branch is `main`/`master` with no feature branch yet → create one first
 
 Drive every fresh PR through review and triage **before** the final report — don't wait to be asked:
 
-1. **Adversarial review.** Invoke **`code-review-grill`** on the new PR — a *fresh* agent that did not write the diff (never self-review from the session that wrote it). Scale to the change: a single reviewer for small/contained diffs, quorum (concern-per-agent) for load-bearing ones; keep models cost-aware per the table below. Within go-go-go, code-review-grill's own Step 7 ask-before-posting gate is skipped — go-go-go's whatever-mode already covers that decision — but its posting *mechanics* and its posting bar ([REFERENCE, § The bar](../code-review-grill/REFERENCE.md#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr)) still apply: real inline per-finding PR comments for the 🔥/⚠️ findings (one thread first, confirm it landed, then the rest), plus the one summary thread.
+1. **Adversarial review.** Invoke **`code-review-grill`** on the new PR — a *fresh* agent that did not write the diff (never self-review from the session that wrote it). Scale to the change: a single reviewer for small/contained diffs, quorum (concern-per-agent) for load-bearing ones; models per § Model selection below. Within go-go-go, code-review-grill's own Step 7 ask-before-posting gate is skipped — go-go-go's whatever-mode already covers that decision — but its posting *mechanics* and its posting bar ([REFERENCE, § The bar](../code-review-grill/REFERENCE.md#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr)) still apply: real inline per-finding PR comments for the 🔥/⚠️ findings (one thread first, confirm it landed, then the rest), plus the one summary thread.
 2. **Auto-apply the mechanical findings on changed lines** (typo, import, lint, formatting; the list in [§ The bar](../code-review-grill/REFERENCE.md#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr)) and push. A 🔥/⚠️ you also fix under whatever-mode is still posted in step 3, marked fixed.
 3. **Post every 🔥/⚠️ finding on a diff line as its own inline PR comment, fixed or not**; an off-diff one goes in the summary thread's Off-diff blockers. Each comment body states its status (fixed in commit `<sha>`, or left unresolved) plus the finding's description, suggested fix, and verification. Then file the Carried class issues, one per defect shape, a security or data-loss one at blocker priority and named in the final report; then the summary thread (REFERENCE, § The bar) linking them.
 4. **Triage next steps into issues.** Convert deferred / out-of-scope work into tracker issues via **`to-issues`** (or `gh issue create`), linked from the PR, so nothing falls through.
@@ -115,21 +115,13 @@ Diagnose why the PR is stalled, then fix:
 
 One short paragraph: what state you found, what you did, the PR URL, the review outcome (findings auto-fixed vs left as unresolved PR comments), any issues filed, and what (if anything) still needs human action. No rehashing every step — just the outcome and the links.
 
-## Model selection (minimize cost, preserve quality)
+## Model selection
 
-| Task | Default model |
-|---|---|
-| Read-only discovery (git, grep, file scan) | Haiku / Explore subagent |
-| Mechanical code (boilerplate, tests, formatting) | Haiku |
-| Moderate implementation (new feature, refactor) | Sonnet |
-| Hard design / architecture / security | Opus |
-| PR description, commit message | Haiku |
-
-Spawn worker subagents with `model: "haiku"` unless the brief clearly requires stronger reasoning. The lead (this session) stays on its current model for synthesis.
+Workers run on the house worker tier set in `CLAUDE.md`: low effort for discovery, mechanical code and commit messages, medium for implementation. Review and hard design run on the strongest tier available. The lead (this session) stays on its current model for synthesis. [save-tokens](../save-tokens/SKILL.md) owns the rubric.
 
 ## Extreme mode (at own discretion)
 
-When normal go-go-go stalls — the goal is still unmet after the standard pass, the task is large, or the work is iterative by nature — escalate to **ralph-loop** as the persistence engine.
+When normal go-go-go stalls — the goal is still unmet after the standard pass, the task is large, or the work is iterative by nature — escalate to the built-in **`/goal`** as the persistence engine.
 
 ### When to self-escalate to extreme
 
@@ -139,56 +131,44 @@ Trigger extreme mode autonomously when any of these hold:
 - CI keeps failing in a loop and fix-attempt count > 2.
 - The task has more than ~5 independent slices that benefit from parallel attack.
 
-Do **not** announce it — just escalate and note it in the final report.
-
 ### How to pick the agent shape (own discretion)
 
 Classify the remaining work on two axes: **breadth** (how many independent slices?) and **depth** (does each slice need hard reasoning?):
 
 | Shape | When to use | Model |
 |---|---|---|
-| **Farm — parallel Haiku workers** | Many independent, mechanical slices (rename, boilerplate, test scaffolding, bulk file edits, format passes) | `haiku` per worker, all in parallel, Sonnet lead |
-| **Chain — sequential Opus steps** | Single complex goal that requires each step to reason about the last (design, architecture, security, intricate refactor) | `opus` per step, sequential, Opus lead |
-| **Mixed** | Some slices mechanical, some hard | Haiku farm for mechanical slices in parallel + Opus chain for the hard nucleus; Sonnet lead synthesizes |
+| **Farm — parallel workers** | Many independent, mechanical slices (rename, boilerplate, test scaffolding, bulk file edits, format passes) | house worker tier at low effort, all in parallel |
+| **Chain — sequential steps** | Single complex goal that requires each step to reason about the last (design, architecture, security, intricate refactor) | strongest tier available, sequential |
+| **Mixed** | Some slices mechanical, some hard | a farm for the mechanical slices in parallel, a chain for the hard nucleus |
 
-Default to **Farm** (cheap + fast) unless depth clearly demands otherwise. Never pick Opus for a task Haiku can do.
+Default to **Farm** unless depth clearly demands otherwise.
 
-### Ralph-loop integration
+### `/goal` integration
 
-Invoke `/ralph-loop` with the goal expressed as a single verifiable exit condition, e.g.:
+`/goal` is a built-in command the agent cannot run itself. Give the user the line to type, with the goal as one exit condition the transcript can prove and a turn cap:
 
-> "Loop until: all backlog items are `done`, CI is green, and a PR is open. Max iterations: 10."
+```
+/goal all backlog items are done, CI is green, and a PR is open, or stop after 10 turns
+```
 
-Pass the agent shape and model constraints in the loop prompt so each iteration spawns the right workers. On each iteration the loop should:
-1. Re-read current state (git, CI, backlog).
-2. Spawn workers per the chosen shape.
-3. Commit progress.
-4. Check exit condition — stop if met, otherwise continue.
-
-Cap iterations at **10** unless the user explicitly raised the limit. After the cap, report remaining blockers rather than looping forever.
+Suggest auto mode with it, so goal turns run without permission prompts. With nobody at the keyboard, launch it headless from the repo instead: `claude -p "/goal <condition>" --output-format stream-json --verbose`. That session starts empty, so the condition carries a [`handoff lite`](../handoff/SKILL.md) brief. Each turn re-reads state (git, CI, backlog), spawns workers per the chosen shape, and commits progress. Keep the cap at **10** turns unless the user raised it.
 
 ### Farm worker brief template
-
-Each Haiku worker gets a tight brief:
 
 ```
 Objective: <one sentence, one file/module/task>
 Output: commit the change; output "DONE: <what you did>" or "BLOCKED: <reason>"
 Tools: [Edit, Bash (tests only), Read]
 Out of scope: everything not in Objective
-Model: haiku
 ```
 
 ### Chain step brief template
-
-Each Opus step gets reasoning context from the prior step:
 
 ```
 Objective: <this step's outcome>
 Prior step output: <paste prior step's summary>
 Output: implement + commit; summarize in ≤3 sentences for the next step
 Tools: [all]
-Model: opus
 ```
 
 ## Stop conditions
@@ -198,6 +178,6 @@ Stop and ask **only** when:
 1. No secrets/credentials are available and the task cannot proceed without them.
 2. The task would require a force-push to a shared protected branch.
 3. A hard design fork exists where guessing wrong would require discarding significant real work.
-4. Ralph-loop hit the iteration cap and blockers remain that need human judgment.
+4. The goal hit its turn cap and blockers remain that need human judgment.
 
 In all other cases: decide, report the choice in one line, keep moving.

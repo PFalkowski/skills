@@ -69,7 +69,7 @@ One Workflow per moved PR — [`workflows/grill.js`](../workflows/grill.js), tes
 //        complete }      // the ledger's gate: false whenever anything in `uncovered`
 ```
 
-Inside: a cheap agent distils the repo's **house rules** once (code-review-grill's read-the-docs-first step — README, ADRs, guidelines), then reviewers fan out (single, or one per concern), then every candidate finding faces its verifier. Reviewer and verifier stages run `isolation: 'worktree'` — they diff explicit SHAs and run repro experiments, never in the user's tree. Tiers per [TRIAGE.md](TRIAGE.md) discipline: `sonnet` reviewers and verifiers, `haiku` for the docs distiller; `opus` for a single concern only when the PR is genuinely load-bearing.
+Inside: a cheap agent distils the repo's **house rules** once (code-review-grill's read-the-docs-first step — README, ADRs, guidelines), then reviewers fan out (single, or one per concern), then every candidate finding faces its verifier. Reviewer and verifier stages run `isolation: 'worktree'` — they diff explicit SHAs and run repro experiments, never in the user's tree. Reviewers and verifiers run on `opus`, the docs distiller at `low` effort.
 
 The dedup key is `file:title`, no line number — line numbers shift between the shas of successive grills, and the looser key's failure mode is a duplicate thread (waste), where a line-tight key's is re-posting every standing finding after every push (noise the user learns to ignore).
 

@@ -1,6 +1,6 @@
 ---
 name: wrap-up
-description: 'End-of-session closer: ships outstanding work, sweeps session scaffolding, offloads the open ledger to the tracker, prints a `handoff lite` block when anything needs continuing, and routes skill feedback and memory. Triggers: "wrap it up", "close the session", or work left unfinished for a fresh context or machine.'
+description: 'Closes a session: ships outstanding work, sweeps scaffolding, and hands off what remains. Use for "wrap it up" or "close the session".'
 license: MIT
 metadata:
   author: Piotr Falkowski

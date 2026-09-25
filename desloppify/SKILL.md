@@ -1,6 +1,7 @@
 ---
 name: desloppify
-description: 'Strips stale prose, duplication, dead paths, and excess abstraction from a codebase, preserving behavior and architecture. Triggers: bloated, confusing, inconsistent, over-commented, costly-to-load agent-grown code, or documentation an agent generated across a long session (ADRs, plans, tickets, handovers). Distinct from context-reduction (prose), housekeeping (docs+code audit), less-is-more (single change).'
+description: 'Strips stale prose, duplication, dead paths and excess abstraction from agent-grown code without changing behavior. Use when code or its docs are bloated.'
+disable-model-invocation: true
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -60,7 +61,7 @@ Read [RUNBOOK.md](RUNBOOK.md) for the full run. In brief: inventory cheaply and 
 uncovered areas; baseline build/test/lint; audit docs; scan prioritized context hotspots;
 refute and deduplicate findings; route each root cause to `now`, `ticket`, or `drop`; then
 apply only approved slices and re-run the guardrails. Use [housekeeping](../housekeeping/SKILL.md)
-for broad docs-first auditing, [context-reduction](../context-reduction/SKILL.md) for a
+for broad docs-first auditing, suggest the human run `/context-reduction` (manual-only) for a
 comment/prose deletion campaign, [code-review-grill](../code-review-grill/SKILL.md) for a
 material cleanup diff, and [triage](../triage/SKILL.md) when creating agent-ready backlog work.
 

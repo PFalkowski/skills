@@ -1,6 +1,6 @@
 ---
 name: relay-loop
-description: Run long multi-step work as a relay of fresh contexts — a PLAN file holds every planned step, a HANDOFF file carries the baton (current state + exact next step), and each iteration executes exactly ONE step, verifies it, commits, rewrites the baton, and re-queues itself. Any fresh context pointed at the loop folder can continue the work. Use when work spans more steps or sessions than one context should hold, when the user wants every step reproducible from a fresh context, mentions "relay loop", "self-prompting loop", "handoff at each step", "make this resumable/reproducible", or when compaction or session loss would otherwise lose the plan mid-work.
+description: 'Runs long work as a relay of fresh contexts, one verified step per iteration via PLAN and HANDOFF files. Use for "relay loop" or resumable work.'
 license: MIT
 metadata:
   author: Piotr Falkowski

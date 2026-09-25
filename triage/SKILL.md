@@ -1,6 +1,6 @@
 ---
 name: triage
-description: 'Grooms an issue tracker into category/state/priority lanes using one bar: specified well enough and wanted now. Writes briefs or notes, and reports refusals instead of enacting them. Triggers: triaging or grooming a backlog, deciding if a ticket is agent-ready, prepping work for an unattended run.'
+description: 'Grooms an issue tracker into category, state and priority lanes and marks what is agent-ready. Use for "triage" or "groom the backlog".'
 license: MIT
 metadata:
   author: Piotr Falkowski

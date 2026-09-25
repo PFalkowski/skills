@@ -1,6 +1,6 @@
 ---
 name: evolve-skill
-description: 'Turns feedback about a skill, MCP, hook, or process into a durable improvement of its source. Triggers: shortly after one ran, the user asks to change its behavior, corrects it, or says "incorporate this", "build this in", "remember to". Distinct from write-a-skill (new) and update-config (settings).'
+description: 'Turns feedback about a skill, hook or process into a durable edit of its source. Use when the user corrects one or says "build this in" or "remember to".'
 license: MIT
 metadata:
   author: Piotr Falkowski

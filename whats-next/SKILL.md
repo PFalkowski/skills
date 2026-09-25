@@ -1,6 +1,6 @@
 ---
 name: whats-next
-description: 'Prints a ranked cross-repository board of what to work on next - PRs waiting on you, dirty worktrees, blocked sessions, backlog items - then puts you into the item you pick; can also prune worktrees that are safely dead. Triggers: no fixed target for a new session, asking what to work on, or clearing dead worktrees.'
+description: 'Prints a ranked board of what to work on next across repos, then opens the pick; can prune dead worktrees. Use when a session has no fixed target.'
 disable-model-invocation: true
 license: MIT
 metadata:
