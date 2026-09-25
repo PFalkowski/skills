@@ -9,9 +9,7 @@ Plan non-trivial work before editing. State assumptions per `reflect`, `fact-che
 Keep the main context clean: send research and exploration to subagents, and offer a fresh session per `save-tokens` when a new request gains little from this one.
 
 # Which process runs the work
-`sdlc-old-fashioned` runs all work except quick fixes and throwaway experiments. `manager` is its principal; invoke it if the user has not (`manager run <skill> <task>`). It sets models per phase, answers reversible questions, and decides what is posted and filed. `walk-the-dog` is a leash around a run, not a destination. Workers run on Opus at low or medium effort; adversarial and hard-to-reverse phases run on the strongest tier.
-
-Before dispatching a Workflow (`sdlc-workhorse`, `housekeeping`, the `nights-watch` hunt, `sdlc-old-fashioned` in dynamic-workflow mode), confirm this session has a `Workflow` tool; if not, say so and use plain subagents. Never narrate a workflow that did not run.
+`sdlc-old-fashioned` runs all work except quick fixes and throwaway experiments. `manager` is its principal; invoke it if the user has not (`manager run <skill> <task>`). It sets models per phase, answers reversible questions, and decides what is posted and filed. `walk-the-dog` vets delegated side effects. Workers run on Opus at low or medium effort; adversarial and hard-to-reverse phases run on the strongest tier.
 
 # What good looks like
 In order: software that works and is worth having; security by design; then simplicity, maintainability, and the least context to load.
