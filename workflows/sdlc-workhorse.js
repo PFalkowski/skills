@@ -150,6 +150,14 @@ const FACT_CHECK_RULE =
   `not establish and treat it as an open question. Discovering mid-check that your premise is WRONG is a SUCCESS of ` +
   `this process, not a setback — say so and change the artifact.`
 
+// The three steps are the fallback brief, not a copy of the method, for the same reason proven() defers to fact-check.
+const INVERT_RULE =
+  `Apply the "invert" skill. It is manual-only, so the Skill tool will refuse it: read its SKILL.md instead — ` +
+  `~/.claude/skills/invert/SKILL.md, else the first hit of ` +
+  `\`find ~/.claude/plugins/cache ~/.agents/skills -path '*/invert/SKILL.md' 2>/dev/null | head -1\`. ` +
+  `Name three specific ways this plan fails once shipped, check whether the plan already does one, and block each ` +
+  `or state why it cannot happen. If no copy is found, say so in your chronicle and apply those three steps anyway.`
+
 // Several skills this workflow composes are INTERACTIVE by design — grill-me and
 // grill-with-docs interview a user; code-review-grill has two ALWAYS-ASK gates.
 // Invoked from an autonomous worker they would stall or improvise past their own
@@ -267,7 +275,16 @@ const PLAN_SCHEMA = {
   properties: {
     approach: { type: 'string' },
     components: { type: 'array', items: { type: 'string' }, description: 'Key components and interfaces; data and control flow.' },
-    failureModes: { type: 'array', items: { type: 'string' } },
+    failureModes: {
+      type: 'array',
+      description: 'invert: the sentence someone says after it shipped, and what in this plan blocks it, or the ' +
+        'stated assumption if nothing can.',
+      items: {
+        type: 'object',
+        required: ['failure', 'blockedBy'],
+        properties: { failure: { type: 'string' }, blockedBy: { type: 'string' } },
+      },
+    },
     alternativesRejected: {
       type: 'array', minItems: 1,
       description: 'A plan with no rejected alternative was not designed, it was assumed.',
@@ -669,7 +686,7 @@ for (let round = 1; round <= maxPlanRounds; round++) {
     `ACCEPTANCE CRITERIA:\n${acceptance.map(a => `- ${a}`).join('\n')}\n\n${pitfallRule}\n` +
     `${planFeedback ? `\nA previous design round was REJECTED. You must address every point:\n${planFeedback}\n` : ''}\n` +
     `Approach; key components and interfaces; data and control flow; failure modes; alternatives considered and WHY ` +
-    `rejected; the test strategy. Save the plan in the repo and report the path.\n\n${FACT_CHECK_RULE}\n\n` +
+    `rejected; the test strategy. Save the plan in the repo and report the path.\n\n${INVERT_RULE}\n\n${FACT_CHECK_RULE}\n\n` +
     `${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('plan'))}`,
     { label: `plan:r${round}`, phase: 'Plan', model: tiers.plan, schema: PLAN_SCHEMA }
   )
@@ -683,7 +700,7 @@ for (let round = 1; round <= maxPlanRounds; round++) {
       `not here to be agreeable.\n\n<spec>\n${sharpSpec}\n</spec>\n\n<plan>\n${planText}\n</plan>\n\n${pitfallRule}\n\n` +
       `Hunt specifically for: hidden coupling; failure modes it does not handle; a wrong abstraction; a materially ` +
       `cheaper path to the same outcome; and the big one — does it actually satisfy the spec, or a nearby easier ` +
-      `problem? Mark a finding mustFix only if shipping this plan unchanged would be a defect.\n\n` +
+      `problem? Mark a finding mustFix only if shipping this plan unchanged would be a defect.\n\n${INVERT_RULE}\n\n` +
       `Use the "grill-with-docs" skill if available.\n\n${NO_HUMAN_RULE}\n\n${CHRONICLE_RULE(chronicle('plan-review'))}`,
       { label: `plan-review:r${round}`, phase: 'Plan review', model: tiers.planReview, schema: PLAN_REVIEW_SCHEMA }
     ),

@@ -53,7 +53,7 @@ const mkAgent = ({ reviews = {}, reviewDies = [] } = {}) => async (prompt, opts)
   if (L === 'spec') return { problem: 'p', goal: 'g', scope: ['s'], nonGoals: ['n'], successCriteria: ['c'] }
   if (L.startsWith('claims:')) return { claims: [] }        // no claims → no refute rounds on artifacts
   if (L.startsWith('grill:')) return { holes: [], verdict: 'sharp' }
-  if (L.startsWith('plan:')) return { approach: 'a', components: ['c'], failureModes: ['f'],
+  if (L.startsWith('plan:')) return { approach: 'a', components: ['c'], failureModes: [{ failure: 'f', blockedBy: 'b' }],
     alternativesRejected: [{ alternative: 'x', whyRejected: 'y' }], testStrategy: 't' }
   if (L.startsWith('plan-review:')) return { verdict: 'approved', findings: [] }
   if (L === 'slice') return { slices: [{ id: 's1', title: 'S1', acceptanceCriterion: 'AC', effort: 'low' }] }
@@ -263,6 +263,19 @@ console.log('\nmandatory fact-check reaches the premise agents themselves, not j
   await t('the spec agent is required to ground its claims before writing them', () => grounded('spec'))
   await t('the grill agent is too', () => grounded('grill:r1'))
   await t('the plan agent is too', () => grounded('plan:r1'))
+}
+
+console.log('\ninvert reaches the plan and its review — read by path, since the Skill tool refuses a manual-only skill:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: mkAgent() })
+  const inverts = l => /invert\/SKILL\.md/.test(promptFor(r, l)) && /manual-only/.test(promptFor(r, l))
+    && !/Use the "invert" skill/.test(promptFor(r, l))
+  await t('the plan agent is told to read invert/SKILL.md', () => inverts('plan:r1'))
+  await t('...and so is the plan reviewer', () => inverts('plan-review:r1'))
+  const planSchema = r.calls.find(c => c.opts.label === 'plan:r1').opts.schema
+  await t('every failure mode must say what blocks it', () =>
+    (planSchema.properties.failureModes.items.required || []).includes('blockedBy'))
+  await t('...with no parallel inversion field beside it', () => !('inversion' in planSchema.properties))
 }
 
 // ---------------------------------------------------------------------------
