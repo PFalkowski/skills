@@ -32,7 +32,7 @@ metadata:
 /nights-watch grill stance=quorum concerns=security,architecture,tests
 ```
 
-Invoking this skill is the user's explicit opt-in to multi-agent orchestration (the Workflow tool).
+Invoking this skill is the user's explicit opt-in to multi-agent orchestration (the Workflow tool). A scheduled firing may not carry that opt-in: when the Workflow tool is missing or refuses, dispatch the same work as plain subagents and say so in the patrol summary.
 
 ## The Oath (non-negotiable rules)
 
