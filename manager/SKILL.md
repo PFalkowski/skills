@@ -82,7 +82,7 @@ The mandate still bounds what the maintenance may do. The manager grants the yes
 
 | The item is | Dispatch |
 |---|---|
-| load-bearing: public API, schema, subsystem, money, security | `sdlc-old-fashioned` (autonomous dial) or the `sdlc-workhorse` workflow |
+| load-bearing: public API, schema, subsystem, money, security | `sdlc-old-fashioned` (autonomous dial; its dynamic-workflow mode runs the `sdlc-workhorse` workflow) |
 | small, mechanical, well-understood | `go-go-go`, or a `nightshift` backlog item |
 | a PR with no independent review yet | `code-review-grill` — a fresh reviewer, then `fix-pr` headless for what it finds |
 | review comments to work | `fix-pr` with `reply=`/`resolve=` from the mandate |

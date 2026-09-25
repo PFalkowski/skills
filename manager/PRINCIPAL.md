@@ -31,14 +31,14 @@ Fill every `<…>` from the mandate.
 | Skill | Its autonomous shape | Where its asks come out | What the manager does with them |
 |---|---|---|---|
 | `sdlc-old-fashioned` | Dial 1 = **autonomous**; fresh process per phase | deferred questions in the run's backlog file; the merge gate | answer in the backlog file after each phase's result comes back; hold the merge gate per `merge=` |
-| `sdlc-workhorse` (Workflow) | already autonomous, evidence-gated | its `RESULT`; stops at irreversible lines | consume the result; the irreversible lines are the manager's verdicts |
+| `sdlc-workhorse` (Workflow; sdlc-old-fashioned's workflow mode, or dispatched by nights-watch) | already autonomous, evidence-gated | its `RESULT`; stops at irreversible lines | consume the result; the irreversible lines are the manager's verdicts |
 | `nights-watch` | standing loop; `once` for a single pass | patrol summary: blockers, refusals, `ai-done` PRs | decide each refusal and blocker; grill or merge-escalate each `ai-done` PR; enact on the board what the Watch would not |
 | `nightshift` | autonomous by construction | backlog-file deferrals; end-of-run summary | answer deferrals in the file; verdicts on the summary |
 | `fix-pr` | headless: mode coerces to auto | `needs-discussion` report lines; drafted replies | decide each; post the replies per `post=` |
 | `code-review-grill` | reviewer runs alone; posting is asked | the findings table and "post which?" | verified findings post per `post=`; unverified ones are not findings |
 | `go-go-go` | whatever-mode, stops at hard blockers | its hard blockers | the manager's verdict is the blocker's answer; then re-dispatch |
 | `walk-the-dog` | the walker vets actions | `PROPOSAL` / `ESCALATE` | the manager *is* the walker for legs it fences this way |
-| any `Workflow` script | agents inside cannot spawn ([#46](https://github.com/PFalkowski/skills/issues/46)) | the script's return value | dispatch with `scriptPath`; consume the return; never ask an in-workflow agent to orchestrate |
+| any `Workflow` script | agents inside cannot spawn ([#46](https://github.com/PFalkowski/skills/issues/46)) | the script's return value | dispatch by name (or `scriptPath`); consume the return; never ask an in-workflow agent to orchestrate |
 
 ## Talking back to a running agent
 

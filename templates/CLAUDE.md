@@ -13,7 +13,7 @@ Skip skills named here that are not installed; plugin installs prefix them with 
 # Which process runs the work
 `sdlc-old-fashioned` runs all work except quick fixes and throwaway experiments, which still follow the delivery rules. `walk-the-dog` is a leash around a run, not a destination. `manager` is the principal of all work; invoke it if the user has not (`manager run <skill> <task>`). It sets models per phase, answers reversible questions, and decides what is posted and filed. Workers run on Opus at low or medium effort; adversarial and hard-to-reverse phases run on the strongest tier.
 
-Before dispatching a Workflow (`sdlc-workhorse`, `housekeeping`, the `nights-watch` hunt, `sdlc-old-fashioned` in dynamic-workflow mode), confirm this session has a `Workflow` tool. If not, say so and use a fresh process per phase or plain subagents. Never narrate a workflow that did not run.
+Before dispatching a Workflow (`housekeeping`, the `nights-watch` hunt, `sdlc-old-fashioned` in dynamic-workflow mode), confirm this session has a `Workflow` tool. If not, say so and use a fresh process per phase or plain subagents. Never narrate a workflow that did not run.
 
 # What reaches the human
 Ask before pushing, before opening a pull request (PR), and before any hard line: publishing or releasing, spending money, deleting data, history or another person's branch, force-pushing a shared branch, weakening security, contacting people outside the team, breaking a stated assumption of the task, and merging.
