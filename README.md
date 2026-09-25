@@ -117,7 +117,7 @@ To install without overwriting your own `~/.claude/CLAUDE.md`, add an import lin
 
 Run `/memory` once to confirm Claude Code lists them. On Windows, `./link-skills.ps1 -ClaudeMd Import` (below) appends the first line for you. `-ClaudeMd Append` copies the content in instead.
 
-Codex reads `AGENTS.md`, not `CLAUDE.md`: copy the content of `templates/CLAUDE.md`, and `templates/autonomy.md` if you want it, into `~/.codex/AGENTS.md`, and add `project_doc_fallback_filenames = ["CLAUDE.md"]` to `~/.codex/config.toml` so it also reads each repo's `CLAUDE.md`.
+Codex reads `AGENTS.md`, not `CLAUDE.md`: copy the content of `templates/CLAUDE.md`, and `templates/autonomy.md` if you want it, into `~/.codex/AGENTS.md`, and add `project_doc_fallback_filenames = ["CLAUDE.md"]` to `~/.codex/config.toml` so it reads a repo's `CLAUDE.md` when that repo has no `AGENTS.md`.
 
 ## Local development (maintainers)
 
