@@ -187,7 +187,7 @@ rm -rf "$WORKFLOWS_LINK"
 out="$(run -ClaudeMd Skip -ClaudeMdPath "$WORK/wf/CLAUDE.md" 2>&1)"
 check "workflows: a missing link is created ('+')" bash -c "printf '%s' \"\$1\" | grep -qE '^\+  workflows'" _ "$out"
 check "workflows: the link reaches the repo's scripts" [ -f "$WORKFLOWS_LINK/hunt.js" ]
-check "workflows: no test file is reachable through the link" bash -c "! ls \"\$1\" | grep -q '\.test\.js$'" _ "$WORKFLOWS_LINK"
+check "workflows: no test file is reachable through the link" bash -c "[ -d \"\$1\" ] && ! ls \"\$1\" | grep -q '\.test\.js$'" _ "$WORKFLOWS_LINK"
 out="$(run -ClaudeMd Skip -ClaudeMdPath "$WORK/wf/CLAUDE.md" 2>&1)"
 check "workflows: a correct link is left alone ('=')" bash -c "printf '%s' \"\$1\" | grep -qE '^=  workflows'" _ "$out"
 

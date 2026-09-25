@@ -117,7 +117,7 @@ else {
 }
 if ($mark) {
     New-Item -ItemType Directory -Force -Path (Split-Path $WorkflowsPath -Parent) | Out-Null
-    New-Item -ItemType Junction -Path $WorkflowsPath -Target $workflows | Out-Null
+    New-Item -ItemType ($IsWindows ? 'Junction' : 'SymbolicLink') -Path $WorkflowsPath -Target $workflows | Out-Null
     "$mark  workflows ($WorkflowsPath)"
 }
 
