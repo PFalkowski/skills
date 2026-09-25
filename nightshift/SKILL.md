@@ -28,7 +28,7 @@ Ordering is the source's: path order for a glob, the order given for a list, tra
 
 ### Multiple runs on the same date
 
-When run records are organized by date (`.../runs/YYYY-MM-DD/...`), a second cycle that day MUST NOT overwrite the first — increment a filename suffix (`nightshift-backlog.md` → `-2.md` → `-3.md`) within the shared date directory. Each cycle's exit summary prepends to its own file; per-item review logs sit alongside (distinct slugs rarely collide).
+Dated run records and per-item review logs are run state: they live under `~/.agent-state/<repo-slug>/nightshift/runs/YYYY-MM-DD/`, per [agent-state.md](../docs/agent-state.md). The backlog stays where the user keeps it. A second cycle that day MUST NOT overwrite the first — increment a filename suffix (`run.md` → `run-2.md` → `run-3.md`) within the shared date directory.
 
 ## Phase 1 — Pre-flight (user awake)
 
@@ -36,7 +36,7 @@ Walk through [PREFLIGHT.md](PREFLIGHT.md): clear the question categories (design
 
 ## Phase 2 — Loop (user asleep)
 
-Per item, follow [LOOP.md](LOOP.md): read backlog → mark `in_progress` → plan TDD slice → Red → Green → Refactor → **adversarial code review** ([CODE-REVIEW.md](CODE-REVIEW.md)) → commit + push + open PR → **post the review to the PR** → update backlog → spawn a fresh subagent for the next item. Spawned subagents run Phase 2 only — never re-enter pre-flight.
+Per item, follow [LOOP.md](LOOP.md): read backlog → mark `in_progress` → plan TDD slice → Red → Green → Refactor → **adversarial code review** ([CODE-REVIEW.md](CODE-REVIEW.md)) → commit → push + open PR per the delivery policy → **post the review to the PR** → update backlog → spawn a fresh subagent for the next item. Spawned subagents run Phase 2 only — never re-enter pre-flight.
 
 When items build on each other, **stack the PRs** (each branch off the previous; PR base = previous branch; keep all open — see LOOP.md "Stacked PRs"). To **land** the chain afterward, use the `merge-stack` skill; don't hand-merge ad hoc.
 
@@ -59,7 +59,7 @@ The loop exits when no `pending` items remain, all remaining are `blocked-on-que
 
 ## Repo discovery (at pre-flight)
 
-Language- and toolchain-agnostic — discover conventions, don't assume them. In order, stop when confident: (1) `CLAUDE.md` + sibling `*/CLAUDE.md`; (2) `.github/workflows/*.yml`; (3) root build manifests (`Makefile`, `package.json`, `pyproject.toml`, `*.sln`/`*.csproj`, `go.mod`, `pom.xml`, …); (4) saved auto-memory (honor without re-asking); (5) README (last resort). Inline findings into a `## NightShift detected conventions` block atop the backlog — subagents read it instead of re-discovering, and inherit `CLAUDE.md` + memories automatically (don't reintroduce a retired dep or violate a documented rule).
+Language- and toolchain-agnostic — discover conventions, don't assume them. In order, stop when confident: (1) `CLAUDE.md` or `AGENTS.md` + their sibling `*/CLAUDE.md`, `*/AGENTS.md`; (2) `.github/workflows/*.yml`; (3) root build manifests (`Makefile`, `package.json`, `pyproject.toml`, `*.sln`/`*.csproj`, `go.mod`, `pom.xml`, …); (4) saved auto-memory (honor without re-asking); (5) README (last resort). Inline findings into a `## NightShift detected conventions` block atop the backlog — subagents read it instead of re-discovering, and inherit `CLAUDE.md` + memories automatically (don't reintroduce a retired dep or violate a documented rule).
 
 ## Adversarial code review (the default second pass — every code item)
 
