@@ -14,7 +14,7 @@
 | Oath rule 3 (ready *and* intended) | the judge or the selector answers both | **the user handing it over answers both** |
 | Gate failure | record in the patrol summary, change nothing on the board, move on | **ask the user** — they're right there; there is no next ticket to move on to |
 | Process | assigned by tier rubric | **always the full lifecycle** (see below) — no exceptions for small-looking work |
-| Model tier | haiku / sonnet / opus by rubric | rubric still picks, but with a **floor of `sonnet`** — haiku doesn't run a lifecycle |
+| Tier | `low` / `medium` / `high` by rubric | rubric still picks, but with a **floor of `medium`** — `low` doesn't run a lifecycle |
 | Concurrency | worker pool, `parallel` / `max-workers` | one lifecycle. No pool — the watcher dispatches `sdlc-workhorse` itself, so no patrol Workflow wraps it |
 | Loop | standing watch, self-paced | none — the ranging ends when the PR is open or the blocker is reported |
 | The fire | closes every patrol | closes the ranging too, just briefly |
@@ -63,4 +63,4 @@ And the standing discipline, unchanged from the patrol: read the Library index f
 
 ## When NOT to range
 
-A ranging is expensive on purpose. It is the wrong tool for a typo sweep or a dep bump — label those `ai-ready` and let a patrol give them to a haiku ranger, or just fix them. It is also not the tool for shipping fast: that's `go-go-go`. Reach for the ranging when one ticket matters enough that a wrong answer costs more than the lifecycle does.
+A ranging is expensive on purpose. It is the wrong tool for a typo sweep or a dep bump — label those `ai-ready` and let a patrol give them to a `low` ranger, or just fix them. It is also not the tool for shipping fast: that's `go-go-go`. Reach for the ranging when one ticket matters enough that a wrong answer costs more than the lifecycle does.

@@ -69,19 +69,19 @@ const reserve = cfg.reserve ?? 60000                    // output tokens held ba
 const parallelSlices = cfg.parallel ?? 1                // slices in flight; 1 = one branch, one PR
 const maxWorkers = cfg.maxWorkers ?? 3
 
-// Lowest sufficient tier per phase — never default a worker to the session tier.
+// Model per phase — never default a worker to the session tier. Workers vary effort, not model.
 const tiers = Object.assign({
-  baseline: 'haiku',
+  baseline: 'opus',
   spec: 'opus',        // premise gate — floored, see below
   grill: 'opus',       // premise gate — floored, see below
   plan: 'opus',        // a wrong design costs more than the tokens
   planReview: 'opus',
-  slice: 'sonnet',
-  build: 'sonnet',
-  review: 'sonnet',
-  verify: 'haiku',     // refuters are many and cheap
-  document: 'sonnet',
-  retro: 'sonnet',
+  slice: 'opus',
+  build: 'opus',
+  review: 'opus',
+  verify: 'opus',
+  document: 'opus',
+  retro: 'opus',
 }, cfg.tiers || {})
 
 // ---------------------------------------------------------------------------
@@ -310,12 +310,12 @@ const SLICES_SCHEMA = {
       type: 'array', minItems: 1,
       items: {
         type: 'object',
-        required: ['id', 'title', 'acceptanceCriterion', 'tier'],
+        required: ['id', 'title', 'acceptanceCriterion', 'effort'],
         properties: {
           id: { type: 'string', description: 'Short kebab-case id, unique in this run.' },
           title: { type: 'string' },
           acceptanceCriterion: { type: 'string', description: 'The single observable behaviour this slice adds. One test can encode it.' },
-          tier: { type: 'string', enum: ['haiku', 'sonnet', 'opus'], description: 'Lowest tier that can actually do this slice.' },
+          effort: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Lowest effort that can actually do this slice.' },
           dependsOn: { type: 'array', items: { type: 'string' } },
         },
       },
@@ -546,7 +546,7 @@ async function runRetro(sliceCount) {
     `Token spend this run: ~${Math.round(budget.spent() / 1000)}k output tokens across ${sliceCount} slice(s) — ` +
     `record it as a calibration lesson so the next run's reserve is a number, not a guess.\n\n` +
     `The output is an artifact: a short WRITTEN reflection committed to the repo, not a feeling that it went fine.`,
-    { label: 'retro', phase: 'Retrospective', model: tiers.retro, schema: RETRO_SCHEMA }
+    { label: 'retro', phase: 'Retrospective', model: tiers.retro, effort: 'medium', schema: RETRO_SCHEMA }
   )
 }
 
@@ -565,7 +565,7 @@ const baseline = await agent(
   `3. RUN them, right now, unchanged. Report each command with its ACTUAL output tail and whether it passed.\n` +
   `4. Report any guardrail that is simply missing.\n\n` +
   `Do not fix anything. Do not write code. This phase only observes and reports.\n\n${LIBRARY_RULE}\n${CHRONICLE_RULE(chronicle('baseline'))}`,
-  { label: 'baseline', phase: 'Baseline', model: tiers.baseline, schema: BASELINE_SCHEMA }
+  { label: 'baseline', phase: 'Baseline', model: tiers.baseline, effort: 'low', schema: BASELINE_SCHEMA }
 )
 if (!baseline) throw new Error('sdlc-workhorse: baseline agent returned nothing — cannot proceed without a known starting state.')
 if (!baseline.green) {
@@ -741,9 +741,9 @@ const sliced = await agent(
   `Break this approved plan into independently shippable vertical slices — tracer bullets, each one end-to-end and ` +
   `each with a single observable acceptance criterion that ONE test can encode.\n\n` +
   `<plan>\n${JSON.stringify(plan, null, 2)}\n</plan>\n\nACCEPTANCE CRITERIA:\n${acceptance.map(a => `- ${a}`).join('\n')}\n\n` +
-  `Assign each slice the LOWEST tier that can actually do it: haiku for mechanical, sonnet default, opus only for ` +
+  `Assign each slice the LOWEST effort that can actually do it: low for mechanical, medium default, high only for ` +
   `genuine design risk. Record the slices in ${backlogPath} as the live source of truth.\n\n${CHRONICLE_RULE(chronicle('slice'))}`,
-  { label: 'slice', phase: 'Slice', model: tiers.slice, schema: SLICES_SCHEMA }
+  { label: 'slice', phase: 'Slice', model: tiers.slice, effort: 'medium', schema: SLICES_SCHEMA }
 )
 if (!sliced || !sliced.slices.length) throw new Error('sdlc-workhorse: slicing produced no slices.')
 
@@ -753,7 +753,7 @@ if (slices.length > maxSlices) {
   record.deferred.push({ what: 'slices deferred past the cap', detail: slices.slice(maxSlices).map(s => s.id) })
   slices = slices.slice(0, maxSlices)
 }
-note('Slice', `${slices.length} tracer bullet(s): ${slices.map(s => `${s.id}[${s.tier}]`).join(', ')}`)
+note('Slice', `${slices.length} tracer bullet(s): ${slices.map(s => `${s.id}[${s.effort}]`).join(', ')}`)
 
 // ---------------------------------------------------------------------------
 // PHASES 7–9 — Build and review, as a pipeline so a slice hits review the
@@ -789,7 +789,7 @@ const built = await pipeline(
       `The test must fail because the BEHAVIOUR is absent, not because of an import error, a typo, or a missing ` +
       `fixture. A test that fails for the wrong reason proves nothing and will be rejected.\n\n` +
       `Use the "tdd" skill's RED discipline.\n\n${LIBRARY_RULE}\n${CHRONICLE_RULE(chronicle(`slice-${slice.id}`))}`,
-      { label: `red:${slice.id}`, phase: 'Build', model: slice.tier, schema: RED_SCHEMA, isolation: isolate ? 'worktree' : undefined }
+      { label: `red:${slice.id}`, phase: 'Build', model: tiers.build, effort: slice.effort, schema: RED_SCHEMA, isolation: isolate ? 'worktree' : undefined }
     )
     if (!red) return { slice, skipped: 'red agent returned nothing' }
 
@@ -824,7 +824,7 @@ const built = await pipeline(
       `Unprovable means false. If the root cause turns out to be something other than you assumed, that discovery is a ` +
       `success: say so and act on it.\n\nUse the "tdd" skill's GREEN → REFACTOR discipline.\n\n` +
       `${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle(`slice-${slice.id}`))}`,
-      { label: `green:${slice.id}`, phase: 'Build', model: slice.tier, schema: GREEN_SCHEMA, isolation: isolate ? 'worktree' : undefined }
+      { label: `green:${slice.id}`, phase: 'Build', model: tiers.build, effort: slice.effort, schema: GREEN_SCHEMA, isolation: isolate ? 'worktree' : undefined }
     )
     return { ...prev, green }
   },
@@ -920,7 +920,7 @@ const docs = done.length ? await agent(
   `not to the plan's intent — where they diverged, the code is the truth.\n\n` +
   `Then re-run the Phase-1 baseline checks and report whether they are still green:\n` +
   `${baseline.checks.map(c => `- ${c.command}`).join('\n')}\n\n${CHRONICLE_RULE(chronicle('document'))}`,
-  { label: 'document', phase: 'Document', model: tiers.document, schema: {
+  { label: 'document', phase: 'Document', model: tiers.document, effort: 'medium', schema: {
     type: 'object',
     required: ['docsChanged', 'baselineStillGreen', 'baselineOutput'],
     properties: {
@@ -970,7 +970,7 @@ return {
   slices: results.map(r => ({
     id: r.slice.id,
     title: r.slice.title,
-    tier: r.slice.tier,
+    effort: r.slice.effort,
     green: !!(r.green && r.green.passed),
     skipped: r.skipped || null,
     testPath: r.red ? r.red.testPath : null,

@@ -9,7 +9,7 @@ export const meta = {
 //         externals: [{ name: 'Confluence: Platform space', how: 'mcp__atlassian__search or the URL' }],
 //         maxShards: 6, perShard: 8, maxFindingsPerShard: 25,
 //         reserve: 40000, chronicleDir: '$HOME/.agent-state/<repo dir name>/housekeeping/chronicles', libraryIndex: null,
-//         tiers: { inventory: 'haiku', audit: 'sonnet', verify: 'sonnet', consolidate: 'sonnet' } }
+//         tiers: { inventory: 'opus', audit: 'opus', verify: 'opus', consolidate: 'opus' } }
 //
 // THIS SCRIPT IS READ-ONLY BY CONSTRUCTION. There is no edit, delete, commit, or post code path in
 // it, and every prompt says so. That is deliberate and it is the whole reason the audit is safe to
@@ -117,7 +117,7 @@ const inv = await agent(
    artifacts describing the SAME area share the exact same area string. This grouping is the point
    of the task: two documents about one area must land together.
    ${READ_ONLY} ${NO_SPAWN}`,
-  { label: 'inventory', phase: 'Inventory', model: args.tiers?.inventory ?? 'haiku', schema: INVENTORY })
+  { label: 'inventory', phase: 'Inventory', model: args.tiers?.inventory ?? 'opus', effort: 'low', schema: INVENTORY })
 
 if (!inv || !(inv.docs ?? []).length) {
   // No inventory means no shards, and an empty findings array here would read as "documentation is
@@ -151,7 +151,7 @@ const externals = await parallel((args.externals ?? []).map(src => () => (async 
        transition a ticket, or update a page. Read and report.
        If you cannot reach it, say exactly that — do not reconstruct its contents from the repo,
        which would launder a repo claim into an authoritative one. ${NO_SPAWN}`,
-      { label: `external:${norm(src.name).slice(0, 20)}`, phase: 'Externals', model: args.tiers?.audit ?? 'sonnet' })
+      { label: `external:${norm(src.name).slice(0, 20)}`, phase: 'Externals', model: args.tiers?.audit ?? 'opus', effort: 'medium' })
     if (!d) { uncovered.push(`external "${src.name}": reader died — its claims were not checked`); return null }
     return { name: src.name, digest: d }
   } finally { release() }
@@ -248,7 +248,7 @@ const perShardResults = await pipeline(
          ${READ_ONLY} ${NO_SPAWN}
          Return {findings: [...]}; empty is a fine answer for documentation that holds up.`,
         { label: `audit:shard-${i + 1}`, phase: 'Audit',
-          model: args.tiers?.audit ?? 'sonnet', schema: FINDINGS })
+          model: args.tiers?.audit ?? 'opus', effort: 'medium', schema: FINDINGS })
       if (!r) { uncovered.push(`shard ${i + 1} (${shard.map(d => d.path).join(', ')}): auditor died — those docs are unexamined`); return null }
       return r.findings ?? []
     } finally { release() }
@@ -288,7 +288,7 @@ const perShardResults = await pipeline(
          You may correct 'sourceOfTruth' and 'action'; leave them null to keep the finding's own.
          ${READ_ONLY} ${NO_SPAWN}`,
         { label: `verify:${norm(f.doc).split('/').pop().slice(0, 20)}-${f.kind}`, phase: 'Verify',
-          model: args.tiers?.verify ?? 'sonnet', schema: VERDICT })
+          model: args.tiers?.verify ?? 'opus', schema: VERDICT })
       if (!v) { uncovered.push(`verify "${f.claim.slice(0, 60)}" (${f.doc}): verifier died — finding unjudged`); return null }
       if (v.refuted) { refuted.push(`${f.doc} [${f.kind}] ${f.claim.slice(0, 80)} — ${v.why}`); return null }
       return { ...f,
@@ -344,7 +344,7 @@ if (survivors.length) {
             area with no owner. This is the part that stops the same cleanup recurring next quarter.
          Do not re-judge findings; they have been verified. Do not invent new ones.
          Return terse markdown, under 60 lines. ${READ_ONLY} ${NO_SPAWN}`,
-        { label: 'consolidate', phase: 'Consolidate', model: args.tiers?.consolidate ?? 'sonnet' })
+        { label: 'consolidate', phase: 'Consolidate', model: args.tiers?.consolidate ?? 'opus', effort: 'medium' })
       if (!consolidated) uncovered.push('consolidation agent died — cross-document contradictions were not sought')
     } finally { release() }
   }

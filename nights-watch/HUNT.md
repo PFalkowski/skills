@@ -189,7 +189,7 @@ The party fans out over the same range, each hunter with a **different lens**. A
 | `smells` | (family `smells`) bad patterns with a nameable cost: duplicated logic, dead code, a god function, a leaky abstraction, tangled coupling |
 | `warnings` | (family `warnings`) compiler/linter/deprecation warnings the delta introduces — or leaves standing in the files it touched |
 
-Tiers follow the rubric ([TRIAGE.md](TRIAGE.md)), effort follows tier: hunters at **`sonnet`** / default effort; a single lens at `opus` / `high` only when the delta is genuinely cross-cutting (a concurrency change, an auth refactor) — never the whole party.
+Hunters run at the house worker tier (`opus`) and **`medium`** effort; a single lens at `high` effort (`efforts.<lens>`) only when the delta is genuinely cross-cutting (a concurrency change, an auth refactor) — never the whole party.
 
 ## Verify — the refuters
 
@@ -205,7 +205,7 @@ Give the refuters distinct angles, or they agree for the same reason:
 - **exploitability / blast radius** — granted the flaw is real and reachable, what does it actually cost? Does a caller already constrain the input?
 - **repro** — make it happen. A runnable case with real output is the strongest evidence a report can carry, and this is the one refuter that can *promote* a finding on it. Citing the exact source lines instead, without running anything, does not promote the finding — that is the substitution the finding-type rule (rule 2) forbids for anything a run could settle.
 
-Refuters run at **`sonnet`** by default (`tiers.refute` overrides). Sonnet is the floor because a refuter that can't follow the call graph refutes nothing and rubber-stamps everything.
+Refuters run at the strongest tier available, **`opus`** by default (`tiers.refute` overrides), because a refuter that can't follow the call graph refutes nothing and rubber-stamps everything.
 
 ## Fingerprints — a closed vocabulary, not a hash
 
@@ -287,7 +287,7 @@ Its contract, which is all the watcher needs to know:
 //                                                  // run in worktrees where HEAD means something else
 //        files, manifests, logsCmd,                // NAMES only (Oath rule 2), capped by the watcher
 //        visibility,                               // resolved at step 0, BEFORE the muster
-//        lenses, tiers,                            // what the delta triggers; rubric picks the tier
+//        lenses, tiers, efforts,                   // what the delta triggers; model and effort per lens
 //        known: { '<fingerprint>': 'high' },       // ledger status=reported ONLY — never pending
 //        fixed: ['<fingerprint>'],                 // ledger status=fixed — a reappearance is a regression
 //        carry: [{...finding, id, range, attempts}],   // carry.jsonl — found earlier, still unrefuted

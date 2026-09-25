@@ -89,12 +89,12 @@ One Workflow per patrol. Concurrency is enforced structurally: `poolSize` worker
 ```js
 export const meta = {
   name: 'nights-watch-patrol',
-  description: 'Work triaged AI-ready tickets: bounded worker pool, tiered models, budget-guarded',
+  description: 'Work triaged AI-ready tickets: bounded worker pool, tiered effort, budget-guarded',
   phases: [{ title: 'Premise', model: 'opus' }, { title: 'Rangers' }, { title: 'Grill' }],
 }
-// args: { tickets: [{id, url, title, tier, effort, repo, brief, process,
+// args: { tickets: [{id, url, title, tier, repo, brief, process,
 //                     chroniclePath,          // one FILE — the lone ranger's field notes
-//                     chronicleDir}],         // a DIR — opus only; the workhorse writes one file per agent
+//                     chronicleDir}],         // a DIR — high only; the workhorse writes one file per agent
 //         libraryIndex: '<repo>/.nights-watch/library/INDEX.md',
 //         workhorsePath: '<abs path to the skills repo>/.claude/workflows/sdlc-workhorse.js',
 //         lockDir: '<state root>/locks',           // the watcher resolves the root (SKILL.md § Where the run state lives) — the script never guesses it
@@ -136,11 +136,11 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
     const t = queue.shift()
     if (!t) break
 
-    // opus-tier: the lifecycle is a Workflow, so the SCRIPT starts it. A ranger cannot:
+    // high-tier: the lifecycle is a Workflow, so the SCRIPT starts it. A ranger cannot:
     // an agent() inside a Workflow has no Workflow tool. See TRIAGE.md § Process assignment.
-    if (t.tier === 'opus') {
+    if (t.tier === 'high') {
       if (!A.workhorsePath) {
-        results.push({ id: t.id, blocked: true, reason: 'opus-tier ticket but no workhorsePath configured',
+        results.push({ id: t.id, blocked: true, reason: 'high-tier ticket but no workhorsePath configured',
                        summary: 'cannot dispatch sdlc-workhorse' })
         continue
       }
@@ -172,7 +172,7 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
     // green suite certifying the wrong behaviour, and every gate after this one
     // checks conformance to it rather than rechecking it. That is the one error a
     // cheap tier makes invisible, so the tier is floored here even when the ranger
-    // that follows is haiku. Opus tickets skip it — the workhorse runs its own
+    // that follows is low. High tickets skip it — the workhorse runs its own
     // premise gates, floored the same way, and paying twice buys nothing.
     const p = await agent(
       `Establish what "correct" means for this ticket, for a ranger who will write tests
@@ -244,7 +244,7 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
       await agent(
         `Remove the directory ${advert} and everything in it. It is a stale claim
          advertisement (${how}). Do not touch anything else. Return {released:true}.`,
-        { label: `release:${t.id}`, phase: 'Rangers', model: 'haiku', effort: 'low',
+        { label: `release:${t.id}`, phase: 'Rangers', model: 'opus', effort: 'low',
           schema: { type:'object', properties:{ released:{type:'boolean'} }, required:['released'] } }
       ).catch(() => null)   // a failed release must not mask the ticket's own outcome
     }
@@ -264,7 +264,7 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
            note:    released when the ranger returns or the patrol reaps it; stale past ${A.lockTtlMin} min
          Post the holder/tier/host/started lines as a comment on ticket ${t.id} too, so the
          board shows who holds it and since when. Return {claimed:true}.`,
-        { label: `claim:${t.id}`, phase: 'Rangers', model: 'haiku', effort: 'low',
+        { label: `claim:${t.id}`, phase: 'Rangers', model: 'opus', effort: 'low',
           schema: { type:'object', properties:{ claimed:{type:'boolean'} }, required:['claimed'] } }
       )
 
@@ -288,13 +288,13 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        Your tests assert THIS premise. If implementing reveals the premise is wrong,
        that is a finding, not an inconvenience — return blocked with the evidence.
        Process (assigned at triage — mandatory): ${t.process}
-       TDD IS THE ONLY WAY TO WORK HERE, at every tier including haiku. Red → Green →
+       TDD IS THE ONLY WAY TO WORK HERE, at every tier including low. Red → Green →
        Refactor: write the failing test FIRST, run it, and confirm it fails ON THE
        ASSERTED BEHAVIOUR — not on a typo, a missing import, or an unbuilt fixture.
        A test that fails for the wrong reason is not a red; fix it and re-run before
        writing any production code. Paste the actual failing output into your chronicle.
-       - haiku-tier: TDD as above. The tier buys a cheaper model, never a cheaper process.
-       - sonnet-tier: the "nightshift" skill's LOOP discipline — TDD Red → Green → Refactor;
+       - low-tier: TDD as above. The tier buys less effort, never a cheaper process.
+       - medium-tier: the "nightshift" skill's LOOP discipline — TDD Red → Green → Refactor;
          a question you cannot resolve AND cannot cheaply reverse means return blocked;
          one you can cheaply reverse you decide and record, never guess and never stall.
        THE ONLY EXEMPTION, and you must EARN it: if the change genuinely has no
@@ -336,7 +336,7 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        of guessing. "The ticket did not say" is not by itself a reason to block.
        Return JSON: {id, prUrl|null, blocked, reason|null, summary,
        noBehaviouralSurface, exemptionReason|null}.`,
-      { label: `ranger:${t.id}`, phase: 'Rangers', model: t.tier, effort: t.effort,
+      { label: `ranger:${t.id}`, phase: 'Rangers', model: 'opus', effort: t.tier,
         // ALWAYS a worktree — not only at parallel > 1. The old condition counted
         // rangers, but the thing being protected is the WORKING TREE, and a ranger is
         // never its only user: a concurrent hunt or grill reads it, and the human whose
@@ -395,7 +395,7 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
          otherwise reveals an automated process (Oath rule 8).
          Return JSON: {reviewed, findingsPosted, blocking, summary} — summary is also
          where any Not-run list goes; this schema has no separate field for it.`,
-        { label: `grill:${t.id}`, phase: 'Grill', model: t.tier, effort: t.effort,
+        { label: `grill:${t.id}`, phase: 'Grill', model: 'opus',
           schema: { type: 'object',
             properties: { reviewed: {type:'boolean'}, findingsPosted: {type:'number'},
               blocking: {type:'boolean'}, summary: {type:'string'} },
@@ -426,15 +426,15 @@ Notes on the template:
 
 - **Sanity-check the shared tree after any non-isolated dispatch, before your own next commit.** A cheap `git branch --show-current` / `git status --short` costs nothing and is the only thing that caught two separate incidents of a non-isolated agent mutating the watcher's own working tree (a reverted file staged by a stray `git add`, and a detached `HEAD` from a bare `git checkout <branch>`) — both from agents that were told to stay read-only and didn't. `git checkout -- <path>` is not sufficient recovery on its own if the index was also touched; use `git checkout HEAD -- <path>` (or, for a branch switch, `git checkout <your-branch>`) to restore from the commit, not the index.
 - **`isolation: 'worktree'` is unconditional — including at `parallel=1`.** `parallel` bounds tickets in flight, never tree users.
-- **The advertisement is identity-bearing, and released on every path.** `mkdir` is atomic, so it doubles as the claim; `owner.md` inside names the holder, ticket, tier, branch, start time, and host — enough for whoever finds it at 9am to know what it is and whether it is still live. Release is in a `finally`, so it survives a dead ranger, a thrown grill, and a budget stand-down; the `lockTtlMin` staleness marker is the backstop for the crash that skips even that, not the mechanism. **The script cannot do this I/O itself** — a workflow script has no filesystem access, and `Date.now()` throws (it would break resume) — so the stamping and the reaping are `haiku` agents the script *orders*. A release that fails is swallowed deliberately: it must never mask the ticket's own outcome, and the TTL will catch it.
-- **`model: t.tier`** comes from triage ([TRIAGE.md](TRIAGE.md)), never hardcoded to the session tier. Escalation retries are a *second* `agent()` call by the watcher after reading results — keep the pool itself simple.
-- The queue-shift pool means a fast haiku chore doesn't hold a slot while an opus ticket grinds — workers rebalance naturally.
+- **The advertisement is identity-bearing, and released on every path.** `mkdir` is atomic, so it doubles as the claim; `owner.md` inside names the holder, ticket, tier, branch, start time, and host — enough for whoever finds it at 9am to know what it is and whether it is still live. Release is in a `finally`, so it survives a dead ranger, a thrown grill, and a budget stand-down; the `lockTtlMin` staleness marker is the backstop for the crash that skips even that, not the mechanism. **The script cannot do this I/O itself** — a workflow script has no filesystem access, and `Date.now()` throws (it would break resume) — so the stamping and the reaping are `low`-effort agents the script *orders*. A release that fails is swallowed deliberately: it must never mask the ticket's own outcome, and the TTL will catch it.
+- **`effort: t.tier`** comes from triage ([TRIAGE.md](TRIAGE.md)), never hardcoded to the session tier. Escalation retries are a *second* `agent()` call by the watcher after reading results — keep the pool itself simple.
+- The queue-shift pool means a fast `low` chore doesn't hold a slot while a `high` ticket grinds — workers rebalance naturally.
 - The watcher, not the workers, updates tracker labels/comments from `results` — workers get no tracker-write instructions, which keeps the report step consistent and idempotent.
-- **`opus` tickets take the `workflow()` branch, not the `agent()` one**, because [`sdlc-workhorse`](../archive/sdlc-workhorse/SKILL.md) is a Workflow and a ranger has no `Workflow` tool to start one with. This is the single level of nesting `workflow()` allows — the workhorse script itself calls no `workflow()`, so the budget holds and nothing throws. Both branches share the pool, the queue, and the budget.
-- **`workhorsePath`, not `{name:}`.** Named resolution reads `.claude/workflows/` in the repo the patrol is *running in* — almost never this one. Pass an absolute `scriptPath` to this repo's copy. Without it, opus tickets return blocked rather than silently degrading to a lesser process: an un-run gate is visible, a skipped one is not.
+- **`high` tickets take the `workflow()` branch, not the `agent()` one**, because [`sdlc-workhorse`](../archive/sdlc-workhorse/SKILL.md) is a Workflow and a ranger has no `Workflow` tool to start one with. This is the single level of nesting `workflow()` allows — the workhorse script itself calls no `workflow()`, so the budget holds and nothing throws. Both branches share the pool, the queue, and the budget.
+- **`workhorsePath`, not `{name:}`.** Named resolution reads `.claude/workflows/` in the repo the patrol is *running in* — almost never this one. Pass an absolute `scriptPath` to this repo's copy. Without it, `high` tickets return blocked rather than silently degrading to a lesser process: an un-run gate is visible, a skipped one is not.
 - **CRLF workflow files break `scriptPath` dispatch on Windows.** If the approval dialog rejects a `scriptPath` dispatch as containing hidden control characters, the target `.js` has CRLF line endings and the validator is counting each `\r`. A `.gitattributes` rule (`*.js text eol=lf`) is the right repo-level fix, but it only takes effect on a fresh checkout and `core.autocrlf=true` can still reintroduce CRLF, so it is not a reliable guarantee on an existing clone. The dependable, environment-independent workaround is to read the script file and pass its **contents inline via `script`** (still this repo's copy, just LF-clean) rather than `scriptPath` — don't re-diagnose it as file corruption or a permissions problem.
 - **The watcher opens the PR for workhorse tickets.** The workhorse commits but never pushes, publishes, or merges — that line is enforced by absence in its script, and the patrol must not smuggle it back in through the ranger prompt. So a `needsPr` result is the watcher's job: push the branch, open the PR referencing the ticket, then label. Rangers on the other tiers still open their own PRs; only this tier splits the work.
-- **The workhorse's own grill satisfies the review gate.** Its per-slice fresh-agent grill already refute-tests every finding, so don't re-grill by reflex — that's paying twice for the same gate. Add a `code-review-grill` quorum only when its report shows no review ran. The opus branch `continue`s before the grill stage for exactly this reason: workhorse tickets are grilled inside the child workflow, and passing them through the patrol's grill stage as well would double-pay.
+- **The workhorse's own grill satisfies the review gate.** Its per-slice fresh-agent grill already refute-tests every finding, so don't re-grill by reflex — that's paying twice for the same gate. Add a `code-review-grill` quorum only when its report shows no review ran. The `high` branch `continue`s before the grill stage for exactly this reason: workhorse tickets are grilled inside the child workflow, and passing them through the patrol's grill stage as well would double-pay.
 
 - **The grill is dispatched by the script, not by the ranger — and it has to be.** This is the fix for [#46](https://github.com/PFalkowski/skills/issues/46). An `agent()` running inside a Workflow has **no `Agent`/`Task` tool** — `ToolSearch` from in there surfaces only `TaskStop`/`EnterWorktree`/`SendMessage`/`CronCreate`/`PushNotification` (verified again while writing this). So a ranger told to "grill your diff with a fresh reviewer" cannot comply: the best it can do is review its own diff and disclose the substitution, which is the one thing the gate exists to prevent — an author grading their own work never catches a flaw in their own *reasoning*. The script's own `agent()` calls are not nested spawns, so moving the grill one level up to where the pool already lives costs nothing and restores the real guarantee. Verified: a script-dispatched second-stage agent has no knowledge of the first stage's context, and holds `Skill` (with `code-review-grill` listed) plus `Bash`/`gh` to post the review.
 
@@ -448,7 +448,7 @@ Notes on the template:
 
 ## Token watching
 
-- **Reserve per ticket.** Estimate conservatively (~240k output tokens for a sonnet ticket; halve for haiku, triple for opus — recalibrate from your own journal, below). The sonnet figure is a measured mean from one 6-ticket patrol on 2026-07-16; treat it as a starting point, not a constant, until more patrols have widened the sample. A worker isn't started unless the remaining budget covers its reserve.
+- **Reserve per ticket.** Estimate conservatively (~240k output tokens for a `medium` ticket; halve for `low`, triple for `high` — recalibrate from your own journal, below). The 240k figure is a measured mean from one 6-ticket patrol on 2026-07-16, on a cheaper model than the worker tier; treat it as a starting point, not a constant, until more patrols have widened the sample. A worker isn't started unless the remaining budget covers its reserve.
 - **Plan the wave, don't discover the wall.** Before dispatch, if `budget.total` is set: max tickets this patrol ≈ `budget.remaining() / avg reserve`. Triage the whole muster but dispatch only what fits; defer the rest with a log line and leave them unclaimed so nothing sits claimed-but-starved. Before dispatch also run TRIAGE.md's [overlap check](TRIAGE.md#overlap-check--before-dispatch) over the wave you're about to send — two tickets touching the same files must be serialized, stacked, or merged, not raced.
 - **Journal the actuals.** After each patrol, record per-ticket spend (`budget.spent()` deltas around the workflow, or the workflow journal) next to its tier. At the fire, fold these into `calibration` entries in the Library ([LIBRARY.md](LIBRARY.md)) — over a few nights this yields real per-tier costs; use them to sharpen both the reserve numbers and the triage rubric (tickets that consistently blow their tier's reserve were mis-tiered).
 - **No budget set** → the reserve guard is inert, but the journal still records spend; the Watch's minimalism (tiering + one-ticket-at-a-time default) is the economy, not the ceiling.

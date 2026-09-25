@@ -100,7 +100,7 @@ Save it to `<state>/runs/NN-<phase>.brief.md`.
 
 ### 2. Spawn a fresh process, capture the transcript
 
-Pick the **model tier that fits the phase** — cheap (haiku/sonnet) for mechanical phases (RED scaffolding, docs, board updates), stronger (opus) for grill / plan review / adversarial code review / deepen.
+Pick the **model tier that fits the phase** — the house worker tier from `CLAUDE.md` at low or medium effort for mechanical phases (RED scaffolding, docs, board updates), the strongest tier available for grill / plan review / adversarial code review / deepen.
 
 **PowerShell (Windows):**
 ```powershell

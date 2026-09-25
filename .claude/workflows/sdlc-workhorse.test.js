@@ -56,7 +56,7 @@ const mkAgent = ({ reviews = {}, reviewDies = [] } = {}) => async (prompt, opts)
   if (L.startsWith('plan:')) return { approach: 'a', components: ['c'], failureModes: ['f'],
     alternativesRejected: [{ alternative: 'x', whyRejected: 'y' }], testStrategy: 't' }
   if (L.startsWith('plan-review:')) return { verdict: 'approved', findings: [] }
-  if (L === 'slice') return { slices: [{ id: 's1', title: 'S1', acceptanceCriterion: 'AC', tier: 'haiku' }] }
+  if (L === 'slice') return { slices: [{ id: 's1', title: 'S1', acceptanceCriterion: 'AC', effort: 'low' }] }
   if (L.startsWith('red-check:')) return { status: 'confirmed', evidence: 'failed on the assertion' }
   if (L.startsWith('red:')) return { testPath: 't.js', testCommand: 'npm test', output: 'FAIL', failedForTheRightReason: true }
   if (L.startsWith('green:')) return { passed: true, output: 'PASS', summary: 'done' }
@@ -166,14 +166,14 @@ console.log('\nthe premise gates are FLOORED at opus, not merely defaulted to it
 {
   // THE SEAM: a caller trying to buy a cheap premise. Object.assign alone honours this.
   const r = await runWorkhorse({
-    args: baseArgs({ tiers: { spec: 'haiku', grill: 'haiku', plan: 'haiku', planReview: 'sonnet' } }),
+    args: baseArgs({ tiers: { spec: 'haiku', grill: 'haiku', plan: 'haiku', planReview: 'sonnet', document: 'fable' } }),
     agentFn: mkAgent() })
   await t('cfg.tiers CANNOT lower a premise phase below opus',
     () => tierOf(r, PREMISE).every(m => m === 'opus'))
   await t('...and the substitution is logged, never silent',
     () => r.logs.some(m => /floor/i.test(m) && /opus/.test(m)))
   await t('...while a NON-premise phase is still freely tunable',
-    () => { const d = tierOf(r, l => l === 'document'); return d.length === 1 && d[0] === 'sonnet' })
+    () => { const d = tierOf(r, l => l === 'document'); return d.length === 1 && d[0] === 'fable' })
 }
 {
   const r = await runWorkhorse({ args: baseArgs({ tiers: { plan: 'gpt-cheap' } }), agentFn: mkAgent() })
