@@ -19,9 +19,9 @@ What this file adds is what is specific to a patrol:
   Unprovable counts as false → declined, evidence in the summary. Proven → carry the proof into the ranger's brief
   so it lands in the PR.
 
-## Judged intake (the default — `judge=haiku`, disable with `judge=off`)
+## Judged intake (the default — `judge=on`, disable with `judge=off`)
 
-Each candidate is read by its **own fresh `haiku` agent** — one ticket per agent, in parallel — returning two booleans and a one-line reason.
+Each candidate is read by its **own fresh agent at the house worker tier and `low` effort** — one ticket per agent, in parallel — returning two booleans and a one-line reason.
 
 It answers the two questions of [READINESS.md](../triage/READINESS.md) — **ready** and **intended** — and both must be yes. Give the judge that file; do not paraphrase it into the prompt, or the judge and the gate end up applying different rubrics.
 
@@ -32,7 +32,7 @@ The **intended** half is the one to watch. A readiness rubric structurally canno
 Three constraints:
 
 - **It never writes.** No labels, no comments, no closes — accept or reject, and rejections go to the patrol summary with their reason (Oath rule 7). The summary is also how you calibrate it: read what it declined and why.
-- **It does not replace the gate.** Survivors still face the full gate at watcher tier. A `haiku` skim is a cheap way to avoid paying for full triage on obvious non-starters; it is not evidence a ticket is ready, and the fact-check obligation is not delegable to it.
+- **It does not replace the gate.** Survivors still face the full gate at watcher tier. A low-effort skim is a cheap way to avoid paying for full triage on obvious non-starters; it is not evidence a ticket is ready, and the fact-check obligation is not delegable to it.
 - **A selector does not switch it off** — the two compose, judge last. `judge=off` is the explicit way to say "trust my selector", appropriate when the selector is an id list you wrote deliberately.
 
 **Bias it toward rejection and say so in the prompt.** When the judge is unsure, the answer is no.
@@ -43,7 +43,7 @@ The judge reads ticket text and answers admit-or-decline; it never writes. A tic
 reading every patrol and stays untriaged, so on a judged board the `needs-triage` lane only grows. Grooming is the
 step that drains it, and it is the [triage](../triage/SKILL.md) skill dispatched, not the judge widened:
 
-- **One fresh `sonnet` agent per ticket**, running that skill's "Triaging one ticket" steps in full — it reads the
+- **One fresh agent per ticket at the house worker tier and `medium` effort**, running that skill's "Triaging one ticket" steps in full — it reads the
   code, reproduces a bug, verifies the load-bearing claims — which is exactly what the judge is forbidden to do.
   It writes what that skill's outcome table writes: the state label and the brief or notes behind it.
 - **Only under a recorded delegation.** The triage skill treats agent-readiness as a human attestation unless the
@@ -58,27 +58,27 @@ step that drains it, and it is the [triage](../triage/SKILL.md) skill dispatched
 - **The summary lists every groomed ticket with the lane it got**, beside the declined list. That is how a human
   audits the delegation.
 
-## Tier rubric — lowest sufficient model
+## Tier rubric — lowest sufficient effort
 
-The rubric is [save-tokens](../save-tokens/SKILL.md) § *Send each job to the cheapest tier that does it*: default **`sonnet`**, off it only when the ticket clearly matches another row, the lower tier when torn. Effort follows tier: `low` for haiku-class chores, default for sonnet, `high` only for the opus row. Record the assigned tier in the claim comment.
+The rubric is [save-tokens](../save-tokens/SKILL.md) § *Send each job to the cheapest tier that does it*, one tier per row: `low` and `medium` are rangers on the house worker tier (`opus`) at that effort, `high` is the lifecycle on the strongest tier. Default **`medium`**, off it only when the ticket clearly matches another row, the lower tier when torn. Record the assigned tier in the claim comment.
 
 ## Process assignment (which sworn-brother skills the ranger runs)
 
-Triage assigns not just a tier but a process; the watcher writes it into the ranger's brief — except at `opus`, where the process *is not* a brief but a dispatch (see below).
+Triage assigns not just a tier but a process; the watcher writes it into the ranger's brief — except at `high`, where the process *is not* a brief but a dispatch (see below).
 
 | Tier | Implementation discipline | Dispatched as | Review gate |
 |---|---|---|---|
-| `haiku` | **TDD Red → Green → Refactor** — same discipline, cheaper model. The red must fail on the asserted behaviour | ranger `agent()` | **code-review-grill**, single reviewer — a **second `agent()` dispatched by the patrol script** against the ranger's PR, *not* by the ranger. It also **verifies the TDD claim**, exemption included |
-| `sonnet` | **nightshift** LOOP discipline: TDD Red → Green → Refactor, Q:/A: deferral (irreversible-or-grave → return `blocked`; reversible → decide it and record why, never guess and never stall) | ranger `agent()` | as above: a script-dispatched fresh reviewer that never saw the ranger's rationale; findings posted to the PR by the reviewer |
-| `opus` | **sdlc-workhorse** — the full by-the-book lifecycle (spec → grilled requirements → design review → TDD → refactor → docs), autonomous by construction | **child `workflow()`**, by the patrol script itself — *not* a ranger | its own fresh-agent grill with refute-tested findings satisfies the gate; it skips the patrol's grill stage rather than paying twice. Add a **code-review-grill** quorum only if the run reports no review ran |
+| `low` | **TDD Red → Green → Refactor** — same discipline, less effort. The red must fail on the asserted behaviour | ranger `agent()` | **code-review-grill**, single reviewer — a **second `agent()` dispatched by the patrol script** against the ranger's PR, *not* by the ranger. It also **verifies the TDD claim**, exemption included |
+| `medium` | **nightshift** LOOP discipline: TDD Red → Green → Refactor, Q:/A: deferral (irreversible-or-grave → return `blocked`; reversible → decide it and record why, never guess and never stall) | ranger `agent()` | as above: a script-dispatched fresh reviewer that never saw the ranger's rationale; findings posted to the PR by the reviewer |
+| `high` | **sdlc-workhorse** — the full by-the-book lifecycle (spec → grilled requirements → design review → TDD → refactor → docs), autonomous by construction | **child `workflow()`**, by the patrol script itself — *not* a ranger | its own fresh-agent grill with refute-tested findings satisfies the gate; it skips the patrol's grill stage rather than paying twice. Add a **code-review-grill** quorum only if the run reports no review ran |
 
-**TDD is the process floor at every tier, and the tier cannot buy it down.** The rubric above picks a *model*, never a discipline: `haiku` means the change is mechanical enough for a cheap model to make, not that it may be made without a test proving it.
+**TDD is the process floor at every tier, and the tier cannot buy it down.** The rubric above picks an *effort*, never a discipline: `low` means the change is mechanical enough to make at low effort, not that it may be made without a test proving it.
 
 **The one exemption must be earned and is verified.** A change with genuinely no observable behavioural surface — a dep bump with no API delta, doc wording, a licence header sweep — cannot have a meaningful red. So the ranger may return `noBehaviouralSurface: true` **with a reason naming what it checked**, and the grill then verifies that claim against the actual diff — a false exemption is a blocking finding.
 
-**Every ticket gets a premise gate at `opus`, whatever its own tier.** Before any ranger runs, a fresh opus agent establishes what *correct* means for the ticket: every load-bearing claim fact-checked, **only the proven ones held**, the unprovable listed as open questions rather than hedged into the brief. The ranger's tests assert *that* premise. This is floored at opus while the implementation may be haiku. Opus tickets skip this stage: `sdlc-workhorse` runs its own premise gates, floored the same way.
+**Every ticket gets a premise gate at `opus`, whatever its own tier.** Before any ranger runs, a fresh opus agent establishes what *correct* means for the ticket: every load-bearing claim fact-checked, **only the proven ones held**, the unprovable listed as open questions rather than hedged into the brief. The ranger's tests assert *that* premise. This is floored at opus while the implementation may be `low`. `high` tickets skip this stage: `sdlc-workhorse` runs its own premise gates, floored the same way.
 
-**Why `opus` dispatches differently, and why it must.** The workhorse is not a runbook — it is a Workflow, and a ranger cannot start one: an `agent()` inside a Workflow has no `Workflow` tool (it holds `Skill`, `Bash`, `Read`/`Write`/`Edit`, `Grep`/`Glob`, `ToolSearch` — verified). So the patrol script calls it directly as a child workflow, which is exactly the one level of nesting `workflow()` permits.
+**Why `high` dispatches differently, and why it must.** The workhorse is not a runbook — it is a Workflow, and a ranger cannot start one: an `agent()` inside a Workflow has no `Workflow` tool (it holds `Skill`, `Bash`, `Read`/`Write`/`Edit`, `Grep`/`Glob`, `ToolSearch` — verified). So the patrol script calls it directly as a child workflow, which is exactly the one level of nesting `workflow()` permits.
 
 **Why the grill dispatches differently too — same wall, one level up.** An `agent()` inside a Workflow holds no `Agent`/`Task` tool either, so it cannot spawn the fresh reviewer the gate requires any more than it can start a Workflow. A ranger instructed to grill its own diff degrades silently to self-review — which is not the gate, since the value of `code-review-grill` is a reviewer who never saw the author's reasoning. So the grill moves to the layer that *can* spawn: the patrol script runs it as a **second `agent()` after the ranger returns**, handed only the PR URL and the ticket brief. See [WATCH.md](WATCH.md) § Dispatch and [#46](https://github.com/PFalkowski/skills/issues/46).
 

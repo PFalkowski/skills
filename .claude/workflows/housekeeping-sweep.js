@@ -12,7 +12,7 @@ export const meta = {
 //         scope: ['src/Billing/**'],             // null → the whole repo
 //         isolate: false,
 //         reserve: 40000, chronicleDir: '$HOME/.agent-state/<repo dir name>/housekeeping/chronicles', libraryIndex: null,
-//         tiers: { rules: 'haiku', lens: 'sonnet', verify: 'sonnet', plan: 'sonnet' } }
+//         tiers: { rules: 'opus', lens: 'opus', verify: 'opus', plan: 'opus' } }
 //
 // WHY THIS RUNS AFTER THE DOC AUDIT, and not instead of it: half the lenses below judge the code
 // against what the documentation SAYS it should be — the intended architecture, the chosen
@@ -131,7 +131,7 @@ const houseRules = await agent(
    ${args.libraryIndex ? `Also read the Library index at ${args.libraryIndex} and fold in this repo's recorded conventions and gotchas.` : ''}
    Name the build, lint, test and coverage commands you find, verbatim.
    Return a terse rulebook, under 50 lines. ${NO_FIX} ${NO_SPAWN}`,
-  { label: 'house-rules', phase: 'House rules', model: args.tiers?.rules ?? 'haiku' })
+  { label: 'house-rules', phase: 'House rules', model: args.tiers?.rules ?? 'opus', effort: 'low' })
 if (!houseRules) say('house-rules agent died — each lens will read the docs itself')
 
 // ---------------------------------------------------------------------------
@@ -167,7 +167,7 @@ const perLens = await pipeline(
          ${args.chronicleDir ? `Keep a chronicle at ${args.chronicleDir}/sweep-${lens}.md as you go.` : ''}
          ${NO_FIX} ${NO_SPAWN}
          Return {candidates: [...]}; empty is a fine answer for a clean lens.`,
-        { label: `lens:${lens}`, phase: 'Lenses', model: args.tiers?.lens ?? 'sonnet',
+        { label: `lens:${lens}`, phase: 'Lenses', model: args.tiers?.lens ?? 'opus', effort: 'medium',
           schema: CANDIDATES, ...(args.isolate ? { isolation: 'worktree' } : {}) })
       // Silence is not a clean lens. Without this the concern reads as examined-and-fine, which is
       // the most expensive lie a survey can tell.
@@ -198,7 +198,7 @@ const perLens = await pipeline(
          never a path:line in its place; for a claim about this codebase, the exact path:line.
          ${NO_FIX} ${NO_SPAWN}`,
         { label: `verify:${norm(c.title).slice(0, 24)}`, phase: 'Verify',
-          model: args.tiers?.verify ?? 'sonnet', schema: VERDICT,
+          model: args.tiers?.verify ?? 'opus', schema: VERDICT,
           ...(args.isolate ? { isolation: 'worktree' } : {}) })
       if (!v) { uncovered.push(`verify "${c.title}": verifier died — candidate unjudged`); return null }
       if (v.refuted) { refuted.push(`[${c.lens}] ${c.title} — ${v.why}`); return null }
@@ -250,7 +250,7 @@ if (withIds.length) {
           ignored forever; a backlog full of nobody's-doing-that is worse than a short one).
        You are RECOMMENDING. A human picks. Do not fix anything and do not file anything.
        ${NO_SPAWN}`,
-      { label: 'plan', phase: 'Plan', model: args.tiers?.plan ?? 'sonnet', schema: PLAN })
+      { label: 'plan', phase: 'Plan', model: args.tiers?.plan ?? 'opus', effort: 'medium', schema: PLAN })
     } finally { release() }
     if (!plan) uncovered.push('planner died — candidates are returned ungrouped and unsized')
   }

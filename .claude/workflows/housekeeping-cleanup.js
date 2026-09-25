@@ -8,7 +8,7 @@ export const meta = {
 //                          instruction: 'the retry count is 5, not 3 — correct the paragraph',
 //                          sourceOfTruth: 'code', proof: 'src/http.ts:88' }, ...],
 //         reserve: 40000, chronicleDir: '$HOME/.agent-state/<repo dir name>/housekeeping/chronicles',
-//         tiers: { edit: 'sonnet', check: 'sonnet' } }
+//         tiers: { edit: 'opus', check: 'opus' } }
 //
 // THE SECOND HALF of housekeeping-audit.js, and deliberately a SEPARATE DISPATCH: a human
 // adjudicates the audit's findings in between, and this script acts only on what came back from
@@ -127,7 +127,7 @@ const perFile = await pipeline(
          ${NO_SPAWN}
          Return {results: [{id, done, what, why}]} — one entry per disposition above.`,
         { label: `edit:${String(doc).split('/').pop().slice(0, 24)}`, phase: 'Edit',
-          model: args.tiers?.edit ?? 'sonnet', schema: RESULT })
+          model: args.tiers?.edit ?? 'opus', effort: 'medium', schema: RESULT })
       // A dead editor is not a no-op we can assume: it may have written half the file before it
       // died. It goes to failed, which a human reads, not to skipped, which reads as "untouched".
       if (!r) { items.forEach(d => failed.push({ id: d.id, doc, why: 'editor died mid-edit — the file may be partially changed; check the diff' })); return null }
@@ -161,7 +161,7 @@ const perFile = await pipeline(
          ok:true only if all three are clean. Otherwise list the problems concretely.
          Edit NOTHING yourself — you are the check, not a second editor. ${NO_SPAWN}`,
         { label: `check:${String(edited.doc).split('/').pop().slice(0, 24)}`, phase: 'Check',
-          model: args.tiers?.check ?? 'sonnet', schema: CHECK })
+          model: args.tiers?.check ?? 'opus', schema: CHECK })
       if (!c) { done.forEach(r => failed.push({ id: r.id, doc: edited.doc, why: 'checker died — the edit is applied but unverified; review the diff yourself' })); return { ...edited, check: null } }
       if (!c.ok) done.forEach(r => failed.push({ id: r.id, doc: edited.doc, why: [...(c.problems ?? []), ...(c.newClaims ?? []).map(n => `unapproved new claim: ${n}`)].join('; ') || 'the checker rejected the edit' }))
       return { ...edited, check: c }
