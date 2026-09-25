@@ -1,6 +1,7 @@
 ---
 name: research-journal
 description: 'Runs a research project as a version-controlled journal of logged conversations, graded claims and novelty checks. Use for a paper or literature review.'
+disable-model-invocation: true
 license: MIT
 metadata:
   author: Piotr Falkowski

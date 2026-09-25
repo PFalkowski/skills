@@ -1,6 +1,6 @@
 ---
 name: code-review-grill
-description: 'Adversarial review of a branch, PR or diff by a fresh agent that did not write it, including Azure DevOps PRs. Use to review or grill a PR.'
+description: 'Adversarial review of a branch, PR or diff by a fresh agent that did not write it.'
 license: MIT
 metadata:
   author: Piotr Falkowski

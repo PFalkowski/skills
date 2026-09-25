@@ -1,6 +1,7 @@
 ---
 name: desloppify
 description: 'Strips stale prose, duplication, dead paths and excess abstraction from agent-grown code without changing behavior. Use when code or its docs are bloated.'
+disable-model-invocation: true
 license: MIT
 metadata:
   author: Piotr Falkowski
