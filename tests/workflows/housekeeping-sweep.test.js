@@ -1,4 +1,4 @@
-// Tests for housekeeping-sweep.js — run: node .claude/workflows/housekeeping-sweep.test.js
+// Tests for housekeeping-sweep.js — run: node tests/workflows/housekeeping-sweep.test.js
 //
 // The defects worth guarding here:
 //   1. A CONCERN THAT WAS NEVER EXAMINED READING AS CLEAN. A lens dropped by the budget bound, a
@@ -13,7 +13,7 @@
 const fs = require('fs')
 const path = require('path')
 
-const SRC = fs.readFileSync(path.join(__dirname, 'housekeeping-sweep.js'), 'utf8')
+const SRC = fs.readFileSync(path.join(__dirname, '../../workflows', 'housekeeping-sweep.js'), 'utf8')
   .replace(/^export const meta = \{[\s\S]*?^\}$/m, '')
 
 async function run ({ args, agentFn, budget = {} }) {

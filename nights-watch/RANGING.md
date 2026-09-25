@@ -37,7 +37,7 @@ Workflow({ name: 'sdlc-workhorse', args: { goal: '<the gated brief>', parallel: 
            libraryIndex: '.nights-watch/library/INDEX.md' } })
 ```
 
-Running from a repo that isn't this one? Named resolution reads the *current* repo's `.claude/workflows/`, so pass `scriptPath` at this repo's copy instead of `name`.
+From a plugin install the name is `pfalkowski-skills:sdlc-workhorse`. A `not found` error lists the names this session has.
 
 **5. Grill it.** The workhorse already grills every slice with a fresh agent and refute-tests each finding, so the gate is met by construction — read `slices[].verifiedFindings` rather than paying for it twice. Run `code-review-grill` yourself ('yourself' works on a ranging because the watcher is the session agent and holds `Agent`) only if the report shows no review ran, or if the change is load-bearing enough (public API, schema, security, concurrency) to deserve the quorum on top. Confirmed findings get fixed and re-grilled; the review posts to the PR.
 

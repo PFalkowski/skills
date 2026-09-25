@@ -1,4 +1,4 @@
-// Tests for sdlc-workhorse.js — run: node .claude/workflows/sdlc-workhorse.test.js
+// Tests for sdlc-workhorse.js — run: node tests/workflows/sdlc-workhorse.test.js
 //
 // WHY THIS EXISTS.
 //
@@ -24,7 +24,7 @@
 const fs = require('fs')
 const path = require('path')
 
-const SRC = fs.readFileSync(path.join(__dirname, 'sdlc-workhorse.js'), 'utf8')
+const SRC = fs.readFileSync(path.join(__dirname, '../../workflows', 'sdlc-workhorse.js'), 'utf8')
   .replace(/^export const meta = \{[\s\S]*?^\}$/m, '')
 
 async function runWorkhorse ({ args, agentFn, budget }) {

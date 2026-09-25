@@ -2,7 +2,8 @@
 # Exercises link-skills.ps1's CLAUDE.md installation offer (-ClaudeMd Skip/Import/Replace/Append/
 # Merge/Ask) against real pwsh, with -Dest pointed at a throwaway directory so the real skill-linking
 # half of the script never touches ~/.claude/skills or ~/.agents/skills, and -ClaudeMdPath pointed
-# at a fixture file so the real ~/.claude/CLAUDE.md is never touched either.
+# at a fixture file so the real ~/.claude/CLAUDE.md is never touched either. -WorkflowsPath points
+# at a throwaway path so the real ~/.claude/workflows is never touched.
 #
 # Requires pwsh on PATH -- GitHub-hosted ubuntu-latest runners ship it. Skips (not fails) without
 # it, the same way deny-rules.test.sh skips its live guard without the `claude` CLI.
@@ -24,12 +25,14 @@ WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 SKILL_DEST="$WORK/skills-dest"
 mkdir -p "$SKILL_DEST"
+WORKFLOWS_LINK="$WORK/workflows-link"
+export USERPROFILE="$WORK/home"
 
 # Every invocation: -Dest is redirected away from the real ~/.claude and ~/.agents skill folders,
 # CI=true forces the non-interactive path regardless of the host pwsh's own Console/RawUI quirks,
 # and stdin is closed so a script that mistakenly prompts fails fast instead of hanging the suite.
 run() {
-  CI=true pwsh -NoProfile -File "$SCRIPT" -Dest "$SKILL_DEST" "$@" < /dev/null
+  CI=true pwsh -NoProfile -File "$SCRIPT" -Dest "$SKILL_DEST" -WorkflowsPath "$WORKFLOWS_LINK" "$@" < /dev/null
 }
 
 check() {
@@ -126,7 +129,7 @@ fixture "$claude_md"
 before="$(cat "$claude_md")"
 # No -ClaudeMd at all, and no stdin to answer a prompt with: this must not hang the test suite,
 # and it must not write, since the documented non-interactive default is Skip.
-out="$(timeout 15 bash -c "CI=true pwsh -NoProfile -File '$SCRIPT' -Dest '$SKILL_DEST' -ClaudeMdPath '$claude_md' < /dev/null" 2>&1)"
+out="$(timeout 15 bash -c "CI=true pwsh -NoProfile -File '$SCRIPT' -Dest '$SKILL_DEST' -WorkflowsPath '$WORKFLOWS_LINK' -ClaudeMdPath '$claude_md' < /dev/null" 2>&1)"
 status=$?
 after="$(cat "$claude_md")"
 check "a non-interactive run with no -ClaudeMd does not hang" [ "$status" -ne 124 ]
@@ -147,7 +150,7 @@ fixture "$claude_md"
 before="$(cat "$claude_md")"
 openpipe_log="$WORK/openpipe/out.txt"
 coproc HELD_OPEN { sleep 300; }
-env -u CI timeout 15 pwsh -NoProfile -File "$SCRIPT" -Dest "$SKILL_DEST" -ClaudeMdPath "$claude_md" <&"${HELD_OPEN[0]}" > "$openpipe_log" 2>&1
+env -u CI timeout 15 pwsh -NoProfile -File "$SCRIPT" -Dest "$SKILL_DEST" -WorkflowsPath "$WORKFLOWS_LINK" -ClaudeMdPath "$claude_md" <&"${HELD_OPEN[0]}" > "$openpipe_log" 2>&1
 status=$?
 kill "$HELD_OPEN_PID" 2>/dev/null
 wait "$HELD_OPEN_PID" 2>/dev/null
@@ -172,11 +175,29 @@ for p in "${parts[@]}"; do
   [ -e "$p/claude" ] || [ -e "$p/claude.exe" ] || [ -e "$p/claude.cmd" ] && continue
   SAFE_PATH="$SAFE_PATH:$p"
 done
-out="$(CI=true PATH="$SAFE_PATH" pwsh -NoProfile -File "$SCRIPT" -Dest "$SKILL_DEST" -ClaudeMd Merge -ClaudeMdPath "$claude_md" < /dev/null 2>&1)"
+out="$(CI=true PATH="$SAFE_PATH" pwsh -NoProfile -File "$SCRIPT" -Dest "$SKILL_DEST" -WorkflowsPath "$WORKFLOWS_LINK" -ClaudeMd Merge -ClaudeMdPath "$claude_md" < /dev/null 2>&1)"
 after="$(cat "$claude_md")"
 check "Merge without the claude CLI leaves the existing file untouched" [ "$before" = "$after" ]
 check "Merge without the claude CLI reports the degradation, not silence" bash -c "printf '%s' \"\$1\" | grep -qiE 'claude|merge'" _ "$out"
 check "Merge without the claude CLI suggests an alternate mode" bash -c "printf '%s' \"\$1\" | grep -qiE 'Replace|Append'" _ "$out"
+
+# --- The workflows link --------------------------------------------------------------------
+
+rm -rf "$WORKFLOWS_LINK"
+out="$(run -ClaudeMd Skip -ClaudeMdPath "$WORK/wf/CLAUDE.md" 2>&1)"
+check "workflows: a missing link is created ('+')" bash -c "printf '%s' \"\$1\" | grep -qE '^\+  workflows'" _ "$out"
+check "workflows: the link reaches the repo's scripts" [ -f "$WORKFLOWS_LINK/hunt.js" ]
+check "workflows: no test file is reachable through the link" bash -c "[ -d \"\$1\" ] && ! ls \"\$1\" | grep -q '\.test\.js$'" _ "$WORKFLOWS_LINK"
+out="$(run -ClaudeMd Skip -ClaudeMdPath "$WORK/wf/CLAUDE.md" 2>&1)"
+check "workflows: a correct link is left alone ('=')" bash -c "printf '%s' \"\$1\" | grep -qE '^=  workflows'" _ "$out"
+
+rm -rf "$WORKFLOWS_LINK"
+mkdir -p "$WORKFLOWS_LINK"
+printf 'mine\n' > "$WORKFLOWS_LINK/mine.js"
+out="$(run -ClaudeMd Skip -ClaudeMdPath "$WORK/wf/CLAUDE.md" 2>&1)"
+check "workflows: a real directory is reported ('!')" bash -c "printf '%s' \"\$1\" | grep -qE '^!  workflows'" _ "$out"
+check "workflows: a real directory keeps its files" [ -f "$WORKFLOWS_LINK/mine.js" ]
+rm -rf "$WORKFLOWS_LINK"
 
 echo "$((total - fail))/$total passed"
 [ "$fail" -eq 0 ]

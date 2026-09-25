@@ -22,6 +22,10 @@
     Pruning only ever touches junctions that point into THIS repo, so skills
     linked from elsewhere, or hand-made links, are left alone.
 
+    It also junctions -WorkflowsPath to this repo's workflows/ directory, so the
+    saved workflows resolve by bare name in every project. A real directory
+    already there is left untouched.
+
     Junctions need no admin rights and no developer mode. macOS/Linux users:
     see `ln -s` in README.md.
 
@@ -56,7 +60,10 @@ param(
     [string]$ClaudeMd,
 
     # Override the CLAUDE.md destination when testing or targeting one file only.
-    [string]$ClaudeMdPath = (Join-Path $env:USERPROFILE '.claude\CLAUDE.md')
+    [string]$ClaudeMdPath = (Join-Path $env:USERPROFILE '.claude\CLAUDE.md'),
+
+    # Override the workflows link when testing.
+    [string]$WorkflowsPath = (Join-Path $env:USERPROFILE '.claude\workflows')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -96,6 +103,23 @@ foreach ($destination in $Dest) {
                 "-  $($_.Name) ($destination)"
             }
         }
+}
+
+$workflows = Join-Path $repo 'workflows'
+$item = Get-Item $WorkflowsPath -Force -ErrorAction SilentlyContinue
+$mark = $null
+if (-not $item) { $mark = '+' }
+elseif (-not $item.LinkType) { "!  workflows ($WorkflowsPath is a real directory -- left untouched)" }
+elseif ($item.Target -contains $workflows) { "=  workflows ($WorkflowsPath)" }
+else {
+    Remove-Item $WorkflowsPath -Force
+    $mark = '~'
+}
+if ($mark) {
+    New-Item -ItemType Directory -Force -Path (Split-Path $WorkflowsPath -Parent) | Out-Null
+    $linkType = if ($env:OS -eq 'Windows_NT') { 'Junction' } else { 'SymbolicLink' }
+    New-Item -ItemType $linkType -Path $WorkflowsPath -Target $workflows | Out-Null
+    "$mark  workflows ($WorkflowsPath)"
 }
 
 # --- CLAUDE.md installation ---------------------------------------------------------------
@@ -148,7 +172,7 @@ function Remove-WrappingCodeFence {
 }
 
 function Install-ClaudeMd {
-    $repoClaudeMd = Join-Path $repo 'templates' 'CLAUDE.md'
+    $repoClaudeMd = Join-Path $repo 'templates/CLAUDE.md'
     if (-not (Test-Path $repoClaudeMd)) { return }  # nothing to offer
     New-Item -ItemType Directory -Force -Path (Split-Path $ClaudeMdPath -Parent) | Out-Null
 

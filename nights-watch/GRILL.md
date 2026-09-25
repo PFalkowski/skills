@@ -52,7 +52,7 @@ Skip list: **draft PRs** are skipped by default (`drafts=true` opts in — the a
 
 ## Dispatch — the grill workflow
 
-One Workflow per moved PR — [`.claude/workflows/grill.js`](../.claude/workflows/grill.js), tests beside it in [`grill.test.js`](../.claude/workflows/grill.test.js). Dispatch with an absolute `scriptPath` (never `{name:}` — named resolution reads the repo being grilled, [HUNT.md](HUNT.md) § Dispatch); if the script can't be resolved, the PR is reported blocked-on-review and stays out of the ledger.
+One Workflow per moved PR — [`workflows/grill.js`](../workflows/grill.js), tests in [`grill.test.js`](../tests/workflows/grill.test.js). Dispatch by name, `pfalkowski-skills:nights-watch-grill` or `nights-watch-grill` (see [HUNT.md](HUNT.md)); if the script can't be resolved, the PR is reported blocked-on-review and stays out of the ledger.
 
 ```js
 // in:  { startedAt: '07-20 09:30',                // watcher's clock at dispatch (WATCH.md § Stamped output)

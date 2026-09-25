@@ -1,4 +1,4 @@
-// Tests for housekeeping-cleanup.js — run: node .claude/workflows/housekeeping-cleanup.test.js
+// Tests for housekeeping-cleanup.js — run: node tests/workflows/housekeeping-cleanup.test.js
 //
 // This is the only script in the skill that WRITES, so the defects worth guarding are the ones
 // where a write happens that nobody approved, or an approved write is reported as done when it is
@@ -16,7 +16,7 @@
 const fs = require('fs')
 const path = require('path')
 
-const SRC = fs.readFileSync(path.join(__dirname, 'housekeeping-cleanup.js'), 'utf8')
+const SRC = fs.readFileSync(path.join(__dirname, '../../workflows', 'housekeeping-cleanup.js'), 'utf8')
   .replace(/^export const meta = \{[\s\S]*?^\}$/m, '')
 
 async function run ({ args, agentFn, budget = {} }) {
