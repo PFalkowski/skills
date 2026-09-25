@@ -27,6 +27,8 @@ If you already installed the Claude Code plugin, select Codex (or another agent)
 
 The [`skills`](https://github.com/vercel-labs/skills) CLI reads `.claude-plugin/plugin.json`, walks the listed skill directories, and installs the ones you choose for the selected agents.
 
+In Codex, invoke a skill with `$name` or the `/skills` picker wherever these docs say `/name`. Manual-only skills carry `agents/openai.yaml` with `allow_implicit_invocation: false`, so Codex loads them only on request.
+
 ## Updating
 
 Pick the line that matches how you installed.
@@ -114,6 +116,8 @@ To install without overwriting your own `~/.claude/CLAUDE.md`, add an import lin
 ```
 
 Run `/memory` once to confirm Claude Code lists them. On Windows, `./link-skills.ps1 -ClaudeMd Import` (below) appends the first line for you. `-ClaudeMd Append` copies the content in instead.
+
+Codex reads `AGENTS.md`, not `CLAUDE.md`: copy the content of `templates/CLAUDE.md`, and `templates/autonomy.md` if you want it, into `~/.codex/AGENTS.md`, and add `project_doc_fallback_filenames = ["CLAUDE.md"]` to `~/.codex/config.toml` so it reads a repo's `CLAUDE.md` when that repo has no `AGENTS.md`.
 
 ## Local development (maintainers)
 
