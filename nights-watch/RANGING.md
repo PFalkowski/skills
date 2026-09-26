@@ -29,7 +29,7 @@ Everything not in this table is unchanged: the Oath, the fact-check discipline a
 
 **3. Claim it.** Tracker ticket → `ai-working` + a comment. Prose ticket → nothing to label; say what you're about to do and get on with it.
 
-**4. Dispatch the lifecycle.** One `Workflow` call to [`sdlc-workhorse`](../archive/sdlc-workhorse/SKILL.md) — the watcher still takes no part in the work (Oath rule 2). On a ranging the watcher *is* the session agent, so it holds the `Workflow` tool and dispatches the workhorse directly; there is no pool and no nesting to worry about. Pass the gated brief as `goal`, keep `parallel: 1`, and point `libraryIndex` at the Library so the run recalls from it and curates back into it. Fold the stealth directive (Oath rule 8) into that same `goal` string — the workhorse's agents never read this skill's Oath, so it only travels if the text carries it: no code comments beyond the repo's own house rules, and nothing in commit messages, PR title, or PR description that names the Watch, nights-watch, or "ranger".
+**4. Dispatch the lifecycle.** One `Workflow` call to [`sdlc-workhorse`](../sdlc-old-fashioned/references/workflow-mode.md) — the watcher still takes no part in the work (Oath rule 2). On a ranging the watcher *is* the session agent, so it holds the `Workflow` tool and dispatches the workhorse directly; there is no pool and no nesting to worry about. Pass the gated brief as `goal`, keep `parallel: 1`, and point `libraryIndex` at the Library so the run recalls from it and curates back into it. Fold the stealth directive (Oath rule 8) into that same `goal` string — the workhorse's agents never read this skill's Oath, so it only travels if the text carries it: no code comments beyond the repo's own house rules, and nothing in commit messages, PR title, or PR description that names the Watch, nights-watch, or "ranger".
 
 ```
 Workflow({ name: 'sdlc-workhorse', args: { goal: '<the gated brief>', parallel: 1,
@@ -51,7 +51,7 @@ The ranging runs **sdlc-workhorse** end to end, whatever the ticket's size. The 
 
 Spec → grilled requirements → design + adversarial design review → **TDD (Red → Green → Refactor)** → implement → adversarial review → **documentation** → merge-ready report → retrospective notes to the chronicle.
 
-**Why the workhorse and not `sdlc-old-fashioned`.** Old-fashioned holds its gates with a human standing at each one — and on a ranging the human has already left the room. Step 2 is where they're in it: the gate, the questions, the fork in the road. After that the work is unattended, and gates that assume a conductor who isn't there get improvised past.
+**Why the workhorse and not `sdlc-old-fashioned`'s conductor.** The workhorse *is* sdlc-old-fashioned's workflow engine, and the watcher runs it directly because no conductor stands at its gates — on a ranging the human has already left the room. Step 2 is where they're in it: the gate, the questions, the fork in the road. After that the work is unattended, and gates that assume a conductor who isn't there get improvised past.
 
 Three parts of that chain are the ones agents quietly skip on small tickets:
 

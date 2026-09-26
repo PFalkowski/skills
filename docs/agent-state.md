@@ -130,8 +130,8 @@ reverting. A skill that needs to describe its fallback points here instead.
 | `docs/sdlc/runs/` | the state root's `sdlc-old-fashioned/runs/` | `sdlc-old-fashioned` |
 | `docs/sdlc/` (spec, plan, review notes, retro) | posted on the PR — see "Publication" above | `sdlc-old-fashioned` |
 | `prompts/sdlc-backlog.md` | the state root's `sdlc-old-fashioned/backlog.md` | `sdlc-old-fashioned` |
-| `prompts/sdlc-backlog.md` (workflow default) | the state root's `sdlc-workhorse/backlog.md` | `sdlc-workhorse` |
-| `.sdlc/chronicles/` | the state root's `sdlc-workhorse/chronicles/` | `sdlc-workhorse` |
+| `prompts/sdlc-backlog.md` (workflow default) | the state root's `sdlc-workhorse/backlog.md` | `workflows/sdlc-workhorse.js` (`sdlc-old-fashioned` workflow mode) |
+| `.sdlc/chronicles/` | the state root's `sdlc-workhorse/chronicles/` | `workflows/sdlc-workhorse.js` (`sdlc-old-fashioned` workflow mode) |
 
 The workflow defaults live in `workflows/`, as values in code rather
 than prose. The check scans markdown only, so a path that lives in code is
