@@ -85,6 +85,8 @@ PR body template:
 
 Pick the PR title from the branch name / commit subject — don't ask. Keep it under 70 chars.
 
+Before creating the PR, re-read the body against the diff: every claim true, nothing the diff does left out. The test plan says what you tried by hand and how a reviewer can repeat it, not only which automated checks ran.
+
 If the branch is `main`/`master` with no feature branch yet → create one first:
 `git checkout -b <slug-from-task-description>` → push that branch → PR to main.
 
