@@ -144,6 +144,7 @@ On each new user request, before starting it, judge how much of this conversatio
 |---|---|
 | Builds on the work in hand, or arrives mid-task | Keep going and say nothing. |
 | Builds on this session, but the context is heavy with finished detail | Recommend `/compact` with keep and drop lines, as in the milestone row above. |
+| Corrects the same issue a third time: two corrections have already failed | Offer a fresh session, below, with a note that states the correct target. The failed attempts now sit in context and keep pulling the work back. |
 | Needs little of this context | Offer a fresh session, below. State too entangled for a short note: `/compact` instead. A fire-and-forget job: spawn a subagent with the note instead. |
 
 A fresh session:
