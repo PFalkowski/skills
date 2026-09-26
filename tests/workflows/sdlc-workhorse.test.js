@@ -53,7 +53,7 @@ const mkAgent = ({ reviews = {}, reviewDies = [] } = {}) => async (prompt, opts)
   if (L === 'spec') return { problem: 'p', goal: 'g', scope: ['s'], nonGoals: ['n'], successCriteria: ['c'] }
   if (L.startsWith('claims:')) return { claims: [] }        // no claims → no refute rounds on artifacts
   if (L.startsWith('grill:')) return { holes: [], verdict: 'sharp' }
-  if (L.startsWith('plan:')) return { approach: 'a', components: ['c'], failureModes: ['f'],
+  if (L.startsWith('plan:')) return { approach: 'a', components: ['c'], failureModes: [{ failure: 'f', blockedBy: 'b' }],
     alternativesRejected: [{ alternative: 'x', whyRejected: 'y' }], testStrategy: 't' }
   if (L.startsWith('plan-review:')) return { verdict: 'approved', findings: [] }
   if (L === 'slice') return { slices: [{ id: 's1', title: 'S1', acceptanceCriterion: 'AC', effort: 'low' }] }
@@ -75,6 +75,7 @@ const finding = o => ({ summary: 'off-by-one in loop', failureScenario: 'n=0 →
 const baseArgs = o => ({ goal: 'build the thing', chronicleDir: '/c', ...o })
 const reviewCalls = r => r.calls.filter(c => c.opts.label.startsWith('review:'))
 const findingsOf = r => r.slices.flatMap(s => s.verifiedFindings)
+const promptFor = (r, label) => (r.calls.find(c => c.opts.label === label) || {}).prompt || ''
 
 let pass = 0, fail = 0
 const t = async (n, fn) => { try { const r = await fn(); if (r) { pass++; console.log('  ok  ' + n) }
@@ -101,7 +102,7 @@ console.log('\nquorum — THE SEAM: the script convenes it, one agent per concer
     } }) })
   // If a single agent were told "you are a quorum", this would be 1. That is the bug.
   await t('dispatches ONE review agent PER CONCERN, not one agent told to be several',
-    () => reviewCalls(r).length === concerns.length)
+    () => reviewCalls(r).length === [...concerns, 'quality-standard'].length)
   await t('...each labelled with its own concern', () =>
     concerns.every(c => reviewCalls(r).some(x => x.opts.label === `review:s1:${c}`)))
   await t('...each reviewer is given exactly one lens', () =>
@@ -121,6 +122,68 @@ console.log('\nno reviewer is ever told to convene a quorum itself (the #46 regr
     () => reviewCalls(r).every(x => /do NOT try to convene a quorum or spawn reviewer subagents/i.test(x.prompt)))
   await t('...and told the script already fanned the quorum out',
     () => reviewCalls(r).every(x => /already fanned out by the script/i.test(x.prompt)))
+}
+
+// ---------------------------------------------------------------------------
+// THE QUALITY STANDARD IS A GATE, NOT ADVICE. less-is-more and no-comment bind
+// every line, so a verified breach blocks merge like a bug. The seam: a reviewer
+// labels a stray comment "nit", and a severity-only gate would wave it through.
+// ---------------------------------------------------------------------------
+const QUALITY = p => /less-is-more/.test(p) && /no-comment/.test(p)
+
+console.log('\nthe quality standard reaches the builder and the reviewer:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: mkAgent() })
+  await t('the GREEN/refactor agent is held to less-is-more and no-comment', () => QUALITY(promptFor(r, 'green:s1')))
+  await t('...and the single reviewer grades the diff against both', () => QUALITY(promptFor(r, 'review:s1')))
+  const rule = reviewCalls(r)[0].opts.schema.properties.findings.items.properties.rule
+  await t('a review finding can name the rule it breaks',
+    () => !!rule && ['behaviour', 'less-is-more', 'no-comment'].every(v => rule.enum.includes(v)))
+}
+
+console.log('\nunder quorum, exactly one reviewer carries the quality lens:')
+{
+  const r = await runWorkhorse({ args: baseArgs({ reviewStance: 'quorum', reviewConcerns: ['security', 'tests'] }),
+    agentFn: mkAgent() })
+  await t('the script appends it when the caller did not list it',
+    () => reviewCalls(r).length === 3 && reviewCalls(r).some(c => c.opts.label === 'review:s1:quality-standard'))
+  await t('...only that reviewer carries the rule', () =>
+    reviewCalls(r).filter(c => QUALITY(c.prompt)).map(c => c.opts.label).join() === 'review:s1:quality-standard')
+  await t('...and the addition is logged, never silent', () => r.logs.some(m => /quality-standard/.test(m)))
+}
+{
+  const r = await runWorkhorse({ args: baseArgs({ reviewStance: 'quorum', reviewConcerns: ['correctness', 'quality-standard'] }),
+    agentFn: mkAgent() })
+  await t('a caller who listed it gets it once, not twice', () => reviewCalls(r).length === 2)
+  await t('...and nothing is logged as appended', () => !r.logs.some(m => /appended/.test(m)))
+}
+
+console.log('\na verified quality finding blocks merge whatever its severity:')
+const nitOn = (rule, refute = 'confirmed') => {
+  const base = mkAgent({ reviews: { _single: [finding({ severity: 'nit', ...(rule && { rule }) })] } })
+  return async (prompt, opts) => opts.label.startsWith('refute:') && opts.phase === 'Review'
+    ? { status: refute, evidence: 'checked the diff' } : base(prompt, opts)
+}
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: nitOn('no-comment') })
+  await t('a verified no-comment nit makes the run not merge-ready', () => r.mergeReady === false)
+  await t('...and says why in mergeBlockedBy', () => r.mergeBlockedBy.some(m => /no-comment/.test(m)))
+  await t('...and the report carries the rule', () => findingsOf(r)[0].rule === 'no-comment')
+  await t('...and the refuters are told which rule they are attacking',
+    () => r.calls.filter(c => c.opts.label.startsWith('refute:') && c.opts.phase === 'Review')
+      .every(c => /Rule: no-comment/.test(c.prompt)))
+  await t('...and what refutes it: outside the diff, a why-comment, a smaller change that breaks the test',
+    () => r.calls.filter(c => c.opts.label.startsWith('refute:') && c.opts.phase === 'Review')
+      .every(c => /not in this slice's diff/.test(c.prompt) && /why rather than what/.test(c.prompt)
+        && /keep the slice's test green/.test(c.prompt)))
+}
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: nitOn(null) })
+  await t('a verified behaviour nit does not block', () => r.mergeReady === true)
+}
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: nitOn('no-comment', 'refuted') })
+  await t('a refuted quality finding does not block', () => r.mergeReady === true)
 }
 
 console.log('\ndedupe — overlapping lenses must not be paid for twice:')
@@ -204,7 +267,6 @@ const mkClaimAgent = ({ claims, verdicts }) => {
     return base(prompt, opts)
   }
 }
-const promptFor = (r, label) => (r.calls.find(c => c.opts.label === label) || {}).prompt || ''
 
 console.log('\nthe premise is fact-checked and only the survivors are carried forward:')
 {
@@ -263,6 +325,21 @@ console.log('\nmandatory fact-check reaches the premise agents themselves, not j
   await t('the spec agent is required to ground its claims before writing them', () => grounded('spec'))
   await t('the grill agent is too', () => grounded('grill:r1'))
   await t('the plan agent is too', () => grounded('plan:r1'))
+}
+
+console.log('\ninvert reaches the plan and its review — read by path, since the Skill tool refuses a manual-only skill:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: mkAgent() })
+  const inverts = l => /invert\/SKILL\.md/.test(promptFor(r, l)) && /manual-only/.test(promptFor(r, l))
+    && !/Use the "invert" skill/.test(promptFor(r, l))
+  await t('the plan agent is told to read invert/SKILL.md', () => inverts('plan:r1'))
+  await t('...and so is the plan reviewer', () => inverts('plan-review:r1'))
+  await t('...who files a failure the plan does not block as a finding',
+    () => /does not already block is a finding/.test(promptFor(r, 'plan-review:r1')))
+  const planSchema = r.calls.find(c => c.opts.label === 'plan:r1').opts.schema
+  await t('every failure mode must say what blocks it', () =>
+    (planSchema.properties.failureModes.items.required || []).includes('blockedBy'))
+  await t('...with no parallel inversion field beside it', () => !('inversion' in planSchema.properties))
 }
 
 // ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 # Fails when a single-word backticked name in templates/*.md is neither a skill in .claude-plugin/plugin.json nor allowlisted.
 set -u
 cd "$(dirname "$0")/.."
-allow="Workflow sdlc-workhorse pfalkowski-skills:"
+allow="Workflow pfalkowski-skills:"
 known=" $(grep -oE '"\./[a-z0-9-]+"' .claude-plugin/plugin.json | tr -d '"./' | tr '\n' ' ') $allow "
 status=0
 for f in templates/*.md; do

@@ -1,7 +1,7 @@
 export const meta = {
   name: 'sdlc-workhorse',
   description: 'The full SDLC as an executable pipeline: baseline → spec → grill → plan → adversarial review → slice → TDD fanout → grill the diff → document → retrospective. Autonomous, evidence-gated, stops at irreversible lines.',
-  whenToUse: 'A load-bearing change that deserves the full lifecycle, run unattended. Dispatched by the sdlc-workhorse skill, which gathers the goal and settings. The attended, human-at-every-gate variant is the sdlc-old-fashioned skill.',
+  whenToUse: 'A load-bearing change that deserves the full lifecycle, run unattended. Dispatched by sdlc-old-fashioned in dynamic-workflow mode, and by nights-watch for load-bearing tickets.',
   phases: [
     { title: 'Baseline', detail: 'catalogue the repo pitfalls and prove the guardrails are green before touching anything' },
     { title: 'Spec', detail: 'problem, goal, scope, non-goals, success criteria' },
@@ -61,7 +61,10 @@ const maxSlices = cfg.maxSlices ?? 12
 const maxClaimsPerGate = cfg.maxClaimsPerGate ?? 5
 // code-review-grill's two ALWAYS-ASK gates, pre-answered — there is no human to ask.
 const reviewStance = cfg.reviewStance || 'single'
-const reviewConcerns = cfg.reviewConcerns || ['correctness', 'documentation']
+const QUALITY_LENS = 'quality-standard'
+const callerConcerns = cfg.reviewConcerns || ['correctness', 'documentation']
+const appendsQualityLens = !callerConcerns.includes(QUALITY_LENS)
+const reviewConcerns = appendsQualityLens ? [...callerConcerns, QUALITY_LENS] : callerConcerns
 const reserve = cfg.reserve ?? 60000                    // output tokens held back per slice
 // NOT `parallel` — that is the Workflow-injected fan-out helper this script calls in five
 // places. A top-level `const parallel = <number>` shadows it, and every one of those calls
@@ -116,6 +119,9 @@ if (tiersFloored.length) {
   say(`premise gates floored to ${PREMISE_FLOOR} (a premise phase may be raised, never lowered): ` +
       tiersFloored.join(', '))
 }
+if (reviewStance === 'quorum' && appendsQualityLens) {
+  say(`quorum: ${QUALITY_LENS} lens appended to reviewConcerns (less-is-more and no-comment gate every diff)`)
+}
 
 const chronicle = (name) => `${chronicleDir}/${name}.md`
 const CHRONICLE_RULE = (path) =>
@@ -149,6 +155,27 @@ const FACT_CHECK_RULE =
   `not go in hedged ("likely", "should be", "appears to"), it does not go in at all. State plainly what you could ` +
   `not establish and treat it as an open question. Discovering mid-check that your premise is WRONG is a SUCCESS of ` +
   `this process, not a setback — say so and change the artifact.`
+
+// The three steps are the fallback brief, not a copy of the method: a copy goes stale the day invert improves.
+const INVERT_RULE =
+  `Apply the "invert" skill. It is manual-only, so the Skill tool will refuse it: read its SKILL.md instead — ` +
+  `~/.claude/skills/invert/SKILL.md, else the first hit of ` +
+  `\`find ~/.claude/plugins/cache ~/.agents/skills -path '*/invert/SKILL.md' 2>/dev/null | head -1\`. ` +
+  `Name three specific ways this plan fails once shipped, check whether the plan already does one, and block each ` +
+  `or state why it cannot happen. If no copy is found, say so in your chronicle and apply those three steps anyway.`
+
+const QUALITY_RULE =
+  `QUALITY STANDARD — use the "less-is-more" and "no-comment" skills. less-is-more: the smallest change that fits ` +
+  `the repo's architecture — modify existing code rather than add a parallel path, no abstraction with one caller, ` +
+  `delete what the change orphans. no-comment: no comment that a name, an extracted function or a type would ` +
+  `replace; a comment that survives says why, not what.`
+const QUALITY_REVIEW_RULE =
+  `${QUALITY_RULE} Grade the diff against both. A breach is a finding with rule "less-is-more" or "no-comment", and ` +
+  `it blocks merge like a bug whatever severity you give it.`
+const QUALITY_REFUTE_RULE =
+  `A quality finding is refuted if the lines it cites are not in this slice's diff; for no-comment, if the comment ` +
+  `says why rather than what; for less-is-more, if the smaller change it names does not keep the slice's test green.`
+const isQualityFinding = f => f.rule && f.rule !== 'behaviour'
 
 // Several skills this workflow composes are INTERACTIVE by design — grill-me and
 // grill-with-docs interview a user; code-review-grill has two ALWAYS-ASK gates.
@@ -267,7 +294,16 @@ const PLAN_SCHEMA = {
   properties: {
     approach: { type: 'string' },
     components: { type: 'array', items: { type: 'string' }, description: 'Key components and interfaces; data and control flow.' },
-    failureModes: { type: 'array', items: { type: 'string' } },
+    failureModes: {
+      type: 'array',
+      description: 'invert: the sentence someone says after it shipped, and what in this plan blocks it, or the ' +
+        'stated assumption if nothing can.',
+      items: {
+        type: 'object',
+        required: ['failure', 'blockedBy'],
+        properties: { failure: { type: 'string' }, blockedBy: { type: 'string' } },
+      },
+    },
     alternativesRejected: {
       type: 'array', minItems: 1,
       description: 'A plan with no rejected alternative was not designed, it was assumed.',
@@ -356,8 +392,12 @@ const REVIEW_SCHEMA = {
         required: ['summary', 'failureScenario', 'severity'],
         properties: {
           summary: { type: 'string' },
-          failureScenario: { type: 'string', description: 'Concrete inputs/state → wrong output/crash. No scenario means no finding.' },
+          failureScenario: { type: 'string', description: 'A behaviour finding: concrete inputs/state → wrong ' +
+            'output/crash. A less-is-more or no-comment finding: the rule quoted from that skill, the diff lines that ' +
+            'break it (path:line), and the smaller change that satisfies it. No scenario means no finding.' },
           severity: { type: 'string', enum: ['blocker', 'major', 'minor', 'nit'] },
+          rule: { type: 'string', enum: ['behaviour', 'less-is-more', 'no-comment'], description: 'Absent means ' +
+            'behaviour. A less-is-more or no-comment finding blocks merge whatever its severity says.' },
           file: { type: 'string' },
           mechanical: { type: 'boolean', description: 'Can it be fixed without a judgment call?' },
         },
@@ -669,7 +709,7 @@ for (let round = 1; round <= maxPlanRounds; round++) {
     `ACCEPTANCE CRITERIA:\n${acceptance.map(a => `- ${a}`).join('\n')}\n\n${pitfallRule}\n` +
     `${planFeedback ? `\nA previous design round was REJECTED. You must address every point:\n${planFeedback}\n` : ''}\n` +
     `Approach; key components and interfaces; data and control flow; failure modes; alternatives considered and WHY ` +
-    `rejected; the test strategy. Save the plan in the repo and report the path.\n\n${FACT_CHECK_RULE}\n\n` +
+    `rejected; the test strategy. Save the plan in the repo and report the path.\n\n${INVERT_RULE}\n\n${FACT_CHECK_RULE}\n\n` +
     `${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('plan'))}`,
     { label: `plan:r${round}`, phase: 'Plan', model: tiers.plan, schema: PLAN_SCHEMA }
   )
@@ -683,7 +723,8 @@ for (let round = 1; round <= maxPlanRounds; round++) {
       `not here to be agreeable.\n\n<spec>\n${sharpSpec}\n</spec>\n\n<plan>\n${planText}\n</plan>\n\n${pitfallRule}\n\n` +
       `Hunt specifically for: hidden coupling; failure modes it does not handle; a wrong abstraction; a materially ` +
       `cheaper path to the same outcome; and the big one — does it actually satisfy the spec, or a nearby easier ` +
-      `problem? Mark a finding mustFix only if shipping this plan unchanged would be a defect.\n\n` +
+      `problem? Mark a finding mustFix only if shipping this plan unchanged would be a defect.\n\n${INVERT_RULE} A failure ` +
+      `this plan does not already block is a finding (category "unhandled-failure").\n\n` +
       `Use the "grill-with-docs" skill if available.\n\n${NO_HUMAN_RULE}\n\n${CHRONICLE_RULE(chronicle('plan-review'))}`,
       { label: `plan-review:r${round}`, phase: 'Plan review', model: tiers.planReview, schema: PLAN_REVIEW_SCHEMA }
     ),
@@ -822,7 +863,7 @@ const built = await pipeline(
       `Truth before all: before any unverified fact enters the code — an API's behaviour, a version/compat claim, a ` +
       `copied constant — run the "fact-check" skill and prove it with a runnable experiment or authoritative sources. ` +
       `Unprovable means false. If the root cause turns out to be something other than you assumed, that discovery is a ` +
-      `success: say so and act on it.\n\nUse the "tdd" skill's GREEN → REFACTOR discipline.\n\n` +
+      `success: say so and act on it.\n\nUse the "tdd" skill's GREEN → REFACTOR discipline.\n\n${QUALITY_RULE}\n\n` +
       `${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle(`slice-${slice.id}`))}`,
       { label: `green:${slice.id}`, phase: 'Build', model: tiers.build, effort: slice.effort, schema: GREEN_SCHEMA, isolation: isolate ? 'worktree' : undefined }
     )
@@ -840,8 +881,9 @@ const built = await pipeline(
                  `finding outside your lens is theirs to make, not yours to guess at.\n\n` : '') +
       `ACCEPTANCE CRITERION: ${slice.acceptanceCriterion}\n\n${pitfallRule}\n\n` +
       `Go hunk by hunk: what must be true for this to be correct? What input breaks it? What caller relied on the old ` +
-      `behaviour? Every finding needs a CONCRETE failure scenario — inputs/state → wrong output/crash. A finding ` +
-      `without one is speculation and does not count.\n\n` +
+      `behaviour? Every behaviour finding needs a CONCRETE failure scenario — inputs/state → wrong output/crash. A ` +
+      `finding without one is speculation and does not count.\n\n` +
+      (!concern || concern === QUALITY_LENS ? `${QUALITY_REVIEW_RULE}\n\n` : '') +
       // code-review-grill is bookended by two ALWAYS-ASK human gates (Step 0
       // stance, Step 7 posting). There is no human in this run, so they are
       // pre-answered here. An autonomous agent left to hit those gates either
@@ -883,7 +925,9 @@ const built = await pipeline(
     }
     // Verify before reporting: a plausible-but-wrong finding costs a real fix cycle.
     const verified = await parallel(findings.map(f => () =>
-      proven(f.summary, f.failureScenario, 'Review', `Slice: ${slice.title}\nCriterion: ${slice.acceptanceCriterion}`)
+      proven(f.summary, f.failureScenario, 'Review',
+        `Slice: ${slice.title}\nCriterion: ${slice.acceptanceCriterion}\nRule: ${f.rule || 'behaviour'}` +
+        (isQualityFinding(f) ? `\n${QUALITY_REFUTE_RULE}` : ''))
         .then(v => ({ ...f, confirmed: v.proven, evidence: v.why }))
     ))
     const real = verified.filter(Boolean).filter(f => f.confirmed)
@@ -900,10 +944,13 @@ for (const f of failed) {
 }
 note('Build', `${done.length}/${slices.length} slice(s) green`)
 
-const blockerFindings = done.flatMap(r => (r.findings || []).filter(f => f.severity === 'blocker' || f.severity === 'major'))
+const verifiedFindings = done.flatMap(r => r.findings || [])
+const blockerFindings = verifiedFindings.filter(f => f.severity === 'blocker' || f.severity === 'major')
 if (blockerFindings.length) {
   say(`${blockerFindings.length} verified blocker/major finding(s) — these are real defects, not opinions.`)
 }
+// Decided here, not by the reviewer's severity label: one word ("nit") must not talk a breach past the gate.
+const ruleFindings = verifiedFindings.filter(isQualityFinding)
 
 // ---------------------------------------------------------------------------
 // PHASE 10 — Document. Docs ship in the same PR as the code, not "later".
@@ -952,6 +999,7 @@ const mergeReady =
   done.length === slices.length &&
   !record.blockers.length &&
   !blockerFindings.length &&
+  !ruleFindings.length &&
   !!docs && docs.baselineStillGreen
 
 return {
@@ -961,6 +1009,7 @@ return {
     ...(done.length !== slices.length ? [`${slices.length - done.length} slice(s) not green`] : []),
     ...record.blockers.map(b => b.what),
     ...(blockerFindings.length ? [`${blockerFindings.length} verified blocker/major review finding(s)`] : []),
+    ...(ruleFindings.length ? [`${ruleFindings.length} verified less-is-more / no-comment finding(s)`] : []),
     ...(docs && !docs.baselineStillGreen ? ['baseline regressed'] : []),
   ],
   baseline: { green: baseline.green, checks: baseline.checks.map(c => c.command), pitfalls: baseline.pitfalls },
@@ -974,7 +1023,7 @@ return {
     green: !!(r.green && r.green.passed),
     skipped: r.skipped || null,
     testPath: r.red ? r.red.testPath : null,
-    verifiedFindings: (r.findings || []).map(f => ({ severity: f.severity, summary: f.summary, evidence: f.evidence })),
+    verifiedFindings: (r.findings || []).map(f => ({ severity: f.severity, rule: f.rule, summary: f.summary, evidence: f.evidence })),
   })),
   docs,
   retro,
