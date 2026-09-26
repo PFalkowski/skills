@@ -36,6 +36,8 @@ Signals, in rough order of reliability:
 
 - **Labels** — `parked`, `blocked`, `wontfix`, `discussion`, or a priority lane that means "not now".
 - **Milestone and assignee** — already owned by a person, or scheduled for later.
+- **The repo's own plan or status document**, when one exists — it can mark work done, blocked, or held until a
+  later gate, even when the ticket itself says nothing.
 - **The prose.** Most often the real signal, and the reason a model reads better here than a query: *"not
   blocking", "filed rather than absorbed", "for the record", "when we get to it", "someone should eventually",
   "spun out so it isn't lost"*.
