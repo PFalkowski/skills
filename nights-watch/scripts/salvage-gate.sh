@@ -8,7 +8,7 @@
 #                                  is on the pull request's branch and nothing else is left in it
 set -uo pipefail
 
-# The folders the whats-next board treats as disposable build output: recreated by a build,
+# The only ignored folders treated as disposable build output: each is recreated by a build,
 # restore or test run. Anything else ignored is somebody's work.
 BUILD_OUTPUT='bin|obj|\.vs|node_modules|coverage|__pycache__|TestResults|_preview|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.tox|\.gradle|\.next|\.nuxt|\.parcel-cache|\.turbo'
 SECRET_NAME='(^|/)(appsettings[^/]*\.json|[^/]*settings\.local\.json|\.env(\.[^/]*)?|[^/]*\.(pem|key|pfx|p12|jks|keystore|kdbx|tfvars|publishsettings)|id_(rsa|dsa|ecdsa|ed25519)[^/]*|\.npmrc|\.netrc|\.pypirc|secrets?\.[^/]*|credentials(\.[^/]*)?)$'
