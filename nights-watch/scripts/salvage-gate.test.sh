@@ -22,6 +22,8 @@ printf '%s' "${CLAUDE_STUB_JSON:-[]}"
 EOF
 cat > "$TMP/bin/gh" <<'EOF'
 #!/usr/bin/env bash
+[ "$1 $2" = "repo view" ] && { printf '%s
+' "$GH_STUB_REPO"; exit 0; }
 [ "$1 $2" = "pr view" ] || exit 1
 [ -n "${GH_STUB_PR:-}" ] || { echo "no pull requests found" >&2; exit 1; }
 printf '%s\n' "$GH_STUB_PR"
@@ -77,7 +79,10 @@ gone() { total=$((total + 1)); [ ! -e "$2" ] || { echo "FAIL: $1 -- $2 still exi
 has_branch() { total=$((total + 1)); git -C "$REPO" rev-parse --verify -q "refs/heads/$2" >/dev/null || { echo "FAIL: $1 -- branch $2 is gone"; fail=$((fail + 1)); }; }
 no_branch() { total=$((total + 1)); ! git -C "$REPO" rev-parse --verify -q "refs/heads/$2" >/dev/null || { echo "FAIL: $1 -- branch $2 still exists"; fail=$((fail + 1)); }; }
 
-export CLAUDE_STUB_JSON='[]' CLAUDE_STUB_FAIL='' GH_STUB_PR=''
+export CLAUDE_STUB_JSON='[]' CLAUDE_STUB_FAIL='' GH_STUB_PR='' GH_STUB_REPO="$(basename "$TMP")/origin"
+git init -q --bare "$TMP/other.git"
+git -C "$REPO" remote add other "$TMP/other.git"
+pr() { printf '%s %s %s false %s' "$1" "$2" "$(git -C "$REPO" rev-parse "$3")" "$GH_STUB_REPO"; }
 
 # --- preflight -----------------------------------------------------------------------------------
 PLAIN=$(worktree plain)
@@ -170,6 +175,33 @@ for f in notes/terraform.tfstate notes/.envrc notes/local.settings.json notes/.g
 done
 expect_out "an ignored file of an unlisted type is reported" '^notes/data\.json$'
 expect_no_out "an ignored text file is committable" 'todo\.txt'
+BINARY=$(worktree binary)
+printf 'AKIAABCDEFGHIJKLMNOP\0\1\2' > "$BINARY/dump.dat"
+printf 'x\0' > "$BINARY/readme.md"
+expect "secrets on binary files" 0 secrets "$BINARY"
+expect_out "an untracked binary file is reported" '^dump\.dat$'
+expect_out "a tracked file changed to binary is reported" '^readme\.md$'
+WIDE=$(worktree wide)
+printf 'db:
+  PassWord: hunter2hunter
+' > "$WIDE/config.yml"
+printf '{"password": "hunter2hunter"}' > "$WIDE/pw.json"
+printf 'key = AIzaSyA1234567890abcdefghijklmnopqrstuv
+' > "$WIDE/google.txt"
+printf 'stripe = sk_live_%s
+' "$(printf 'a%.0s' $(seq 24))" > "$WIDE/stripe.txt"
+printf 'DefaultEndpointsProtocol=https;AccountKey=abcdefghijklmnop==
+' > "$WIDE/azure.txt"
+printf -- '-----BEGIN RSA PRIVATE KEY-----
+abc
+' > "$WIDE/rsa.txt"
+echo 'password: string' > "$WIDE/short.txt"
+echo 'the password field is required' > "$WIDE/prose.txt"
+expect "secrets on wider content patterns" 0 secrets "$WIDE"
+for f in config.yml pw.json google.txt stripe.txt azure.txt rsa.txt; do
+  expect_out "$f is reported by content" "^${f//./\.}\$"
+done
+expect_no_out "prose about passwords is not a secret" 'prose\.txt'
 
 # --- push-check ----------------------------------------------------------------------------------
 PUSHY=$(worktree pushy)
@@ -203,10 +235,22 @@ git -C "$FORCED" add -f notes/state.json && git -C "$FORCED" commit -qm state
 expect "a force-added ignored file of another type fails" 1 push-check "$FORCED" HEAD
 expect_out "the force-added file is named" 'notes/state\.json'
 
+BLOB=$(worktree blob)
+printf 'AKIAABCDEFGHIJKLMNOP\0\1\2' > "$BLOB/dump.dat"
+git -C "$BLOB" add dump.dat && git -C "$BLOB" commit -qm blob
+expect "a binary file in an unpushed commit fails" 1 push-check "$BLOB" HEAD
+expect_out "the binary file is named" 'dump\.dat'
+ELSEWHERE=$(worktree elsewhere)
+echo 'password=hunter2secret' > "$ELSEWHERE/conn.txt"
+git -C "$ELSEWHERE" add conn.txt && git -C "$ELSEWHERE" commit -qm conn
+git -C "$ELSEWHERE" push -q other elsewhere 2>/dev/null
+expect "a commit held only by another remote is still checked" 1 push-check "$ELSEWHERE" HEAD
+expect_out "the file on the other remote is named" 'conn\.txt'
+
 # --- discard -------------------------------------------------------------------------------------
 UNPUSHED=$(worktree unpushed)
 commit_in "$UNPUSHED" work.txt
-GH_STUB_PR="OPEN unpushed - false" expect "commits no remote holds are never discarded" 1 discard "$UNPUSHED" https://example.invalid/pr/1
+GH_STUB_PR=$(pr OPEN unpushed main) expect "commits no remote holds are never discarded" 1 discard "$UNPUSHED" https://example.invalid/pr/1
 exists "an unpushed worktree stays" "$UNPUSHED"
 has_branch "an unpushed branch stays" unpushed
 
@@ -214,27 +258,27 @@ SHIPPED=$(worktree shipped)
 commit_in "$SHIPPED" shipped.txt
 git -C "$SHIPPED" push -q origin shipped 2>/dev/null
 expect "no pull request refuses" 1 discard "$SHIPPED" https://example.invalid/pr/2
-GH_STUB_PR="CLOSED shipped - false" expect "a closed pull request refuses" 1 discard "$SHIPPED" https://example.invalid/pr/2
-GH_STUB_PR="OPEN somewhere-else - false" expect "a pull request for other work refuses" 1 discard "$SHIPPED" https://example.invalid/pr/2
+GH_STUB_PR=$(pr CLOSED shipped shipped) expect "a closed pull request refuses" 1 discard "$SHIPPED" https://example.invalid/pr/2
+GH_STUB_PR=$(pr OPEN somewhere-else main) expect "a pull request for other work refuses" 1 discard "$SHIPPED" https://example.invalid/pr/2
 echo draft > "$SHIPPED/draft.md"
-GH_STUB_PR="OPEN shipped - false" expect "an untracked file refuses" 1 discard "$SHIPPED" https://example.invalid/pr/2
+GH_STUB_PR=$(pr OPEN shipped shipped) expect "an untracked file refuses" 1 discard "$SHIPPED" https://example.invalid/pr/2
 expect_out "the unpreserved file is named" 'draft\.md'
 rm "$SHIPPED/draft.md"
 mkdir -p "$SHIPPED/notes" && echo idea > "$SHIPPED/notes/idea.md"
-GH_STUB_PR="OPEN shipped - false" expect "an ignored file that is not build output refuses" 1 discard "$SHIPPED" https://example.invalid/pr/2
+GH_STUB_PR=$(pr OPEN shipped shipped) expect "an ignored file that is not build output refuses" 1 discard "$SHIPPED" https://example.invalid/pr/2
 rm -r "$SHIPPED/notes"
 echo tweak >> "$SHIPPED/shipped.txt"
-GH_STUB_PR="OPEN shipped - false" expect "an uncommitted change refuses" 1 discard "$SHIPPED" https://example.invalid/pr/2
+GH_STUB_PR=$(pr OPEN shipped shipped) expect "an uncommitted change refuses" 1 discard "$SHIPPED" https://example.invalid/pr/2
 git -C "$SHIPPED" checkout -q -- shipped.txt
-GH_STUB_PR="OPEN shipped - true" expect "a pull request from a fork refuses" 1 discard "$SHIPPED" https://example.invalid/pr/2
-GH_STUB_PR="MERGED shipped $(git -C "$REPO" rev-parse main) false" expect "commits a merged pull request never held refuse" 1 discard "$SHIPPED" https://example.invalid/pr/2
+GH_STUB_PR="OPEN shipped $(git -C "$REPO" rev-parse shipped) true $GH_STUB_REPO" expect "a pull request from a fork refuses" 1 discard "$SHIPPED" https://example.invalid/pr/2
+GH_STUB_PR=$(pr MERGED shipped main) expect "commits a merged pull request never held refuse" 1 discard "$SHIPPED" https://example.invalid/pr/2
 expect_out "unreviewed commits name their reason" 'never held'
 sessions_at "$SHIPPED"
-GH_STUB_PR="OPEN shipped - false" expect "a live session refuses the discard" 1 discard "$SHIPPED" https://example.invalid/pr/2
+GH_STUB_PR=$(pr OPEN shipped shipped) expect "a live session refuses the discard" 1 discard "$SHIPPED" https://example.invalid/pr/2
 export CLAUDE_STUB_JSON='[]'
 exists "every refusal left the worktree" "$SHIPPED"
 mkdir -p "$SHIPPED/bin/Debug" "$SHIPPED/obj" && echo x > "$SHIPPED/bin/Debug/app.dll" && echo x > "$SHIPPED/obj/cache"
-GH_STUB_PR="OPEN shipped - false" expect "preserved work with only build output is discarded" 0 discard "$SHIPPED" https://example.invalid/pr/2
+GH_STUB_PR=$(pr OPEN shipped shipped) expect "preserved work with only build output is discarded" 0 discard "$SHIPPED" https://example.invalid/pr/2
 gone "the worktree is removed" "$SHIPPED"
 no_branch "the local branch is deleted" shipped
 total=$((total + 1))
@@ -246,13 +290,21 @@ git -C "$REPO" fetch -q origin
 git -C "$REPO" worktree add -q "$TMP/salvage" -b salvage/2026-09-27 origin/main 2>/dev/null
 git -C "$TMP/salvage" merge -q --no-ff merged-into-salvage -m "Salvage merged-into-salvage"
 git -C "$TMP/salvage" push -q origin salvage/2026-09-27 2>/dev/null
-GH_STUB_PR="OPEN salvage/2026-09-27 - false" expect "a leftover merged into the salvage branch is discarded" 0 discard "$MERGED" https://example.invalid/pr/3
+GH_STUB_PR=$(pr OPEN salvage/2026-09-27 salvage/2026-09-27) expect "a leftover merged into the salvage branch is discarded" 0 discard "$MERGED" https://example.invalid/pr/3
 gone "the leftover worktree is removed" "$MERGED"
+
+STRAY=$(worktree stray)
+commit_in "$STRAY" stray.txt
+git -C "$STRAY" push -q other stray 2>/dev/null
+git -C "$REPO" push -q origin main:stray 2>/dev/null
+GH_STUB_PR=$(pr OPEN stray main) expect "a branch of the same name on another remote does not count" 1 discard "$STRAY" https://example.invalid/pr/5
+exists "a commit held only by another remote keeps its worktree" "$STRAY"
+has_branch "a commit held only by another remote keeps its branch" stray
 
 DETACHED=$(worktree detached)
 git -C "$DETACHED" checkout -q --detach
 git -C "$REPO" branch -q -D detached 2>/dev/null
-GH_STUB_PR="MERGED main $(git -C "$DETACHED" rev-parse HEAD) false" expect "a detached HEAD already on a merged pull request's branch is discarded" 0 discard "$DETACHED" https://example.invalid/pr/4
+GH_STUB_PR="MERGED main $(git -C "$DETACHED" rev-parse HEAD) false $GH_STUB_REPO" expect "a detached HEAD already on a merged pull request's branch is discarded" 0 discard "$DETACHED" https://example.invalid/pr/4
 gone "the detached worktree is removed" "$DETACHED"
 has_branch "no branch is deleted for a detached HEAD" main
 

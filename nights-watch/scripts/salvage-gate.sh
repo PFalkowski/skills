@@ -3,7 +3,7 @@
 # step is safe. Run from the root of the repository that owns the worktrees.
 #   preflight  <worktree>          exit 0 when salvage may touch it; else prints the refusal, exit 1
 #   secrets    <worktree>          prints uncommitted, untracked or ignored files that must not be committed
-#   push-check <dir> <ref>         exit 0 when no commit of <ref> that no remote holds looks secret
+#   push-check <dir> <ref>         exit 0 when no commit of <ref> that this repository's remote lacks looks secret
 #   discard    <worktree> <pr-url> removes the worktree and its local branch, only once every commit
 #                                  is on the pull request's branch and nothing else is left in it
 set -uo pipefail
@@ -14,7 +14,7 @@ BUILD_OUTPUT='bin|obj|\.vs|node_modules|coverage|__pycache__|TestResults|_previe
 # An ignored file was left out of the repository on purpose, so only these types of it may be committed.
 SAFE_IGNORED='\.(md|txt)$'
 SECRET_NAME='(^|/)(appsettings[^/]*\.json|[^/]*settings\.local\.json|local\.settings\.json|\.env(\.[^/]*)?|[^/]*\.env|\.envrc|[^/]*\.tfstate(\.[^/]*)?|\.git-credentials|kubeconfig|[^/]*\.(pem|key|pfx|p12|jks|keystore|kdbx|tfvars|publishsettings)|id_(rsa|dsa|ecdsa|ed25519)[^/]*|\.npmrc|\.netrc|\.pypirc|secrets?\.[^/]*|credentials(\.[^/]*)?)$'
-SECRET_TEXT='-----BEGIN [A-Z ]*PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-(ant|proj)-[A-Za-z0-9_-]{20,}|(Password|Passwd|Pwd|AccountKey|SharedAccessKey)=[^;"[:space:]]{6,}|[a-z][a-z0-9+.-]*://[^/:@[:space:]]+:[^/@[:space:]]+@'
+SECRET_TEXT='-----BEGIN [A-Z ]*PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|sk_live_[0-9A-Za-z]{10,}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-(ant|proj)-[A-Za-z0-9_-]{20,}|(Password|Passwd|Pwd|AccountKey|SharedAccessKey)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"']?[^;"'"'"'[:space:]]{6,}|[a-z][a-z0-9+.-]*://[^/:@[:space:]]+:[^/@[:space:]]+@'
 
 refuse() { echo "refused: $1"; exit 1; }
 
@@ -22,6 +22,21 @@ norm() {
   local p=$1
   command -v cygpath >/dev/null 2>&1 && p=$(cygpath -m "$p")
   printf '%s' "${p%/}" | tr '[:upper:]' '[:lower:]'
+}
+
+binary() { [ -s "$1" ] && ! grep -qI '' "$1"; }
+
+# The remote whose URL names the GitHub repository <owner/name>; refuses unless exactly one does.
+repo_remote() {
+  local dir=$1 repo=$2 r url found=""
+  for r in $(git -C "$dir" remote); do
+    url=$(git -C "$dir" remote get-url "$r" | tr '[:upper:]' '[:lower:]'); url=${url%/}; url=${url%.git}
+    [[ "$url" == */"${repo,,}" || "$url" == *:"${repo,,}" ]] || continue
+    [ -z "$found" ] || refuse "more than one remote points at $repo"
+    found=$r
+  done
+  [ -n "$found" ] || refuse "no remote points at $repo"
+  echo "$found"
 }
 
 under() { [ "$1" = "$2" ] || [[ "$1" == "$2"/* ]]; }
@@ -67,7 +82,7 @@ secrets() {
   while IFS=$'\t' read -r kind file; do
     [ -f "$wt/$file" ] || continue
     if { [ "$kind" = ignored ] && ! printf '%s\n' "$file" | grep -qiE "$SAFE_IGNORED"; } \
-      || printf '%s\n' "$file" | grep -qiE "$SECRET_NAME" || grep -qiIE -e "$SECRET_TEXT" "$wt/$file" 2>/dev/null; then
+      || printf '%s\n' "$file" | grep -qiE "$SECRET_NAME" || binary "$wt/$file" || grep -qiIE -e "$SECRET_TEXT" "$wt/$file" 2>/dev/null; then
       echo "$file"
     fi
   done < <(tagged changed diff --name-only HEAD
@@ -76,33 +91,38 @@ secrets() {
 }
 
 push_check() {
-  local dir=$1 ref=$2 names hits
-  git -C "$dir" fetch --all --prune --quiet || refuse "fetch failed"
-  names=$(git -C "$dir" -c core.quotepath=off log --diff-merges=first-parent --diff-filter=d --format= --name-only "$ref" --not --remotes | sort -u)
+  local dir=$1 ref=$2 repo remote since names hits
+  repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || refuse "cannot name this repository"
+  remote=$(repo_remote "$dir" "$repo") || { echo "$remote"; exit 1; }
+  git -C "$dir" fetch --prune --quiet "$remote" || refuse "fetch failed"
+  since=("$ref" --not --remotes="$remote/*")
+  names=$(git -C "$dir" -c core.quotepath=off log --diff-merges=first-parent --diff-filter=d --format= --name-only "${since[@]}" | sort -u)
   hits=$({ [ -z "$names" ] || printf '%s\n' "$names" | grep -iE "$SECRET_NAME"
            [ -z "$names" ] || printf '%s\n' "$names" | git -C "$dir" check-ignore --no-index --stdin | grep -viE "$SAFE_IGNORED"
-           git -C "$dir" -c core.quotepath=off log -p --diff-merges=first-parent --format= "$ref" --not --remotes \
+           git -C "$dir" -c core.quotepath=off log --numstat --diff-merges=first-parent --diff-filter=d --format= "${since[@]}" \
+             | awk -F'\t' '$1 == "-" { print $3 }'
+           git -C "$dir" -c core.quotepath=off log -p --diff-merges=first-parent --format= "${since[@]}" \
              | awk '/^\+\+\+ b\// { file = substr($0, 7); next } /^\+/ { print file "\t" $0 }' \
              | grep -iE -e "$SECRET_TEXT" | cut -f1; } | sort -u)
-  [ -z "$hits" ] || refuse "secret-looking or ignored files in commits no remote holds: $(printf '%s' "$hits" | tr '\n' ' ')"
+  [ -z "$hits" ] || refuse "secret-looking, binary or ignored files in commits $remote does not hold: $(printf '%s' "$hits" | tr '\n' ' ')"
 }
 
 discard() {
-  local wt=$1 pr=$2 left state head oid fork branch ref on_pr=""
-  git -C "$wt" fetch --all --prune --quiet || refuse "fetch failed"
+  local wt=$1 pr=$2 left state head oid fork repo remote branch
   left=$(git -C "$wt" -c core.quotepath=off status --porcelain --untracked-files=all --ignored=matching \
            | grep -viE "^!! (.*/)?($BUILD_OUTPUT)/$" | cut -c4- | head -5)
   [ -z "$left" ] || refuse "work not preserved: $(printf '%s' "$left" | tr '\n' ' ')"
-  read -r state head oid fork < <(gh pr view "$pr" --json state,headRefName,headRefOid,isCrossRepository \
-    --jq '[.state, .headRefName, .headRefOid, (.isCrossRepository | tostring)] | join(" ")' 2>/dev/null)
+  read -r state head oid fork repo < <(gh pr view "$pr" \
+    --json state,headRefName,headRefOid,isCrossRepository,headRepository,headRepositoryOwner \
+    --jq '[.state, .headRefName, .headRefOid, (.isCrossRepository | tostring), .headRepositoryOwner.login + "/" + .headRepository.name] | join(" ")' 2>/dev/null)
   case "${state:-}" in OPEN|MERGED) ;; *) refuse "no open or merged pull request at $pr" ;; esac
   [ "${fork:-}" = false ] || refuse "the pull request's branch is not in this repository"
-  [ "$state" = OPEN ] || git -C "$wt" merge-base --is-ancestor HEAD "$oid" 2>/dev/null \
-    || refuse "HEAD has commits the merged pull request never held"
-  while IFS= read -r ref; do
-    [ "${ref#refs/remotes/*/}" = "$head" ] && on_pr=yes
-  done < <(git -C "$wt" for-each-ref --contains HEAD --format='%(refname)' refs/remotes)
-  [ -n "$on_pr" ] || refuse "HEAD is not on the pull request's branch $head"
+  remote=$(repo_remote "$wt" "$repo") || { echo "$remote"; exit 1; }
+  git -C "$wt" fetch --prune --quiet "$remote" || refuse "fetch failed"
+  git -C "$wt" cat-file -e "$oid^{commit}" 2>/dev/null || git -C "$wt" fetch --quiet "$remote" "$oid" 2>/dev/null \
+    || refuse "cannot fetch the pull request's head $oid from $remote"
+  git -C "$wt" merge-base --is-ancestor HEAD "$oid" 2>/dev/null \
+    || refuse "HEAD has commits the pull request's branch $head never held"
   branch=$(git -C "$wt" symbolic-ref --quiet --short HEAD) || branch=""
   git worktree remove --force "$wt" || refuse "git worktree remove failed"
   [ -z "$branch" ] || git branch -q -D "$branch" || refuse "worktree removed, branch $branch kept: delete failed"
