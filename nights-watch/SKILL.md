@@ -30,6 +30,8 @@ metadata:
 /nights-watch hunt for=smells target=repo      # ADD prey (docs/observability/performance/smells/warnings — security+bugs always run) and pick ground (diff/last-commit/<range>/repo)
 /nights-watch grill                            # a GRILL — cadenced adversarial review of our open PRs
 /nights-watch grill stance=quorum concerns=security,architecture,tests
+/nights-watch salvage worktrees=<path>[,<path>…] max=5 once   # a SALVAGE — preserve blocked worktrees' work in PRs, then remove them
+/nights-watch salvage worktrees=<path>[,<path>…] dry-run once  # classify and plan only
 ```
 
 Invoking this skill is the user's explicit opt-in to multi-agent orchestration (the Workflow tool). A scheduled firing may not carry that opt-in: when the Workflow tool is missing or refuses, dispatch the same work as plain subagents and say so in the patrol summary.
@@ -103,6 +105,10 @@ One rule is the Hunt's alone: **disclosure is a decision**. On a public repo a c
 
 An agent inside a Workflow cannot spawn, and nothing throws; it role-plays the missing subagents and reports success ([#46](https://github.com/PFalkowski/skills/issues/46)). Every reviewer and every verifier is a **first-order `agent()` dispatched by the script** ([`workflows/grill.js`](../workflows/grill.js)): the quorum is convened in the script, one agent per concern, blind to the others — a quorum is never something a reviewer is *told to be*. A reviewer or verifier that never ran leaves the PR out of the ledger and `complete: false`, so the next tick re-grills: an un-run gate stays visible. Full protocol: [GRILL.md](GRILL.md).
 
+## The Salvage — worktrees nobody can clean up ([SALVAGE.md](SALVAGE.md))
+
+`salvage worktrees=<paths>` points the Watch at local worktrees that hold unshipped work: unpushed commits, uncommitted changes, ignored files that are not build output. Each real feature gets its own PR; every leftover goes into one salvage PR per repository. Once a worktree's commits are proven to be on its PR's branch, the worktree and its local branch are removed. A secret-looking file is never committed; its worktree stays and is reported. Every safety decision (eligibility, secrets, the proof before `--force`) is made by [`scripts/salvage-gate.sh`](scripts/salvage-gate.sh), never by a model. `max=` caps the run, `dry-run` plans without writing, and the final message ends with a JSON report for the caller.
+
 ## Sworn brothers — mandatory skill composition
 
 These four skills are **mandatory**, each at the point where it provides the most value; skipping one is an Oath violation, not a judgment call.
@@ -139,5 +145,7 @@ Stand down when the user says so, when a hard token target is exhausted, or when
 A **ranging** has no loop to stand down from: it ends at its terminal state — PR opened and reported, or the blocker explained to the user with the evidence behind it.
 
 A **hunt** stands down on the user's word or an exhausted token target — never on its own judgment that the repo has gone quiet, since "hourly" is a promise about coverage. No ticket is ever claimed, so none needs releasing — but the lock does: a stand-down mid-hunt must release `.lock/`, or the next hunt skips ticks until the TTL breaks it. The watermark deliberately does not advance there, so the cost is re-hunting one delta rather than a delta nobody ever looked at.
+
+A **salvage** has no loop either: it ends with its report, and releases its lock however it ends.
 
 A **grill** stands down under the same terms as a hunt: release the lock, and leave any PR whose grill was mid-flight out of the grilled ledger — an un-ledgered PR is simply re-grilled next tick, which is the recoverable direction.
