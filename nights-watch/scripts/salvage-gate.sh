@@ -2,7 +2,7 @@
 # The guards of a nights-watch salvage (SALVAGE.md), in code so no model decides when a destructive
 # step is safe. Run from the root of the repository that owns the worktrees.
 #   preflight  <worktree>          exit 0 when salvage may touch it; else prints the refusal, exit 1
-#   secrets    <worktree>          prints uncommitted, untracked or ignored files that look secret
+#   secrets    <worktree>          prints uncommitted, untracked or ignored files that must not be committed
 #   push-check <dir> <ref>         exit 0 when no commit of <ref> that no remote holds looks secret
 #   discard    <worktree> <pr-url> removes the worktree and its local branch, only once every commit
 #                                  is on the pull request's branch and nothing else is left in it
@@ -11,8 +11,10 @@ set -uo pipefail
 # The only ignored folders treated as disposable build output: each is recreated by a build,
 # restore or test run. Anything else ignored is somebody's work.
 BUILD_OUTPUT='bin|obj|\.vs|node_modules|coverage|__pycache__|TestResults|_preview|\.pytest_cache|\.mypy_cache|\.ruff_cache|\.tox|\.gradle|\.next|\.nuxt|\.parcel-cache|\.turbo'
-SECRET_NAME='(^|/)(appsettings[^/]*\.json|[^/]*settings\.local\.json|\.env(\.[^/]*)?|[^/]*\.(pem|key|pfx|p12|jks|keystore|kdbx|tfvars|publishsettings)|id_(rsa|dsa|ecdsa|ed25519)[^/]*|\.npmrc|\.netrc|\.pypirc|secrets?\.[^/]*|credentials(\.[^/]*)?)$'
-SECRET_TEXT='-----BEGIN [A-Z ]*PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-(ant|proj)-[A-Za-z0-9_-]{20,}|(Password|Pwd|AccountKey|SharedAccessKey)=[^;"[:space:]]{6,}'
+# An ignored file was left out of the repository on purpose, so only these types of it may be committed.
+SAFE_IGNORED='\.(md|txt)$'
+SECRET_NAME='(^|/)(appsettings[^/]*\.json|[^/]*settings\.local\.json|local\.settings\.json|\.env(\.[^/]*)?|[^/]*\.env|\.envrc|[^/]*\.tfstate(\.[^/]*)?|\.git-credentials|kubeconfig|[^/]*\.(pem|key|pfx|p12|jks|keystore|kdbx|tfvars|publishsettings)|id_(rsa|dsa|ecdsa|ed25519)[^/]*|\.npmrc|\.netrc|\.pypirc|secrets?\.[^/]*|credentials(\.[^/]*)?)$'
+SECRET_TEXT='-----BEGIN [A-Z ]*PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-(ant|proj)-[A-Za-z0-9_-]{20,}|(Password|Passwd|Pwd|AccountKey|SharedAccessKey)=[^;"[:space:]]{6,}|[a-z][a-z0-9+.-]*://[^/:@[:space:]]+:[^/@[:space:]]+@'
 
 refuse() { echo "refused: $1"; exit 1; }
 
@@ -27,6 +29,7 @@ under() { [ "$1" = "$2" ] || [[ "$1" == "$2"/* ]]; }
 preflight() {
   local wt=$1 w top gitdir common path cwd op
   [ -d "$wt" ] || refuse "not a directory"
+  [ -L "$wt" ] && refuse "a symbolic link or junction, which removal would follow"
   w=$(norm "$wt")
   top=$(git -C "$wt" rev-parse --show-toplevel 2>/dev/null) || refuse "not a git worktree"
   [ "$(norm "$top")" = "$w" ] || refuse "not the top folder of a worktree"
@@ -37,6 +40,11 @@ preflight() {
   [ "$(norm "$gitdir")" != "$(norm "$common")" ] || refuse "main worktree"
   [ -e "$gitdir/locked" ] && refuse "locked"
   [ -d "$gitdir/modules" ] && refuse "initialized submodules, whose commits removal would delete"
+  [ -n "$(git -C "$wt" ls-files -s | awk '$1 == "160000"')" ] && refuse "submodules, whose commits removal would delete"
+  [ -n "$(git -C "$wt" ls-files -v | grep -E '^[Sa-z] ')" ] \
+    && refuse "skip-worktree or assume-unchanged files, whose edits git status does not show"
+  path=$(find "$wt" -path "$wt/.git" -prune -o -type l -print -quit)
+  [ -z "$path" ] || refuse "a symbolic link or junction inside it, which removal would follow ($path)"
   for op in rebase-merge rebase-apply MERGE_HEAD BISECT_LOG CHERRY_PICK_HEAD REVERT_HEAD sequencer; do
     [ -e "$gitdir/$op" ] && refuse "operation in progress ($op)"
   done
@@ -52,36 +60,45 @@ preflight() {
 
 not_build_output() { grep -viE "(^|/)($BUILD_OUTPUT)/"; }
 
+tagged() { local kind=$1; shift; git -C "$wt" -c core.quotepath=off "$@" | not_build_output | awk -v k="$kind" '{ print k "\t" $0 }'; }
+
 secrets() {
-  local wt=$1 file
-  while IFS= read -r file; do
+  local wt=$1 kind file
+  while IFS=$'\t' read -r kind file; do
     [ -f "$wt/$file" ] || continue
-    if printf '%s\n' "$file" | grep -qiE "$SECRET_NAME" || grep -qIE -e "$SECRET_TEXT" "$wt/$file" 2>/dev/null; then
+    if { [ "$kind" = ignored ] && ! printf '%s\n' "$file" | grep -qiE "$SAFE_IGNORED"; } \
+      || printf '%s\n' "$file" | grep -qiE "$SECRET_NAME" || grep -qiIE -e "$SECRET_TEXT" "$wt/$file" 2>/dev/null; then
       echo "$file"
     fi
-  done < <({ git -C "$wt" -c core.quotepath=off diff --name-only HEAD
-             git -C "$wt" -c core.quotepath=off ls-files --others --exclude-standard
-             git -C "$wt" -c core.quotepath=off ls-files --others --ignored --exclude-standard; } | not_build_output | sort -u)
+  done < <(tagged changed diff --name-only HEAD
+             tagged untracked ls-files --others --exclude-standard
+             tagged ignored ls-files --others --ignored --exclude-standard) | sort -u
 }
 
 push_check() {
-  local dir=$1 ref=$2 hits
+  local dir=$1 ref=$2 names hits
   git -C "$dir" fetch --all --prune --quiet || refuse "fetch failed"
-  hits=$({ git -C "$dir" -c core.quotepath=off log --diff-merges=first-parent --format= --name-only "$ref" --not --remotes | grep -iE "$SECRET_NAME"
+  names=$(git -C "$dir" -c core.quotepath=off log --diff-merges=first-parent --diff-filter=d --format= --name-only "$ref" --not --remotes | sort -u)
+  hits=$({ [ -z "$names" ] || printf '%s\n' "$names" | grep -iE "$SECRET_NAME"
+           [ -z "$names" ] || printf '%s\n' "$names" | git -C "$dir" check-ignore --no-index --stdin | grep -viE "$SAFE_IGNORED"
            git -C "$dir" -c core.quotepath=off log -p --diff-merges=first-parent --format= "$ref" --not --remotes \
              | awk '/^\+\+\+ b\// { file = substr($0, 7); next } /^\+/ { print file "\t" $0 }' \
-             | grep -E -e "$SECRET_TEXT" | cut -f1; } | sort -u)
-  [ -z "$hits" ] || refuse "secret-looking content in commits no remote holds: $(printf '%s' "$hits" | tr '\n' ' ')"
+             | grep -iE -e "$SECRET_TEXT" | cut -f1; } | sort -u)
+  [ -z "$hits" ] || refuse "secret-looking or ignored files in commits no remote holds: $(printf '%s' "$hits" | tr '\n' ' ')"
 }
 
 discard() {
-  local wt=$1 pr=$2 left state head branch ref on_pr=""
+  local wt=$1 pr=$2 left state head oid fork branch ref on_pr=""
   git -C "$wt" fetch --all --prune --quiet || refuse "fetch failed"
   left=$(git -C "$wt" -c core.quotepath=off status --porcelain --untracked-files=all --ignored=matching \
            | grep -viE "^!! (.*/)?($BUILD_OUTPUT)/$" | cut -c4- | head -5)
   [ -z "$left" ] || refuse "work not preserved: $(printf '%s' "$left" | tr '\n' ' ')"
-  read -r state head < <(gh pr view "$pr" --json state,headRefName --jq '.state + " " + .headRefName' 2>/dev/null)
+  read -r state head oid fork < <(gh pr view "$pr" --json state,headRefName,headRefOid,isCrossRepository \
+    --jq '[.state, .headRefName, .headRefOid, (.isCrossRepository | tostring)] | join(" ")' 2>/dev/null)
   case "${state:-}" in OPEN|MERGED) ;; *) refuse "no open or merged pull request at $pr" ;; esac
+  [ "${fork:-}" = false ] || refuse "the pull request's branch is not in this repository"
+  [ "$state" = OPEN ] || git -C "$wt" merge-base --is-ancestor HEAD "$oid" 2>/dev/null \
+    || refuse "HEAD has commits the merged pull request never held"
   while IFS= read -r ref; do
     [ "${ref#refs/remotes/*/}" = "$head" ] && on_pr=yes
   done < <(git -C "$wt" for-each-ref --contains HEAD --format='%(refname)' refs/remotes)

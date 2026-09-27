@@ -18,7 +18,7 @@ A worktree that holds unpushed commits, uncommitted changes, or ignored files th
 - Everything else is a **leftover**. All leftovers of a run go into **one salvage PR per repository**.
 - Once every commit of a worktree is on the branch of its PR and nothing else is left in it but build output, the worktree and its local branch are removed. Merging is not required first.
 - A file that looks like a secret is **never committed**. Its worktree is left in place and reported.
-- Never merge, approve, force-push, or delete a remote branch. Never push to a branch whose open PR another person authored.
+- Never merge or approve a pull request, force-push, or delete a remote branch. Never push to a branch whose open PR another person authored.
 
 ## The guards are code
 
@@ -26,10 +26,10 @@ A worktree that holds unpushed commits, uncommitted changes, or ignored files th
 
 | Command | Decides |
 |---|---|
-| `preflight <worktree>` | Eligible, or refused: not a linked worktree of this repository, the main worktree, locked, initialized submodules (their commits live in the folder removal deletes), a rebase, merge, bisect, cherry-pick or revert in progress, another worktree inside it, or a live Claude session that started in it. `claude agents --json` reports only the folder a session started in, so a session started elsewhere that edits the worktree is not seen. When the live sessions cannot be listed (`claude agents --json`, read with `jq`), every worktree is refused. |
-| `secrets <worktree>` | Lists the uncommitted, untracked and ignored files that look secret, by name (`appsettings*.json`, `*settings.local.json`, `.env*`, keys and certificates, `secrets.*`, `credentials*`, `.npmrc`, `.netrc`) or by content (private-key headers, GitHub, AWS, Slack and Anthropic token shapes, connection-string passwords). Build output folders are skipped. Prints paths, never contents. |
-| `push-check <dir> <ref>` | Passes only when no commit of `<ref>` that no remote holds adds a secret-looking file or line, merge commits included (against their first parent). Run before **every** push. |
-| `discard <worktree> <pr-url>` | Re-runs `preflight`, fetches, then removes the worktree (`git worktree remove --force`) and its local branch (`git branch -D`) only when the PR is open or merged, HEAD is contained in that PR's branch on a remote, and nothing is left in the worktree except the build output folders. Otherwise it refuses and touches nothing. |
+| `preflight <worktree>` | Eligible, or refused: not a linked worktree of this repository, the main worktree, a symbolic link or junction (itself or anywhere inside it, since removal follows links and deletes what they point at), locked, submodules (their commits can live in the folder removal deletes), skip-worktree or assume-unchanged files (`git status` hides their edits), a rebase, merge, bisect, cherry-pick or revert in progress, another worktree inside it, or a live Claude session that started in it. `claude agents --json` reports only the folder a session started in, so a session started elsewhere that edits the worktree is not seen. When the live sessions cannot be listed (`claude agents --json`, read with `jq`), every worktree is refused. |
+| `secrets <worktree>` | Lists the uncommitted, untracked and ignored files that must not be committed. Every ignored file is listed unless it is `*.md` or `*.txt`, because someone chose not to commit it. Any file is listed that looks secret by name (`appsettings*.json`, `*settings.local.json`, `local.settings.json`, `.env*`, `*.env`, `.envrc`, `*.tfstate*`, `.git-credentials`, `kubeconfig`, keys and certificates, `secrets.*`, `credentials*`, `.npmrc`, `.netrc`) or by content, in any letter case (private-key headers, GitHub, AWS, Slack and Anthropic token shapes, `password=` and similar, URLs with a user name and password). Build output folders are skipped. Prints paths, never contents. |
+| `push-check <dir> <ref>` | Passes only when no commit of `<ref>` that no remote holds adds a secret-looking file or line, or an ignored file other than `*.md` or `*.txt`, merge commits included (against their first parent). Run before **every** push. |
+| `discard <worktree> <pr-url>` | Re-runs `preflight`, fetches, then removes the worktree (`git worktree remove --force`) and its local branch (`git branch -D`) only when the PR is from this repository and open, or merged with HEAD already in the commit it merged; HEAD is contained in that PR's branch on a remote; and nothing is left in the worktree except the build output folders. Otherwise it refuses and touches nothing. |
 
 The build output folders, the only ignored files treated as disposable: `bin`, `obj`, `.vs`, `node_modules`, `coverage`, `__pycache__`, `TestResults`, `_preview`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `.tox`, `.gradle`, `.next`, `.nuxt`, `.parcel-cache`, `.turbo`.
 
@@ -48,18 +48,18 @@ The build output folders, the only ignored files treated as disposable: `bin`, `
   "reported": [".claude/settings.local.json"], "discarded": ["bin/", "obj/"] }
 ```
 
-`keep` holds every file to commit, ignored ones included; `reported` is exactly what `secrets` printed; `discarded` is build output only. A feature whose open PR another person authored is planned as `left-in-place`. A dry run stops here and reports.
+`keep` holds every file to commit, including ignored `*.md` and `*.txt` files; `reported` is exactly what `secrets` printed, so any other ignored file stays in place; `discarded` is build output only. A feature whose open PR another person authored is planned as `left-in-place`. A dry run stops here and reports.
 
 **3. Preserve** — one writer agent per worktree, **one at a time**, because leftovers share a branch. Tier `medium`. The brief restates Oath rule 8: no commit message, PR title or body names this skill or its agents.
 
 - First `push-check <worktree> HEAD`. If it fails, the worktree's own commits hold a secret: nothing of it is pushed, and it is left in place.
 - Commit the `keep` files on the worktree's HEAD (`git add -f` for ignored ones), never a `reported` file. Then run `push-check` again.
-- **Feature:** a detached HEAD gets a new branch, `feat/<slug>`, with `-2`, `-3` added when the name is taken on the remote. Push without force; a rejected push leaves it in place. Open a PR, or update the existing one by pushing to it.
-- **Leftover:** the salvage branch is the head of an open PR whose branch starts `salvage/`, else a new `salvage/<YYYY-MM-DD>` from the default branch, checked out in `~/.agent-state/<repo-slug>/nights-watch/salvage/<date>/`. Merge the worktree's HEAD into it with `git merge --no-ff`, the message naming the source folder, its branch (or short sha) and why it is a leftover. On a conflict, `git merge --abort` and leave the worktree in place. Run `push-check` on the salvage branch, push it, and open the salvage PR once.
+- **Feature:** a detached HEAD gets a new branch, `feat/<slug>`, with `-2`, `-3` added when the name is taken on the remote. Push without force; a rejected push leaves it in place. Update the existing PR by pushing to it only when it is open, from this repository and authored by you; otherwise open a new PR.
+- **Leftover:** the salvage branch is the head of the newest open PR you authored, from this repository, whose branch starts `salvage/`, else a new `salvage/<YYYY-MM-DD>` from the default branch, checked out in `~/.agent-state/<repo-slug>/nights-watch/salvage/<date>/`. Merge the worktree's HEAD into it with `git merge --no-ff`, the message naming the source folder's name, its branch (or short sha) and why it is a leftover. On a conflict, `git merge --abort` and leave the worktree in place. Run `push-check` on the salvage branch, push it, and open the salvage PR once.
 
 Why a merge and not a squashed commit: the issue asks for one commit per worktree, and a merge is exactly one commit per worktree on the salvage branch's main line. A squash would leave the worktree's original commits on no remote, so `discard` could never prove them safe.
 
-The salvage PR body is one row per source: its folder name (never the absolute path, which can carry a user name), branch, reason, and **how many** secret-looking files stayed behind. The file names go only in the session report and the JSON, because a PR on a public repository is publication.
+The salvage PR body is one row per source: its folder name (never the absolute path, which can carry a user name), branch, reason, and **how many** secret-looking files stayed behind. The file names go only in the session report and the JSON, because a PR on a public repository is publication. Commit messages are pushed too, so they follow the same limits: the folder name only, and never the name of a reported file.
 
 **4. Discard** — the watcher runs `discard <worktree> <pr-url>` for each preserved worktree. It is not delegated, for the same reason as step 1. A refusal leaves the worktree in place with its reason. A worktree holding a reported secret is always refused here, by construction, so the secret stays where it was. Finally, remove the salvage checkout with a plain `git worktree remove` and release the lock.
 
