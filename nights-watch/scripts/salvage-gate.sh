@@ -36,6 +36,7 @@ preflight() {
   gitdir=$(git -C "$wt" rev-parse --path-format=absolute --git-dir)
   [ "$(norm "$gitdir")" != "$(norm "$common")" ] || refuse "main worktree"
   [ -e "$gitdir/locked" ] && refuse "locked"
+  [ -d "$gitdir/modules" ] && refuse "initialized submodules, whose commits removal would delete"
   for op in rebase-merge rebase-apply MERGE_HEAD BISECT_LOG CHERRY_PICK_HEAD REVERT_HEAD sequencer; do
     [ -e "$gitdir/$op" ] && refuse "operation in progress ($op)"
   done
@@ -44,7 +45,7 @@ preflight() {
   done < <(git worktree list --porcelain | sed -n 's/^worktree //p')
   cwd=$(claude agents --json 2>/dev/null | jq -r '.[].cwd // empty') || refuse "cannot list live Claude sessions"
   while IFS= read -r path; do
-    [ -n "$path" ] && under "$(norm "$path")" "$w" && refuse "live Claude session in it ($path)"
+    [ -n "$path" ] && under "$(norm "$path")" "$w" && refuse "live Claude session started in it ($path)"
   done <<< "$cwd"
   return 0
 }
@@ -66,8 +67,8 @@ secrets() {
 push_check() {
   local dir=$1 ref=$2 hits
   git -C "$dir" fetch --all --prune --quiet || refuse "fetch failed"
-  hits=$({ git -C "$dir" -c core.quotepath=off log --format= --name-only "$ref" --not --remotes | grep -iE "$SECRET_NAME"
-           git -C "$dir" -c core.quotepath=off log -p --format= "$ref" --not --remotes \
+  hits=$({ git -C "$dir" -c core.quotepath=off log --diff-merges=first-parent --format= --name-only "$ref" --not --remotes | grep -iE "$SECRET_NAME"
+           git -C "$dir" -c core.quotepath=off log -p --diff-merges=first-parent --format= "$ref" --not --remotes \
              | awk '/^\+\+\+ b\// { file = substr($0, 7); next } /^\+/ { print file "\t" $0 }' \
              | grep -E -e "$SECRET_TEXT" | cut -f1; } | sort -u)
   [ -z "$hits" ] || refuse "secret-looking content in commits no remote holds: $(printf '%s' "$hits" | tr '\n' ' ')"

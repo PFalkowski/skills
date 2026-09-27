@@ -109,6 +109,12 @@ expect "a session in the repository root does not block a worktree" 0 preflight 
 CLAUDE_STUB_FAIL=1 expect "unknown live sessions refuse" 1 preflight "$PLAIN"
 export CLAUDE_STUB_JSON='[]'
 
+git init -q "$TMP/lib" && commit_in "$TMP/lib" lib.txt
+MODULAR=$(worktree modular)
+git -C "$MODULAR" -c protocol.file.allow=always submodule add -q "$TMP/lib" lib 2>/dev/null
+expect "a worktree with initialized submodules is refused" 1 preflight "$MODULAR"
+expect_out "submodules name their reason" 'submodules'
+
 OUTER=$(worktree outer)
 git -C "$REPO" worktree add -q "$OUTER/inner" -b inner 2>/dev/null
 expect "a worktree holding another worktree is refused" 1 preflight "$OUTER"
@@ -147,6 +153,14 @@ git -C "$TOKENY" add config.txt && git -C "$TOKENY" commit -qm config
 expect "a token in an unpushed commit fails" 1 push-check "$TOKENY" HEAD
 expect_out "the file holding the token is named" 'config\.txt'
 expect_no_out "the token never reaches the output" 'ghp_'
+EVIL=$(worktree evil)
+git -C "$EVIL" checkout -q -b evil-side && commit_in "$EVIL" side.txt && git -C "$EVIL" checkout -q evil
+commit_in "$EVIL" main-side.txt
+git -C "$EVIL" merge -q --no-commit evil-side
+echo 'Server=db;Password=hunter2secret' > "$EVIL/conn.txt"
+git -C "$EVIL" add conn.txt && git -C "$EVIL" commit -qm "merge side"
+expect "a secret added inside a merge commit fails" 1 push-check "$EVIL" HEAD
+expect_out "the file the merge added is named" 'conn\.txt'
 
 # --- discard -------------------------------------------------------------------------------------
 UNPUSHED=$(worktree unpushed)

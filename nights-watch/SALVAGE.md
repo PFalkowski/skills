@@ -26,9 +26,9 @@ A worktree that holds unpushed commits, uncommitted changes, or ignored files th
 
 | Command | Decides |
 |---|---|
-| `preflight <worktree>` | Eligible, or refused: not a linked worktree of this repository, the main worktree, locked, a rebase, merge, bisect, cherry-pick or revert in progress, another worktree inside it, or a live Claude session whose folder is in it. When the live sessions cannot be listed (`claude agents --json`, read with `jq`), every worktree is refused. |
+| `preflight <worktree>` | Eligible, or refused: not a linked worktree of this repository, the main worktree, locked, initialized submodules (their commits live in the folder removal deletes), a rebase, merge, bisect, cherry-pick or revert in progress, another worktree inside it, or a live Claude session that started in it. `claude agents --json` reports only the folder a session started in, so a session started elsewhere that edits the worktree is not seen. When the live sessions cannot be listed (`claude agents --json`, read with `jq`), every worktree is refused. |
 | `secrets <worktree>` | Lists the uncommitted, untracked and ignored files that look secret, by name (`appsettings*.json`, `*settings.local.json`, `.env*`, keys and certificates, `secrets.*`, `credentials*`, `.npmrc`, `.netrc`) or by content (private-key headers, GitHub, AWS, Slack and Anthropic token shapes, connection-string passwords). Build output folders are skipped. Prints paths, never contents. |
-| `push-check <dir> <ref>` | Passes only when no commit of `<ref>` that no remote holds adds a secret-looking file or line. Run before **every** push. |
+| `push-check <dir> <ref>` | Passes only when no commit of `<ref>` that no remote holds adds a secret-looking file or line, merge commits included (against their first parent). Run before **every** push. |
 | `discard <worktree> <pr-url>` | Re-runs `preflight`, fetches, then removes the worktree (`git worktree remove --force`) and its local branch (`git branch -D`) only when the PR is open or merged, HEAD is contained in that PR's branch on a remote, and nothing is left in the worktree except the board's build output folders. Otherwise it refuses and touches nothing. |
 
 The build output folders are the whats-next board's list: `bin`, `obj`, `.vs`, `node_modules`, `coverage`, `__pycache__`, `TestResults`, `_preview`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, `.tox`, `.gradle`, `.next`, `.nuxt`, `.parcel-cache`, `.turbo`.
@@ -83,7 +83,7 @@ The salvage PR body is one row per source: its folder name (never the absolute p
       "kept": ["docs/spike.md"], "reported": ["appsettings.json"], "discarded": [],
       "removed": { "worktree": false, "branch": false } },
     { "path": "C:/src/app-live", "branch": "wip", "outcome": "refused",
-      "pr": null, "reason": "live Claude session in it (C:\\src\\app-live)",
+      "pr": null, "reason": "live Claude session started in it (C:\\src\\app-live)",
       "kept": [], "reported": [], "discarded": [],
       "removed": { "worktree": false, "branch": false } }
   ]
