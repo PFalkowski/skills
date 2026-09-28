@@ -91,24 +91,29 @@ secrets() {
 }
 
 push_check() {
-  local dir=$1 ref=$2 repo remote since names hits
+  local dir=$1 ref=$2 repo remote since names hits g diff c
   repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || refuse "cannot name this repository"
   remote=$(repo_remote "$dir" "$repo") || { echo "$remote"; exit 1; }
   git -C "$dir" fetch --prune --quiet "$remote" || refuse "fetch failed"
   since=("$ref" --not --remotes="$remote/*")
-  names=$(git -C "$dir" -c core.quotepath=off log --diff-merges=first-parent --diff-filter=d --format= --name-only "${since[@]}" | sort -u)
+  g=(git -C "$dir" -c diff.noprefix=false -c color.ui=never -c core.quotepath=off)
+  diff=(--no-textconv --no-ext-diff --src-prefix=a/ --dst-prefix=b/ --no-color --diff-merges=first-parent)
+  names=$("${g[@]}" log -z "${diff[@]}" --diff-filter=d --format= --name-only "${since[@]}" | tr '\0\n' '\n?' | grep . | sort -u)
   hits=$({ [ -z "$names" ] || printf '%s\n' "$names" | grep -iE "$SECRET_NAME"
-           [ -z "$names" ] || printf '%s\n' "$names" | git -C "$dir" check-ignore --no-index --stdin | grep -viE "$SAFE_IGNORED"
-           git -C "$dir" -c core.quotepath=off log --numstat --diff-merges=first-parent --diff-filter=d --format= "${since[@]}" \
-             | awk -F'\t' '$1 == "-" { print $3 }'
-           git -C "$dir" -c core.quotepath=off log -p --diff-merges=first-parent --format= "${since[@]}" \
-             | awk '/^\+\+\+ b\// { file = substr($0, 7); next } /^\+/ { print file "\t" $0 }' \
-             | grep -iE -e "$SECRET_TEXT" | cut -f1; } | sort -u)
+           [ -z "$names" ] || printf '%s\n' "$names" | "${g[@]}" check-ignore --no-index --stdin | grep -viE "$SAFE_IGNORED"
+           "${g[@]}" log -z --numstat "${diff[@]}" --diff-filter=d --format= "${since[@]}" \
+             | tr '\0\n' '\n?' | awk -F'\t' '$1 == "-" { print $3 }'
+           "${g[@]}" log -p "${diff[@]}" --format= "${since[@]}" \
+             | awk '/^\+\+\+ / { file = substr($0, 5); sub(/^"?b\//, "", file); next } /^\+/ { print (file == "" ? "(unnamed file)" : file) "\t" $0 }' \
+             | grep -iE -e "$SECRET_TEXT" | cut -f1
+           for c in $("${g[@]}" log --format=%H "${since[@]}"); do
+             "${g[@]}" log -1 --format=%B "$c" | grep -qiE -e "$SECRET_TEXT" && echo "message of commit $c"
+           done; } | sort -u)
   [ -z "$hits" ] || refuse "secret-looking, binary or ignored files in commits $remote does not hold: $(printf '%s' "$hits" | tr '\n' ' ')"
 }
 
 discard() {
-  local wt=$1 pr=$2 left state head oid fork repo remote branch
+  local wt=$1 pr=$2 left state head oid fork repo remote branch held
   left=$(git -C "$wt" -c core.quotepath=off status --porcelain --untracked-files=all --ignored=matching \
            | grep -viE "^!! (.*/)?($BUILD_OUTPUT)/$" | cut -c4- | head -5)
   [ -z "$left" ] || refuse "work not preserved: $(printf '%s' "$left" | tr '\n' ' ')"
@@ -119,8 +124,11 @@ discard() {
   [ "${fork:-}" = false ] || refuse "the pull request's branch is not in this repository"
   remote=$(repo_remote "$wt" "$repo") || { echo "$remote"; exit 1; }
   git -C "$wt" fetch --prune --quiet "$remote" || refuse "fetch failed"
-  git -C "$wt" cat-file -e "$oid^{commit}" 2>/dev/null || git -C "$wt" fetch --quiet "$remote" "$oid" 2>/dev/null \
+  held=$(git -C "$wt" cat-file -e "$oid^{commit}" 2>/dev/null && echo local)
+  git -C "$wt" fetch --quiet "$remote" "$oid" 2>/dev/null \
     || refuse "cannot fetch the pull request's head $oid from $remote"
+  [ -z "$held" ] || [ -n "$(git -C "$wt" for-each-ref --contains "$oid" "refs/remotes/$remote/")" ] \
+    || refuse "$remote holds no branch with the pull request's head $oid"
   git -C "$wt" merge-base --is-ancestor HEAD "$oid" 2>/dev/null \
     || refuse "HEAD has commits the pull request's branch $head never held"
   branch=$(git -C "$wt" symbolic-ref --quiet --short HEAD) || branch=""

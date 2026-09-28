@@ -247,6 +247,24 @@ git -C "$ELSEWHERE" push -q other elsewhere 2>/dev/null
 expect "a commit held only by another remote is still checked" 1 push-check "$ELSEWHERE" HEAD
 expect_out "the file on the other remote is named" 'conn\.txt'
 
+NOPREFIX=$(worktree noprefix)
+printf 'token = "ghp_%s"
+' "$(printf 'b%.0s' $(seq 36))" > "$NOPREFIX/plain.txt"
+git -C "$NOPREFIX" add plain.txt && git -C "$NOPREFIX" commit -qm plain
+GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=diff.noprefix GIT_CONFIG_VALUE_0=true GIT_CONFIG_KEY_1=color.ui GIT_CONFIG_VALUE_1=always   expect "a token is refused under diff.noprefix and colour" 1 push-check "$NOPREFIX" HEAD
+expect_out "the file is still named under diff.noprefix" 'plain\.txt'
+HIDDEN=$(worktree hidden)
+echo '*.cfg diff=hide' > "$HIDDEN/.gitattributes"
+printf 'token = "ghp_%s"
+' "$(printf 'c%.0s' $(seq 36))" > "$HIDDEN/app.cfg"
+git -C "$HIDDEN" add .gitattributes app.cfg && git -C "$HIDDEN" commit -qm cfg
+GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=diff.hide.textconv GIT_CONFIG_VALUE_0='sed s/ghp_.*/x/'   expect "a textconv driver cannot hide a token" 1 push-check "$HIDDEN" HEAD
+MESSAGE=$(worktree message)
+echo note > "$MESSAGE/note.txt"
+git -C "$MESSAGE" add note.txt && git -C "$MESSAGE" commit -qm "use ghp_$(printf 'd%.0s' $(seq 36)) to deploy"
+expect "a token in a commit message fails" 1 push-check "$MESSAGE" HEAD
+expect_no_out "the message token never reaches the output" 'ghp_'
+
 # --- discard -------------------------------------------------------------------------------------
 UNPUSHED=$(worktree unpushed)
 commit_in "$UNPUSHED" work.txt
@@ -254,6 +272,10 @@ GH_STUB_PR=$(pr OPEN unpushed main) expect "commits no remote holds are never di
 exists "an unpushed worktree stays" "$UNPUSHED"
 has_branch "an unpushed branch stays" unpushed
 
+LOCALONLY=$(worktree localonly)
+commit_in "$LOCALONLY" local.txt
+GH_STUB_PR=$(pr OPEN localonly localonly) expect "a pull request head only this clone holds refuses" 1 discard "$LOCALONLY" https://example.invalid/pr/6
+exists "a head only held locally keeps its worktree" "$LOCALONLY"
 SHIPPED=$(worktree shipped)
 commit_in "$SHIPPED" shipped.txt
 git -C "$SHIPPED" push -q origin shipped 2>/dev/null
