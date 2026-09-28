@@ -228,6 +228,18 @@ Each step fails in a way that looks like the previous one, so do them in this or
 6. **Only now** harden: `PasswordAuthentication no`, `PermitRootLogin prohibit-password`.
    Doing this before step 4 locks out the device you have not finished setting up.
 
+## An agent on the host, for diagnostics
+
+An agent in a container cannot see the host's journal, and diagnosing through a person who
+pastes output invites guessing. Run one on the host, from the same phone:
+
+- Install it as the dev user, who has no `sudo` — root steps are for a human in a root shell.
+  A root install run earlier can leave `~/.claude` owned by root; `chown` it from that shell.
+- Add the `systemd-journal` and `adm` groups in the OMV workbench, not with `usermod`: OMV
+  manages the user.
+- `claude rc` refuses `$HOME`. Give it a trusted directory on the OS disk — the data disk may
+  be what failed — in its own tmux session, since the key's forced command lands you in `main`.
+
 ## Script
 
 ```bash

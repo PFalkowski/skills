@@ -207,7 +207,14 @@ any of them for a box with different resources.
 Prefer a **named, persistent** container over `--rm`:
 
 - `docker run` when it does not exist, `docker start` when it is stopped, `docker exec` when
-  it is running. Sessions survive a reboot and an accidental disconnect.
+  it is running. The container survives a reboot; the processes in it do not, and nothing
+  starts it again.
+- Don't fix that with `--restart unless-stopped` when the repos live on a `nofail` disk:
+  Docker can start before the disk mounts, and binds empty directories on the root disk.
+  Start them from a oneshot unit with `RequiresMountsFor=<data disk>`,
+  `After=`/`Requires=docker.service` and
+  `ExecStart=/bin/sh -c 'docker start $$(docker ps -aq --filter name=^dev_)'`. systemd
+  expands `$` itself, hence `$$`.
 - `--rm` looks tidy and sets a trap: the container is destroyed the moment its main process
   exits, so typing `exit` in an attached shell deletes a container that may be hosting a
   live agent session. There is no `docker start` afterwards.
