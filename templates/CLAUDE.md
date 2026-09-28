@@ -18,6 +18,7 @@ In order: software that works and is worth having; security by design; then simp
 - Touch only what the task needs. Every changed line traces to the request; leave working neighbors alone.
 - Before a plan or a hard-to-reverse change, invert it: name what would guarantee failure and make each impossible (`/invert` runs the full pass).
 - Work test-first: a failing test, then the code that makes it pass. Done means proven: run the checks before you start and show the evidence at the end.
+- Never silence stderr on a command that changes state (`2>/dev/null` on a `chown`, `install` or `rm`): if it fails, the error is the only sign.
 - Offer a `code-review-grill` by a fresh agent at the strongest tier when a diff is expensive to get wrong: security, a public API, data, money, a migration.
 - When the user corrects you, fix the source so it does not recur: a test, lint rule or hook when one can catch it; else the skill via `evolve-skill`, otherwise memory.
 - `wrap-up` closes every session that leaves work behind.
