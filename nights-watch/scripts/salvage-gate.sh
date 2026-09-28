@@ -3,7 +3,7 @@
 # step is safe. Run from the root of the repository that owns the worktrees.
 #   preflight  <worktree>          exit 0 when salvage may touch it; else prints the refusal, exit 1
 #   secrets    <worktree>          prints uncommitted, untracked or ignored files that must not be committed
-#   push-check <dir> <ref>         exit 0 when no commit of <ref> that this repository's remote lacks looks secret
+#   push-check <dir> <ref>         exit 0 when nothing of <ref> that this repository's remote lacks looks secret
 #   discard    <worktree> <pr-url> removes the worktree and its local branch, only once every commit
 #                                  is on the pull request's branch and nothing else is left in it
 set -uo pipefail
@@ -91,19 +91,35 @@ secrets() {
 }
 
 # Scans the objects a push would send, never patch text, so no diff or log setting can hide a secret.
+# What the remote holds comes from ls-remote, never from local remote-tracking refs, which can be stale.
 push_check() {
-  local dir=$1 ref=$2 repo remote g c mode oid path scan names hits
+  local dir=$1 ref=$2 repo remote g c mode oid path scan names hits held name tag tags commits
   dir=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || refuse "not a git worktree"
   repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || refuse "cannot name this repository"
   remote=$(repo_remote "$dir" "$repo") || { echo "$remote"; exit 1; }
-  git -C "$dir" fetch --prune --quiet "$remote" || refuse "fetch failed"
   g=(git --no-replace-objects -C "$dir" -c core.quotepath=off)
-  scan=$(for c in $("${g[@]}" rev-list "$ref" --not --remotes="$remote/*"); do
+  held=$("${g[@]}" ls-remote --heads --tags "$remote" 2>/dev/null) || refuse "cannot list what $remote holds"
+  trap "git -C $(printf '%q' "$dir") for-each-ref --format='delete %(refname)' refs/salvage-gate/ | git -C $(printf '%q' "$dir") update-ref --stdin" EXIT
+  while read -r oid name; do
+    [[ "$name" == *'^{}' ]] || "${g[@]}" cat-file -e "$oid" 2>/dev/null \
+      || "${g[@]}" fetch --quiet --no-tags "$remote" "+$name:refs/salvage-gate/$name" || refuse "fetch of $name failed"
+  done <<< "$held"
+  held=$(printf '%s\n' "$held" | awk 'NF { print $1 }' | sort -u)
+  commits=$("${g[@]}" rev-list "$ref" --not $held) || refuse "cannot list the commits of $ref"
+  tags=$({ "${g[@]}" for-each-ref --format='%(objecttype) %(objectname) %(*objectname)' refs/tags \
+             | awk 'NR == FNR { c[$1]; next } $1 == "tag" && $3 in c { print $2 }' <(printf '%s\n' "$commits") -
+           [ "$("${g[@]}" cat-file -t "$ref")" = tag ] && "${g[@]}" rev-parse "$ref"
+         } | sort -u | grep -vxF -f <(printf '%s\n' "$held"))
+  scan=$(for tag in $tags; do
+           "${g[@]}" cat-file tag "$tag" | grep -qaiE -e "$SECRET_TEXT" && printf 'hit\tmessage of tag %s\n' "$tag"
+         done
+         for c in $commits; do
            "${g[@]}" cat-file commit "$c" | grep -qaiE -e "$SECRET_TEXT" && printf 'hit\tmessage of commit %s\n' "$c"
            while IFS=' ' read -r -d '' _ mode _ oid _ && IFS= read -r -d '' path; do
              [ "$mode" = 000000 ] && continue
              printf 'name\t%s\n' "$path"
              if [ "$mode" = 160000 ] || { [ "$("${g[@]}" cat-file -s "$oid")" != 0 ] && ! "${g[@]}" cat-file blob "$oid" | grep -qI ''; } \
+               || "${g[@]}" cat-file blob "$oid" 2>/dev/null | head -c 32 | grep -qa '^version https://git-lfs' \
                || "${g[@]}" cat-file blob "$oid" | grep -qaiE -e "$SECRET_TEXT"; then
                printf 'hit\t%s\n' "$path"
              fi
@@ -114,7 +130,7 @@ push_check() {
            [ -z "$names" ] || printf '%s\n' "$names" | grep -iE "$SECRET_NAME"
            [ -z "$names" ] || printf '%s\n' "$names" | "${g[@]}" check-ignore --no-index --stdin | grep -viE "$SAFE_IGNORED"
          } | sort -u)
-  [ -z "$hits" ] || refuse "secret-looking, binary or ignored files in commits $remote does not hold: $(printf '%s' "$hits" | tr '\n' ' ')"
+  [ -z "$hits" ] || refuse "secret-looking, binary, Git LFS or ignored files or tags in commits $remote does not hold: $(printf '%s' "$hits" | tr '\n' ' ')"
 }
 
 discard() {

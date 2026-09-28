@@ -287,6 +287,30 @@ git -C "$REPLACED" replace "$SECRET_COMMIT" "$(git -C "$REPLACED" commit-tree "$
 expect "N4: a replace ref cannot hide a secret commit" 1 push-check "$REPLACED" HEAD
 git -C "$REPLACED" replace -d "$SECRET_COMMIT" >/dev/null
 
+STALE="$TMP/stale-clone"
+git clone -q "$TMP/origin.git" "$STALE" 2>/dev/null
+git -C "$STALE" config remote.origin.fetch +refs/heads/main:refs/remotes/origin/main
+printf 'token = "ghp_%s"\n' "$(printf 'i%.0s' $(seq 36))" > "$STALE/stale.txt"
+git -C "$STALE" add stale.txt && git -C "$STALE" commit -qm stale
+git -C "$STALE" update-ref refs/remotes/origin/feat HEAD
+expect "a stale remote-tracking ref the remote lacks does not count as pushed" 1 push-check "$STALE" HEAD
+expect_out "the file behind the stale ref is named" 'stale\.txt'
+[ -z "$(git -C "$STALE" for-each-ref refs/salvage-gate/)" ] || { echo "FAIL: the temporary fetch refs are left behind"; fail=$((fail + 1)); }
+total=$((total + 1))
+TAGGED=$(worktree tagged)
+commit_in "$TAGGED" tagged.txt
+git -C "$TAGGED" tag -a tagged-v1 -m "deploy with ghp_$(printf 'j%.0s' $(seq 36))"
+expect "an annotated tag on an unpushed commit is scanned" 1 push-check "$TAGGED" HEAD
+expect "an annotated tag passed as the ref is scanned" 1 push-check "$TAGGED" tagged-v1
+expect_no_out "the tag token never reaches the output" 'ghp_'
+git -C "$TAGGED" tag -d tagged-v1 >/dev/null
+LFS=$(worktree lfs)
+printf 'version https://git-lfs.github.com/spec/v1\noid sha256:%s\nsize 12\n' "$(printf '0%.0s' $(seq 64))" > "$LFS/model.bin"
+git -C "$LFS" add model.bin && git -C "$LFS" commit -qm model
+expect "a Git LFS pointer is refused" 1 push-check "$LFS" HEAD
+expect_out "the LFS file is named" 'model\.bin'
+expect "a mistyped ref is refused, not reported clean" 1 push-check "$PUSHY" HEADD
+
 # --- discard -------------------------------------------------------------------------------------
 UNPUSHED=$(worktree unpushed)
 commit_in "$UNPUSHED" work.txt
