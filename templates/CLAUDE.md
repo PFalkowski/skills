@@ -6,7 +6,7 @@ One problem, one branch, one worktree.
 
 Plan non-trivial work before editing. State assumptions per `reflect`, `fact-check` the load-bearing ones, never invent an API, flag or setting, and default the cheap ones per `whatever`. Turn a vague request into a target you can verify. When the request is ambiguous or you are confused, name what is unclear and ask instead of picking a reading.
 
-Keep the main context clean: send research and exploration to subagents, and offer a fresh session per `save-tokens` when a new request gains little from this one.
+Keep the main context clean: send research and exploration to subagents, and offer a fresh session per `save-tokens` when the next step gains little from this context: a new request, a checkpoint in long delegated work, or right after a usage limit.
 
 # Which process runs the work
 `sdlc-old-fashioned` runs all work except quick fixes and throwaway experiments. `manager` is its principal; invoke it if the user has not (`manager run <skill> <task>`). It sets models per phase, answers reversible questions, and decides what is posted and filed. `walk-the-dog` vets delegated side effects. Workers run on Opus at low or medium effort; adversarial and hard-to-reverse phases run on the strongest tier.
