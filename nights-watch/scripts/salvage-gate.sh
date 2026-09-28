@@ -90,25 +90,30 @@ secrets() {
              tagged ignored ls-files --others --ignored --exclude-standard) | sort -u
 }
 
+# Scans the objects a push would send, never patch text, so no diff or log setting can hide a secret.
 push_check() {
-  local dir=$1 ref=$2 repo remote since names hits g diff c
+  local dir=$1 ref=$2 repo remote g c mode oid path scan names hits
+  dir=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || refuse "not a git worktree"
   repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null) || refuse "cannot name this repository"
   remote=$(repo_remote "$dir" "$repo") || { echo "$remote"; exit 1; }
   git -C "$dir" fetch --prune --quiet "$remote" || refuse "fetch failed"
-  since=("$ref" --not --remotes="$remote/*")
-  g=(git -C "$dir" -c diff.noprefix=false -c color.ui=never -c core.quotepath=off)
-  diff=(--no-textconv --no-ext-diff --src-prefix=a/ --dst-prefix=b/ --no-color --diff-merges=first-parent)
-  names=$("${g[@]}" log -z "${diff[@]}" --diff-filter=d --format= --name-only "${since[@]}" | tr '\0\n' '\n?' | grep . | sort -u)
-  hits=$({ [ -z "$names" ] || printf '%s\n' "$names" | grep -iE "$SECRET_NAME"
+  g=(git --no-replace-objects -C "$dir" -c core.quotepath=off)
+  scan=$(for c in $("${g[@]}" rev-list "$ref" --not --remotes="$remote/*"); do
+           "${g[@]}" cat-file commit "$c" | grep -qaiE -e "$SECRET_TEXT" && printf 'hit\tmessage of commit %s\n' "$c"
+           while IFS=' ' read -r -d '' _ mode _ oid _ && IFS= read -r -d '' path; do
+             [ "$mode" = 000000 ] && continue
+             printf 'name\t%s\n' "$path"
+             if [ "$mode" = 160000 ] || { [ "$("${g[@]}" cat-file -s "$oid")" != 0 ] && ! "${g[@]}" cat-file blob "$oid" | grep -qI ''; } \
+               || "${g[@]}" cat-file blob "$oid" | grep -qaiE -e "$SECRET_TEXT"; then
+               printf 'hit\t%s\n' "$path"
+             fi
+           done < <("${g[@]}" diff-tree -r -m -z --no-renames --no-commit-id --root "$c")
+         done)
+  names=$(printf '%s\n' "$scan" | sed -n 's/^name\t//p' | sort -u)
+  hits=$({ printf '%s\n' "$scan" | sed -n 's/^hit\t//p'
+           [ -z "$names" ] || printf '%s\n' "$names" | grep -iE "$SECRET_NAME"
            [ -z "$names" ] || printf '%s\n' "$names" | "${g[@]}" check-ignore --no-index --stdin | grep -viE "$SAFE_IGNORED"
-           "${g[@]}" log -z --numstat "${diff[@]}" --diff-filter=d --format= "${since[@]}" \
-             | tr '\0\n' '\n?' | awk -F'\t' '$1 == "-" { print $3 }'
-           "${g[@]}" log -p "${diff[@]}" --format= "${since[@]}" \
-             | awk '/^\+\+\+ / { file = substr($0, 5); sub(/^"?b\//, "", file); next } /^\+/ { print (file == "" ? "(unnamed file)" : file) "\t" $0 }' \
-             | grep -iE -e "$SECRET_TEXT" | cut -f1
-           for c in $("${g[@]}" log --format=%H "${since[@]}"); do
-             "${g[@]}" log -1 --format=%B "$c" | grep -qiE -e "$SECRET_TEXT" && echo "message of commit $c"
-           done; } | sort -u)
+         } | sort -u)
   [ -z "$hits" ] || refuse "secret-looking, binary or ignored files in commits $remote does not hold: $(printf '%s' "$hits" | tr '\n' ' ')"
 }
 

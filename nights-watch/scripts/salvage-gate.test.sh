@@ -264,6 +264,28 @@ echo note > "$MESSAGE/note.txt"
 git -C "$MESSAGE" add note.txt && git -C "$MESSAGE" commit -qm "use ghp_$(printf 'd%.0s' $(seq 36)) to deploy"
 expect "a token in a commit message fails" 1 push-check "$MESSAGE" HEAD
 expect_no_out "the message token never reaches the output" 'ghp_'
+PLUSPLUS=$(worktree plusplus)
+printf '++ ghp_%s\n' "$(printf 'e%.0s' $(seq 36))" > "$PLUSPLUS/notes.txt"
+git -C "$PLUSPLUS" add notes.txt && git -C "$PLUSPLUS" commit -qm notes
+expect "N1: a token on a line starting ++ fails" 1 push-check "$PLUSPLUS" HEAD
+expect_out "N1: the file is named" 'notes\.txt'
+ENCODED=$(worktree encoded)
+echo note > "$ENCODED/note.txt"
+git -C "$ENCODED" add note.txt && git -C "$ENCODED" commit -qm "use ghp_$(printf 'f%.0s' $(seq 36)) to deploy"
+GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=i18n.logOutputEncoding GIT_CONFIG_VALUE_0=UTF-16LE   expect "N2: a log output encoding cannot hide a message token" 1 push-check "$ENCODED" HEAD
+RELATIVE=$(worktree relative)
+mkdir -p "$RELATIVE/sub" && echo fine > "$RELATIVE/sub/fine.txt"
+printf 'token = "ghp_%s"\n' "$(printf 'g%.0s' $(seq 36))" > "$RELATIVE/top.txt"
+git -C "$RELATIVE" add sub top.txt && git -C "$RELATIVE" commit -qm rel
+GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=diff.relative GIT_CONFIG_VALUE_0=true   expect "N3: diff.relative and a subfolder cannot hide a token" 1 push-check "$RELATIVE/sub" HEAD
+expect_out "N3: the file outside the subfolder is named" 'top\.txt'
+REPLACED=$(worktree replaced)
+printf 'token = "ghp_%s"\n' "$(printf 'h%.0s' $(seq 36))" > "$REPLACED/key.txt"
+git -C "$REPLACED" add key.txt && git -C "$REPLACED" commit -qm key
+SECRET_COMMIT=$(git -C "$REPLACED" rev-parse HEAD)
+git -C "$REPLACED" replace "$SECRET_COMMIT" "$(git -C "$REPLACED" commit-tree "$SECRET_COMMIT^^{tree}" -p "$SECRET_COMMIT^" -m key)"
+expect "N4: a replace ref cannot hide a secret commit" 1 push-check "$REPLACED" HEAD
+git -C "$REPLACED" replace -d "$SECRET_COMMIT" >/dev/null
 
 # --- discard -------------------------------------------------------------------------------------
 UNPUSHED=$(worktree unpushed)
