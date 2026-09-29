@@ -1,6 +1,6 @@
 ---
 name: desloppify
-description: 'Strips stale prose, duplication, dead paths and excess abstraction from agent-grown code without changing behavior. Use when code or its docs are bloated.'
+description: 'Remove stale prose, duplication, dead code and excess abstraction without changing behavior.'
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -11,8 +11,7 @@ metadata:
 
 # desloppify
 
-Make the repository easier to understand for the next human or agent. Reduction is measured in
-cognitive load, not line count — see [less-is-more](../less-is-more/SKILL.md).
+Reduce cognitive load without changing behavior; see [less-is-more](../less-is-more/SKILL.md).
 
 ## Invocation
 
@@ -24,50 +23,22 @@ desloppify [scope=<path/glob>] [mode=assess|campaign|item]
            [max_items=<n>]
 ```
 
-Examples: `desloppify mode=assess focus=comments budget=small max_items=5` or
-`desloppify scope=src/orders mode=item focus=code architecture=repo`.
+Defaults: whole repository, `mode=assess`, `focus=all`, `budget=standard`, `architecture=auto`, `apply=report`, `tracker=auto`, no item cap (budget bounds the run). Every argument must bind to a step in [RUNBOOK.md](RUNBOOK.md), step 1.
 
-Defaults are `scope` = the whole repository, `mode=assess`, `focus=all`, `budget=standard`,
-`architecture=auto`, `apply=report`, `tracker=auto`, and `max_items` = no cap — `budget` bounds
-the run instead. Every argument is bound to the steps that read it in step 1 of
-[RUNBOOK.md](RUNBOOK.md); an argument declared here that no step reads is a bug. Never add
-layers, entities, ports, or value objects merely to make the code look architectural.
+## Constraints
 
-## Non-negotiables
+- Preserve user changes and generated/vendor boundaries. Isolate broad campaigns in a branch or worktree before editing.
+- Establish document truth before judging code: classify drift, bloat, gaps, contradictions, and orphans; identify each claim's source of truth.
+- Apply [no-comment](../no-comment/SKILL.md) and [less-is-more](../less-is-more/SKILL.md) together. Propose removal of superseded code, tests, config, or abstractions in the same bounded change. Never add architectural layers merely for appearance.
+- Keep one canonical statement per load-bearing fact. Correct every restatement of a disproven fact.
+- Do not replace deletion with summaries, indexes, knowledge graphs, or archives. Keep campaign notes untracked; durable truth belongs in code, tests, git history, one ADR, or necessary user docs.
+- Use [fact-check](../fact-check/SKILL.md): minimal runs for executable claims, exact locations for code claims, authoritative sources for external claims. Refute findings and group them by root cause.
+- **Require approval of each named item** before deletion, behavior/public-contract/architecture changes, ticket creation, or external writes. Scope approval does not approve deletions. Audit external systems read-only.
 
-- Preserve user changes and generated/vendor boundaries. A broad campaign uses an isolated
-  branch or worktree before editing.
-- Establish document truth before judging code against it. Classify drift, bloat, gaps,
-  contradictions, and orphans; name the source of truth per claim.
-- Reduce code and comments together. Apply [no-comment](../no-comment/SKILL.md) to every
-  comment, and [less-is-more](../less-is-more/SKILL.md) to every code change. Propose deletion
-  of a superseded path, test, config entry, or abstraction in the same bounded change; deletion
-  itself is subject to the approval gate below.
-- **One canonical statement per load-bearing fact.** State it once and reference it. When correcting a fact that proved false, find every restatement before calling the
-  correction done.
-- Never create a summary, index, knowledge graph, or archive as a substitute for deletion.
-  Keep campaign notes untracked; durable truth belongs in code, tests, git history, one ADR,
-  or a genuinely necessary user-facing document.
-- Verify every load-bearing finding with [fact-check](../fact-check/SKILL.md): executable
-  claims by a minimal run, codebase claims by exact locations, and external claims by
-  authoritative sources. Refute before reporting; group symptoms by root cause.
-- Do not delete, change behavior or public contracts, alter architecture, file tickets, or
-  write to external systems until the user approves each such item by name — approving a scope
-  is not approving its deletions. External systems are read-only while auditing.
+## Workflow and output
 
-## Workflow
+Read [RUNBOOK.md](RUNBOOK.md): inventory and record uncovered areas; baseline build/test/lint; audit docs; scan context hotspots; refute/deduplicate; route root causes to `now`, `ticket`, or `drop`; apply approved slices and re-run checks.
 
-Read [RUNBOOK.md](RUNBOOK.md) for the full run. In brief: inventory cheaply and record
-uncovered areas; baseline build/test/lint; audit docs; scan prioritized context hotspots;
-refute and deduplicate findings; route each root cause to `now`, `ticket`, or `drop`; then
-apply only approved slices and re-run the guardrails. Use [housekeeping](../housekeeping/SKILL.md)
-for broad docs-first auditing, suggest the human run `/context-reduction` (manual-only) for a
-comment/prose deletion campaign, [code-review-grill](../code-review-grill/SKILL.md) for a
-material cleanup diff, and [triage](../triage/SKILL.md) when creating agent-ready backlog work.
+Use [housekeeping](../housekeeping/SKILL.md) for broad docs-first audits, suggest the human run manual-only `/context-reduction` for prose/comment deletion campaigns, [code-review-grill](../code-review-grill/SKILL.md) for material cleanup diffs, and [triage](../triage/SKILL.md) for agent-ready backlog work.
 
-## Output
-
-Lead with `uncovered`, then baseline, source-of-truth decisions, findings grouped by cause
-with evidence and cognitive-load cost, approved/applied changes, deferred backlog items,
-and validation results. A zero-finding result is valid only when the requested scope and
-checks actually ran.
+Report `uncovered` first, then baseline, truth decisions, root-cause findings with evidence and cognitive cost, approved/applied changes, deferred work, and validation. Zero findings is valid only after the requested scope and checks ran.

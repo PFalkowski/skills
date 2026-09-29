@@ -1,6 +1,6 @@
 ---
 name: evolve-skill
-description: 'Turns feedback about a skill, hook or process into a durable edit of its source. Use when the user corrects one or says "build this in" or "remember to".'
+description: 'Apply user corrections or process feedback to the source skill or hook so they persist.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -10,27 +10,16 @@ metadata:
 
 # evolve-skill
 
-## Triggers
-Feedback about a skill / MCP / hook / process that just ran — a change request, a correction, a recurring-gap flag, or "codify / remember / build this in". **Test:** would it apply next time this capability runs on a *different* task? Yes → here. Only the current task → just finish the task. Recognition is model-driven (no hook) — treat any "the tool/process should…" remark as the cue.
+Apply feedback about a skill, MCP, hook, or process when it should change the capability's next run on a different task. Task-specific feedback stays with the current task. Recognize requests such as “the process should…”, “codify”, or “remember” without requiring a hook.
 
-## Runbook
-1. **Locate the canonical source.**
-   - Public skill → `github.com/PFalkowski/skills` (locally `…/skills/<name>`); many are symlinked into `~/.claude/skills`, so editing the repo file edits the live skill (`ls -la ~/.claude/skills` to confirm).
-   - Vendored/third-party (symlinked to a skills dir outside this repo) → flag it; don't rewrite upstream as ours.
-   - MCP / hooks / permissions / settings → `settings.json` via `update-config`, not here.
-   - Project-bound lesson → project memory or `.claude/skills/`, never a public skill.
-2. **Distill** the feedback into the smallest generalized change. Strip private specifics (absolute paths, single-repo issue numbers, sensitive names). Keep the *why*.
-3. **Edit vs. new:** tweak → edit it; a distinct reusable process → new skill (`write-a-skill`); sometimes both.
-4. **Ask permission, showing the change** — file(s), diff summary, and whether it's a local edit / commit / push. Never modify silently.
-5. **Apply** — edit, commit with a clear message; **push only with separate explicit confirmation** (public = outward-facing). **Check what branch the skills repo is on before you commit.** Committing onto whatever is checked out bundles your edit with unrelated pending work and strands it behind that branch's fate. Branch off the default branch, put the edit there, and open a PR.
+1. **Locate the source.**
+   - Public skill: `github.com/PFalkowski/skills`, locally `…/skills/<name>`. Check `ls -la ~/.claude/skills` for symlinks; editing the repo may edit the live skill.
+   - Vendored/third-party source outside this repo: flag it; do not rewrite it as ours.
+   - MCP, hooks, permissions, settings: `settings.json` via `update-config`.
+   - Project-specific lesson: project memory or `.claude/skills/`, never a public skill.
+2. **Distill the smallest general rule and its rationale.** Remove private paths, names, and repo-specific issue numbers. Capture only the requested behavior; avoid invented edge cases or workflow variants. Prefer one sentence over a subsection.
+3. **Choose the artifact.** Edit an existing skill for a tweak; use `write-a-skill` for a distinct reusable process; sometimes both.
+4. **Show the change and ask before modifying.** Name files, summarize the diff, and distinguish local edit, commit, and push.
+5. **Apply and commit.** Check the skills repo's branch first. Branch from the default branch, keep unrelated pending work out, and open a PR. **Push requires separate explicit confirmation.**
 
-## Rules
-- Always ask before modifying; show the change first.
-- Public skills carry **no** private specifics — a reader with no repo access must understand it fully.
-- **Minimal, targeted edits — capture the rule, not a procedure.** Add only what the feedback states; don't invent conditional branches, edge-case handling, or workflow variants the user didn't ask for. "Always do X" stays "always do X", not a decision tree. Prefer one sentence to a new subsection; when unsure, under-specify and let the next run add precision. Capture the rationale too, not just the rule.
-- Right home wins: generalizable → public skill; project-bound → memory; config → `update-config`.
-- A skill that gains its own run log or state file writes it under the state root, outside the tree, per [docs/agent-state.md](../docs/agent-state.md) — don't introduce a new state root outside that convention.
-- Don't let the meta-work bury the task — capture, sign off, return.
-
-## Related
-`write-a-skill` (new from scratch) · `update-config` (settings/MCP) · project memory (non-generalizable lessons).
+Public skills must make sense without private repo access. New logs/state files follow [docs/agent-state.md](../docs/agent-state.md), outside the tree; do not invent another state root. Capture the improvement, get sign-off, and return to the original task.

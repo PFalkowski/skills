@@ -1,6 +1,6 @@
 ---
 name: code-review-grill
-description: 'Adversarial review of a branch, PR or diff by a fresh agent that did not write it.'
+description: 'Adversarially review a branch, PR or diff with a fresh agent that did not write it.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -12,15 +12,15 @@ metadata:
 
 **The reviewer is never the author.** The calling session acts only as **orchestrator + synthesizer**: it preps the diff, spawns *fresh* `Agent` subagents to do all the critiquing, and consolidates.
 
-Where Matt Pocock's [grill-me](https://github.com/mattpocock/skills) interrogates *the user* about a plan one question at a time, this skill turns the same relentless interrogation onto *the diff*: the reviewer grills each change to a verified conclusion instead of skimming.
+Apply [grill-me](https://github.com/mattpocock/skills)'s question-by-question discipline to the diff.
 
 ## The grilling stance (how every reviewer works)
 
 Adapted from grill-me's interrogation discipline, applied to code:
-- **One thread at a time.** Take a hunk, interrogate it to a conclusion, *then* move on — don't fan out half-questions across the whole diff. Walk each branch of the "is this correct?" tree, resolving dependencies between decisions one-by-one.
-- **Interrogate, don't admire.** For each change ask: *what must be true for this to be correct? what input breaks it? what caller/test relied on the old behavior? what did the author assume?* That is [inversion](../invert/SKILL.md) aimed at a diff, and the second question is the one that finds most bugs.
+- **One thread at a time.** Resolve each hunk and its dependent questions before moving on.
+- **Interrogate.** Ask what must hold, what input breaks it, who relied on old behaviour, and what the author assumed: [inversion](../invert/SKILL.md) applied to a diff.
 - **Ask "is this the only one?"** For every *fix*, the follow-up question is *where else does this exact shape live, and why is it not fixed here too?* — see [Step 3](#step-3--trace-ripple-effects).
-- **Answer by exploring, never by speculating.** grill-me's rule "if the codebase can answer it, explore instead of asking" becomes: settle an executable doubt by running it; a codebase doubt by grepping; a doc/API doubt by checking the docs — the claim decides which, not convenience. That *is* the [verification](#step-5--run-the-review-fresh-adversarial-grilling) every finding must carry. An un-run hypothesis is not a finding.
+- **Verify, never speculate.** Run executable doubts, grep codebase doubts, check docs for API claims. The claim determines the method ([Step 5](#step-5--run-the-review-fresh-adversarial-grilling)); an un-run hypothesis is not a finding.
 - **Carry a recommended answer.** Like grill-me proposing an answer per question, every finding ships a concrete suggested fix.
 
 ## Step 0 — Pick the stance (ask, unless this is a re-review)
@@ -49,21 +49,19 @@ git diff       <base>...HEAD
 ```
 Read the changed files at **full context**, not just the hunks — a change is only correct in the surrounding code (mirrors `AZURE-DEVOPS.md` step 3). On a re-review, the delta is `<last-reviewed-head>..HEAD`, the head the newest summary thread names (REFERENCE, § Re-review); the full three-dot diff is context only. With no summary thread, review the full three-dot diff and say so.
 
-**Consider materializing a worktree at PR-head** (`git worktree add`) to do that reading. It's just a checkout — no restore/build — so its cost scales with repo size, not solution complexity; don't confuse it with building the solution. It turns full-context reads and ripple-tracing into plain Read/Grep/Glob calls on real paths instead of repeated `git show <ref>:<path>`, gives real 1-indexed line numbers for free (useful later when posting inline comments), and — unlike switching the current checkout — doesn't disturb whatever the user has checked out if the PR branch isn't already local. Skip it for a small diff where a couple of `git show`s are just as fast; for a large or heavy repo (monorepo, submodules, huge history) where even a checkout isn't obviously cheap, ask the user before creating one rather than deciding silently.
+Consider a PR-head worktree (`git worktree add`) for full-file reads, ripple searches and accurate inline line numbers without disturbing the user's checkout. This is a checkout, not restore/build. For small diffs, `git show <ref>:<path>` may suffice; ask before creating a worktree in a large/heavy repo where checkout cost is unclear.
 
 ## Step 3 — Trace ripple effects
 
 For every changed public symbol, signature, invariant, or config key, grep callers and dependents **repo-wide** (`git grep`, on the worktree if you made one, or on the ref directly if not). An invariant dropped in one file may be silently relied on in another. The lead gathers this dependent set once and hands it to the reviewer(s) so they judge the change in context, not in isolation.
 
-**Then trace the *sibling* ripple — the one most reviews miss.** The grep above answers "who depended on what changed?" It does not answer the other half: **"is this a *class* of defect, and are there un-fixed instances of the same shape?"** For every fix in the diff, name the defect's *shape* — swallowed exit code, unbounded read, missing guard, un-disposed handle, unvalidated boundary, hardcoded assumption — then grep for that shape, not for the symbol. Report each sibling as fixed-here, explicitly-triaged, or a finding with `scope: sibling` (the bar carries it to a class ticket; it never blocks this PR).
+For every fix, also name and grep its defect shape (e.g. swallowed exit code, missing guard), not just its symbol. Require an explanation for untouched parallel sites. Report each sibling as fixed-here, explicitly-triaged, or `scope: sibling`; the bar carries sibling findings to a class ticket, never a PR blocker.
 
-The tell is a diff that changes one of several structurally parallel things — one of N timer functions, one of N repository methods, one of N adapters implementing a port, one of N call sites of the same helper. When you see that, ask why the other N−1 are untouched and require an answer, rather than assuming the author checked.
-
-**CI status can stand in for the baseline build/test check; it never stands in for a specific finding's run.** If CI already gates the PR, check its status first (`gh pr checks`, or for Azure DevOps the PR's status checks / build info) and cite that for the baseline. If there's no CI configured, or its status isn't visible from where you're standing, a local build/test run is a reasonable — often the only — way to establish that baseline; use judgment. But once a specific executable claim is in play, citing CI is not a substitute: that claim is grounded only by running it and showing the real output, so producing the **runnable-snippet verification artifact** for that finding (a minimal repro, or one targeted test proving one hypothesis) is never optional.
+**CI establishes only the baseline**, never an individual finding. Check `gh pr checks` or Azure DevOps status/build info first; if CI is absent or inaccessible, use judgment about a local baseline build/test. Every executable finding still requires an actually run minimal repro or targeted test, with real output.
 
 ## Step 4 — Capture the house rules (docs, ADRs, conventions) — ALWAYS
 
-**Code is only "correct" relative to the architecture it lives in.** The same construct that is right in a multitier/n-tier repo is wrong in a DDD repo (e.g. a controller reaching into the database, an anemic entity, a leaked persistence type across a bounded-context boundary). So before any reviewer judges the diff, the orchestrator **always** reads the project's own documentation and distills the **house rules** — the conventions, patterns, and architectural decisions the code is expected to honour. This runs for **single and quorum alike**, even when documentation is not a chosen concern.
+Before single or quorum review, always read the project's documentation and distill its conventions, patterns and architectural decisions into **house rules**, even when documentation is not a chosen concern.
 
 Read what the repo actually has (don't assume locations):
 - `README*`, `CONTRIBUTING*`, `CONTEXT.md`, `ARCHITECTURE*`, `docs/**` and any wiki/handbook checked into the repo.
@@ -71,7 +69,7 @@ Read what the repo actually has (don't assume locations):
 - Coding guidelines & enforced style — `CODING_GUIDELINES*`, `STYLEGUIDE*`, `.editorconfig`, linter/analyzer config (`.eslintrc*`, `ruff.toml`, `*.ruleset`, `Directory.Build.props`), and `CLAUDE.md`/`AGENTS.md`/`REVIEW.md` if present, including any `Review skip` entries for the skip list (REFERENCE, § Brief templates).
 - Infer the **architectural style** from layout and dependencies (DDD / hexagonal / clean / MVC / n-tier / vertical-slice) and the naming/layering it implies.
 
-Distill this into a short **house-rules brief** (the documented patterns, the architectural style, the layering/dependency direction, naming and error-handling conventions, and any ADR a changed file falls under) and attach it to **every** reviewer. Reviewers judge the diff against these rules and flag deviations as findings; if the repo documents *nothing*, say so — that absence is itself worth noting.
+Attach a short **house-rules brief** to every reviewer: documented patterns, architectural style, layering/dependency direction, naming, error handling and applicable ADRs. Flag deviations as findings. State when the repo has no documentation.
 
 ## Step 5 — Run the review (fresh, adversarial grilling)
 

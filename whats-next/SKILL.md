@@ -1,6 +1,6 @@
 ---
 name: whats-next
-description: 'Prints a ranked board of what to work on next across repos, then opens the pick; can prune dead worktrees. Use when a session has no fixed target.'
+description: 'Rank work across repos and open the chosen task when no target is set; optionally prune dead worktrees.'
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -17,175 +17,51 @@ metadata:
 pwsh -NoProfile -File "<skill-dir>/scripts/wip.ps1"
 ```
 
-or, from any POSIX shell (Linux, macOS, WSL, Git Bash):
+POSIX (Linux/macOS/WSL/Git Bash):
 
 ```sh
 "<skill-dir>/scripts/wip"
 ```
 
-Costs no model tokens — it calls no LLM. Both are thin launchers that build the board tool (a
-.NET 10 console app) from source into a cached binary the first time they run, then reuse that
-binary until the source changes; either way you need the .NET 10 SDK, and the board itself works
-the same on Windows, Linux and macOS. The repository list is never a configured path — it comes
-entirely from where you've actually run Claude Code (live sessions plus `~/.claude/projects/*/*.jsonl`
-transcripts), so it adapts automatically to wherever your checkouts live on each machine. The
-optional `wip://` protocol handler below is the one Windows-only piece (registry-based); everything
-else, including the HTML report, opens correctly on any of the three.
+Launchers require .NET 10 SDK, build/cache the console app, and rebuild only when source changes. No LLM calls. Repositories come from live Claude Code sessions and `~/.claude/projects/*/*.jsonl`, not configured checkout paths.
 
-Run it with no arguments any time you need to decide what to pick up next; it prints one ranked
-board across every repository you have recent activity in, and also writes the same board as a
-styled HTML report (`board.html`, next to `board.json`) and opens it in your default browser.
-Pass `-Html` to open only the report and skip
-the terminal text. The report's theme defaults to Auto (follows the OS/browser); the Light/Auto/Dark
-toggle in its header remembers your choice for next time. `wip -h` (or `-?`/`--help`) prints the
-full parameter reference and exits without touching anything.
+No arguments prints a ranked board, writes `board.html` beside `board.json`, and opens the browser. `-Html` opens only HTML. Its Light/Auto/Dark choice persists; Auto follows OS/browser. `-h`, `-?`, or `--help` shows full parameters without changes.
 
-Wire it into the PowerShell profile once, so it is one word from any prompt. Open `$PROFILE`
-(`notepad $PROFILE`, creating it if it does not exist) and add:
-
-```powershell
-function wip { pwsh -NoProfile -File "<skill-dir>/scripts/wip.ps1" @args }
-```
-
-On a POSIX shell, add the equivalent to your shell's own startup file (`.bashrc`, `.zshrc`, ...):
-
-```sh
-wip() { "<skill-dir>/scripts/wip" "$@"; }
-```
-
-Reload it (`. $PROFILE`, or `. ~/.bashrc`/`. ~/.zshrc`) or open a new terminal. From then on,
-`wip`, `wip <n>`, and `wip prune` work from any directory.
-
-### Optional: one-click Resume from the HTML report
-
-The report's "▶ wip N" button always *copies* the command — a web page, even a local one, cannot
-start a local process on its own, full stop, no matter how the button is built. Registering a
-`wip://` URL protocol closes that gap by giving Windows something to route the click to, so the
-same button also launches it directly wherever the protocol is registered — including a copy of
-the report shared elsewhere, such as a published Artifact.
-
-```powershell
-pwsh -NoProfile -File "<skill-dir>/scripts/register-protocol.ps1"
-```
-
-Windows only, user-scope (`HKEY_CURRENT_USER\Software\Classes\wip`), no admin required, entirely
-opt-in — nothing else in this skill runs it for you, and nothing breaks if you skip it; the button
-still works as a copy. A `wip://46` link then opens a new terminal running `wip 46` there. The
-browser still asks once, the first time it meets an unfamiliar protocol ("Open PowerShell?" or
-similar) — some browsers let you check "always allow" so it stops asking. It is specific to the
-machine it is run on: registering it on a laptop does nothing for the same report opened on a
-desktop. Remove it with `scripts/unregister-protocol.ps1`.
-
-Plain `wip` (not `-Html`) asks about this itself, once: the first time it finds the protocol
-unregistered in a real terminal, it offers to run `register-protocol.ps1` for you, `[y/N]`,
-defaulting to no. It never asks again after that, whether you said yes or no — run
-`register-protocol.ps1` by hand later if you skipped it. A non-interactive run (piped, CI, no
-console) is never asked and never blocks on it.
+For optional shell aliases or Windows click-to-resume setup, read [SETUP.md](SETUP.md). Do not register the protocol without opt-in.
 
 ## The ranking ladder
 
-Items are ranked 1 (hottest) through 7 (coolest):
+| Rank | Mark | Meaning |
+|---|---|---|
+| 1 | MERGE | Open PR green and mergeable |
+| 2 | REVIEW | Unresolved threads, requested changes, conflicts, or failed checks |
+| 3 | NO PR | Pushed branch without PR; if forge was not checked, explicitly say unknown |
+| 4 | AT RISK | Unpushed commits/dirty worktree with no active occupant |
+| 5 | ASKED | Background session waiting for input |
+| 6 | BACKLOG | Open `prompts/backlog.md` items |
+| 7 | STALE | No commit within `-StaleDays` (default 7) |
 
-| Rank | Mark    | Meaning |
-|------|---------|---------|
-| 1 | `MERGE`   | Open PR is green and mergeable — waiting on you to merge it |
-| 2 | `REVIEW`  | Open PR needs you — unresolved review threads, changes requested, merge conflicts, or failing checks |
-| 3 | `NO PR`   | Branch is pushed with no pull request open for it (or the forge was never consulted, in which case the item says so instead of claiming a fact it never checked) |
-| 4 | `AT RISK` | Worktree has commits that were never pushed, or uncommitted changes, and nobody is sitting in it |
-| 5 | `ASKED`   | A background session is blocked, waiting on your answer |
-| 6 | `BACKLOG` | Worktree has open items in its `prompts/backlog.md` |
-| 7 | `STALE`   | No commit in longer than `-StaleDays` (default 7) — a cleanup candidate |
+Drafts, pending checks, and required reviews awaiting approval do not rank 1 and are omitted unless another actionable condition applies. Failures/conflicts rank 2.
 
-A draft PR, a PR still waiting on a required review, or a PR with a pending check never ranks
-1 — it is left off the board rather than reported as ready. A failing check or a merge conflict
-is not left off the board either — it ranks 2, because it needs you just as much as an unresolved
-review thread does.
-
-Items are grouped by repository, but the repositories themselves are ordered by their single
-hottest item, not alphabetically and not by item count. A repository holding one rank-1 item is
-listed above a repository holding ten rank-4 items — a pull request waiting on you cannot hide
-behind routine work somewhere else. Within a repository, its own items stay together and sort by
-rank. Each repository shows at most `-PerRank` (default 5) items per rank before collapsing the
-rest into a count. The terminal keeps that collapsed count as plain text; the HTML report turns it
-into a toggle that reveals the collapsed rows in place, each with its own working resume button.
+Group by repo, ordered by its hottest item; within repo sort by rank. Show at most `-PerRank` (default 5) per rank. Terminal shows remaining count; HTML offers expandable rows with resume buttons.
 
 ## `wip <n>` and `wip prune`
 
-`wip <n>` launches item `n` from the board most recently printed by a plain `wip` run (cached at
-`$env:AGENTS_STATE/whats-next/board.json`, or `~/.agent-state/whats-next/board.json` when
-`AGENTS_STATE` is unset). Re-run `wip` first if the board might be stale — each run overwrites
-that file, and the numbers only match the board you are currently looking at. It changes
-directory into the item's path, then resumes the session that last worked there if one is known,
-or starts a fresh named session if not.
+`wip <n>` uses the latest board at `$env:AGENTS_STATE/whats-next/board.json`, or `~/.agent-state/whats-next/board.json`. Refresh stale boards first: every run overwrites item numbering. Change to the item's directory **before** resuming its last known session; otherwise start a fresh named session.
 
-`wip prune` proposes worktrees safe to delete. **The default is a dry run** — it only lists what
-it would remove and changes nothing. Pass `-Apply` to actually run `git worktree remove` on the
-listed worktrees. Pass `-Fetch` to `git fetch --prune` each repository first (one network round
-trip per repository), so a branch deleted on the remote is recognized; without it, that
-recognition is only as fresh as your last fetch. Pass `-IncludeIgnored` to also allow removing a
-worktree that holds ignored files — `git worktree remove` deletes those without a word, and
-ignored is exactly where local configuration and skill state tend to live, so they are held back
-unless you ask for them.
+`wip prune` defaults to a dry run. `-Apply` executes `git worktree remove`; `-Fetch` first runs `git fetch --prune` once per repo, refreshing remote-deletion knowledge. Ignored files block removal unless `-IncludeIgnored` is explicit: removal deletes them, including local config/state.
 
-**Safety rule.** A worktree is proposed for removal only when its branch is an ancestor of the
-repository's default branch (an ordinary merge), or when the forge's own record shows a pull
-request from that branch head already merged — this second check exists because a squash merge
-rewrites the branch into one new commit on the default branch, so its own commits are never
-literal ancestors of it, and the forge is the only thing left that still knows. A worktree with
-uncommitted changes, untracked files, or a stash is **never** proposed, regardless of merge
-state — a stash is not restored by anything here, so it survives exactly because the worktree is
-left alone. A branch whose upstream was deleted on the remote is **not**, by itself, treated as
-safe: without one of the two merge signals above it is reported as holding unmerged commits and
-left alone, because a branch can outlive its own remote while still holding commits that exist
-nowhere else.
+Only propose removal when the branch is an ancestor of default (ordinary merge), or the forge confirms a PR from that branch head merged (covers squash merges). Never propose dirty/untracked/stashed worktrees. Deleted upstream alone is not proof: report unmerged commits and leave the worktree.
 
 ## Boundaries
 
-Five neighbouring skills touch adjacent ground; know which one to reach for:
-
-- **dump-sessions** — saves a crash-safe handover for every recently-active session, for disaster
-  recovery after a crash or power loss.
-- **snapshot-terminal-sessions** — restores a Windows Terminal tab layout, not session content.
-- **wrap-up** — closes a session: ships, sweeps, and accounts for what is left before you stop.
-- **handoff** — carries one session across a context boundary (a fresh context, another agent,
-  `/clear`/`/compact`).
-- **prompt-backlog** — stores deferred work as an ordered queue of ready-to-run prompts; this
-  skill reads that queue as one of its ranked sources but does not manage it.
-
-This skill is the entry counterpart to `wrap-up`'s exit: `wrap-up` closes what you were in, this
-picks the one thing to be in next.
+`dump-sessions` saves crash-recovery handovers; `snapshot-terminal-sessions` restores Windows tab layouts; `wrap-up` closes a session; `handoff` transfers one session's context; `prompt-backlog` manages deferred prompts that this board only reads.
 
 ## When not to use this
 
-If you already know which session you want to resume, the built-in picker is faster than this
-skill: run `claude --resume` (or `/resume` inside a session). Press `Ctrl+W` to widen it to every
-worktree of the current repository, `Ctrl+A` to widen it to every project on this machine, and
-paste a pull request URL into it to jump straight to the session that created it. Do not run this
-skill for that — it exists for when you do not yet know which one thing to pick, not for
-returning to a specific one you already have in mind.
+For a known session, use `claude --resume` or `/resume`: `Ctrl+W` includes current repo worktrees, `Ctrl+A` includes all projects, and a pasted PR URL jumps to its creating session. Use this board when choosing what to do next.
 
 ## Two platform facts
 
-These are load-bearing and non-obvious, so they are stated plainly rather than left implicit.
-
-**A resumed session takes the directory it was launched from, not the worktree it originally ran
-in.** This was established by experiment during this skill's build — resuming a worktree session
-from a different directory and watching the transcript record the new path as the session's
-working directory — and it contradicts the published documentation. `wip <n>` changes directory
-into the target worktree *before* calling `claude -r`, never after, because doing it the other
-way brings the agent back pointed at the wrong repository.
-
-**Two different sources feed the board, and they are not equally durable.** Git status,
-`gh api graphql`, and `claude agents --json` are all supported interfaces and stay stable across
-a Claude Code upgrade. Everything else about which directories have seen recent activity, and
-which past session to offer as the resume target for a given item, comes from reading
-`~/.claude/projects/*/*.jsonl` transcript files directly. Claude Code documents that format as
-unstable: "The entry format is internal to Claude Code and changes between versions, so scripts
-that parse these files directly can break on any release." `claude agents --json` is the
-supported alternative, but it does not close this gap — it only lists background sessions, not
-an ordinary session you are simply chatting in from a terminal. So the transcript reader is used
-anyway, and it degrades one line at a time: a line it cannot parse contributes nothing rather
-than throwing. When a future release changes the format, you lose columns, not the whole board —
-a repository whose only recent activity it can no longer read drops out of the candidate list,
-and an item that still shows may lose its session id, so `wip <n>` starts a fresh session there
-instead of resuming the one you had.
+- Experiments showed resumed sessions use the launch directory, contrary to published docs. Always enter the target worktree before `claude -r`.
+- Git, `gh api graphql`, and `claude agents --json` are supported interfaces. Historical/ordinary terminal activity and resume IDs require internal JSONL transcripts: `claude agents --json` covers only background sessions. Formats may change per release. Skip malformed lines; unreadable activity can remove a repo from the board or lose its session ID, causing a fresh session instead of resume.

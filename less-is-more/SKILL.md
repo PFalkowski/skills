@@ -1,6 +1,6 @@
 ---
 name: less-is-more
-description: 'Makes the smallest change that fits the repo''s architecture, measured in cognitive load. Use when writing production code or tempted to add a helper or flag.'
+description: 'Minimize cognitive load in production changes; challenge new helpers, flags and abstractions.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -10,54 +10,15 @@ metadata:
 
 # less-is-more
 
-The unit of "less" is **cognitive load, not line count**. A change that adds lines but
-makes the code easier to hold in one's head is less. A compressed one that makes it
-harder is more.
+Minimize **cognitive load, not line count**, within code touched by the task. Unrelated cleanup/refactoring needs separate scope.
 
-## Scope
+Before adding code:
 
-This applies to **code you are touching for the task at hand**. It is not a license to
-sweep the project deleting unused code or refactoring untouched modules — that is
-separate, deliberate work. But inside your blast radius, own the code fully.
+1. **Modify the right existing code.** Understand and test it instead of adding parallel helpers, wrappers, copied variants, or threaded flags to avoid changing it.
+2. **Search for an existing capability.** Do not implement it twice.
+3. **Require abstractions to earn their place.** Avoid interfaces for one implementation, layers for one caller, or configuration for one value unless the repo's documented architecture calls for them.
+4. **Remove what the edit orphans.** Delete unreachable paths and their tests/config in the touched area in the same change; git retains the history.
 
-## Before writing new code
+Named rules, guard clauses, and explicit steps may use more lines yet be easier to understand. Prefer the version a stranger understands faster.
 
-1. **Does the change belong in existing code?** Modifying a function you understand is
-   better than adding a sibling because modifying feels risky. Additive-only changes —
-   the parallel helper, the wrapper around the wrapper, the copy-pasted variant, the
-   new boolean flag threading through — are fear, not safety. Safety is tests and
-   understanding. Read the code until you are comfortable changing it, then change it.
-2. **Does something in the repo already do this?** Search before you write. A second
-   implementation of an existing capability is pure liability.
-3. **Does the abstraction earn its place?** No interface for one implementation, no
-   layer for one caller, no config for one value. Follow the repo's architecture
-   (DDD, Clean Architecture, layering — whatever its docs and structure show) and add
-   structure only when that architecture calls for it.
-4. **What does this change orphan?** If your edit makes code in the touched area
-   unreachable — the old path, its tests, its config — delete it in the same change.
-   Git remembers.
-
-## The nuance: more lines can be less code
-
-```cs
-// MORE (despite fewer lines) — one expression, five decisions, zero names
-var eligible = orders.Where(o => o.Status == Status.Paid && (o.Total > 100 ||
-    o.Customer.Tier >= Tier.Gold) && !o.Items.Any(i => i.Restricted)).ToList();
-
-// LESS (despite more lines) — each rule named, testable, and readable alone
-var eligible = orders.Where(IsEligibleForFreeShipping).ToList();
-
-bool IsEligibleForFreeShipping(Order order) =>
-    order.IsPaid() && QualifiesByValueOrTier(order) && order.HasNoRestrictedItems();
-```
-
-The same holds for guard clauses over nested conditionals, and explicit steps over a
-clever expression. Prefer whichever version a stranger understands faster — that is
-the version with less code, whatever the line counter says.
-
-## What less never means
-
-- Not less error handling, validation, or tests to shrink the diff.
-- Not a hack that minimises the diff while violating the repo's patterns — the
-  smallest *architecturally honest* change wins over the smallest textual one.
-- Not merging unrelated concerns into one function because two functions are "more".
+Never shrink the diff by cutting error handling, validation, or tests, violating repo patterns, or combining unrelated concerns.

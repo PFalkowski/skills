@@ -1,6 +1,6 @@
 ---
 name: runbook
-description: 'Turns "guide me through X" into a committed runbook and walks the user through it. Use for "walk me through" or a procedure touching accounts or hardware.'
+description: 'Write a committed runbook and guide the user through a procedure, including account or hardware steps.'
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -11,67 +11,41 @@ metadata:
 
 # runbook
 
-The durable artifact is a file in the project; the chat only points at it.
+For guided procedures beyond assistant tools, the committed project file is the source of truth; chat points to it.
 
-## Triggers
+1. State scope in one line and prerequisites with cheap verification commands.
+2. Verify every external price, console flow, flag, and URL; record sources and date instead of relying on memory.
+3. Implement, test, and commit enabling code first; reference its commit. The procedure must not assume nonexistent code.
+4. Write `docs/runbooks/<kebab-case-slug>.md`, creating the directory. Label each step **You** or **Assistant**; every You step says exactly what to report. Name command shells and use `<placeholders>` for supplied values.
+5. **Commit before walking through it.** In chat, link the file and give only the next You step/report-back requirement.
+6. On each report, execute unblocked Assistant steps and return the next You step.
+7. Immediately update and recommit corrections to prices, flags, credits, or procedure.
+8. Confirm the action that stops costs/exposure, then append date, result, cost, and corrections to Outcomes.
 
-"guide me through", "walk me through", "how do I do X step by step", "write a runbook", or
-any request to be led through a procedure that reaches outside the assistant's tools.
-
-## Runbook
-
-1. **Scope it.** One line on what following the procedure achieves and what it does not.
-   List prerequisites, each with the cheapest command that checks it.
-2. **Verify the outside world.** Look up every price, console flow, flag and URL you are
-   about to write down; record the date and the sources. Nothing older than the repository
-   goes in from memory.
-3. **Make the enabling changes first.** If the procedure needs code — a host variable, a
-   flag, a script option — make it, test it, commit it, and reference the commit. Never hand
-   over a runbook that assumes code that does not exist yet.
-4. **Write `docs/runbooks/<slug>.md`** from the template below: kebab-case slug, create the
-   directory, every step marked **You** or **Assistant**, every **You** step naming exactly
-   what to report back, commands copy-pasteable with the shell named, `<placeholders>` for
-   values the user supplies.
-5. **Commit the runbook** before the first word of walk-through.
-6. **Walk through in chat, briefly:** point at the file, state the next **You** step and what
-   to report back. Do not repeat the file.
-7. **On report-back,** run the **Assistant** steps that are now unblocked, then hand back the
-   next **You** step.
-8. **Fold every correction into the file the moment it is learned** — a gated credit, a
-   renamed flag, a changed price — and commit again. The file is the source of truth; the
-   chat is not.
-9. **Close with the meter.** Confirm the stop-the-meter step was done and append the outcome
-   (date, result, cost, corrections) to the runbook's Outcomes section.
+Use one file per procedure and start repeat runs from it, not memory. Keep chat brief; a longer walkthrough suggests the file is incomplete.
 
 ## Template
 
 ```md
 # Runbook: <procedure>
 
-**Purpose.** <what following this achieves; what it does not>
+**Purpose.** <what this achieves and excludes>
 Written <date>; sources: <links>.
 
 ## Prerequisites
 - <thing> — check: `<command>`
 
 ## 1. <step> — **You**; report back <exactly what>
-<commands; name the shell; <placeholders> for values the user supplies>
+<commands, shell, placeholders>
 
 ## 2. <step> — **Assistant**, once <condition>
-<commands the assistant runs>
+<commands>
 
-## N. Stop the meter — **You**
-<the action that actually stops cost or exposure: destroy not power off, revoke, close>
+## N. Stop the meter — **You**; report back <confirmation>
+<actually stop cost/exposure: destroy rather than power off, revoke, close>
 
 ## What this measures and what it does not
 
 ## Outcomes
-- <date>: <result, cost, corrections made>
+- <date>: <result, cost, corrections>
 ```
-
-## Rules
-
-- One file per procedure; running it again later starts from the file, not from memory.
-- Prices, flows and flags drift faster than repositories: date them, source them, and expect
-  step 1 to be wrong by the evening.
-- Keep the chat short. If the walk-through is longer than the file, the file is incomplete.

@@ -1,6 +1,6 @@
 ---
 name: triage
-description: 'Grooms an issue tracker into category, state and priority lanes and marks what is agent-ready. Use for "triage" or "groom the backlog".'
+description: 'Groom tracker issues by category, state, priority and readiness for agents.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -10,80 +10,43 @@ metadata:
 
 # Triage
 
-## Reference docs
+Use [READINESS.md](READINESS.md) for the canonical unattended-work bar, [AGENT-BRIEF.md](AGENT-BRIEF.md) for durable briefs, and [OUT-OF-SCOPE.md](OUT-OF-SCOPE.md) for prior feature rejections.
 
-- [READINESS.md](READINESS.md) — **the bar**: is this work an unattended agent should take? Canonical; other
-  skills reference it rather than restating it.
-- [AGENT-BRIEF.md](AGENT-BRIEF.md) — how to write a brief that stays useful weeks later.
-- [OUT-OF-SCOPE.md](OUT-OF-SCOPE.md) — the rejected-feature knowledge base.
+## Label lanes
 
-## Lanes, not a list
+Each ticket has one label per independent lane:
 
-Labels are **independent lanes**. A ticket carries one from each, and treating them as a single list is the
-usual reason a board stops meaning anything. A ticket with two state labels says two things at once; fix it to one.
-
-| Lane | Question it answers | Typical labels |
+| Lane | Role | Typical labels |
 |---|---|---|
-| **Category** | What kind of work is this? | `bug`, `enhancement` |
-| **State** | Where is it in triage? | `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix` |
-| **Priority** | When, if ever? | `priority:P1..P3`, plus a `parked` for "sound, but not now" |
+| Category | Kind of work | `bug`, `enhancement` |
+| State | Triage status | `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix` |
+| Priority | When | `priority:P1..P3`, `parked` |
 
-These are canonical **roles**, not label strings. Real trackers use their own names.
+These are roles, not required names. On first triage, map existing tracker labels to roles in a short local doc such as `docs/…/triage-labels.md`, linked from agent docs. Never introduce synonyms beside existing labels. Propose these roles if no convention exists. Resolve duplicate state labels.
 
-**On the first triage of a repo, find the local names and write them down** — a short doc (`docs/…/triage-labels.md`
-or equivalent) mapping each role to the label this tracker actually uses, linked from the repo's agent-facing
-readme. Never mint a new name beside an existing one: it splits the vocabulary and strands real work under the
-older label. If a repo has no convention, propose the roles above.
+`parked` means sound but not now/unevidenced, unlike `wontfix`; record an unpark condition in a comment, subject to the refusal gate below.
 
-`parked` earns its place in the priority lane because `wontfix` is a different claim. Parked means sound but
-unevidenced, and it must carry its unpark condition in a comment or it is indistinguishable from neglect.
+## Per ticket
 
-## Triaging one ticket
+1. Read body, comments, labels, dates, and prior triage. Do not reopen resolved questions. Surface matching out-of-scope records instead of re-litigating.
+2. Reproduce bugs by tracing/running code. Failed reproduction supports `needs-info`.
+3. Verify claims that decide the outcome; treat the ticket's framing as a hypothesis.
+4. Apply [READINESS.md](READINESS.md): both ready and intended.
+5. Record the outcome, respecting the gates below:
 
-1. **Read everything** — body, comments, labels, dates, prior triage notes. Do not re-ask a resolved question.
-   Check the out-of-scope records for a matching prior rejection and surface it instead of re-litigating.
-2. **Reproduce, for bugs.** Trace the code, run the command. A confirmed reproduction makes a far stronger brief;
-   a failed one is strong evidence for `needs-info`.
-3. **Verify the load-bearing claims** rather than inheriting them. A ticket's own framing is a hypothesis. Where
-   a claim decides the outcome, prove it — and expect some to collapse, which is the process working.
-4. **Apply the bar** in [READINESS.md](READINESS.md): ready *and* intended.
-5. **Record the outcome:**
-
-| Outcome | What to write |
+| Outcome | Record |
 |---|---|
-| `ready-for-agent` | An agent brief ([AGENT-BRIEF.md](AGENT-BRIEF.md)). Scope it to the part that is genuinely ready and say what you excluded. |
-| `ready-for-human` | The same structure, plus *why it cannot be delegated* — judgement call, external access, design decision, manual verification. |
-| `needs-info` | Triage notes: what is established, and the specific questions outstanding. Not "please provide more info". |
-| done | Merged work already meets the acceptance criteria: close it and cite the merge commit. This records a fact, not a refusal. |
-| `wontfix` | A bug: explain and close. A feature: write the out-of-scope record first, link it, then close. |
+| `ready-for-agent` | [Agent brief](AGENT-BRIEF.md), scoped to ready work with exclusions |
+| `ready-for-human` | Same brief plus why delegation fails: judgment, access, design, manual checks |
+| `needs-info` | Established facts and specific unanswered questions |
+| Done | Close only when merged work satisfies acceptance; cite merge commit |
+| `wontfix` | Bug: explanation and closure. Feature: out-of-scope record, link, then closure |
 
-## The bar is about autonomy, not quality
+Agent-readiness means finishable unattended, not important or well-written. Respect an explicit reporter statement that a decision is not an agent's call.
 
-`ready-for-agent` does not mean "important" or "well written". It means an unattended worker can finish it
-without a person in the loop. Plenty of excellent, urgent tickets are `ready-for-human` — that is not a demotion.
+## Gates and unattended handoff
 
-Respect a reporter who writes "this is not an agent's call" in the body. They are answering the question the
-labels cannot.
-
-## Handing the board to an agent
-
-A groomed board is the input to an unattended run (`nights-watch`, `nightshift`). Two things make that safe, and
-both are triage's job, not the runner's:
-
-- **Intent must be visible on the ticket.** A judge reading the board infers "not now" from labels and prose. If
-  deferred work is not marked, it looks exactly like wanted work. When the tracker has no label for "not now"
-  and you may not enact the deferral, say so in your report: an unattended run will take that ticket.
-- **Briefs must be falsifiable.** See [AGENT-BRIEF.md](AGENT-BRIEF.md) — a brief that cannot succeed by finding
-  nothing will produce a finding whether or not one exists.
-
-## Never enact a refusal
-
-Declining a ticket is a judgement, and judgements applied across a board are sometimes wrong. Record the reason;
-do not label, close, or comment a ticket into a state on that basis — unless a person asked about that specific
-ticket and is waiting on the answer.
-
-## Who may declare a ticket agent-ready
-
-Where a repo treats agent-readiness as a human attestation, an agent must not self-apply it to its own triage
-output — that is self-certification. If the owner delegates it, record the delegation and its date alongside the
-judgement, so the provenance survives in the thread.
+- **Do not enact refusals** through labels, comments, or closure unless a person asked about that specific ticket and awaits the answer. Record the reasoning in your report otherwise.
+- If readiness is a human attestation, never self-apply it to your triage. When delegated by the owner, record the delegation and date alongside the judgment.
+- Make intent visible before handing the board to `nights-watch` or `nightshift`. Unmarked deferrals look wanted. If no “not now” label exists and you cannot enact deferral, report that an unattended worker will take the ticket.
+- Make briefs falsifiable: finding nothing must be a valid success where appropriate; see [AGENT-BRIEF.md](AGENT-BRIEF.md).

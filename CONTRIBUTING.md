@@ -1,5 +1,20 @@
 # Contributing
 
+## Keep skill context small
+
+Descriptions identify the task and its trigger in at most 120 characters (target
+100). Keep unique routing cues; omit workflow details and the skill's own command.
+Do not change invocation policy merely to reduce measured context.
+
+In `SKILL.md`, retain executable instructions, safety gates, stopping conditions
+and non-obvious constraints. Remove repeated rationale and examples that teach no
+additional rule. Use clear sentences, not cryptic shorthand. Link substantial
+mode-specific references with an explicit when-to-read condition; do not load all
+references up front or move the whole workflow behind a mandatory extra read.
+Check both entrypoint and total instruction size so relocation is not reported
+as deletion. Character counts are portable; token counts require the target
+model's tokenizer. Before/after review must check behavior as well as size.
+
 ## Checking sibling-skill links
 
 Skill files cross-reference each other with relative links to sibling
