@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Fails on a SKILL.md description over 200 characters, naming its own slash command, or with an unquoted ": "; warns above 160.
+# Fails on a SKILL.md description over 120 characters, naming its own slash command, or with an unquoted ": "; warns above 100.
 # Prints the cost split by whether the description is actually in context: disable-model-invocation excludes it entirely.
 set -u
 cd "$(dirname "$0")/.."
-hard=200 soft=160 status=0 total=0 loaded=0
+hard=120 soft=100 status=0 total=0 loaded=0
 for f in */SKILL.md; do
   raw=$(grep -m1 '^description:' "$f" | sed -E 's/^description:[ ]*//')
   case "$raw" in
@@ -30,7 +30,8 @@ for f in */SKILL.md; do
   if [ "$n" -gt "$hard" ]; then echo "FAIL $f: description is $n chars (max $hard)"; status=1
   elif [ "$n" -gt "$soft" ]; then echo "warn $f: description is $n chars (target under $soft)"; fi
 done
-echo "in context every turn: $loaded chars (~$((loaded / 4)) tokens)"
+echo "automatic descriptions (Claude invocation policy): $loaded chars"
 echo "withheld by disable-model-invocation: $((total - loaded)) chars"
 echo "total across all descriptions: $total chars"
+echo "Token cost and invocation-policy support depend on the host and tokenizer."
 exit $status

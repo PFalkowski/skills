@@ -1,6 +1,6 @@
 ---
 name: snapshot-terminal-sessions
-description: 'Snapshots Windows Terminal tabs running Claude Code into a .ps1 that resumes each later. Use for "snapshot sessions" or before closing everything down.'
+description: 'Save Windows Terminal tabs running Claude Code to a PowerShell script for later resumption.'
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -11,50 +11,24 @@ metadata:
 
 # Snapshot terminal sessions
 
-## Quick start
-
-Run the bundled script and report its output to the user:
+Run and report the bundled script:
 
 ```powershell
 pwsh -NoProfile -File "<skill-dir>/scripts/Snapshot-ClaudeSessions.ps1"
 ```
 
-By default it writes to `$HOME\scripts\reopen-claude-sessions.ps1` (created if missing).
-Pass `-OutputPath <path>` to write elsewhere. It never overwrites a differently-named,
-hand-written template — only its own output file.
-
-To recreate the layout later, the user just runs the generated script:
+Default output: `$HOME\scripts\reopen-claude-sessions.ps1`, created if missing; override with `-OutputPath <path>`. It replaces its own output, never a differently named handwritten template. Resume later with:
 
 ```powershell
 pwsh -File "$HOME\scripts\reopen-claude-sessions.ps1"
 ```
 
-## What it does
+## Behavior and limits
 
-- Walks `Get-CimInstance Win32_Process`, filters `claude.exe`/`claude-monitor.exe` whose
-  ancestry traces back to a `WindowsTerminal.exe` process (skips ones hosted elsewhere,
-  e.g. VS Code's integrated terminal, and reports how many were skipped).
-- Reads each match's actual cwd via a PEB read (`NtQueryInformationProcess` + `ReadProcessMemory`,
-  same-user/same-bitness, no admin needed).
-- Emits one tab per session, titled after the cwd's leaf folder name (Windows Terminal tab
-  titles are UI-only state and can't be read back from a process).
-- Uses `claude --continue` to resume the most recent conversation in that directory. If two+
-  live sessions share the same directory, `--continue` can't tell them apart, so it tries to
-  resolve the *exact* session id for each: Claude Code stores each session as
-  `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`, and a freshly started session creates
-  its file within seconds of the process starting, so process-start-time vs. file-creation-time
-  proximity gives a high-confidence match. For a resumed (not freshly started) session with no
-  such signal, it falls back to matching the one remaining process against the one remaining
-  file touched in the last 2 hours, by elimination. Anything still ambiguous after that gets
-  a bare `claude --resume` (interactive picker) rather than a guess.
-- Pairs a `claude-monitor.exe` with a `claude.exe` session into one tab (as a `split-pane
-  --size 0.5`) when their directories match exactly.
+- Enumerates `Get-CimInstance Win32_Process` for `claude.exe`/`claude-monitor.exe` descended from `WindowsTerminal.exe`; reports skipped sessions hosted elsewhere.
+- Reads actual cwd through PEB (`NtQueryInformationProcess` + `ReadProcessMemory`), same user/bitness, without admin.
+- Emits one tab per session, titled by cwd leaf. Original UI tab titles cannot be recovered.
+- Normally uses `claude --continue`. For multiple sessions sharing cwd, resolves exact IDs from `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`: first match process start to transcript creation time; for resumed sessions, match the sole remaining process/file touched in the last 2h by elimination. Remaining ambiguity uses interactive `claude --resume`, never a guess.
+- Pairs a monitor and Claude session with identical cwd as `split-pane --size 0.5`.
 
-## Known limitation (Windows Terminal + PowerShell only, by design)
-
-Windows Terminal doesn't expose which processes share a tab vs. sit in separate tabs/panes,
-so tab/pane topology beyond the claude↔claude-monitor pairing above is **not** recoverable —
-every session becomes its own tab. If the real layout had other multi-pane arrangements
-(e.g. a log tail or build watcher split next to a session), the generated script won't
-reproduce that; hand-edit it (add `` `; split-pane ... `` after the relevant `new-tab`) the
-same way the reference template does it.
+Windows Terminal + PowerShell only. Other tab/pane relationships are unrecoverable; each session gets a tab. Hand-edit other splits into the generated script (add `\`; split-pane ...` after the relevant `new-tab`), as in the reference template.

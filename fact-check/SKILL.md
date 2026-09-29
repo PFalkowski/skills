@@ -1,6 +1,6 @@
 ---
 name: fact-check
-description: 'Grounds a claim with a local experiment or two authoritative sources. Use for "fact-check", "are you sure", or before asserting a load-bearing fact.'
+description: 'Verify disputed or load-bearing claims with a local experiment or two authoritative sources.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -10,54 +10,34 @@ metadata:
 
 # fact-check
 
-Never assert a load-bearing fact from memory. **Ground it, cite the source, or flag it as unverified.**
-
-## When to reach for this
-
-- A claim is load-bearing — a number, version, limit, API contract, algorithm result, security property, historical/legal/scientific fact — and being wrong is costly.
-- The user asks to verify, "are you sure?", "fact-check this", "ground this".
-- **Skip it** for trivially obvious or low-stakes claims. Grounding has a cost; match effort to stakes.
+Ground load-bearing claims with evidence; never assert them from memory. Use on verification requests or when a wrong number, version, limit, contract, result, or factual claim would be costly. Skip trivial, low-stakes claims.
 
 ## The method — strongest evidence first
 
-1. **Isolate the exact claim — decompose if it isn't atomic.** Restate it as a single falsifiable proposition with concrete values; a vague claim ("it's pretty fast", "large numbers") can't be grounded — sharpen it first. If the question is high-abstraction, compound, or not directly verifiable, **break it into the smallest independently-verifiable sub-claims**, ground each on its own, then compose them into an answer that is the *exact* response to the original query. When the sub-claims are independent and numerous, **fan them out to parallel agents** (one sub-claim each) and synthesize their evidence — never collapse a broad question into one hand-wavy verdict.
-
-   **A measurement is a claim about a moment; a rate is a claim about a period.** One observation grounds the first and never the second. Before a measured value becomes a premise, check whether it is stable: sample a second point, and when a time series already exists — published artefacts, git history, logs, backups — read that rather than reasoning from the single sample in hand. Recording "n=1" as a caveat does not license using the number as a rate.
-
-2. **The claim type fixes the verification method — it is not a choice among equals.** An executable claim — what the code does at runtime — is grounded only by running it and showing the real output, never by an in-repo citation or a source link in its place; if it was not run it is withheld from the findings rather than reported anyway, and is listed under **Not run** with the reason and the command that would settle it. When a claim fits more than one branch below, the executable branch wins — the other branches cover only what no run could settle. A finding is a chain of claims; split it before choosing a method, and report the atoms you grounded rather than withholding the whole finding for the one you could not.
-   - **Executable → run it.** Arithmetic, floating-point, a regex, parsing, a data transform, an algorithm's output, library behaviour, timing/performance, encoding, null/overflow handling, async or ordering behaviour — write a **minimal** script (python / node / shell) and execute it. A reproducible experiment outranks any amount of reading. *Example: to check a complex math expression, write the few lines that evaluate it and run them rather than reasoning it out by hand.*
-   - **About a codebase → cite the source line.** For a claim no run could settle — that a caller exists, that a contract is documented, that a symbol is unused — read the code and point to the exact `path:line` (commit-pinned if it may move); for docs, the file and section. Never answer a codebase question from memory or a skim.
-   - **Documentable → cite primary sources.** For API semantics, version numbers, limits, standards, or historical/scientific facts, consult **authoritative** sources and **confirm across ≥2 independent ones** when the claim is consequential or contested.
-   - **Both when you can** — docs say X *and* a quick test confirms X is the gold standard.
-
-3. **Climb the authority ladder** (prefer higher, distrust lower):
-   - **Primary / official** — the spec or RFC, official docs, the project's own source, the standards body, the primary dataset, a peer-reviewed paper.
-   - **Reputable secondary** — well-maintained references (e.g. MDN, language docs; Wikipedia *for stable facts, then follow its citation to the primary source*).
-   - **Forums / blogs / Stack Overflow / LLM output** — **leads only, never proof.** Chase them down to a primary source before relying on them.
-
-4. **Always attach the evidence.** Every grounded claim carries **either** a **source URL** (deep-linked to the relevant section, and version-pinned if behaviour is version-sensitive) **or** the **runnable snippet + its actual output**. No link and no experiment = not grounded; label it so.
+1. **Isolate falsifiable claims.** Replace vague language with concrete values. Split compound/abstract questions into independently verifiable claims, ground each, then answer the original question exactly. Fan out numerous independent claims to parallel agents and synthesize their evidence.
+2. **Distinguish a measurement from a rate.** One observation establishes a moment, not a period. Check a second point for stability; prefer existing time series (artifacts, history, logs, backups). An `n=1` caveat does not justify treating a sample as a rate.
+3. **Choose by claim type.** An executable claim is grounded only by running it and showing the real output; this branch wins when a run can settle the claim. Split mixed findings and report the grounded atoms:
+   - **Executable:** run a minimal script/test and show actual output. Includes arithmetic, parsing, regexes, transforms, algorithms, library behavior, performance, encoding, null/overflow, async, and ordering. Source citations cannot substitute. Without a run, withhold the claim from findings and list **Not run**, with reason and settling command.
+   - **Codebase, not executable:** inspect and cite exact `path:line` (commit-pinned if needed), or document + section. Examples: caller existence, documented contracts, unused symbols.
+   - **Documentable, not executable:** consult primary sources for semantics, versions, limits, standards, or historical/scientific facts. Consequential or contested claims require at least two independent authoritative sources.
+   - Use both an experiment and documentation when practical.
+4. **Prefer authority:** primary specs/RFCs, official docs/source, standards bodies, datasets, papers; then reputable secondary references. For stable facts, follow Wikipedia citations to primary sources. Forums, blogs, Stack Overflow, and LLM output are leads, never proof.
+5. **Attach evidence to every claim:** relevant deep URL (version-pinned for version-sensitive behavior), runnable snippet + actual output, or exact code citation. A generic/dead link, the artifact citing itself, or confidence from memory is not grounding.
 
 ## Confidence — state it, with its basis
 
-- **Confirmed (tested)** — reproduced locally; include the snippet and its output.
-- **Confirmed (sources)** — ≥2 independent authoritative sources agree; link both.
-- **Likely** — a single authoritative source; link it and flag the single point of failure.
-- **Unverified** — couldn't ground it; say so explicitly and do **not** assert it as fact. Never used for an executable claim with no run — that one is **Not run**, below.
-- **Not run** — an executable claim that was not run: withheld from the answer, one line giving the reason and the command that would settle it.
+| Status | Required basis |
+|---|---|
+| Confirmed (tested) | Local reproduction, snippet + actual output |
+| Confirmed (sources) | At least two independent authoritative sources, both linked |
+| Likely | One authoritative source, linked; flag the single point of failure |
+| Unverified | Non-executable claim could not be grounded; do not assert as fact |
+| Not run | Executable claim withheld; state reason and settling command |
 
 ## When sources conflict
 
-Surface the disagreement rather than silently picking a side. Prefer the more authoritative and more recent source; note any version- or date-sensitivity. If the claim is executable, **break the tie with an experiment** — a reproduced result outranks a documentation dispute.
+Expose disagreement. Prefer authority and recency, noting date/version sensitivity. For executable claims, an experiment resolves the dispute and outranks documentation.
 
 ## Output
 
-Per claim, tight: **verdict · confidence · method · evidence** — a deep link, a runnable snippet + its output, or a `path:line` citation. A compound question gets one line per sub-claim, then the composed answer.
-
-## Anti-patterns
-
-- Citing the artifact you're checking as its own proof.
-- Laundering training-memory as fact ("I'm confident that…") with no source and no test.
-- Treating one blog / forum / SO answer as authoritative.
-- Generalising a single observation into a rate — then writing the caveat and reasoning past it anyway.
-- A dead or generic link that doesn't resolve to — and actually support — the specific claim.
-- Over-grounding the obvious, or under-grounding something costly. Calibrate to stakes.
+Per claim: **verdict · confidence · method · evidence**. For compound questions, one line per sub-claim followed by the composed answer. Match verification effort to stakes.

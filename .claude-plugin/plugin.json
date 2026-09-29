@@ -1,6 +1,6 @@
 {
   "name": "pfalkowski-skills",
-  "description": "Skills for Azure DevOps PR review, autonomous overnight backlog runs, codebase desloppification, dormant NuGet repo refresh, trading/ML signal verdicts, ordered prompt backlogs, stacked-PR merges, fresh-context handoff checks, self-evolving skills, and recurring self-improvement runs.",
+  "description": "Skills for code review, autonomous delivery, maintenance, research validation and agent context management.",
   "author": {
     "name": "PFalkowski"
   },

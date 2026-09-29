@@ -1,6 +1,6 @@
 ---
 name: dump-sessions
-description: 'Dumps a handover for every recently active Claude Code session from its transcript. Use for "dump all sessions" or before a power cut or machine move.'
+description: 'Export handovers from recently active Claude Code sessions before shutdown or a machine move.'
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -11,65 +11,20 @@ metadata:
 
 # Dump sessions
 
-Write a single handover covering **every** recently-active Claude Code session, not just the
-current one. Claude Code flushes each session to disk as
-`~/.claude/projects/<encoded-cwd>/<session-id>.jsonl` on every message, so this reads
-them directly instead of inspecting live processes. It works **after** a
-crash or power cut, when the `claude.exe` processes (and any PEB-based cwd detection) are
-already gone.
-
-## Quick start
-
-Run the bundled script and report its output to the user:
+Write one handover for every recently active Claude Code session from `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`. Transcripts flush each message, so this works after a crash without live processes.
 
 ```powershell
 pwsh -NoProfile -File "<skill-dir>/scripts/Dump-ClaudeSessions.ps1"
 ```
 
-It writes `~/HANDOVER-ALL.md` and prints one line per workspace. Then read that file and relay
-the highlights — especially any workspace with uncommitted or unpushed work at risk.
+Report the script output, read its default `~/HANDOVER-ALL.md`, and relay highlights, prioritizing uncommitted/unpushed work.
 
-Useful parameters:
+Parameters: `-SinceMinutes 180` (default activity window: 3h), `-Tail 4` (substantive turns per session), `-OutputPath <path>`.
 
-- `-SinceMinutes 180` — how far back to count a transcript as "active" (default 3h). Widen to
-  reach older sessions; narrow to just the last work burst.
-- `-Tail 4` — substantive turns to include per session.
-- `-OutputPath <path>` — where to write the dump (default `~/HANDOVER-ALL.md`).
+Each entry contains transcript cwd/branch, session ID and exact `claude --resume <id>` command, live git status (uncommitted count/sample and unpushed count), last prompt, and substantive turns. Tool-only turns are dropped. Surface live git state first because the receiver cannot reconstruct it later.
 
-## What each session entry contains
+Activity uses transcript `LastWriteTime`. Enumerate only `<projects>/<cwd>/<session>.jsonl`, excluding `subagents\`. Collapse repeated sessions to the newest transcript per cwd+branch and record the fold count.
 
-- **cwd** and **git branch** (from the transcript).
-- **session id** + the exact `claude --resume <id>` command to reopen it in that directory.
-- **git now** — a live `git status` in that cwd: uncommitted file count (with a sample) and
-  unpushed commit count. This is the state a receiver actually needs, because it is the only
-  part that is *not* reconstructable — surface it first.
-- **last prompt** and the **last few substantive turns** (tool-only turns are dropped).
+The dump is sensitive, unredacted plaintext aggregating active repos' conversations. Its default location is outside repos but predictable; use a controlled `-OutputPath` or delete it after use (`Remove-Item ~/HANDOVER-ALL.md`).
 
-## How "active" and "one workspace" are decided
-
-- **Active** = transcript `LastWriteTime` within `-SinceMinutes`. mtime is used deliberately
-  rather than live-process detection so this still works on a rebooted machine.
-- Enumeration is **one level deep only** (`<projects>/<cwd>/<session>.jsonl`); spawned-agent
-  transcripts under each project's `subagents\` subfolder are excluded — they are not user
-  sessions and would swamp the dump.
-- A workspace that has been resumed repeatedly leaves several transcripts behind; entries are
-  collapsed to the **newest transcript per cwd+branch**, with the fold count noted.
-
-## Privacy — the dump is plaintext
-
-The output aggregates prompts and assistant prose from **every** active repo into one file
-(`~/HANDOVER-ALL.md` by default). If any of those conversations touched a secret, token, or
-customer data, it now sits unredacted at rest in a predictable `$HOME` path. It's written
-*outside* any repo, so it won't be committed by accident — but delete it once you've used it
-(`Remove-Item ~/HANDOVER-ALL.md`), or point `-OutputPath` at a location you control. Treat the
-file as sensitive.
-
-## Relationship to other skills
-
-- **handoff** — writes a careful, minimal handover for the *single current* session. Use that
-  when you have one session's full context in hand; use this when you need *all* of them and
-  can only read them from disk.
-- **snapshot-terminal-sessions** — regenerates the Windows Terminal *tabs* (which repos had a
-  session open, how to relaunch them) by inspecting live processes. That recovers the layout;
-  this recovers the *content/state*. Snapshot only works while the machine is still up,
-  whereas this also works after a crash.
+Use **handoff** for a minimal current-session note. **snapshot-terminal-sessions** restores terminal layout from live processes and requires the machine still running; this skill restores content/state even after a crash.

@@ -1,6 +1,6 @@
 ---
 name: clean-room
-description: 'Reimplements behaviour you may not copy, such as GPL code or a competitor''s product, through study and build passes that share only a screened brief.'
+description: 'Reimplement behavior without copying protected source, using isolated study/build passes and a screened brief.'
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -11,89 +11,32 @@ metadata:
 
 # clean-room
 
-## When to reach for this
-
-Use it when **all three** hold:
-
-1. You have (or want) access to a source you may **not** incorporate — incompatible licence, a competitor, an ex-employer's prior art, a decompiled or network-inspected binary.
-2. You want the **behaviour, design, or method**, not the text. Copyright protects expression; ideas, methods and systems are free.
-3. Someone could later ask *"how do you know this wasn't copied?"* — a licence audit, an acquirer's diligence, a contributor agreement, opposing counsel, or your own future self.
-
-**Skip it** when:
-
-- The source is permissive (MIT/BSD/Apache-2.0) and you can just depend on it or vendor it with attribution. Reimplementing permissive code is usually waste.
-- It is your own code, or code you already have rights to.
-- The borrowing is one idea, one convention, one paragraph of a published methodology. Declare the tier, write the attribution line, move on.
-
-The dividing question is not size. It is: **would the answer to "how do you know?" be an artefact, or a claim?**
+Use when studying material you may not incorporate, you need its behavior/design rather than expression, and independent provenance must be demonstrable. Skip for your own/permissively usable code; for one borrowed idea or convention, declare the tier and attribution.
 
 ## Tiers — decide this before anything else
 
-Classify first:
-
-| Tier | What | Verdict |
+| Tier | Material | Action |
 |---|---|---|
-| **A — Use it** | Permissive dependency; a public API or documented protocol consumed under its terms | Just use it. Attribute as a normal dependency. **No clean room needed.** |
-| **B — Reimplement from published prose** | Architecture, algorithm design, methodology, vocabulary, observable behaviour — described in docs, papers, blog posts, or observed from the outside | **This skill.** |
-| **C — Re-derive from the primary source** | A curated list, catalogue, table, dataset or coefficient set | Do not copy it, even though facts are free — curated compilations attract database rights (EU *sui generis*; and selection/arrangement can carry copyright elsewhere). Go to the upstream authority. **Frequently produces a better artefact than the intermediary's copy.** |
-| **D — Needs a licence** | Any source file, snippet, asset, generated artefact, config, fixture, or the project's name/logo | **Stop.** No process makes this clean. Take the licence, negotiate terms, or drop the feature. |
-
-If the answer is D, say so plainly and stop. A clean room applied to Tier D is laundering.
+| A — Use it | Permissive dependency, public API/protocol consumed under its terms | Use and attribute normally; no clean room |
+| B — Reimplement from published prose | Architecture, algorithms, methods, vocabulary, observable behavior in prose or external observation | Follow this skill |
+| C — Re-derive from the primary source | Curated lists, catalogs, tables, datasets, coefficients | Use the upstream authority; compilations may carry database/selection rights |
+| D — Needs a licence | Source files/snippets, assets, generated artifacts, config, fixtures, project names/logos | Stop; obtain rights or drop the feature. Clean-room process does not grant a license |
 
 ## The shape
 
-```
-  PREFLIGHT ──► STUDY pass ──► BRIEF ──► screen ──► BUILD pass ──► ATTRIBUTION
-  (blind)      (contaminated)  (airlock)          (source-denied)
-                     │                                   │
-             may read source                    may NEVER read source
-             may NOT write code                 writes all the code
-```
-
-Two roles:
-
-- **Study (contaminated).** Reads the source, the docs, the running product. Writes **prose only**. May not touch the clean repository.
-- **Build (source-denied).** Never opens the source, never sees a screenshot of it, never reads a study transcript. Works from the brief, the primary sources, and the clean repository.
-
-The **brief** is the airlock. It is the only thing that crosses, and it crosses only after it has been screened.
+**Blind preflight → separate study session → screened prose brief → fresh source-denied build → attribution.** The brief is the only study artifact that may reach builders or reviewers. Study may read/run the source but may never write into the clean repository.
 
 ## Procedure
 
 ### 0. Preflight — declare the goal *before* you look
 
-Write the contract first, in the run directory (see §Run ledger), **before opening the source**:
-
-- **Goal** — the behaviour you need, stated as what a user or caller observes.
-- **Source** — what you will study, its licence, its copyright holder, its version/commit.
-- **Tier** — A/B/C/D from the table above.
-- **Clean root** — the repository/paths the build pass may write to.
-- **Deny list** — tokens that must never appear in the brief: the source's package name, distinctive identifiers, internal path prefixes.
-
-**The order is load-bearing.** A goal written after reading the source is a goal shaped by their implementation.
-
-If you cannot state the goal without looking, that is the finding: you do not yet know what you want, and the honest next step is to ask the user, not to go browsing.
+Before opening the source, write in the run directory: externally observable goal; source, license, copyright holder, version/commit; tier; writable clean root; deny-list tokens (source package, distinctive identifiers, internal path prefixes). If the goal cannot be stated blind, ask the user before browsing.
 
 ### 1. Study pass — read widely, write prose
 
-Runs in its **own session**. Rules:
+Use its own session. It may inspect source, product, docs, tests, and issues, but cannot create/edit anything under the clean root, including comments, stubs, and test names. Its only output is `<run>/brief.md`.
 
-- **May** read the source, run it, watch it, read its docs, its tests, its issue tracker.
-- **May not** write, edit or create any file under the clean root. Not a stub, not a comment, not a test name.
-- **Output is exactly one file**: `brief.md` in the run directory. Nothing else leaves this pass.
-
-The brief describes **behaviour and contracts, not construction**:
-
-- What it does, from the outside — inputs, outputs, ordering, units, error surfaces.
-- The **decisions** and their reasons — why a cap here, why a floor there, what failure mode a guard exists for.
-- Edge cases and failure modes, as prose.
-- Acceptance criteria, written as sentences a test could later assert.
-- Open questions the build pass will hit.
-
-It must **not** contain: source code in any language, pseudocode shaped like the source, file paths, identifier names, diffs, screenshots, UI strings, comments, or verbatim documentation sentences.
-
-> **Test for a good brief:** could a competent engineer who has never heard of the source build the thing from it — and would their result differ from the source in every incidental choice while matching it in every behaviour you actually need? If the answer to the first is no, the brief is too thin. If the answer to the second is no, the brief is contaminated.
-
-**A brief that is too thin is a cost; a brief that is too rich is a defect.** When unsure, cut.
+Describe inputs, outputs, ordering, units, errors, behavioral decisions and reasons, edge cases, acceptance criteria, and open questions. Exclude code, source-shaped pseudocode, file paths, identifiers, diffs, screenshots, UI strings, comments, and verbatim docs. An engineer unfamiliar with the source must be able to reproduce required behavior while choosing incidental implementation details independently. Cut doubtful details; a detailed paraphrase of construction is contamination.
 
 ### 2. Screen the brief — mechanically, then by judgement
 
@@ -101,78 +44,45 @@ It must **not** contain: source code in any language, pseudocode shaped like the
 node <skill-dir>/screen-brief.mjs --brief <run>/brief.md --deny-list <run>/deny-list.txt
 ```
 
-The screen flags code fences, path-shaped tokens, diff markers, deny-list hits, and camel/Pascal/snake identifiers that look lifted. It is a **floor, not a verdict** — it cannot detect a paraphrased implementation. After it passes, read the brief and ask:
+The script flags fences, paths, diffs, deny-list hits, and suspicious identifiers; passing is necessary, not sufficient. Check reported line/token counts and, once per project, plant a violation to prove detection; empty input/deny lists or wrong files are not valid screens.
 
-- Does any sentence describe *how they built it* rather than *what it does*?
-- Would a reader be able to reconstruct their file layout, class names, or call graph?
-- Is there a passage I could not have written from the outside?
-
-Anything that fails, cut. Then record the screen result in the ledger — an unrecorded screen is indistinguishable from no screen.
+Then remove descriptions of construction, reconstructable layout/class/call-graph details, and passages unavailable through external observation. Record screen output + timestamp; unrecorded screening is insufficient.
 
 ### 3. Build pass — never look
 
-Runs in a **fresh session** (or a subagent whose context contains the brief and not the study). Rules:
+Use a fresh session or subagent containing the brief, never study context. Builders may read the brief, primary sources, clean repo, and general references; never the restricted source, study transcript, or other study artifacts. They write all code/tests/docs. Reviewers are source-denied too.
 
-- **May** read the brief, the primary sources, the clean repository, general references.
-- **May not** open the source, the study transcript, or any artefact of the study other than the brief.
-- Writes the code, the tests, the docs.
-
-**When the brief is insufficient — and it will be — do not peek.** Raise a gap in the ledger and either decide it yourself from first principles (usually correct: your incidental choices *should* differ) or commission a **new study pass** to answer that specific question and amend the brief through the same screen.
+For brief gaps, record the question and decide from first principles or commission a new study pass whose amendment goes through the same screen. Never peek.
 
 ### 4. Refocus — audit against the declared scope
 
-At natural checkpoints (and always before merge), compare what was built against the preflight goal:
-
-- Did the scope drift toward the source's feature set rather than the declared goal? That is a tell that the brief carried more than behaviour.
-- Are there names, structures or constants that match the source and were not derived from a primary source or an obvious convention? Change them, or record why they are unavoidable (a protocol field name, a published formula's variable).
-- Is anything in the clean root traceable to the study pass rather than the brief?
+At checkpoints and before merge, compare against the blind goal. Check for source-feature scope creep; distinctive matching names, structures, or constants; and clean-root content traceable directly to study. Change unexplained matches or document unavoidable primary-source/conventional ones.
 
 ### 5. Attribution and the record
 
-Copyright rarely obliges attribution for Tier B. Attribute anyway:
-
-- A **prior-art entry** in the repo (`ATTRIBUTIONS.md`, `NOTICE`, or the ADR/decision record that borrowed the idea): project, author, licence, URL, and *what specifically* was learned.
-- A one-line pointer from the decision record to the run ledger.
-- Never state or imply affiliation or endorsement; never use their name or marks in product surfaces.
+Record project, author, license, URL, and precisely what was learned in `ATTRIBUTIONS.md`, `NOTICE`, or the decision record. Link the decision record to the run ledger. Never imply affiliation/endorsement or use source names/marks in product surfaces.
 
 ## Run ledger
 
-Lives **outside the clean repository** — a sibling directory, never a subdirectory, never a git submodule, never `node_modules`:
+Keep permanently **outside** the clean repository in a sibling location, never a subdirectory, submodule, or `node_modules`:
 
 ```
 <runs>/clean-room/<yyyy-mm-dd>-<slug>/
-  preflight.md      goal, source, licence, tier, clean root  (written blind, first)
-  deny-list.txt     tokens that must not appear in the brief
-  brief.md          the airlock — the only thing that crosses
-  screen.txt        screen output + timestamp
-  gaps.md           questions the build pass raised, and how each was answered
-  attribution.md    what to paste into the clean repo's prior-art record
+  preflight.md      blind goal, source, license, tier, clean root
+  deny-list.txt     excluded tokens
+  brief.md          only artifact crossing to build
+  screen.txt        output + timestamp
+  gaps.md           build questions and resolutions
+  attribution.md    clean repo's prior-art entry
 ```
-
-Keep it. Its whole value is being producible on demand, years later, by someone who was not there.
-
-## Named failure modes
-
-- **The peek.** Build pass opens the source "just to check one thing". Every clean room dies this way. The rule is absolute precisely because the exception is always reasonable.
-- **Goal-shaped-by-source.** Preflight written after browsing. The requirement quietly becomes "what they built", and you will never notice because it feels like discovery.
-- **Pseudocode laundering.** The brief contains their algorithm step-by-step in words, renamed. This is expression wearing prose as a disguise — it fails a court and it fails an engineer who reads both.
-- **The identifier tell.** An unusual name, an odd constant, a distinctive spelling survives into the clean code. Nothing else needs to match for this to be the finding that sinks you.
-- **Vacuous screen.** The screen "passed" because the brief was empty, the deny list was blank, or the script silently read the wrong file. A screen that examines nothing passes perfectly. Confirm it examined something: check the reported line and token counts, and once per project, deliberately plant a violation and watch it turn red.
-- **Contaminated reviewer.** The build pass is clean and the reviewer says "that's not how they do it". The reviewer just became a channel. Reviewers of clean-room work are source-denied too.
-- **One-session collapse.** Study and build in the same session. Even with perfect discipline, the transcript is the contamination — and the transcript is what an auditor reads.
 
 ## Modes
 
-- **Attended** (default) — the user reviews the preflight before the study pass, and the brief before the build pass. Two gates, both cheap, both catching the two failures that matter most.
-- **Unattended** — only after an approved preflight, with a bounded iteration count and a hard rule that a build-pass gap **pauses** for a new study pass rather than resolving itself by looking. Never run unattended on a first use against a new source; you do not yet know what its brief tends to leak.
+- **Attended (default):** user reviews preflight before study and brief before build.
+- **Unattended:** only after approved preflight, with bounded iterations; build gaps pause for a new study pass. Never use unattended mode for the first encounter with a source.
 
 ## Composes with
 
-- **`fact-check`** — for any load-bearing claim in the brief (a licence term, a published formula, an API contract). Do not carry an unverified claim across the airlock.
-- **`handoff`** — the study→build boundary *is* a handoff. The brief is a handover note with an extra constraint: it must be lossless about behaviour and lossy about everything else.
-- **`code-review-grill`** — the reviewer must be source-denied; brief it with the goal, not the source.
-- **`evolve-skill`** — when a run finds a new leak shape, add it to the deny list defaults and to Named failure modes.
+Use `fact-check` for load-bearing license/formula/API claims before they enter the brief; `handoff` for study/build separation; source-denied `code-review-grill` briefed with the goal; `evolve-skill` to add discovered leak patterns to deny-list defaults and failure guidance.
 
----
-
-*Prior art: the two-role separation, the preflight-before-discovery ordering, the leakage-rules concept and the run-ledger idea are informed by the `clean-room-skill` package (pi.dev/packages/clean-room-skill). This skill is an independent, dependency-free reimplementation of that shape for plain Claude Code skills — no CLI, no hooks, no npm install — and no code from that package was used.*
+*Prior art: two-role separation, blind preflight, leakage rules, and ledger informed by `clean-room-skill` (pi.dev/packages/clean-room-skill). Independent dependency-free implementation for Claude Code skills; no package code, CLI, hooks, or npm install.*

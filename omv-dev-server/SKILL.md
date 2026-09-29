@@ -1,6 +1,6 @@
 ---
 name: omv-dev-server
-description: 'Sets up or repairs a self-hosted OpenMediaVault server: Docker services, Tailscale access, and dev containers an agent can push from.'
+description: 'Set up or repair OpenMediaVault hosting with Docker, Tailscale and agent-ready dev containers.'
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -11,57 +11,32 @@ metadata:
 
 # OMV dev server
 
-Run the scripts to build; read the prose when something breaks. The scripts re-run safely,
-so they double as a repair tool.
-
-## Start here
+Scripts are safe to re-run for setup or repair. Read the relevant references when needed.
 
 ```bash
-cp scripts/setup.env.example scripts/setup.env   # fill in your host, user, disk
-scripts/setup.sh --check                          # read-only: what is missing?
-scripts/setup.sh                                  # make it so
+cp scripts/setup.env.example scripts/setup.env   # fill in host, user, disk
+scripts/setup.sh --check                          # read-only
+scripts/setup.sh
 ```
 
-`--check` never writes. Run it first on an existing box; it is also the fastest way to
-see whether this skill applies to the machine at all.
+On existing hosts, run `--check` first to establish missing components and applicability.
 
-## The pieces
-
-| Read | For | Script |
+| Reference | Read for | Scripts |
 |---|---|---|
-| [HOST.md](HOST.md) | OMV base, the dev user, groups, storage layout, which disk gets what, and what changes when that disk is removable | `10-dev-user.sh`, `20-storage.sh` |
-| [REMOTE.md](REMOTE.md) | Tailscale, HTTPS without port-forwarding, SSH hardening, Termius + tmux on a phone | `30-remote-access.sh` |
-| [IMMICH.md](IMMICH.md) | Immich under the OMV Compose plugin — and why you must not hand-edit its compose file | `40-immich.sh` |
-| [DEVCONTAINER.md](DEVCONTAINER.md) | The dev image, the launcher, per-repo containers, agent memory that survives the move | `50-dev-image.sh`, `60-launcher.sh`, `dev` |
-| [AGENT-AUTH.md](AGENT-AUTH.md) | Letting an agent `git push` and `gh pr create` with no TTY and no interactive login | baked into `Dockerfile` + `dev` |
-| [PITFALLS.md](PITFALLS.md) | Symptom → actual cause → fix. Read this one **first** when something is broken | `smoke-test.sh` |
+| [HOST.md](HOST.md) | OMV, users/groups, storage and removable disks | `10-dev-user.sh`, `20-storage.sh` |
+| [REMOTE.md](REMOTE.md) | Tailscale, HTTPS, SSH, Termius/tmux | `30-remote-access.sh` |
+| [IMMICH.md](IMMICH.md) | OMV Compose-managed Immich; no hand-editing generated compose files | `40-immich.sh` |
+| [DEVCONTAINER.md](DEVCONTAINER.md) | Images, launcher, per-repo containers, persistent agent memory | `50-dev-image.sh`, `60-launcher.sh`, `dev` |
+| [AGENT-AUTH.md](AGENT-AUTH.md) | Noninteractive `git push`/`gh pr create` | `Dockerfile`, `dev` |
+| [PITFALLS.md](PITFALLS.md) | Read first for failures: symptom, cause, fix | `smoke-test.sh` |
 
-## The four rules everything else follows from
+## Invariants
 
-1. **Never bind-mount a single file read-write.** Docker binds a file by inode; anything
-   that saves by temp-file-and-rename — git config, most editors — writes to a new inode
-   the host never sees, or fails with `Device or resource busy`. Mount the directory.
-2. **Absolute paths are identity.** Claude Code keys per-project memory, and its trust and
-   permission entries, off the absolute working directory. Change the path and the data is
-   silently ignored rather than migrated. Fix the container path once and never move it.
-3. **The agent has no terminal.** Every interactive fallback — a credential prompt, a device
-   login flow, a confirmation — is a hang, not an error. Configure the non-interactive path
-   ahead of time and make the failure message say so.
-4. **OMV owns what OMV generates.** Users, shared folders and Compose files created through
-   the web UI are regenerated from OMV's own database. Hand-edit them and your change is
-   lost at the next apply. Work *with* the UI, or entirely outside its tree.
+1. **Mount directories, not individual read-write files.** Docker binds inodes; temp-file-and-rename saves either disappear from the host or fail with `Device or resource busy`.
+2. **Keep container paths stable.** Claude Code keys project memory, trust, and permissions by absolute cwd; moving it silently ignores that data.
+3. **Configure noninteractive authentication in advance.** The agent has no terminal; credential/device/confirmation prompts hang. Make failure messages explicit.
+4. **Respect OMV ownership.** Its database regenerates UI-managed users, shared folders, and Compose files. Use the UI or work entirely outside its tree.
 
-## Placeholders
+Keep real values in gitignored `scripts/setup.env`. Documentation uses `<NAS_HOST>`, `<NAS_LAN_IP>`, `<NAS_TS_NAME>`, `<TAILNET>`, `<DEV_USER>`, `<DISK_UUID>`, `<DATA_PART>`, `<GIT_OWNER>`, `<REPO>`; never real hostnames, addresses, or keys.
 
-Nothing here contains real hostnames, addresses or keys. Substitute:
-
-`<NAS_HOST>` `<NAS_LAN_IP>` `<NAS_TS_NAME>` `<TAILNET>` `<DEV_USER>` `<DISK_UUID>`
-`<DATA_PART>` `<GIT_OWNER>` `<REPO>`
-
-`scripts/setup.env` is the one file that holds your real values, and it is gitignored.
-
-## Keeping this current
-
-New trap → a row in [PITFALLS.md](PITFALLS.md) plus, if it is preventable, a check in
-`smoke-test.sh` so it fails loudly next time instead of being rediscovered. Findings that
-are specific to one machine belong in your own notes, not here.
+Record reusable traps in [PITFALLS.md](PITFALLS.md), adding a `smoke-test.sh` check when preventable. Machine-specific findings stay in private notes.

@@ -1,6 +1,6 @@
 ---
 name: manager
-description: 'The principal over other skills and agents: verifies their reports and makes the calls a human would be asked for. Use to run skills autonomously.'
+description: 'Run skills autonomously: verify agent reports, decide escalations and manage the work under a mandate.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -10,9 +10,7 @@ metadata:
 
 # manager
 
-The manager is the **principal** for every agent, skill and workflow running under it: it reads what they produce, checks what matters against reality, makes the call, tells them what to do next, and keeps the board honest. The human is consulted only where the mandate says so. It manages agents it did not spawn — a report pasted from another session is as much its business as a subagent's escalation.
-
-It uses its neighbours as instruments: `walk-the-dog` is its fence around a delegated leg, `whatever` is the bar it applies on the human's behalf, `nights-watch` is a loop it stands up and then answers to.
+Act as principal for agents, skills and workflows, including reports from other sessions: verify their outputs, decide, direct follow-up, and update the board. Consult the human only where the mandate requires it. Use `walk-the-dog` to fence workers, `whatever` to judge choices, and `nights-watch` for standing work.
 
 ## Invocation
 
@@ -29,31 +27,31 @@ Mandate keys (all optional): `goal="…"`, `merge=allow|ask`, `post=draft|post`,
 
 ## Rules
 
-1. **Reality, not the report.** An agent's report is a claim. Every decision rests on verified state — the PR's actual checks, the test run's actual output, the ticket's actual status — never on the summary of it. Verify what would *change the decision*; the rest is not worth a token.
-2. **Every ask gets a verdict.** Explicit ("may I push?") or implicit ("PR is ready" means "review or merge it"), each ask ends as exactly one of **APPROVE / REDIRECT / DEFER / ESCALATE / VETO**, with a one-line reason and a pointer to the evidence. An ask left unanswered is the failure this skill exists to remove.
-3. **The mandate settles the third prong.** The `whatever` test asks whether a choice is consequential, hard to reverse, *and* underdetermined. The manager's mandate is what determines it: a green, grilled PR under the default `merge=allow` is a determined choice, so it merges; the same PR under `merge=ask` is escalated. Nothing outside the hard lines goes to the human because it *feels* big — only because the mandate reserves it.
+1. **Verify reality.** Reports are claims. Check actual PR checks, test output and ticket state only where they could change the decision.
+2. **Answer every ask**, explicit or implicit ("PR ready" asks for review/merge): exactly one **APPROVE / REDIRECT / DEFER / ESCALATE / VETO**, a one-line reason and evidence pointer.
+3. **Apply the mandate.** Under `whatever`, escalate consequential, hard-to-reverse, underdetermined choices. The mandate determines allowed choices: merge a green, grilled PR under `merge=allow`; escalate it under `merge=ask`. Outside hard lines, escalate only what the mandate reserves.
 4. **Hard lines always escalate.** Whatever the mandate says, these reach the human with a recommendation: publishing or releasing, spending money, deleting data or history, weakening security, contacting people outside the team, and any action that breaks a working assumption of the mandate. `hard=` extends the list; nothing shrinks it.
-5. **The manager does no legwork.** Its context is for judgment and the thread of decisions. Reading a codebase, running a suite, drafting a fix, reviewing a diff — all dispatched, each at the cheapest tier that fits (the rubric is in [save-tokens](../save-tokens/SKILL.md)). One shell command to check a fact is fine; a second one is the start of legwork. If the work cannot be dispatched, say so and stop — do not absorb it.
+5. **Delegate legwork** at the cheapest fitting [save-tokens](../save-tokens/SKILL.md) tier: code reading, suites, fixes and reviews. One fact-check shell command is fine; a second is legwork. If dispatch is unavailable, say so and stop.
 6. **Higher permission, tighter fence.** The manager runs in the human's session, with the human's permissions, under [auto-mode-setup](../auto-mode-setup/SKILL.md) — its deny rules are the safety boundary, and no manager approval reaches past them. Workers run fenced: read-only tools freely, mutating ones withheld or leashed, so a worker that forgets the protocol still cannot act alone. **A mandate is a policy, not a grant**: `merge=allow` decides that a gated PR *should* merge, and the harness decides whether `gh pr merge` can run at all. Check the second before promising the first — a repo running a manager needs the write grants in [BASELINE.md](../auto-mode-setup/BASELINE.md) § A repo a manager runs in, and where a command is denied the mandate key drops to `ask` and the report says so ([DECIDING.md](DECIDING.md) § The mandate).
-7. **Every decision is published where the work lives** — a comment on the PR or the ticket it concerns — so a human reviewing later sees what was decided, on what evidence, by the manager and not by them. That posting is the durable record. The journal is a one-line ledger beside it for scanning the run, never a second copy of the reasoning ([DECIDING.md](DECIDING.md) § The journal).
+7. **Publish every decision on its PR/ticket**, with evidence and explicit manager attribution. Keep only a one-line journal ledger, not duplicate reasoning ([DECIDING.md](DECIDING.md) § The journal).
 
-8. **Canonical before custom.** New code carries a claim nobody writes down: that it had to be written. The manager tests that claim before approving any implementation — does the language, the framework, or a first-party package the repo already references do this; and does the *next* version of the platform do it by default? That last half is where the answer usually lives, and it is checked against current documentation via [fact-check](../fact-check/SKILL.md), never from a model's recall of the ecosystem, which is precisely what goes stale at a version boundary. Where a canonical solution exists the verdict is **REDIRECT**: adopt it, or take the bespoke path with the reason *and an expiry* recorded on the PR.
+8. **Canonical before custom.** Before approving implementation, check whether the language, framework, an already-referenced first-party package, or the next platform version already supplies it. Use current documentation via [fact-check](../fact-check/SKILL.md), not model recall. If so, **REDIRECT** to the canonical solution, or record the bespoke solution's reason and expiry on the PR.
 
 ## The loop — one pass per output
 
-**Step 1 — Establish the mandate.** From the invocation, else from the ticket or PR the output concerns, else from the repo's own statements of intent (`CONTEXT.md`, the PRD, the ADRs). Write it as one paragraph: the goal, what done looks like, the working assumptions, the hard lines, the budget. Nothing is decided until the goal is written.
+**Step 1 — Establish the mandate.** Use invocation, then relevant ticket/PR, then repo intent (`CONTEXT.md`, PRD, ADRs). Before deciding, write one paragraph: goal, done condition, assumptions, hard lines and budget.
 
-**Step 2 — Read the output into a ledger.** Split it into items, each tagged: **claim** (something asserted as true), **decision-made** (a choice the agent already took), **ask** (explicit or implicit), **open item** (work it named but did not do), **promise** ("I will report when…"). Mark which are load-bearing — the ones a wrong answer would change the verdict on. The worked ledger for a real PR report is in [EXAMPLE.md](EXAMPLE.md).
+**Step 2 — Ledger the output.** Tag items **claim**, **decision-made**, **ask** (explicit/implicit), **open item**, or **promise**. Mark load-bearing items whose falsity changes the verdict. Example: [EXAMPLE.md](EXAMPLE.md).
 
-**Step 3 — Verify what is load-bearing.** Cheap facts the manager checks itself in one command (`gh pr checks`, `gh pr view --json state,reviews`, ticket status). Anything deeper — does the test really pin the behaviour, is the ADR amendment consistent with the code, is the number true — goes to a fresh [fact-check](../fact-check/SKILL.md) subagent that never read the report. Unverifiable and load-bearing is treated as **false** for the decision, and said so. A single observation is not a rate: if a load-bearing number describes an ongoing condition, sample a second point before it becomes a mandate.
+**Step 3 — Verify load-bearing claims.** Check cheap facts in one command (`gh pr checks`, `gh pr view --json state,reviews`, ticket status). Dispatch deeper checks to a fresh [fact-check](../fact-check/SKILL.md) agent that has not read the report. Treat unverifiable load-bearing claims as false and say so. Sample a second point before making an ongoing rate/condition part of the mandate.
 
-**Add the load-bearing claims the report structurally cannot contain.** Step 2's ledger holds only what the agent *said*, and the most expensive claim in an implementation report is never said out loud: *this had to be built* (Rule 8). No agent writes "I checked whether the framework already does this," so the manager adds that item to the ledger itself and verifies it like any other. The same applies to *this covers every affected call site*, not only the one named in the ticket.
+Add and verify implicit claims: *this needed custom code* (Rule 8) and *this covers every affected call site*, not just the ticket's site.
 
 **Step 4 — Decide.** For each ask and each decision-made, run the rubric in [DECIDING.md](DECIDING.md): aligned with the goal → benefit against risk (blast radius × irreversibility × uncertainty) → mandate → hard lines. Record the verdict.
 
 **Step 5 — Act and communicate.** Verdicts become work: APPROVE executes or unleashes exactly that step; REDIRECT dispatches the right process from the [routing table](#routing-table) with the [principal brief](PRINCIPAL.md); DEFER files a ticket that meets the [triage](../triage/READINESS.md) bar (a fresh agent could pick it up) and links the origin; ESCALATE goes to the human with a recommendation, never a raw question; VETO tells the agent why and what to do instead. Then **tell the agent** — `SendMessage` to a live subagent, a fresh brief to the next one, a backlog entry for a `claude` process, a comment on the PR — in the verdict format in DECIDING.md. Update the board: state transition, PR linked, decision comment posted.
 
-**Step 6 — Journal and report.** Append each decision to the journal as **one line** ([DECIDING.md](DECIDING.md) § The journal). Report to the human in a few lines: verdicts by count, what was dispatched, what is escalated and the recommendation for each. Not a narrative. The journal entry obeys the same economy: the decision, its evidence, what changed — not the story of arriving at it.
+**Step 6 — Journal and report.** Append one line per decision: decision, evidence, change ([DECIDING.md](DECIDING.md) § The journal). Report verdict counts, dispatches, escalations and recommendations in a few lines.
 
 ## Standing management (`watch`)
 
@@ -61,9 +59,9 @@ The manager stays on a self-paced `/loop`, waking when dispatched work reports b
 
 ## Maintenance the manager starts itself
 
-Some work arrives as nobody's ask — a board no unattended agent could pick work off, a session whose branches and worktrees were never shipped or swept, prose that stopped matching the code. **The manager dispatches the maintenance skills at its own discretion, unasked**: [triage](../triage/SKILL.md) to groom the board, [wrap-up](../wrap-up/SKILL.md) to close out a session's leftovers, `housekeeping` for drift in the docs and the code; for code drift it suggests the human run `/desloppify` (manual-only). Same terms as everything else — dispatched to a worker (Rule 5), under the mandate, hard lines intact.
+Proactively dispatch [triage](../triage/SKILL.md) for board grooming, [wrap-up](../wrap-up/SKILL.md) for session leftovers, and `housekeeping` for doc/code drift. Suggest `/desloppify` for code drift (manual-only). Rule 5, the mandate and hard lines still apply.
 
-Grooming is the one to start early rather than late. The manager files tickets proactively, `nights-watch` and `nightshift` decide what to work by reading the board, and all of them apply the same bar from the same file ([READINESS.md](../triage/READINESS.md)). Groom when the board's state would change what gets dispatched, not on a schedule.
+Groom when board state would change dispatch, not on a schedule. Filing, `nights-watch` and `nightshift` share [READINESS.md](../triage/READINESS.md).
 
 The mandate still bounds what the maintenance may do. The manager grants the yeses these skills would otherwise hold for a human, but only the reversible ones — filing, committing, pushing, removing a merged worktree. Deleting an unmerged branch, a stash, or untracked work is Rule 4's line and escalates like anything else.
 
@@ -96,13 +94,7 @@ The mandate still bounds what the maintenance may do. The manager grants the yes
 
 ## Anti-patterns
 
-- **Deciding from the report.** "1224/1224 tests pass" is a sentence until the CI check says so. Verify before approving; the agent that wrote the report is the one with the incentive to round up.
-- **Relaying to the human.** If the verdict can be made from the mandate and the evidence, make it. A manager that forwards every ask is a longer permission prompt.
-- **Rubber-stamping a live agent.** The agent is waiting; that is not a reason. Read the command, not its summary.
-- **Absorbing the work.** Reviewing the diff yourself because the reviewer is slow turns the manager into a worker and empties the context that judgment needs.
-- **Approving bespoke code without asking what the platform does.** A diff that works, is tested, and uses a sanctioned extension point still fails Rule 8 if the framework already solves it — or solves it one version up, globally, for every call site instead of the one in the ticket.
-- **Silent drops.** An open item the manager decides not to pursue is DEFERRED or VETOED on the record, never omitted.
-- **Escalating below the bar, or above it.** A reversible choice is the manager's to make; a hard line is not, whatever the mandate says.
+Read exact commands before approval, regardless of how long an agent has waited. Record every dropped open item as DEFERRED or VETOED; never silently omit one. The rules above apply even to green tests or urgent work.
 
 ## When to reach for something else
 
