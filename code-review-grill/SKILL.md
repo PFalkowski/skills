@@ -26,9 +26,9 @@ Adapted from grill-me's interrogation discipline, applied to code:
 ## Step 0 — Pick the stance (decide; do not ask)
 
 Decide the stance yourself and state it in one line; asking only stalls the review, because the diff already answers the question. A stance or concern list the user names always wins.
-- **Single** — one fresh reviewer over the whole diff. The default, and the fallback whenever the call is not clear-cut: small or contained diffs, docs, config, single-concern changes.
-- **Quorum** — when the diff is load-bearing across more than one concern (production data or migrations, security or auth, money, a public API, a large change spanning layers). One fresh subagent per concern, run in parallel, each with a sharp brief (objective / output / tools / boundaries) and effort sized to the diff. If the user names concerns, use exactly those; if not, the orchestrator picks the relevant subset from the diff. Concern menu + the auto-pick heuristic live in **[REFERENCE.md](REFERENCE.md)**.
-- **Re-review** (the PR was grilled before) — no ask: single, one fresh reviewer, briefed with what survives of the previous round and only the delta since the last reviewed head. It scores each previous fix fixed / partial / regressed and grills only the delta (REFERENCE, § Re-review).
+- **Single** — one fresh reviewer over the whole diff. The default, and the fallback whenever the call is not clear-cut or no `Agent` tool is available: small or contained diffs, docs, config.
+- **Quorum** — when the diff is load-bearing; one of these is enough: production data or migrations, security or auth, money, a public API, a large change spanning layers. One fresh subagent per concern, run in parallel, each with a sharp brief (objective / output / tools / boundaries) and effort sized to the diff. If the user names concerns, use exactly those; if not, the orchestrator picks the relevant subset from the diff. Concern menu + the auto-pick heuristic live in **[REFERENCE.md](REFERENCE.md)**.
+- **Re-review** (the PR was grilled before) — single, one fresh reviewer, briefed with what survives of the previous round and only the delta since the last reviewed head. It scores each previous fix fixed / partial / regressed and grills only the delta (REFERENCE, § Re-review).
 
 > **Azure DevOps PRs:** delegate the whole resolve → diff → post pipeline to
 > [AZURE-DEVOPS.md](AZURE-DEVOPS.md) (its steps 1–5) from the start, not
