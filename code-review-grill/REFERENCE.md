@@ -60,7 +60,7 @@ It marks the comment as optional at a glance, so a reader scrolling a thread tel
 | 🔭 | observability | Can this be operated once it breaks? A new failure path that logs nothing, a job or worker with no success/failure signal, an exception swallowed into silence, instrumentation deleted with the code it measured, a health check that cannot fail, an alert routed nowhere. |
 | 🧪 | tests | Coverage of the change, missing edge/negative cases, flakiness, assertion strength. |
 
-**Auto-pick heuristic** (when the user picks quorum but names no concerns) — **always include 🧹 code-quality and 📚 documentation & conventions**; add the rest when the diff shows their trigger:
+**Auto-pick heuristic** (when quorum runs and the user named no concerns) — **always include 🧹 code-quality and 📚 documentation & conventions**; add the rest when the diff shows their trigger:
 - 🔒 if it touches auth, SQL/query building, crypto, file/network I/O, deserialization, secrets, or dependencies.
 - 🏛 if it changes public signatures, module boundaries, a migration, a stored data shape or a wire format, or has a wide Step-3 ripple set.
 - ⚡ if it touches loops over data, queries, caching, concurrency, or known hot paths.

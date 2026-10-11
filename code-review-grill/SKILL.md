@@ -23,12 +23,12 @@ Adapted from grill-me's interrogation discipline, applied to code:
 - **Answer by exploring, never by speculating.** grill-me's rule "if the codebase can answer it, explore instead of asking" becomes: settle an executable doubt by running it; a codebase doubt by grepping; a doc/API doubt by checking the docs — the claim decides which, not convenience. That *is* the [verification](#step-5--run-the-review-fresh-adversarial-grilling) every finding must carry. An un-run hypothesis is not a finding.
 - **Carry a recommended answer.** Like grill-me proposing an answer per question, every finding ships a concrete suggested fix.
 
-## Step 0 — Pick the stance (ask, unless this is a re-review)
+## Step 0 — Pick the stance (decide; do not ask)
 
-Unless the PR was grilled before, ask the user: **single adversarial agent** or **quorum**?
-- **Single** — one fresh reviewer over the whole diff. Fast, cheap, good default for small/contained changes.
-- **Quorum** — one fresh subagent per concern, run in parallel, each with a sharp brief (objective / output / tools / boundaries) and effort sized to the diff. If the user names concerns, use exactly those; if not, the orchestrator picks the relevant subset from the diff. Concern menu + the auto-pick heuristic live in **[REFERENCE.md](REFERENCE.md)**.
-- **Re-review** (the PR was grilled before) — no ask: single, one fresh reviewer, briefed with what survives of the previous round and only the delta since the last reviewed head. It scores each previous fix fixed / partial / regressed and grills only the delta (REFERENCE, § Re-review).
+Decide the stance yourself and state it in one line; asking only stalls the review, because the diff already answers the question. A stance or concern list the user names always wins.
+- **Single** — one fresh reviewer over the whole diff. The default, and the fallback whenever the call is not clear-cut or no `Agent` tool is available: small or contained diffs, docs, config.
+- **Quorum** — when the diff is load-bearing; one of these is enough: production data or migrations, security or auth, money, a public API, a large change spanning layers. One fresh subagent per concern, run in parallel, each with a sharp brief (objective / output / tools / boundaries) and effort sized to the diff. If the user names concerns, use exactly those; if not, the orchestrator picks the relevant subset from the diff. Concern menu + the auto-pick heuristic live in **[REFERENCE.md](REFERENCE.md)**.
+- **Re-review** (the PR was grilled before) — single, one fresh reviewer, briefed with what survives of the previous round and only the delta since the last reviewed head. It scores each previous fix fixed / partial / regressed and grills only the delta (REFERENCE, § Re-review).
 
 > **Azure DevOps PRs:** delegate the whole resolve → diff → post pipeline to
 > [AZURE-DEVOPS.md](AZURE-DEVOPS.md) (its steps 1–5) from the start, not
