@@ -8,8 +8,8 @@ metadata:
   source: https://github.com/PFalkowski/skills
 ---
 
-Run [DiskSpaceAnalyzer](https://github.com/PFalkowski/DiskSpaceAnalyzer), cloned at `C:\src\repos\DiskSpaceAnalyzer` (clone it if missing):
+Find or clone <https://github.com/PFalkowski/DiskSpaceAnalyzer>, then run:
 
-`dotnet run -c Release --project C:\src\repos\DiskSpaceAnalyzer\DiskSpaceAnalyzer -- "<path>" --top 20`
+`dotnet run -c Release --project <clone>/DiskSpaceAnalyzer -- "<path>" --top 20`
 
 Without `--top` it opens an interactive explorer; agents cannot drive it.
