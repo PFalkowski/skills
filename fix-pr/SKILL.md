@@ -1,6 +1,6 @@
 ---
 name: fix-pr
-description: 'Resolves the review comments on a pull request. Use to address reviewer feedback or a PR with unresolved threads.'
+description: 'Resolve PR review comments and unresolved threads.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -52,9 +52,9 @@ Verdicts:
 
 Work the list **one comment to conclusion, then the next** — no half-open threads. For each confirmed comment:
 
-1. **Generate every honestly good candidate resolution** — all viable, secure, genuinely defensible options, not an artificial shortlist; if the solution space holds five good fixes, present five. Only when there is really no good option does 2–3 become the *lower* limit: present the least-bad 2–3 with their problems stated plainly. Each candidate carries its trade-offs, exactly one is marked **recommended**, and the weak ones are marked as such with the reason. Rank by the house bias: a fix that closes a security gap beats one that preserves an existing convenience; a boring, readable fix beats a clever one; a fix that leaves the code easier for the next reader beats a smaller diff.
+1. **Generate all defensible candidate resolutions**, without an artificial shortlist. If none is good, offer 2–3 least-bad options with their problems. State trade-offs, recommend exactly one, mark weak options and explain why. Rank by the house bias below.
 2. **Fact-check every non-obvious candidate** before offering or applying it: verify it is actually implementable here (the API exists at the pinned version, the pattern compiles, the config key is real) *and* that it actually resolves the comment's issue — a plausible fix that doesn't survive a snippet run is not an option, it's a guess.
-3. **Trace ripple effects — always, for every candidate before it is offered or applied.** For anything the candidate would change — a signature, a return/error contract, an invariant, validation behaviour, a config key, timing/ordering — grep the repo for callers and dependents (`git grep`) and check what relies on the current behaviour (mirrors [code-review-grill](../code-review-grill/SKILL.md) Step 3). A candidate with unaddressed ripple is either extended to cover its dependents or demoted to not-recommended with the ripple named; ripple discovered on the chosen fix is handled in the same change, and its dependents get covered by the TDD tests below. Dependents the fix would break are always fixed here; sibling sites of the same defect shape that the fix does not break go to the class ticket, not into this PR. A fix that grows past the comment's site and those dependents is not extended: the extra is a new finding, carried to a class ticket, or `needs-discussion` when it cannot be scoped without the author; never fixed in this PR.
+3. **Trace every candidate's ripple before offering or applying it.** For changed signatures, contracts, invariants, validation, config or timing, `git grep` callers and dependents (as in [code-review-grill](../code-review-grill/SKILL.md) Step 3). Extend the candidate to cover broken dependents or mark it not-recommended with the ripple named. Fix and TDD-test all dependents broken by the chosen change in this PR. Unbroken sibling defects go to the class ticket. Anything beyond the comment's site and broken dependents is a new carried finding, or `needs-discussion` if scoping needs the author; do not fix it here.
 4. **Route by mode:**
    - **interactive** → present the options (AskUserQuestion fits well: recommended first, trade-offs in the descriptions), implement the user's pick.
    - **hybrid** → mechanical comments go to autonomous fixers — a dynamic Workflow of subagents at the house worker tier is the recommended shape (one agent per comment, `isolation: 'worktree'` only if they'd touch the same files concurrently; otherwise a simple sequential pipeline is cheaper). Substantive comments follow the interactive route.
@@ -70,7 +70,7 @@ Repeat until the inventory is exhausted.
 
 ## Step 4 — Combined commit, push, then ask about replies
 
-1. **Before pushing, verify the PR is still open** (`gh pr view <n> --json state`, or the Azure DevOps equivalent) — even if it was open when this run started. It can be merged or closed out-of-band while comments are being worked, especially across multiple pushes, a resumed session, or a later round of fixes on the same PR done without re-invoking this skill. This check applies to every push in the run, not only the first. If the PR is no longer open, stop: do not push to a branch whose PR is dead. Cherry-pick the pending fix onto the current default branch, open a fresh PR referencing the original, and report the change of path to the user before proceeding.
+1. **Before every push, verify the PR is still open** (`gh pr view <n> --json state`, or Azure DevOps equivalent), including resumed sessions and later fix rounds. If closed or merged, do not push to its branch. Cherry-pick the pending fix onto the current default branch, open a fresh PR referencing the original, and report the changed path before proceeding.
 2. **One combined commit** for the run (or a small series if the fixes are genuinely unrelated), whose message maps comments to resolutions (`Address review: C1 guard null stream, C2 rename per review, …`). The commit contains the new tests together with the fixes they prove — a fix without its red-turned-green test is not ready to commit. Push it to the PR branch — the push is automatic; it is the normal, expected next step of "fix my PR".
 3. **Then stop and ask** — never auto-post to the review conversation (headless runs don't ask: they follow the caller's `reply=`/`resolve=`/`tickets=` policy, defaulting to draft-only — see [Headless](#headless--driven-by-another-skill)):
    - *Reply to each thread with how it was addressed?* Drafted replies cite the fix commit; for carried comments, the class ticket; for refuted comments, the refuting evidence (politely: "checked this — see snippet/output; happy to change it anyway if you prefer").
@@ -80,7 +80,7 @@ Repeat until the inventory is exhausted.
 
 ## Headless — driven by another skill
 
-When another skill or an unattended context invokes fix-pr, there is no user to pick options or grant consent — the **caller is the principal**, and a question that would block the run is a bug. The rules:
+In unattended runs, the **caller is the principal**. Return decisions to it; never block on a user question.
 
 1. **Mode coerces to auto.** Interactive and the interactive half of hybrid are impossible; every confirmed comment gets the recommended fix and every carried comment gets its class ticket (filed or drafted per rule 3, never skipped). All the invariants that don't need a human still hold in full: fact-check gate, the bar, ripple trace, TDD red→green with tests committed, house bias.
 2. **What would have been a question becomes a report line.** Unverifiable comments, refuted comments, and confirmed-but-declined items (e.g. a comment asking to weaken security) are **not** silently decided and **not** blocked on — they are skipped with the evidence recorded and returned to the caller as `needs-discussion`, exactly as a human would have received them.

@@ -5,6 +5,7 @@ Thumbs.db
 .idea/
 bin/
 obj/
+__pycache__/
 
 # omv-dev-server: the one file holding real host values
 omv-dev-server/scripts/setup.env

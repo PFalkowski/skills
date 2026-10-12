@@ -1,6 +1,6 @@
 ---
 name: wrap-up
-description: 'Closes a session: ships outstanding work, sweeps scaffolding, and hands off what remains. Use for "wrap it up" or "close the session".'
+description: 'Close a session by shipping work, sweeping scaffolding and handing off what remains.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -10,106 +10,53 @@ metadata:
 
 # wrap-up
 
-Three passes, in order: **ship** (nothing valuable exists only on this machine), **sweep** (no dead
-scaffolding left behind), **account** (nothing promised is silently dropped).
+Run **ship → sweep → account** so valuable work is preserved, session scaffolding is removed safely, and commitments remain visible.
 
-## Scope first
+## Scope
 
-Before touching anything, state in one line:
+Before acting, state the project repos and this session's branches, worktrees, stashes, and files. Older/other-session work stays untouched unless the user explicitly broadens scope.
 
-- **Project**: the repo(s) this session actually worked in — never every repo on the machine.
-- **Session scope**: the branches, worktrees, stashes and files this session created or modified.
-  Anything older or belonging to another session is out of bounds unless the user widens the scope
-  explicitly ("clean up everything stale" widens it; silence does not).
+## 1. Ship
 
-## Pass 1 — ship: committed, pushed, PRed
+Inventory each project, including session worktrees:
 
-Inventory the project repo(s):
+- Dirty/untracked files: `git status --short`.
+- Unpushed commits: `git branch -vv` and `git log @{u}..` per session branch.
+- Pushed branches without PRs: `gh pr list --head <branch>` or host equivalent.
+- Session-created stashes: `git stash list`.
 
-- Dirty and untracked files: `git status --short` — including inside session worktrees.
-- Unpushed commits: `git branch -vv` ahead markers; `git log @{u}..` per session branch.
-- Pushed branches with no PR: `gh pr list --head <branch>`, or the az repos / house equivalent.
-- Stashes this session created: `git stash list`.
+Classify each as **work** (commit → push → PR), **junk** (delete), or **park** (retain for account). Show the full list with recommendations; let the user choose. Each deletion needs its own yes; pushes may be batch-approved. Unattended: ship work, park ambiguity, delete nothing.
 
-Classify every finding as **work** (commit → push → PR), **junk** (delete), or **park** (leave in
-place, carried into pass 3). Do not guess the boundary: present the full list with a per-item
-recommendation and let the user decide what to push and what to delete. Deletion is the
-irreversible branch — each delete needs its own yes; pushes may be batch-approved. If the user is
-not present, ship the work items and park everything ambiguous; delete nothing.
+## 2. Sweep
 
-## Pass 2 — sweep: worktrees and branches
+Run only after shipping leaves nothing outstanding in scope.
 
-Run only when pass 1 leaves nothing outstanding in scope. Project-only, session-scope-only.
+- Remove clean session worktrees only after their branch is pushed/merged: `git worktree remove <path>`, then `git worktree prune`. Dirty trees return to ship; never force. Include empty leftover directories under the worktrees root.
+- First inspect `git status --short --ignored`. Copy out unique logs/evidence/experiment output the session relied on and verify counts before removal; otherwise retain the tree.
+- Delete landed local branches with `git branch -d`, never `-D`. Unmerged-branch deletion requires the user's explicit decision.
+- Run `git fetch --prune` for stale remote-tracking refs.
+- Retain any branch/worktree referenced by an open account item and explain why.
 
-- Worktrees this session created, once clean and their branch is pushed or merged:
-  `git worktree remove <path>`, then `git worktree prune`. A dirty worktree is a pass-1 escape —
-  go back, don't force. Also sweep empty leftover directories under the worktrees root.
-- **Clean is not empty.** Ignored files are invisible to `git status` and die with the tree. List them
-  first (`git status --short --ignored`); anything that is the only copy of something the session
-  relied on — run logs, captured evidence, local experiment output — is copied out and its count
-  verified before the remove, or the tree is not sweepable yet.
-- Local branches whose work has landed: `git branch -d` — the merged-only form. Deleting an
-  unmerged branch is the user's call to make explicitly, never a cleanup default.
-- `git fetch --prune` to drop remote-tracking refs of branches deleted on the host.
+All deletions still require per-item approval. Never force-push.
 
-Guard: if a pass-3 open item references a worktree or branch, it survives the sweep — say so.
+## 3. Account
 
-## Pass 3 — account: the conversation ledger
+Re-read the conversation for requested tasks, promises, future work, and parked items. Count an item done only with transcript verification/command output, not an assertion. Order by user priority, otherwise blockers first.
 
-Re-read the conversation and collect what is still open: tasks requested, promises made ("I'll…",
-"next we should…"), assumptions stated as future work, items parked in pass 1. An item is done only
-if the transcript shows it verified done — command output, not a claim.
+Use both routes as needed:
 
-Route everything open per house rules. The two routes **compose** — they are not alternatives:
+- **Tracker:** find the project's existing board from CLAUDE.md, remote, or issues. Draft one issue per item with title, stranger-readable context, and one acceptance line meeting [triage readiness](../triage/READINESS.md). Show drafts, obtain yes, then post. Propose this when several independent threads or more than a screen of items exceed one fresh context. Unattended posting is allowed only when house rules name the tracker.
+- **Handoff:** whenever anything remains open, invoke `handoff lite`: one paste-ready inline block, nothing written to disk, including in unattended logs. If issues were filed, Next names one thread to resume plus issue numbers, not copied issue bodies.
 
-- **Offload to the tracker** — the board this project already uses, determined from CLAUDE.md, the
-  remote host, or existing issues (GitHub Issues / Azure Boards / Jira). Draft one issue per item —
-  title, the context a stranger needs, one acceptance line — show the drafts, get a yes, then post.
-  Each draft meets the [triage](../triage/READINESS.md) bar or it is not worth filing. **Propose
-  offloading whenever the ledger is more than one fresh context can carry**: several independent
-  threads, or more items than fit on a screen. The board holds the set so the note only has to carry
-  the thread.
-- **Carry it in a `handoff lite` note** — whenever anything is still open, whether or not it was also
-  filed. Invoke the `handoff` skill with `lite`: same note, same discipline, printed inline as one
-  paste-ready block, **nothing written to disk**. Whoever is on the far side of the boundary you are crossing — a
-  fresh context, a `/clear`, another machine — has none of this transcript. When the ledger was
-  offloaded, **Next** is the one thread to resume plus the issue numbers, never a copy of them.
+### Skill feedback
 
-Ordering: the user's stated priority wins; absent one, blockers first.
+A misfiring skill, correction, or user feedback is an open item for https://github.com/PFalkowski/skills. Show the draft/diff before outward action:
 
-### Skill evolution
-
-The session is also evidence about the skills it used. If a skill from this set misfired, needed a
-correction mid-run, or drew feedback ("it should also…", "next time do X"), that is an open item —
-route it upstream to the set's home repo, https://github.com/PFalkowski/skills, not into a local
-note that dies with the session:
-
-- **Default**: raise a GitHub issue there — name the skill, the observed behaviour, the desired
-  one, and quote the user's feedback verbatim.
-- **The user is the author or a contributor of that repo**: raise a PR instead — apply the
-  generalized edit to the skill's canonical source and open it (the `evolve-skill` skill defines
-  the discipline: edit the source of truth, strip private specifics, keep it generic).
-
-Same gate as every outward action: show the draft issue or diff first.
+- Default: issue naming the skill, observed/desired behavior, and verbatim user feedback.
+- If the user authors/contributes to that repo: generalized canonical-source edit and PR instead, following `evolve-skill`; strip private specifics.
 
 ### Memory
 
-Persistent memory is part of the ledger. Review the entries this session touched:
+Review touched memory: leave confirmed entries; update/delete contradicted ones; record durable lessons absent from repo docs using house rules (one fact per entry, rationale, application, index). Memory holds standing knowledge, not the session narrative.
 
-- **Relied on and confirmed** — leave it alone.
-- **Contradicted** — the session proved an entry wrong or stale (a renamed flag, a reversed
-  decision, a fact that no longer holds): update or delete it now.
-- **Lesson learned** — the session taught something durable that the repo itself does not record
-  (a user preference, a corrected approach, a constraint): write it, following the house memory
-  discipline (one fact per entry, why + how to apply, indexed).
-
-## Rules
-
-- Scope statement before the first action; nothing deleted without a per-item yes.
-- `git branch -d`, never `-D`; `git worktree remove` without `--force`; push, never force-push.
-- Other sessions' branches and worktrees stay untouched however stale they look — wrap up only
-  work this conversation can account for.
-- Posting issues is outward-facing: drafts first, always. Unattended, post only if house rules
-  name the tracker; the `handoff lite` note goes to the log either way.
-- An empty result is a valid result: "everything shipped, nothing to sweep, ledger clear" — one
-  line, done.
+If everything shipped, nothing needs sweeping, and the ledger is clear, report that in one line.

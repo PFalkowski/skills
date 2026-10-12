@@ -1,6 +1,6 @@
 ---
 name: go-go-go
-description: 'Drives the current work to a raised, reviewed PR without stopping for low-stakes decisions. Use for "go go go" or "just ship it".'
+description: 'Drive work to a reviewed PR autonomously; use for "just ship it".'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -34,7 +34,7 @@ Multiple states can be true at once — handle them in order A → B → C → D
 
 ## Step 2 — Apply whatever-mode (for this entire run)
 
-From this point: **decide reversible choices without asking.** Branch name, commit message wording, file layout, step ordering, cleanup scope — pick the sensible default, name it in one line, and keep moving. The only questions left are:
+Decide reversible choices, name the default in one line and continue. Ask only for:
 
 - Force-push / destructive rewrites
 - Schema or public API changes with downstream consumers
@@ -92,9 +92,9 @@ If the branch is `main`/`master` with no feature branch yet → create one first
 
 ## Step 6 — Review & triage the PR (ALWAYS, once it's raised)
 
-Drive every fresh PR through review and triage **before** the final report — don't wait to be asked:
+Review and triage every fresh PR before the final report:
 
-1. **Adversarial review.** Invoke **`code-review-grill`** on the new PR — a *fresh* agent that did not write the diff (never self-review from the session that wrote it). Scale to the change: a single reviewer for small/contained diffs, quorum (concern-per-agent) for load-bearing ones; models per § Model selection below. Within go-go-go, code-review-grill's own Step 7 ask-before-posting gate is skipped — go-go-go's whatever-mode already covers that decision — but its posting *mechanics* and its posting bar ([REFERENCE, § The bar](../code-review-grill/REFERENCE.md#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr)) still apply: real inline per-finding PR comments for the 🔥/⚠️ findings (one thread first, confirm it landed, then the rest), plus the one summary thread.
+1. **Adversarial review.** Invoke `code-review-grill` with a fresh reviewer that did not author the diff: single for contained changes, concern-per-agent quorum for load-bearing work (models below). Skip its Step 7 posting question under whatever-mode, but preserve its [posting bar](../code-review-grill/REFERENCE.md#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr) and mechanics in step 3.
 2. **Auto-apply the mechanical findings on changed lines** (typo, import, lint, formatting; the list in [§ The bar](../code-review-grill/REFERENCE.md#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr)) and push. A 🔥/⚠️ you also fix under whatever-mode is still posted in step 3, marked fixed.
 3. **Post every 🔥/⚠️ finding on a diff line as its own inline PR comment, fixed or not**; an off-diff one goes in the summary thread's Off-diff blockers. Each comment body states its status (fixed in commit `<sha>`, or left unresolved) plus the finding's description, suggested fix, and verification. Then file the Carried class issues, one per defect shape, a security or data-loss one at blocker priority and named in the final report; then the summary thread (REFERENCE, § The bar) linking them.
 4. **Triage next steps into issues.** Convert deferred / out-of-scope work into tracker issues via **`to-issues`** (or `gh issue create`), linked from the PR, so nothing falls through.
@@ -115,7 +115,7 @@ Diagnose why the PR is stalled, then fix:
 
 ## Step 8 — Report
 
-One short paragraph: what state you found, what you did, the PR URL, the review outcome (findings auto-fixed vs left as unresolved PR comments), any issues filed, and what (if anything) still needs human action. No rehashing every step — just the outcome and the links.
+One paragraph: starting state, actions, PR URL, auto-fixed/unresolved review findings, filed issues, and remaining human action.
 
 ## Model selection
 
