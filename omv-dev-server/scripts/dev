@@ -113,10 +113,33 @@ fi
 
 exists()  { docker ps -a --format '{{.Names}}' | grep -qx "$NAME"; }
 running() { docker ps    --format '{{.Names}}' | grep -qx "$NAME"; }
+# A container is a snapshot of the image it was created from; rebuilding the image moves
+# the tag and changes nothing inside existing containers. Compare the two IDs instead of
+# trusting the name. An image that is missing altogether is not "stale": docker run will
+# fail with a message that names it.
+stale() {
+  local want have
+  want="$(docker image inspect "$IMAGE" --format '{{.Id}}' 2>/dev/null)" || return 1
+  have="$(docker inspect "$NAME" --format '{{.Image}}')"
+  [ "$want" != "$have" ]
+}
 
 if [ "$RECREATE" = 1 ] && exists; then
   echo "♻️  removing '${NAME}'..."
   docker rm -f "$NAME" >/dev/null
+fi
+
+# --- a container built from an image that has since been rebuilt ------------------------
+# Stopped: nothing can be lost, so recreate it rather than let it drift behind the others
+# that were recreated. Running: a live agent session may be inside, so only say so.
+if [ "$RECREATE" = 0 ] && exists && stale; then
+  if running; then
+    echo "⚠️  '${NAME}' runs an image older than '${IMAGE}'. Left alone in case a session is" >&2
+    echo "   inside. Pick up the rebuild with:  dev --recreate" >&2
+  else
+    echo "♻️  '${NAME}' is stopped and on an old image; recreating it."
+    docker rm "$NAME" >/dev/null
+  fi
 fi
 
 # --- attach to what is already there -----------------------------------------------------

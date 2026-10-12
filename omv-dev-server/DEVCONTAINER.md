@@ -218,8 +218,11 @@ Prefer a **named, persistent** container over `--rm`:
 - `--rm` looks tidy and sets a trap: the container is destroyed the moment its main process
   exits, so typing `exit` in an attached shell deletes a container that may be hosting a
   live agent session. There is no `docker start` afterwards.
-- Recreating on demand (`dev --recreate`) is how you pick up a rebuilt image. Make it
-  explicit rather than implicit.
+- A container is a snapshot of the image it was created from, so a rebuild changes nothing
+  inside it. The launcher compares the container's image ID with the tag's on every start
+  and recreates a *stopped* container that falls behind, since nothing in it can be lost.
+  A *running* one may host a live session, so it only warns; pick up the rebuild there
+  with `dev --recreate`.
 
 ### Attaching to a live session
 
