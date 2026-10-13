@@ -118,7 +118,7 @@ created_from_older_image() {
   local tagged_image container_image
   # A missing image is left for docker run, whose error names it.
   tagged_image="$(docker image inspect "$IMAGE" --format '{{.Id}}' 2>/dev/null)" || return 1
-  container_image="$(docker inspect "$NAME" --format '{{.Image}}')"
+  container_image="$(docker container inspect "$NAME" --format '{{.Image}}')" || return 1
   [ "$tagged_image" != "$container_image" ]
 }
 
@@ -128,7 +128,7 @@ if [ "$RECREATE" = 1 ] && exists; then
 fi
 
 # --- a container built from an image that has since been rebuilt ------------------------
-# Stopped, nothing inside can be lost: the repos and the home are bind mounts.
+# Stopped: only changes made inside the container, outside the mounted repos and home, are lost.
 if [ "$RECREATE" = 0 ] && exists && created_from_older_image; then
   if running; then
     echo "⚠️  '${NAME}' runs an image older than '${IMAGE}'. Left alone in case a session is" >&2

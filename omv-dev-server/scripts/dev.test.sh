@@ -17,7 +17,7 @@ case "$1 $2" in
   "ps -a")          cat "$FAKE_STATE/existing" ;;
   "ps --format")    cat "$FAKE_STATE/running" ;;
   "image inspect")  [ -s "$FAKE_STATE/image" ] && cat "$FAKE_STATE/image" || exit 1 ;;
-  "inspect "*)      cat "$FAKE_STATE/container_image" ;;
+  "container inspect") [ -s "$FAKE_STATE/container_image" ] && cat "$FAKE_STATE/container_image" || exit 1 ;;
   "rm "*)           : > "$FAKE_STATE/existing"; : > "$FAKE_STATE/running" ;;
 esac
 exit 0
@@ -38,7 +38,7 @@ run_dev() {
   printf '%s\n' "$existing" > "$FAKE_STATE/existing"
   printf '%s\n' "$running" > "$FAKE_STATE/running"
   printf '%s'   "$tagged_image" > "$FAKE_STATE/image"
-  printf '%s\n' "$container_image" > "$FAKE_STATE/container_image"
+  printf '%s'   "$container_image" > "$FAKE_STATE/container_image"
   : > "$FAKE_STATE/log"
   ( cd "$SANDBOX/repos/owner/repo" && \
     PATH="$SANDBOX/bin:$PATH" DEV_REPO_ROOT="$SANDBOX/repos" DEV_HOME_DIR="$SANDBOX/home" \
@@ -78,6 +78,11 @@ expect present "^start $NAME\$"
 expect present "^exec -it"
 
 run_dev "$NAME" "" "" sha256:old "image missing: not treated as stale"
+expect absent  "^rm "
+expect absent  "older than"
+expect present "^start $NAME\$"
+
+run_dev "$NAME" "" sha256:new "" "container inspect fails: not treated as stale"
 expect absent  "^rm "
 expect absent  "older than"
 expect present "^start $NAME\$"
