@@ -39,7 +39,7 @@ def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def file_snapshot(path: Path) -> dict[str, Any]:
+def file_snapshot(path: Path, name: str) -> dict[str, Any]:
     try:
         data = path.read_bytes()
     except OSError as exc:
@@ -48,10 +48,12 @@ def file_snapshot(path: Path) -> dict[str, Any]:
         text = data.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise RunError(f"source file is not UTF-8: {path}") from exc
-    return {"path": str(path), "name": path.name, "sha256": sha(data), "text": text}
+    return {"path": name, "name": path.name, "sha256": sha(data), "text": text}
 
 
-def _local_url(host: str) -> str:
+def _local_url(host: Any) -> str:
+    if not isinstance(host, str):
+        raise RunError("host must be a string URL")
     parsed = urllib.parse.urlsplit(host)
     if parsed.scheme != "http" or not parsed.hostname or parsed.username or parsed.password:
         raise RunError("host must be a plain http URL on a loopback address")
@@ -111,7 +113,7 @@ def validate(config_path: Path, allow_python: bool = False) -> tuple[dict[str, A
         files = arms[arm].get("files") if isinstance(arms[arm], dict) else None
         if not isinstance(files, list) or not files or not all(isinstance(x, str) and x for x in files):
             raise RunError(f"arms.{arm}.files must be a nonempty list of paths")
-        snapshots[arm] = [file_snapshot((base / x).resolve()) for x in files]
+        snapshots[arm] = [file_snapshot((base / x).resolve(), x) for x in files]
     model = config.get("model")
     if not isinstance(model, str) or not model.strip():
         raise RunError("model must be a nonempty string")
@@ -207,7 +209,7 @@ def _grader(case: dict[str, Any], output: str, base: Path, allow_python: bool,
     if g["type"] == "json_equal":
         try:
             actual = json.loads(output)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, RecursionError):
             return False, True
         return canonical(actual) == canonical(g["expected"]), True
     if not allow_python:

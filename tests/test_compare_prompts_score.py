@@ -2,6 +2,7 @@ import importlib.util
 import hashlib
 import json
 import pathlib
+import tempfile
 import unittest
 
 
@@ -150,6 +151,26 @@ class AnalyzeTests(unittest.TestCase):
         request = next(r for r in data if r["type"] == "request")
         data.insert(-1, dict(request))
         self.assertEqual(score.analyze(data)["verdict"], "INVALID")
+
+    def test_deeply_nested_json_output_fails_the_grade_without_crashing(self):
+        case = {"grader": {"type": "json_equal", "expected": {"x": 1}}}
+        self.assertFalse(score._builtin_grade(case, "[" * 100000))
+
+    def test_undecodable_input_file_is_invalid_exit_code(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = pathlib.Path(temp) / "bad.jsonl"
+            source.write_bytes(bytes([0xFF, 0xFE]))
+            report = pathlib.Path(temp) / "report.json"
+            self.assertEqual(score.main([str(source), str(report)]), 3)
+            self.assertEqual(json.loads(report.read_text(encoding="utf-8"))["verdict"], "INVALID")
+
+    def test_deeply_nested_input_line_is_invalid_exit_code(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = pathlib.Path(temp) / "deep.jsonl"
+            source.write_text("[" * 100000, encoding="utf-8")
+            report = pathlib.Path(temp) / "report.json"
+            self.assertEqual(score.main([str(source), str(report)]), 3)
+            self.assertEqual(json.loads(report.read_text(encoding="utf-8"))["verdict"], "INVALID")
 
     def test_invalid_result_is_invalid(self):
         data = records_for([("x", True, True)])

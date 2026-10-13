@@ -276,7 +276,7 @@ def _builtin_grade(case, output):
         return output.strip() == grader["expected"].strip()
     try:
         return _request_hash(json.loads(output)) == _request_hash(grader["expected"])
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, RecursionError):
         return False
 
 
@@ -502,7 +502,7 @@ def main(argv=None):
         with open(args.output, "x", encoding="utf-8") as target:
             json.dump(report, target, indent=2, sort_keys=True)
             target.write("\n")
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, RecursionError) as exc:
         if isinstance(exc, FileExistsError):
             parser.error(f"report output already exists: {args.output}")
         report = {"verdict": "INVALID", "errors": [str(exc)]}
