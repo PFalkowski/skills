@@ -61,7 +61,7 @@ RUN . /etc/os-release \
       | gpg --dearmor -o /usr/share/keyrings/docker.gpg \
  && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/debian ${VERSION_CODENAME} stable" \
       > /etc/apt/sources.list.d/docker.list \
- && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin \
+ && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli \
  && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g @anthropic-ai/claude-code
