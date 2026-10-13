@@ -164,6 +164,14 @@ class AnalyzeTests(unittest.TestCase):
             self.assertEqual(score.main([str(source), str(report)]), 3)
             self.assertEqual(json.loads(report.read_text(encoding="utf-8"))["verdict"], "INVALID")
 
+    def test_deeply_nested_input_line_is_invalid_exit_code(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = pathlib.Path(temp) / "deep.jsonl"
+            source.write_text("[" * 100000, encoding="utf-8")
+            report = pathlib.Path(temp) / "report.json"
+            self.assertEqual(score.main([str(source), str(report)]), 3)
+            self.assertEqual(json.loads(report.read_text(encoding="utf-8"))["verdict"], "INVALID")
+
     def test_invalid_result_is_invalid(self):
         data = records_for([("x", True, True)])
         next(r for r in data if r["type"] == "result")["valid"] = False

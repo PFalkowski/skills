@@ -502,7 +502,7 @@ def main(argv=None):
         with open(args.output, "x", encoding="utf-8") as target:
             json.dump(report, target, indent=2, sort_keys=True)
             target.write("\n")
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, RecursionError) as exc:
         if isinstance(exc, FileExistsError):
             parser.error(f"report output already exists: {args.output}")
         report = {"verdict": "INVALID", "errors": [str(exc)]}
