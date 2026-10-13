@@ -17,6 +17,7 @@ jobs:
         run: |
           set -e
           python3 -m unittest discover -s tests -p 'test_skill_context_benchmark.py'
+          python3 -m unittest discover -s tests -p 'test_compare_prompts*.py'
           bash scripts/check-links.sh
           bash scripts/check-descriptions.sh
           bash scripts/check-template-skills.sh

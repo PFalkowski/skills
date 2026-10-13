@@ -1,6 +1,7 @@
 * text=auto
 *.js text eol=lf
 *.sh text eol=lf
+compare-prompts/** text eol=lf
 
 # Everything under omv-dev-server/scripts/ runs on Linux, and not all of it ends in .sh —
 # the `dev` launcher has no extension at all, and setup.env.example is *sourced* by bash.

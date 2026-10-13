@@ -1,0 +1,4 @@
+interface:
+  display_name: "Compare Prompts"
+  short_description: "Compare prompts with paired, evidence-based evaluations"
+  default_prompt: "Use $compare-prompts to compare these two prompts or skills on a frozen test suite."
