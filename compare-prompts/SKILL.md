@@ -56,10 +56,9 @@ truncation or pin drift invalidate the run; never retry only losing answers or s
 exclude failures. For an invalid run, fix the cause and use a fresh complete run.
 
 The scorer returns **IMPROVEMENT**, **REGRESSION**, **NO_MEANINGFUL_CHANGE**,
-**INCONCLUSIVE** or **INVALID**. An introduced critical-case failure blocks promotion.
-Shared critical failures also block promotion. Other decisive verdicts require the
-predeclared assumptions and confidence interval
-to support them. Report shared failures and the absolute quality floor even when the
+**INCONCLUSIVE** or **INVALID**. Introduced or shared critical failures block promotion.
+Other decisive verdicts require the predeclared assumptions and confidence interval to
+support them. Report shared failures and the absolute quality floor even when the
 variants agree. Token or latency savings do not override quality gates.
 
 Deliver the verdict, exact comparison scope/pins, paired effect and interval, sample

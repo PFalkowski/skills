@@ -179,6 +179,26 @@ class RunTests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn('"verdict": "INCONCLUSIVE"', captured.getvalue())
 
+    def test_non_string_host_is_a_config_error_not_a_verdict(self):
+        self.config["host"] = 5
+        self.config_path.write_text(json.dumps(self.config), encoding="utf-8")
+        with self.assertRaisesRegex(run.RunError, "host"):
+            run.validate(self.config_path)
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(run.main(["--config", str(self.config_path), "--validate-only"]), 3)
+
+    def test_deeply_nested_json_output_is_an_ordinary_grader_failure(self):
+        case = {"input": "x", "grader": {"type": "json_equal", "expected": {"x": True}}}
+        self.assertEqual(run._grader(case, "[" * 100000, self.root, False), (False, True))
+
+    @patch.object(run, "Ollama", FakeOllama)
+    def test_source_snapshots_record_config_relative_paths(self):
+        output = self.root / "paths.jsonl"
+        run.run(self.config_path, output)
+        manifest = json.loads(output.read_text(encoding="utf-8").splitlines()[0])
+        self.assertEqual([s["path"] for s in manifest["source_snapshots"]["a"]], ["a.md"])
+        self.assertNotIn(str(self.root), output.read_text(encoding="utf-8"))
+
     def test_config_rejects_remote_host(self):
         self.config["host"] = "http://example.com:11434"
         self.config_path.write_text(json.dumps(self.config), encoding="utf-8")

@@ -67,7 +67,7 @@ precision calculation, not a general power analysis. Discordance can require mor
    and passes every critical case.
 5. CI entirely below `-m`: **REGRESSION**.
 6. CI entirely inside `[-m,+m]`: **NO_MEANINGFUL_CHANGE**, provided B meets the floor
-   and passes every critical case. Shared critical failures block promotion too.
+   and passes every critical case.
 7. Otherwise: **INCONCLUSIVE**.
 
 The quality floor is an additional observed acceptance gate, not a confidence bound
