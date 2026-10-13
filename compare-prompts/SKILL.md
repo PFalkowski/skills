@@ -57,7 +57,8 @@ exclude failures. For an invalid run, fix the cause and use a fresh complete run
 
 The scorer returns **IMPROVEMENT**, **REGRESSION**, **NO_MEANINGFUL_CHANGE**,
 **INCONCLUSIVE** or **INVALID**. An introduced critical-case failure blocks promotion.
-Other decisive verdicts require the predeclared assumptions and confidence interval
+Shared critical failures also block promotion. Other decisive verdicts require the
+predeclared assumptions and confidence interval
 to support them. Report shared failures and the absolute quality floor even when the
 variants agree. Token or latency savings do not override quality gates.
 

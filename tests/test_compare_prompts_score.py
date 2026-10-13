@@ -89,6 +89,32 @@ class PairedIntervalTests(unittest.TestCase):
 
 
 class AnalyzeTests(unittest.TestCase):
+    def test_equivalence_requires_enough_independent_evidence(self):
+        enough = records_for([(f"c{i}", True, True) for i in range(100)])
+        self.assertEqual(score.analyze(enough)["verdict"], "NO_MEANINGFUL_CHANGE")
+        small = records_for([(f"c{i}", True, True) for i in range(10)])
+        self.assertEqual(score.analyze(small)["verdict"], "INCONCLUSIVE")
+
+    def test_population_regression_without_critical_flags(self):
+        data = records_for([(f"c{i}", True, False) for i in range(100)])
+        self.assertEqual(score.analyze(data)["verdict"], "REGRESSION")
+
+    def test_unvalidated_critical_grader_cannot_decide(self):
+        data = records_for([("x", True, False)], validated=False)
+        data[0]["config"]["cases"][0]["critical"] = True
+        self.assertEqual(score.analyze(data)["verdict"], "INCONCLUSIVE")
+
+    def test_shared_critical_failure_blocks_promotion(self):
+        data = records_for([(f"c{i}", True, True) for i in range(100)] + [("gate", False, False)])
+        case = data[0]["config"]["cases"][-1]
+        case["split"], case["critical"] = "gate", True
+        for row in data:
+            if row.get("type") == "result" and row["case_id"] == case["id"]:
+                row["split"] = "gate"
+        report = score.analyze(data)
+        self.assertEqual(report["verdict"], "INCONCLUSIVE")
+        self.assertEqual(report["candidate_critical_failures"], [case["id"]])
+
     def test_json_boolean_is_not_numeric_one(self):
         case = {"grader": {"type": "json_equal", "expected": {"value": 1}}}
         self.assertFalse(score._builtin_grade(case, '{"value":true}'))

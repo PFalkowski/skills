@@ -402,6 +402,7 @@ def analyze(records):
     gate = _summarize_split(cases, cells, config["repeats"], "gate")
     interval = paired_interval(test["wins"], test["losses"], test["clusters"], alpha) if test["clusters"] else None
     critical_failures = []
+    candidate_critical_failures = []
     for case_id, case in cases.items():
         if not case["critical"] or case["split"] not in ("test", "gate"):
             continue
@@ -409,6 +410,8 @@ def analyze(records):
         b_all = all(cells[(case_id, "b", t)]["passed"] for t in range(config["repeats"]))
         if a_all and not b_all:
             critical_failures.append(case_id)
+        if not b_all:
+            candidate_critical_failures.append(case_id)
     outputs_same = outputs_different = score_changes = 0
     stable_outputs = {"a": 0, "b": 0}
     unstable_outputs = {"a": 0, "b": 0}
@@ -459,7 +462,7 @@ def analyze(records):
         verdict = "INCONCLUSIVE"
     elif interval[1] < -margin:
         verdict = "REGRESSION"
-    elif not floor_met:
+    elif not floor_met or candidate_critical_failures:
         verdict = "INCONCLUSIVE"
     elif interval[0] > margin:
         verdict = "IMPROVEMENT"
@@ -475,6 +478,7 @@ def analyze(records):
             "test_point_delta": point_delta,
             "test_delta_interval": list(interval) if interval else None,
             "introduced_critical_failures": sorted(critical_failures),
+            "candidate_critical_failures": sorted(candidate_critical_failures),
             "diagnostics": diagnostics,
             "decision_eligible": eligible, "quality_floor_met": floor_met,
             "assumptions": {"margin": margin, "alpha": alpha, "quality_floor": floor,
