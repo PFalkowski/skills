@@ -62,6 +62,7 @@ for the three rules these all follow from.
 | `Ignoring N permissions.allow entries … not trusted` | Path-key mismatch in `~/.claude.json` | Fix the key with all sessions closed; a live session rewrites the file on exit |
 | Container vanished after typing `exit` | It was started with `--rm`, so ending PID 1 deleted it | Use a named persistent container; detach with `Ctrl-P Ctrl-Q` |
 | Session still running hours after the terminal was closed | Closing a terminal detaches the pty; it does not stop the process | `docker top <name>` to see it; kill by PID |
+| A rebuilt image changes nothing: `gh --version` in the container is still the old one | A container is a snapshot of the image it was created from; `docker build` only moves the tag. With one container per repo, each drifts separately | The launcher recreates a stopped container whose image ID no longer matches the tag, and warns on a running one. `dev --recreate` there; `docker image prune` once nothing references the old image |
 | Headless Chrome crashes immediately | Docker's default `--shm-size` is 64m | `--shm-size 1g` |
 | Agent stalls spawning processes | `--pids-limit` too low; a coding agent runs a daemon plus pty hosts | 512, not 100 |
 
