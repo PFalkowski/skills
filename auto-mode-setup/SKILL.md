@@ -1,6 +1,6 @@
 ---
 name: auto-mode-setup
-description: 'Configures a repo tree for unattended agent runs: permission allowlists and the deny rules that bound them. Run once per machine.'
+description: 'Configure unattended agent permissions and deny rules once per machine.'
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -11,39 +11,22 @@ metadata:
 
 # auto-mode-setup
 
-## The one thing to get right first
-
-**In auto mode the allowlist is a convenience. The deny list is the safety boundary.**
-
-Auto mode hands the approve/reject decision to a classifier instead of a human. Anything you have
-not denied may therefore be approved without you. Write the deny list first.
-
-Do this in the order below, not the reverse.
+Auto mode delegates approval to a classifier. **Write deny rules first:** anything not denied may be approved. Allowlists provide convenience, not containment.
 
 ## Four facts that determine the layout
 
-Confirm these against `code.claude.com/docs/en/permissions` if behaviour ever looks wrong; they are
-the constraints the whole layout is built on.
+If behavior differs, verify against `code.claude.com/docs/en/permissions`:
 
-1. **Project settings do not cascade down a directory tree.** `.claude/settings.json` is read from
-   the directory the session starts in; `.claude/settings.local.json` resolves to the *git
-   repository* root. A `.claude/` folder in a non-repo parent that merely *contains* many repos
-   reaches none of them. **The only layer that reaches every repo is `~/.claude/settings.json`.**
-2. **`defaultMode: "auto"` is ignored in project settings** — and worse, setting it there makes
-   Claude Code fall back to the built-in default *instead of* the `defaultMode` in
-   `~/.claude/settings.json`. Auto mode belongs in user settings or managed settings, nowhere else.
-3. **Deny beats ask beats allow, first match wins, across every scope.** Specificity does not break
-   the tie. A user-scope deny overrides a project-scope allow. A broad deny cannot carry a narrow
-   allowlist exception — `Bash(git push:*)` denied blocks a `Bash(git push origin docs:*)` allow.
-4. **Allow rules in project settings need workspace trust accepted for that folder.** Deny and ask
-   rules apply regardless, because they only restrict.
+1. Project settings do not cascade: `.claude/settings.json` resolves from session start; `.claude/settings.local.json` from git root. A non-repo parent reaches no child repos. Only `~/.claude/settings.json` reaches all repos.
+2. Project `defaultMode: "auto"` is ignored and can suppress the user's default. Put it only in user/managed settings.
+3. Across scopes: deny > ask > allow, first match wins; specificity cannot override deny. A broad push deny defeats a narrow push allow.
+4. Project allows require workspace trust; deny/ask rules apply regardless.
 
 ## Workflow
 
 ### 1. Inventory the tree
 
-List every git repo under the target root, and note which are worktrees or scratch clones. Report
-the count before writing anything — a baseline over 70 repos deserves a moment's pause.
+Enumerate repos under the target root, marking worktrees and scratch clones. Report the count before writes, especially large trees (e.g. 70+ repos).
 
 ### 2. Mine what is actually run
 
@@ -52,110 +35,39 @@ node scripts/mine-permissions.mjs            # defaults to ~/.claude/projects
 node scripts/mine-permissions.mjs --top 60 --json
 ```
 
-It streams every session transcript, extracts each Bash/PowerShell command, splits on `|`, `;`,
-`&&`, and reports `tool subcommand` pairs by frequency, split into **read-only**, **mutating**, and
-**dangerous**. Derive the allowlist from the read-only column and nothing else.
+The miner streams transcripts, splits Bash/PowerShell commands on `|`, `;`, `&&`, and ranks command pairs as read-only/mutating/dangerous. Derive additional allows only from read-only entries. Omit built-in unprompted reads (`ls`, `cat`, `echo`, `pwd`, `head`, `tail`, `grep`, `find`, `wc`, `which`, `diff`, `stat`, `du`, `cd`, read-only git).
 
-Two things to remember when reading its output:
-
-- Claude Code already runs a built-in read-only set without prompting — `ls`, `cat`, `echo`, `pwd`,
-  `head`, `tail`, `grep`, `find`, `wc`, `which`, `diff`, `stat`, `du`, `cd`, and read-only `git`
-  forms. Allowlisting those buys nothing. Drop them from the output before writing rules.
-- High frequency is not the same as safe. `git push`, `docker run`, and `dotnet run` will rank near
-  the top of any real transcript set. Frequency tells you what to *consider*, never what to grant
-  on its own — `git push` stays granted in the baseline, but only alongside the deny-list pairs it
-  depends on and a documented, accepted gap (bundled short flags like `-fd`; see BASELINE.md).
+Frequency is not safety: `docker run`/`dotnet run` are not globally safe. Baseline `git push` is an explicit exception requiring paired deny rules and accepted gaps, including bundled short flags such as `-fd`; read [BASELINE.md](BASELINE.md).
 
 ### 3. Write the user-scope baseline
 
-`~/.claude/settings.json` — the deny list, the ask tier, and allow rules that are safe in literally
-any repo. Copy the starting sets from [BASELINE.md](BASELINE.md); they are organised by what each
-rule protects against, so you can defend or drop each one individually rather than pasting blind.
-
-Do not skip the **ask** tier. It is where commands go that are fine under supervision and unsafe
-without it — `terraform apply` being the archetype. Denying those breaks interactive work and gets
-the rule deleted; putting them on `ask` makes an unattended run stall instead of proceed.
-
-Keep `defaultMode: "auto"` here and only here.
-
-Back the file up first and preserve every unrelated key — this file also carries the model,
-status line, effort level, and plugin settings, and clobbering those is a bad trade for a
-permission change.
+Back up `~/.claude/settings.json` and preserve unrelated model/status/effort/plugin keys. Read BASELINE for deny, ask, and universally safe allow sets. Keep `defaultMode: "auto"` here. Do not omit ask rules for commands safe only under supervision (e.g. `terraform apply`): they must stall unattended runs without disabling interactive use.
 
 ### 4. Write per-repo overrides
 
-Anything that builds, tests, deploys, or talks to a paid or shared service goes in that repo's
-`.claude/settings.json` — never in the baseline. One repo's `dotnet test` is another repo's
-`terraform apply`.
+Builds, tests, deploys, and paid/shared services belong in each repo's `.claude/settings.json`, never the baseline. Commit these except:
 
-Commit these.
+- Gitignored `/.claude/*`: respect the ignore, do not force-add; report local-only coverage.
+- Detached HEAD: leave edits uncommitted and flag them.
+- Accumulated `settings.local.json` grants: do not clean them; baseline deny/ask overrides apply. Report overlapping grants.
 
-Three things a real tree will throw at you here, all of which mean *stop and report* rather than
-work around:
-
-- **The repo gitignores `/.claude/*`.** Some do, deliberately. The override still applies locally
-  but will never travel to another machine or another person. Respect the ignore; say so in the
-  report rather than force-adding the file.
-- **The repo is in detached HEAD.** Committing produces an orphaned commit that the next checkout
-  discards silently. Leave the edit in the working tree and flag it.
-- **Existing `settings.local.json` holds hundreds of accumulated "don't ask again" grants.** These
-  are not curated and frequently include `git push`, `git reset`, and prune commands. Do not try to
-  clean them; the baseline's deny and ask rules override them from a higher scope, which is the
-  whole point. Report the overlap so the user knows what changed.
+Stop and report these cases rather than circumventing them.
 
 ### 5. Verify before trusting it
 
-Never declare this done from the settings files alone. Prove it:
+- In an interactive sample repo, run `claude --debug`; inspect actual mode and `Applying permission update: Adding N allow rule(s) to destination 'userSettings' / 'projectSettings' / 'localSettings'` messages. `--debug -p` emits no such lines; never claim this check from a headless run.
+- Headless alternative: provoke a denied operation in a **throwaway directory**, then verify refusal **and unchanged target**. For destructive git forms, initialize a temporary repo with one untracked file and assert it survives. Transcript denial alone is insufficient.
+- Check for `Ignoring N permissions.allow entries from .claude/settings.json: this workspace has not been trusted`. New project settings can re-arm trust; a human must accept interactively. Never set `hasTrustDialogAccepted` yourself. Deny/ask remain active.
+- Verify denied operations from both repo and worktree.
 
-- `claude --debug` in a sample repo, confirm the mode and rules that actually loaded. The debug log
-  prints each scope's rules as `Applying permission update: Adding N allow rule(s) to destination
-  'userSettings' / 'projectSettings' / 'localSettings'` — read those lines, not the JSON you wrote.
-  **This is interactive-only.** `claude --debug -p "…"` prints no permission lines at all, so an
-  agent running this skill headlessly cannot complete this check and must not claim it did.
-- Headless, substitute an observation that is stronger anyway: provoke one denied command in a
-  **throwaway directory** and confirm both that it was refused *and* that its target is untouched.
-  Check the target, not just the refusal — a rule that blocks after the command has already run
-  looks identical in the transcript to one that blocks before. For a deny on a destructive command,
-  `git init` a temp directory with one untracked file, run the denied form against it, and assert
-  the file still exists.
-- Watch for `Ignoring N permissions.allow entries from .claude/settings.json: this workspace has
-  not been trusted`. Creating a project `settings.json` where none existed re-arms the trust
-  dialog, so brand-new allow rules silently do nothing until a human accepts it once
-  interactively. Deny and ask rules are unaffected. Never flip `hasTrustDialogAccepted` on the
-  user's behalf to skip this — the dialog exists so a person reviews what is being granted.
-- Deliberately trigger one denied command and confirm it is blocked — see the throwaway-directory
-  note above; "it was denied" and "it did not run" are different claims.
-- Confirm the deny list survives from the repo *and* from a worktree of it, since worktree
-  resolution is the usual place a rule silently stops applying.
-
-Report which repos were configured, which were skipped, and what remains prompting.
+Report configured/skipped repos, observed verification, and remaining prompts. Files alone do not prove enforcement.
 
 ## Where deny rules do not save you
 
-State this plainly when handing the setup over.
+Explain at handover: Read/Edit denies cover native tools and recognized Bash file commands, not Python/Node subprocess file access. For unattended work around real secrets, enable OS-level sandbox enforcement. Docker and package lifecycle scripts also escape many rules and require conscious per-repo grants.
 
-`Read` and `Edit` deny rules cover Claude's own file tools and the file commands it recognises in
-Bash (`cat`, `head`, `sed`). **They do not cover a subprocess that opens files itself** — a Python
-or Node script the agent writes and runs reads whatever the OS allows. If the tree holds real
-secrets and the run is genuinely unattended, permission rules are not sufficient on their own;
-enable the sandbox for OS-level enforcement.
-
-Likewise, an agent that can run `docker`, or a package manager with a lifecycle-script hook, can
-reach past most of the rules above. Both belong in per-repo settings, consciously.
-
-## Anti-patterns
-
-- Putting `defaultMode: "auto"` in project settings — silently disables the user-level setting.
-- Building the allowlist first and treating the deny list as cleanup.
-- One permissive baseline across client work and public repos alike, because it was less typing.
-- `Bash(git:* push)` — the `:*` wildcard is only recognised at the end of a pattern; mid-pattern the
-  colon is a literal and the rule matches nothing.
-- Allowlisting the built-in read-only commands, which never prompted anyway.
-- Declaring success without a `--debug` run proving which rules loaded.
+`Bash(git:* push)` matches nothing useful: `:*` works only at a pattern's end; elsewhere its colon is literal.
 
 ## See also
 
-- [BASELINE.md](BASELINE.md) — the concrete rule sets, each with the reason it exists.
-- `nights-watch`, `nightshift`, `go-go-go` — the unattended runs this setup exists to serve.
-- `update-config` — for a single setting or one-off permission change; reach for that instead when
-  the job is not a whole-tree setup.
+[BASELINE.md](BASELINE.md) contains rule sets/rationale. `nights-watch`, `nightshift`, and `go-go-go` consume this setup. Use `update-config` for one setting rather than whole-tree setup.

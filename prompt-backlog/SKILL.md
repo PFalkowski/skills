@@ -1,6 +1,6 @@
 ---
 name: prompt-backlog
-description: 'Captures deferred work as ordered, ready-to-run prompts for a fresh agent. Use for "later", "remind me to", "add to the backlog", or "queue this up".'
+description: 'Queue deferred work or reminders as ordered prompts ready for a fresh agent.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -10,117 +10,51 @@ metadata:
 
 # prompt-backlog
 
-A prioritized, ordered list of deferred work. Each item carries three things: **why** it was
-asked (Context), **what to do** (a ready-to-run prompt), and a running **Log**.
+Capture deferred work while context is live as ordered, self-contained prompts. Do immediate work directly; capture “next”, “later”, “remember”, and queued follow-ups here.
 
-**The prompt is written now, while the context is live.** Author a *self-contained* prompt that a
-fresh agent could run verbatim, and record the Context that explains the why.
+Use one file per backlog at `<repo-root>/prompts/<slug>.md`. Starter: [TEMPLATE.md](TEMPLATE.md).
 
-## When to capture
-Whenever work is deferred rather than done now: the user says to do something next/later/after
-this, to keep it in mind, to remember it, to add it to the backlog, or asks to plan/queue
-follow-up work. Capture it as an item; don't drop it into the void or rely on it staying in
-context. (For work to do *right now*, just do it — this is for *later*.)
+## Item schema
 
-## File shape
+Separate items with `---`. Each has exactly:
 
-```md
-# <Backlog title>
+1. `## [<status>] [<priority>] <title>`.
+2. **Context** (captured date): a short paragraph naming the situation, requester, why, files/decisions/constraints, and definition of done.
+3. **Prompt:** a fenced block authored now, runnable verbatim by a fresh agent without this session. Include paths, goal, decisions, and constraints. Use four backticks if it contains triple-backtick fences.
+4. `Log:` followed by append-only dated events, starting with `created <date>`.
 
-## [pending] [P1] First task title
+Do not merely store raw user wording. If a standalone prompt cannot yet be written, record what is missing in Context and mark `blocked`. Add no IDs, dependencies, or extra fields; put nuance in Context. This is a prompt queue, not `nightshift`'s executable prompt-plus-acceptance TDD specification.
 
-**Context** (captured <date>): what we were doing when this came up, who asked, why it matters,
-the relevant files/decisions/constraints, and what "done" looks like.
+| Priority | Meaning/signals |
+|---|---|
+| `P0` | Next: “do this next”, urgent follow-up |
+| `P1` | Soon: “after this is merged”, near-term |
+| `P2` | Later; default without a signal |
+| `P3` | Someday: “keep in mind”, nice-to-have |
 
-`​`​`
-Self-contained, ready-to-run prompt authored now from the live context. It must STAND ALONE:
-name the files/paths, repeat the decisions and constraints, state the goal — so a fresh agent
-with no memory of this session can run it verbatim and achieve what was asked.
-`​`​`
+Statuses: `pending` (unstarted), `in_progress`, `done`, `skipped` (intentionally not run), `blocked` (needs human input).
 
-Log:
-- created <date>
+## Initialize
 
----
+If asked to set up a backlog and `prompts/` is absent:
 
-## [pending] [P3] Second task title
-...
-```
-
-Four parts per item:
-
-1. **Header** — `## [<status>] [<priority>] <title>`. Status ∈ `pending`, `in_progress`, `done`,
-   `skipped`, `blocked`. Priority ∈ `P0`–`P3` (below).
-2. **Context** — one short paragraph: the situation, who asked, why, constraints, definition of
-   done. This is the *why* that the prompt alone can't carry.
-3. **Prompt** — a fenced code block, **authored by the capturing agent** from current context,
-   self-contained. Use a 4-tick fence (` ```` `) only if the prompt itself contains triple-backticks.
-4. **Log** — a `Log:` line followed by append-only bullet events.
-
-Items are separated by `---`.
-
-Copy-paste starter: [TEMPLATE.md](TEMPLATE.md).
-
-## Priority
-
-| Tag | Meaning | Typical trigger |
-|---|---|---|
-| `P0` | do next | "do this next", "first thing after this", urgent follow-up |
-| `P1` | soon | "soon", "after this is merged", near-term |
-| `P2` | later (default) | "later", "at some point", general backlog |
-| `P3` | someday / keep in mind | "keep in mind", "note for later", nice-to-have |
-
-If the user gives no signal, default to `P2`.
-
-## Convention — folder layout
-
-```
-<repo-root>/prompts/<slug>.md
-```
-
-Single file per backlog, under `prompts/` at the repo root. Don't scatter backlogs elsewhere.
-
-## Init
-
-When the user asks to set up a prompt backlog and `prompts/` doesn't exist:
-
-PowerShell (Windows):
 ```powershell
 New-Item -ItemType Directory -Path 'prompts' -Force | Out-Null
 Copy-Item "$env:USERPROFILE\.claude\skills\prompt-backlog\TEMPLATE.md" 'prompts\backlog.md'
 ```
 
 POSIX:
+
 ```bash
 mkdir -p prompts && cp ~/.claude/skills/prompt-backlog/TEMPLATE.md prompts/backlog.md
 ```
 
-Then open `prompts/backlog.md` and replace the example with real items.
+Replace template examples with actual items.
 
-## Execution
+## Execute
 
-```
-1. Among items with status == pending, pick the highest priority (P0 first); break ties by
-   file order (top first).
-2. Flip [pending] → [in_progress] in the header. Append "started <date>" to Log.
-3. Feed the fenced prompt to the agent verbatim. The Context is for the human / for triage —
-   it is NOT part of the prompt unless you paste it in deliberately.
-4. Append a Log line with the outcome.
-5. Flip header to [done] / [blocked] / [skipped] as appropriate.
-6. Go back to step 1.
-```
-
-## Statuses
-
-`pending` → not started · `in_progress` → running · `done` → finished · `skipped` →
-intentionally not run · `blocked` → needs human input
-
-## Anti-patterns
-
-- **Don't stash the user's raw words and move on.** Author the prompt from the live context so it
-  stands alone later; if you can't yet, capture what's missing in the Context and mark it `blocked`.
-- **Don't paraphrase the prompt at execution time.** If the stored prompt is wrong, edit the file.
-- **Don't bloat items.** Priority + Context + prompt + Log is the whole schema — no IDs, no
-  `depends_on`, no `expected_outcome`. Put any extra nuance in the Context line.
-- **Don't merge prompt + acceptance criteria into one executable item.** That's `nightshift`'s job;
-  this is a queue of prompts, not a TDD spec.
+1. Pick the highest-priority `pending` item (P0 first), breaking ties by file order.
+2. Mark `in_progress`; append `started <date>`.
+3. Give the agent the fenced prompt **verbatim**. Context is for humans/triage unless deliberately included. Correct a wrong prompt in the file; do not paraphrase at execution.
+4. Append the outcome and mark `done`, `blocked`, or `skipped`.
+5. Repeat.

@@ -1,6 +1,6 @@
 ---
 name: signal-verdict
-description: 'Takes a trading or ML signal idea to an honest PROMOTE or PARK verdict on a walk-forward holdout. Use to test a new signal, model or backtest baseline.'
+description: 'Evaluate a trading/ML signal, model or backtest baseline on walk-forward holdouts; return PROMOTE or PARK.'
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -11,110 +11,73 @@ metadata:
 
 # signal-verdict
 
-Falsify-first: the default outcome of a rigorous test is **PARK**, not PROMOTE. Discipline: **data first, TDD, real-data CI gate, label ≠ objective ≠ verdict, one-shot holdout.**
+Default to **PARK** unless a deterministic, real-data test earns **PROMOTE**. Work phases in order; meet each Definition of Done (DoD) before advancing.
 
 ## The one rule that prevents the most expensive mistake
 
-**Three things are separate; never collapse them.**
+Keep three layers separate:
 
-| Layer | What it is | Hard rule |
-|---|---|---|
-| **Label** | What counts as a "good" outcome | The realized net result under the **real production policy** (real fills, costs, stops). Not a clean toy target. |
-| **Objective** | What a model/threshold optimizes | A calibrated / profit-weighted **probability loss**. **Never PnL. Never AUC.** Feature selection happens *inside* CV folds. |
-| **Verdict** | What decides accept/reject | Walk-forward **OOS** ROI/Sharpe uplift vs baseline on a **touched-once holdout**, deflated for multiplicity. Any knob that responds to this number invalidates it. |
+| Layer | Rule |
+|---|---|
+| Label | Realized net outcome under actual production fills, costs, and stops |
+| Objective | Calibrated/profit-weighted probability loss; never PnL or AUC. Feature selection stays inside CV folds |
+| Verdict | Walk-forward OOS ROI/Sharpe uplift versus baseline on a touched-once holdout, deflated for multiplicity. No knob may respond to it |
 
-Judging by PnL is correct as a *verdict* and catastrophic as an *objective* — a PnL-tuned threshold has
-near-unlimited power to fence off *this* sample's losers and will overfit even under purged CV.
+PnL is a verdict, never a threshold-training objective, even with purged CV.
 
 ## The runbook
 
-Work top to bottom. Each phase has a Definition of Done; do not advance until it's met.
-
 ### Phase 0 — Frame the hypothesis (no code)
-1. State precisely **which decision the idea changes**: universe / selection / entry / exit / horizon /
-   sizing / exposure. (Different columns have very different leverage — measure the baseline before guessing.)
-2. Write the **label**, **objective**, **verdict** for *this* idea per the table above.
-3. **Leak audit**: every feature must come from the decision bar **D-1 and earlier**; the label from entry
-   forward. List the inputs and confirm none touches the traded day.
-4. Declare the **trial budget** up front (every threshold/feature/model variant you'll try) — the deflation
-   haircut scales to it. Append-only; a spent trial stays spent.
-- **DoD:** a one-paragraph pre-registration (hypothesis, label, objective, verdict, leak audit, budget).
+
+State the decision changed (universe/selection/entry/exit/horizon/sizing/exposure), label, objective, and verdict. Audit all features: decision bar **D-1 or earlier**, labels from entry onward; no traded-day inputs. Declare every threshold/feature/model trial up front; the trial ledger is append-only and spent trials remain counted.
+
+**DoD:** one-paragraph preregistration covering hypothesis, three layers, leak audit, and trial budget.
 
 ### Phase 1 — Establish the baseline on REAL data (skip only if one already exists)
-1. Replay the **current production policy** over real retained history → labeled outcomes (deterministic).
-2. **Decompose the P&L**: per-exit-reason, per-regime, win/loss asymmetry, and **tail concentration**
-   (what share of return rides on the top-k trades). High tail concentration ⇒ a low **power floor** ⇒
-   expect most ideas to PARK because the effect is undetectable at this effective N.
-3. Record the baseline numbers with confidence intervals. **This is the bar every idea must beat.**
-- **DoD:** a committed baseline report with CIs + a stated power floor / minimum detectable effect.
+
+Deterministically replay current production policy on real retained history. Decompose P&L by exit reason, regime, win/loss asymmetry, and top-k trade tail concentration. Concentrated returns lower effective sample size and power. Record baseline confidence intervals and minimum detectable effect.
+
+**DoD:** committed baseline report with CIs and power floor, used as every idea's comparison.
 
 ### Phase 2 — TDD the pure components (Red → Green → Refactor)
-1. Anything pure (a feature extractor, an analyzer, a model wrapper, a backtester) gets unit tests **first**,
-   on synthetic data with hand-computed expected values.
-2. Every component ships a **leak-safety test** (asserts it reads only ≤ D-1 data) and, where it re-implements
-   production behavior, a **golden-master parity test** (byte-identical to the incumbent on a fixture).
-3. **Determinism is mandatory** — pin RNG seeds and disable nondeterministic parallelism in your trainer
-   (parallel gradient updates are non-deterministic even with a fixed seed — e.g. ML.NET's SDCA needs
-   `NumberOfThreads=1`). A non-reproducible harness cannot be a verdict.
-- **DoD:** unit tests green; leak-safety + parity tests present; re-runs are byte-identical.
+
+Test pure features, analyzers, wrappers, and backtesters first using synthetic fixtures with hand-computed expectations. Every component needs a leak-safety test (reads only ≤ D-1); production reimplementations also need byte-identical golden-master parity. Pin RNG seeds and disable nondeterministic training parallelism (e.g. ML.NET SDCA `NumberOfThreads=1`).
+
+**DoD:** tests green, leak/parity assertions present, reruns byte-identical.
 
 ### Phase 3 — Build the real-data benchmark harness (the CI real-data gate)
-1. The verdict runs against **real data, not mocks** — wire it as an integration test that connects to the
-   real store, and **skip cleanly when no connection is configured** so CI without DB access passes
-   silently. Mark it opt-in via a dedicated category / explicit-run flag (e.g. NUnit `[Explicit]` +
-   `Inconclusive`, a pytest marker, a Go build tag) so it's not in the default suite.
-2. **Walk-forward, not random split**: train/select on the earlier block, confirm on a later **untouched**
-   block. Purge/embargo around fold boundaries by the holding horizon.
-3. Scale every haircut to **effective N** (autocorrelation-adjusted), not raw rows: **deflated Sharpe**,
-   **CSCV/PBO**, **block-bootstrap CIs** on the paired daily-return difference vs baseline.
-4. The harness **writes a deterministic markdown report** to a version-controlled path so the verdict is
-   reviewable and re-runnable. See [HARNESS-TEMPLATE.md](HARNESS-TEMPLATE.md) for the skeleton.
-- **DoD:** harness runs on real data, skips without it, emits a committed report, deterministic across runs.
+
+Use an opt-in integration test against the real store, never mocked verdict data. Skip cleanly without a configured connection so ordinary CI passes; use an explicit category/flag (e.g. NUnit `[Explicit]` + `Inconclusive`, pytest marker, Go build tag).
+
+Train/select on earlier blocks; confirm on later untouched blocks. Purge/embargo boundaries by holding horizon; never randomly split temporal rows. Scale deflated Sharpe, CSCV/PBO, and block-bootstrap CIs for paired daily-return differences to autocorrelation-adjusted **effective N**.
+
+Write deterministic markdown to a version-controlled path using [HARNESS-TEMPLATE.md](HARNESS-TEMPLATE.md).
+
+**DoD:** real-data run succeeds, missing connection skips, committed report and reruns are deterministic.
 
 ### Phase 4 — Verdict (PROMOTE / PARK)
-**PROMOTE** only if **all** hold on the touched-once holdout:
-- Uplift CI vs baseline **clears zero**; **and** it beats a **same-skip/utilization random baseline** (so
-  "uplift" isn't just the mechanical effect of trading less/differently); **and** it survives the deflation
-  haircut and a **+50% cost-shock** stress; **and** it doesn't win by suppressing almost everything (a
-  capital-utilization / absolute-PnL floor).
 
-Otherwise **PARK** — and record it anyway, with the lead numbers. A "near-miss" (passes everything but the
-CI straddles zero) is a PARK, not a soft promote. **Do not tune any threshold against the holdout margin.**
+**PROMOTE** requires all of:
 
-**The holdout is one-shot.** Once a fold is touched for confirmation it is *spent*; the next idea needs a
-*fresh* untouched block (reserve recent months, or rely on forward/paper data). Reusing a spent holdout, or
-running many ideas against it, is p-hacking — track cumulative multiplicity across the whole effort, not just
-within one run.
+- Uplift CI clears zero versus baseline.
+- Beats a same-skip/utilization random baseline.
+- Survives multiplicity deflation and **+50% cost shock**.
+- Meets capital-utilization/absolute-PnL floor; cannot win by suppressing nearly all trading.
+
+Otherwise **PARK**, including near misses whose CI crosses zero; record lead numbers. Never tune against the holdout margin. A confirmation fold is spent after one use: the next idea requires fresh untouched history or forward/paper data. Track multiplicity across the entire effort, not merely one run.
 
 ### Phase 5 — Document everything (win or lose)
-- An **ADR** for the decision (Context / Options / Decision / Consequences) — including the PARK ones.
-- The harness **report** under a version-controlled docs path (e.g. `docs/plans/…`); link it from the ADR;
-  update the ADR index.
-- Honest **caveats**: multiplicity, grid-boundary optima, regime-specific results, data-quality holes.
-- A durable **memory/handoff** note so the next agent inherits the verdict, not just the code.
+
+Write an ADR (Context / Options / Decision / Consequences), including PARK decisions; link the committed harness report and update the ADR index. Record multiplicity, grid-boundary optima, regime sensitivity, and data-quality gaps. Leave a durable memory/handoff note carrying the verdict.
 
 ### Phase 6 — Deploy (only on PROMOTE, and only with explicit human authorization)
-- Ship behind a **decorator / config, off by default**: `Off → Shadow (log would-be decisions, zero
-  behavior change) → Active`.
-- A **forward-shadow / paper period** must confirm the offline uplift on live fills **before real capital**.
-- Flipping what production actually trades is **outward-facing and money-affecting** — confirm with the
-  maintainer; never deploy on an automated prompt or to satisfy a metric. Reverting must be a one-line change.
+
+Use an off-by-default decorator/config: **Off → Shadow** (log would-be decisions, no behavior change) **→ Active**. Forward-shadow/paper results must confirm uplift on live fills before real capital. Confirm money-affecting production changes with the maintainer; never deploy from an automated prompt or to move a metric. Reversion must be one line.
 
 ## Hard prohibitions (the acceptance gate, enforced every phase)
-- ❌ PnL or AUC as a training objective. ❌ Random train/test split on time-ordered rows. ❌ Any day-D
-  feature. ❌ Mocked data for a verdict. ❌ Tuning on the holdout. ❌ Non-deterministic harness. ❌ Reusing a
-  spent holdout. ❌ Deploying an unvalidated change to move a number.
 
-## Anti-patterns this runbook exists to catch (seen in the wild)
-- A classifier deployed by **AUC on a random split** of autocorrelated rows → incumbent literally worse than
-  random. (Fix: chronological/purged split, calibrated objective, profit-aware selection.)
-- A genetic optimizer maximizing **in-sample PnL** over a temporally-shuffled subsample → overfit parameters
-  pasted into production. (Fix: out-of-fold walk-forward fitness on the harness.)
-- A CV result that "clears the bar" but **PARKs on the holdout** because a random gate at the same skip rate
-  did as well → the choice added no skill OOS.
+No PnL/AUC training objective, random temporal split, day-D feature, mocked verdict, holdout tuning/reuse, nondeterministic harness, or deployment of unvalidated changes.
 
 ## Reference implementation
-A worked end-to-end example produces, per phase: a baseline P&L decomposition, a policy backtester with
-golden-master parity, walk-forward holdout verdicts, a learned-model diagnostic, and the resulting
-PROMOTE / PARK records — each captured as an ADR plus its backing plan. Use that shape as the template
-for the artifacts each phase produces.
+
+Per-phase artifacts: baseline P&L decomposition, parity-tested policy backtester, walk-forward holdout verdict, learned-model diagnostic, and PROMOTE/PARK ADRs with backing reports.

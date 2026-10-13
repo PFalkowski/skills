@@ -1,6 +1,6 @@
 ---
 name: nightshift
-description: 'Implements a list of backlog items unattended, test-first per item. Use for "overnight run" or "autonomous backlog".'
+description: 'Implement backlog items unattended, test-first; use for overnight or autonomous backlog runs.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -13,32 +13,26 @@ metadata:
 ## Quick start
 
 ```
-/nightshift                            # uses backlog.md at repo root
+/nightshift                            # backlog.md at repo root
 /nightshift backlog=docs/work.md       # custom path
-/nightshift backlog="docs/backlog/*.md" # glob — every match, concatenated in path order
-/nightshift items=123,456,789          # tracker issues as the backlog
-/nightshift items=label:ready-for-agent # a tracker query as the backlog
+/nightshift backlog="docs/backlog/*.md" # concatenate in path order
+/nightshift items=123,456,789          # tracker issues in given order
+/nightshift items=label:ready-for-agent # tracker query order
 ```
 
-### Where the work comes in
+Normalize all sources into the item schema before pre-flight. Order dependencies deliberately; query order may not suit them. Tracker input is a pre-flight snapshot: later tracker edits do not change the run's backlog file.
 
-Whatever the source, items are normalised into the schema below *before* pre-flight, and pre-flight then runs against that normalised list exactly as it would against a hand-written file — a ticket that arrives without acceptance criteria specific enough to write a failing test for is not ready merely because a tracker query matched it.
-
-Ordering is the source's: path order for a glob, the order given for a list, tracker order for a query — so if items build on each other, order them deliberately rather than trusting a query. And a tracker-sourced backlog is a *snapshot* taken at pre-flight; edits made on the tracker mid-run don't reach the loop, so the run's own file stays the record of what was actually worked.
-
-### Multiple runs on the same date
-
-Dated run records and per-item review logs are run state: they live under `~/.agent-state/<repo-slug>/nightshift/runs/YYYY-MM-DD/`, per [agent-state.md](../docs/agent-state.md). The backlog stays where the user keeps it. A second cycle that day MUST NOT overwrite the first — increment a filename suffix (`run.md` → `run-2.md` → `run-3.md`) within the shared date directory.
+Run records and per-item reviews belong under `~/.agent-state/<repo-slug>/nightshift/runs/YYYY-MM-DD/`, per [agent-state.md](../docs/agent-state.md). Keep the backlog at its user-selected path. Never overwrite another same-day run: use `run.md`, `run-2.md`, etc.
 
 ## Phase 1 — Pre-flight (user awake)
 
-Walk through [PREFLIGHT.md](PREFLIGHT.md): clear the question categories (design ambiguity, acceptance criteria, fixtures, secrets, network), pre-approve the permission grants in `.claude/settings.local.json` so the loop never prompts, and set commit/push/PR policy. **Pre-flight succeeds only when** the backlog parses into the item schema, every pending item has acceptance criteria specific enough to write a failing test for, all foreseeable Q's are answered inline in `**Notes:**`, and the user has explicitly said **"go"**. Do not enter Phase 2 without it.
+Read [PREFLIGHT.md](PREFLIGHT.md). Resolve design, acceptance criteria, fixtures, secrets and network questions; pre-approve permissions in `.claude/settings.local.json`; set commit/push/PR policy. Enter Phase 2 only when the backlog parses, every pending item's acceptance criteria support a failing test, foreseeable answers are in `**Notes:**`, and the user explicitly says **go**. Matching a tracker query does not make an item ready.
 
 ## Phase 2 — Loop (user asleep)
 
-Per item, follow [LOOP.md](LOOP.md): read backlog → mark `in_progress` → plan TDD slice → Red → Green → Refactor → **adversarial code review** ([CODE-REVIEW.md](CODE-REVIEW.md)) → commit → push + open PR per the delivery policy → **post the review to the PR** → update backlog → spawn a fresh subagent for the next item. Spawned subagents run Phase 2 only — never re-enter pre-flight.
+Follow [LOOP.md](LOOP.md) per item: read backlog → `in_progress` → plan TDD slice → Red → Green → Refactor → fresh adversarial review ([CODE-REVIEW.md](CODE-REVIEW.md)) → commit → push/open PR per delivery policy → post review to PR → update backlog → fresh subagent for next item. Children run Phase 2 only.
 
-When items build on each other, **stack the PRs** (each branch off the previous; PR base = previous branch; keep all open — see LOOP.md "Stacked PRs"). To **land** the chain afterward, use the `merge-stack` skill; don't hand-merge ad hoc.
+For dependent items, stack branches and PRs: each branches from its predecessor, with that branch as PR base; keep all PRs open. See LOOP.md “Stacked PRs”. Land with `merge-stack`, not ad-hoc merges.
 
 ## Backlog item schema
 
@@ -51,46 +45,46 @@ When items build on each other, **stack the PRs** (each branch off the previous;
 <appended each iteration>
 ```
 
-Status: `pending` | `in_progress` | `done` | `blocked-on-question` | `failed-after-retries`.
+Statuses: `pending`, `in_progress`, `done`, `blocked-on-question`, `failed-after-retries`.
 
 ## Stop conditions & question deferral
 
-The loop exits when no `pending` items remain, all remaining are `blocked-on-question`/`failed-after-retries`, or an item fails **3** Red→Green attempts (past 3, human judgment beats more tries). Ambiguity it can't resolve from the codebase → append `Q:` to the Run log, then inline `A: chose X because Y` (reversible: a name, a helper, a log message, a config *value*, a doc's wording) or mark `blocked-on-question` (irreversible or grave: schema, public API, secret, deletion, anything published or costing money). Judge by consequence, never by which file the change lands in. On exit, prepend a run summary to the backlog. Detail in [LOOP.md](LOOP.md).
+Exit when no pending items remain, all remaining items are blocked/failed, or an item fails **3 Red→Green attempts**. Prepend a run summary to the backlog on exit.
+
+For ambiguity unresolved by the codebase, append `Q:` to the Run log. For reversible choices (names, helpers, log messages, config values, wording), add `A: chose X because Y`. For irreversible or grave choices (schema, public API, secrets, deletion, publishing, spending), mark `blocked-on-question`. Judge consequences, not file type. Details: [LOOP.md](LOOP.md).
 
 ## Repo discovery (at pre-flight)
 
-Language- and toolchain-agnostic — discover conventions, don't assume them. In order, stop when confident: (1) `CLAUDE.md` or `AGENTS.md` + their sibling `*/CLAUDE.md`, `*/AGENTS.md`; (2) `.github/workflows/*.yml`; (3) root build manifests (`Makefile`, `package.json`, `pyproject.toml`, `*.sln`/`*.csproj`, `go.mod`, `pom.xml`, …); (4) saved auto-memory (honor without re-asking); (5) README (last resort). Inline findings into a `## NightShift detected conventions` block atop the backlog — subagents read it instead of re-discovering, and inherit `CLAUDE.md` + memories automatically (don't reintroduce a retired dep or violate a documented rule).
+Discover conventions in order; stop when confident:
 
-## Adversarial code review (the default second pass — every code item)
+1. `CLAUDE.md`/`AGENTS.md` and sibling `*/CLAUDE.md`/`*/AGENTS.md`.
+2. `.github/workflows/*.yml`.
+3. Root build manifests.
+4. Saved auto-memory; honor it without re-asking.
+5. README as last resort.
 
-After Green+Refactor, before commit/PR, a **fresh reviewer subagent that never sees the implementer's rationale** hunts the diff at extra-high recall for what the test missed; confirmed bugs get a regression test + fix in-item, pre-existing/out-of-scope ones get a follow-up issue. Protocol + hard rules: [CODE-REVIEW.md](CODE-REVIEW.md).
+Write findings into `## NightShift detected conventions` atop the backlog for children to reuse. Honor inherited instructions and memories; do not reintroduce retired dependencies.
 
-## Adversarial source-verification mode (optional — for the rare fact-heavy item)
+## Adversarial code review (every code item)
 
-A *minority* of items turn on **claims about the world** a test runner can't check — values copied from external docs/specs/dashboards, citations backing a numeric claim, version or compatibility facts, third-party API behavior, entity attributes. For those, run **two-agent adversarial verification** instead of (or alongside) the code-review pass: a generator subagent produces the candidate output, an independent reviewer subagent re-fetches every cited source and audits each claim verbatim. The two MUST NOT share context — the reviewer's value is entirely its independence. Reach for it only when external-fact accuracy is the item's main risk. Full protocol, prompt templates, and calibration: [ADVERSARIAL.md](ADVERSARIAL.md).
+After Green+Refactor and before commit/PR, a fresh reviewer receives the diff without the implementer's rationale and hunts at extra-high recall. Fix confirmed in-scope bugs with regression tests; file pre-existing/out-of-scope bugs as follow-up issues. Read [CODE-REVIEW.md](CODE-REVIEW.md) for the protocol.
+
+## Adversarial source-verification mode (optional)
+
+Use when external-fact accuracy is an item's main risk: sourced values, citations, compatibility, third-party behavior or entity attributes that tests cannot verify. Read [ADVERSARIAL.md](ADVERSARIAL.md) for protocol, prompts and calibration. A generator drafts; an independent reviewer re-fetches every cited source and checks each claim. They must not share context. This replaces or supplements code review as appropriate.
 
 ### Source-verification rules that transfer across projects
 
-A project that leans on this mode keeps its own domain rules — source allowlists, field conventions, tolerance thresholds — in that project's own skill, layered on top.
+Project-specific source allowlists, field conventions and tolerances stay in the project's skill.
 
-1. **Verbatim-quote pre-flight on every external fact.** Before writing a value lifted from a source into a structured field, paste the exact sentence from the cited URL that contains it. If no cited source contains the value, **drop the field** — don't infer, approximate, or lift from uncited material. This extends to quoted strings in free-text notes: a quotation must appear verbatim on a cited source, or be paraphrased without quote marks (decorative quotes invite later cycles to treat them as already-verified).
-
-2. **Cross-source agreement requires the same MEANING, not just the same number.** Two sources corroborate only when their labels/definitions match, not merely their digits. A value labelled one thing in source A and a different thing in source B is not a match even when the numbers are close.
-
-3. **Intra-source contradiction degrades confidence.** If a single source contradicts itself (summary vs detail, header vs body, infobox vs prose), flag it in notes and DOWNGRADE rather than picking the more flattering reading.
-
-4. **Source-precision honesty.** Don't present a value at finer precision than the cited source actually published — that extra precision came from somewhere else; attribute it accurately.
-
-5. **Entity-name match with rebrand-equivalence + majority.** When sources disagree on a name (owner, author, vendor, maintainer), recognize rebrand-equivalence (Facebook ≡ Meta post-2021, Twitter ≡ X post-2023) and short-form equivalence ("Acme" ⇆ "Acme Corp"); use a majority when sources merely abbreviate. Null the field only when sources name genuinely distinct, non-equivalent entities.
-
-6. **Concrete thresholds, not "approximately".** If the deliverable specifies a tolerance, make it operational — tier it (clean / borderline-with-note / needs-explanation / drop). "Approximately X" is read differently by every reviewer; a tiered threshold isn't.
-
-7. **Trust-but-verify every cited URL.** The reviewer re-fetches every source and confirms the body text supports each claim. No skipping a source because "that domain is reliable" — the whole point of independent verification is that the reviewer doesn't inherit the generator's trust assumptions.
-
-8. **Track BOTH rejection AND downgrade rate.** Rejections (output deleted) and downgrades (accepted with stricter confidence, a dropped field, a nulled attribute) are different signals. Tracking only rejections misses cycles where everything is "accepted with corrections" — those corrections are real quality interventions and should drive prompt-tuning.
-
-9. **Document WHY a candidate was dropped, not just that it was.** Drop reasons are the next cycle's input. "Dropped — the source never stated the value" is useful; "dropped" alone is not. The pattern of drops over many runs reveals where the source-allowlist needs widening.
-
-10. **Zero drift on a round number across sources is a shared-origin fingerprint, not independent corroboration.** When two sources publish the identical round figure with no variation, they are likely mirroring one upstream origin (a press release, a single database) rather than independently confirming it. Hold at the lower confidence tier unless a genuinely independent source agrees.
-
-11. **When a fetch tool can't retrieve a cited URL, change the fetch method — don't drop the URL.** A page that returns empty or garbled bytes through one tool may return cleanly via `curl -s -L` (optionally re-decoding the charset, e.g. piping through `iconv` when the bytes carry a UTF-16 BOM). Rule 7 gets no exemption for an awkward URL; a tool failure is not proof the source is gone, and "WebFetch returned empty" is not the same as "the snapshot is missing".
+1. Before writing an externally sourced field, capture the exact supporting sentence from its cited URL. Without one, drop the field; do not infer or approximate. Free-text quotations must also be verbatim on a cited source; otherwise paraphrase without quotes.
+2. Corroboration requires matching labels/definitions, not merely matching numbers.
+3. Flag contradictions within a source and downgrade confidence; do not select the favorable reading.
+4. Do not attribute finer precision to a source than it publishes. Attribute extra precision to its actual source.
+5. For conflicting entity names, recognize rebrands and short forms; use the majority for equivalent abbreviations. Null only genuinely distinct, non-equivalent entities.
+6. Express specified tolerances as concrete tiers: clean, borderline-with-note, needs-explanation, drop.
+7. The reviewer re-fetches every cited URL and checks its body supports the claim; domain reputation is no exemption.
+8. Track rejection and downgrade rates separately. Accepted corrections must inform prompt tuning.
+9. Record specific drop reasons for the next cycle; recurring patterns may reveal source-allowlist gaps.
+10. Identical round numbers across sources suggest a shared origin, not independent corroboration. Keep lower confidence unless an independent source agrees.
+11. A failed fetch is not proof a source is gone. Try another method, such as `curl -s -L`, correcting charset decoding (e.g. UTF-16 BOM via `iconv`) if needed. Do not discard a URL merely because one tool returned empty or garbled content.

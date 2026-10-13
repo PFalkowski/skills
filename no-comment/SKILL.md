@@ -1,6 +1,6 @@
 ---
 name: no-comment
-description: 'Fixes code instead of commenting it. Use when writing a comment or reviewing code with comments.'
+description: 'Improve code instead of adding comments; apply when writing or reviewing comments.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -10,32 +10,12 @@ metadata:
 
 # no-comment
 
-A comment is usually a failure to say it in code. Fix the code first.
+Express meaning in code before adding a comment:
 
-## Before writing any comment
+1. Rename to explain it.
+2. Extract a function whose name explains it.
+3. Encode it in a type.
 
-1. Can a better **name** say it? Rename.
-2. Can an **extracted function** say it? Extract — the name becomes the comment.
-3. Can a **type** say it? Encode it.
+A comment earns its place only if all three fail or the [allowlist](ALLOWLIST.md) permits it. Explain **why**, not what the code does: “Broker drops the fourth concurrent request” adds information; “increment retry count” does not.
 
-Only when all three fail has a comment earned its place — or when it is on the
-[allowlist](ALLOWLIST.md).
-
-## If one earns its place
-
-State **why**. The code already states what.
-
-```cs
-// WRONG — restates the code
-// increment the retry count
-retries++;
-
-// RIGHT — not derivable from the code
-// Broker silently drops the 4th concurrent request, so we retry one past their documented limit.
-retries++;
-```
-
-## Delete on sight
-
-Commented-out code — git remembers it. And any comment that has drifted from the code beneath it,
-which is worse than none.
+Delete commented-out code and comments that no longer match the code. Git retains history.

@@ -1,6 +1,6 @@
 ---
 name: dead-branch-guard
-description: 'Installs a pre-push hook that refuses a push to a branch whose PR already merged. Use when work continued on a merged branch.'
+description: 'Install a pre-push guard against pushing to a branch whose PR already merged.'
 disable-model-invocation: true
 license: MIT
 metadata:
@@ -11,28 +11,17 @@ metadata:
 
 # dead-branch-guard
 
-## What the hook checks
+## Hook behavior
 
-On every `git push`, for each **remote** branch being pushed (so `git push origin HEAD:x` and
-`git push origin tmp:x` are judged as pushes to `x`):
+For each **remote branch** being pushed (`HEAD:x` and `tmp:x` both target `x`):
 
-1. `gh pr list --head <branch> --state all --limit 10` — the branch's PRs, newest first.
-2. If the newest PR is `OPEN`, allow: something tracks the push.
-3. Otherwise, if any `MERGED` PR's merge commit is **not** an ancestor of the commit being pushed,
-   refuse the push and print the remedy. A newest PR that was closed unmerged does not hide the
-   merged one behind it.
+1. Read newest-first PRs with `gh pr list --head <branch> --state all --limit 10`.
+2. Allow if the newest PR is `OPEN`.
+3. Otherwise refuse if any `MERGED` PR's merge commit is not an ancestor of the pushed commit. A newer closed-unmerged PR does not hide it.
 
-"The branch has a merged PR" is deliberately not the signal — a repo may reuse one branch across
-successive PRs, and after merging the base branch back the merge commit *is* an ancestor, so that
-push is allowed. Only the missing merge marks a dead branch. Squash merges work the same way: the
-squash commit lands on the base branch, and `merge-base --is-ancestor` finds it once the base is
-merged back. No fetch is needed: a merge commit the local repo has never seen cannot be an
-ancestor of anything local, and `is-ancestor` on an unknown object already says no.
+Reused branches are allowed once the base's merge or squash commit is merged back. No fetch is needed: an unknown merge commit cannot be a local ancestor.
 
-Fails open, printing one stderr line, without `gh`, `jq` or `timeout`, or when `gh pr list`
-fails (network, or a second remote without `gh repo set-default`). Garbage from `gh` is treated
-as no PR. Tags and branch deletions are never checked. The deliberate bypass is
-`git push --no-verify`.
+Missing `gh`, `jq`, or `timeout`, or a failed `gh pr list`, fails open with one stderr line. Failures include network errors and a second remote without `gh repo set-default`. Invalid JSON means no PR. Tags and deletions are skipped. Deliberate bypass: `git push --no-verify`.
 
 ## Install
 
@@ -40,46 +29,23 @@ as no PR. Tags and branch deletions are never checked. The deliberate bypass is
 bash <skill-dir>/scripts/install.sh [repo-dir]
 ```
 
-Copies `pre-push` into `<repo>/.githooks/`, pins LF for that directory in `.gitattributes`, and
-sets `core.hooksPath` to the **absolute** path of that directory. Commit `.githooks/` and
-`.gitattributes`. Git never enables hooks on clone, so every other clone runs this once, from its
-main checkout:
+Installs `pre-push` in `.githooks/`, pins LF in `.gitattributes`, and sets an **absolute** `core.hooksPath`. Commit both files. Every other clone must enable hooks from its main checkout:
 
 ```bash
 git config core.hooksPath "$(git rev-parse --show-toplevel)/.githooks"
 ```
 
-Trap: a *relative* `core.hooksPath` resolves against each worktree's own top level, so a worktree
-branched before `.githooks/` existed silently runs no hook — git prints nothing. The absolute
-form makes every worktree of the clone run the main checkout's copy. Put the line in the repo's
-contributor or agent docs.
+Add this command to contributor or agent docs. A relative path silently misses hooks in worktrees branched before `.githooks/` existed; the absolute path shares the main checkout's copy.
 
-## Why a git hook, not an agent-side command filter
+Keep enforcement in the git hook: command-text filters miss shell variants and can mistake prose for pushes. Before editing a PR, separately check `gh pr view --json state`; never edit a non-OPEN PR.
 
-The first version of this guard was a Claude Code `PreToolUse` hook that regex-matched `git push`
-in the agent's command text. An adversarial review found it missed `git push;`, any indented push
-inside a `foreach {}` / `try {}` / `if … then` block, `git.exe push`, `git -c … push`, and denied
-a commit message containing `(git push …)`. Every bypass was the same defect: guessing intent from
-raw text. A pre-push hook sees the push itself, however it was spelled and whoever typed it — it
-covers the human's terminal too. Put a guard where the action happens, not where the command is
-typed.
+## Recovery and tests
 
-Editing a merged PR's description is annoying but not lossy, so that half is prose, not a hook:
-check `gh pr view --json state` before `gh pr edit`, and never edit a PR that is not OPEN.
-
-## When it fires
-
-Follow the message. Either continue the branch — `git fetch origin && git merge origin/<base>`,
-push, `gh pr create` for the new commits — or rehome them:
-`git checkout -b <new-branch> origin/<base> && git cherry-pick <first-new-sha>^..HEAD`.
-
-## Tests
+Follow the hook's remedy: continue with `git fetch origin && git merge origin/<base>`, push, then `gh pr create`; or rehome:
 
 ```bash
+git checkout -b <new-branch> origin/<base> && git cherry-pick <first-new-sha>^..HEAD
 bash <skill-dir>/scripts/pre-push.test.sh
 ```
 
-Sixteen cases against a stubbed `gh` on PATH that answers per `--head` branch, with real git
-ancestry from whatever repo the test runs in: the incident shape, `HEAD:x` and `tmp:x` pushes, the
-rehome recipe, the merge taken back, no PR, a newest open PR, a newest closed PR over a merged
-one, tags, deletions, a multi-ref push, `gh` failing, and garbage JSON.
+The 16-case test uses stubbed `gh` and real git ancestry. It covers alternate refspecs, rehoming, merged-back bases, PR states, ignored refs, multi-ref pushes, and failed/invalid responses.

@@ -1,0 +1,1358 @@
+[
+  {
+    "id": "auto-mode-setup-rule",
+    "kind": "behavior",
+    "skill": "auto-mode-setup",
+    "prompt": "A user-scope deny blocks all git pushes. A project allow permits one docs branch. Which rule wins?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "The user deny still blocks the docs push."
+      },
+      {
+        "id": "B",
+        "text": "The more specific project allow wins."
+      },
+      {
+        "id": "C",
+        "text": "The most recently edited file wins."
+      },
+      {
+        "id": "D",
+        "text": "Workspace trust makes the project allow override the deny."
+      }
+    ],
+    "expected": "A",
+    "assertion": "Baseline: deny beats ask beats allow across scopes; specificity gives no exception."
+  },
+  {
+    "id": "clean-room-rule",
+    "kind": "behavior",
+    "skill": "clean-room",
+    "prompt": "The build pass finds its screened brief insufficient. What is permitted?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Read the original source just for that gap."
+      },
+      {
+        "id": "B",
+        "text": "Record the gap; derive independently or request screened study."
+      },
+      {
+        "id": "C",
+        "text": "Read the study transcript instead of source."
+      },
+      {
+        "id": "D",
+        "text": "Copy pseudocode into a clean file and rename it."
+      }
+    ],
+    "expected": "B",
+    "assertion": "Baseline build pass must never peek; only a screened brief crosses."
+  },
+  {
+    "id": "code-review-grill-rule",
+    "kind": "behavior",
+    "skill": "code-review-grill",
+    "prompt": "A PR was previously grilled and has a recorded reviewed head. How should the next review be scoped?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Ask again whether to use single or quorum before proceeding."
+      },
+      {
+        "id": "B",
+        "text": "Have the author self-review the entire branch."
+      },
+      {
+        "id": "C",
+        "text": "Fresh single reviewer: review delta and rescore prior fixes."
+      },
+      {
+        "id": "D",
+        "text": "Treat previous findings as settled and inspect only formatting."
+      }
+    ],
+    "expected": "C",
+    "assertion": "Baseline re-review skips the mode question and uses a fresh single reviewer with delta and surviving findings."
+  },
+  {
+    "id": "context-reduction-rule",
+    "kind": "behavior",
+    "skill": "context-reduction",
+    "prompt": "A context-reduction campaign proposes a knowledge graph summarizing existing docs. What should it do?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Generate the graph and keep all source prose."
+      },
+      {
+        "id": "B",
+        "text": "Replace tests with shorter prose summaries."
+      },
+      {
+        "id": "C",
+        "text": "Delete all docs immediately because reduction was requested."
+      },
+      {
+        "id": "D",
+        "text": "Reject the graph; delete only after safety work and human approval."
+      }
+    ],
+    "expected": "D",
+    "assertion": "Baseline explicitly rejects derived layers and human-gates Stage 4 deletion."
+  },
+  {
+    "id": "dead-branch-guard-rule",
+    "kind": "behavior",
+    "skill": "dead-branch-guard",
+    "prompt": "A feature branch has a merged PR, but its local history now contains that merge commit as an ancestor. Should the guard reject its push solely for that PR?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "No; the merge is already in its history, so that dead-branch condition does not hold."
+      },
+      {
+        "id": "B",
+        "text": "Yes; any historical merged PR permanently blocks the branch."
+      },
+      {
+        "id": "C",
+        "text": "Yes; only a new branch name restores eligibility."
+      },
+      {
+        "id": "D",
+        "text": "No; merged PRs are never checked."
+      }
+    ],
+    "expected": "A",
+    "assertion": "Baseline only a missing merge ancestor marks a dead branch."
+  },
+  {
+    "id": "desloppify-rule",
+    "kind": "behavior",
+    "skill": "desloppify",
+    "prompt": "An audit is authorized. A document is judged redundant. Is that enough permission to delete it?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Yes; authorizing the audit approves every deletion."
+      },
+      {
+        "id": "B",
+        "text": "No; deletion needs approval."
+      },
+      {
+        "id": "C",
+        "text": "Yes; move its contents into a generated summary first."
+      },
+      {
+        "id": "D",
+        "text": "No; redundant documents can never be deleted."
+      }
+    ],
+    "expected": "B",
+    "assertion": "Baseline: authorizing the audit is not approving its deletions."
+  },
+  {
+    "id": "dump-sessions-rule",
+    "kind": "behavior",
+    "skill": "dump-sessions",
+    "prompt": "After a reboot there are no live agent processes. How does session dumping identify recently active sessions?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Require a live process and return no sessions."
+      },
+      {
+        "id": "B",
+        "text": "Enumerate all nested subagents as independent user sessions."
+      },
+      {
+        "id": "C",
+        "text": "Transcript mtime; newest cwd+branch; exclude subagents."
+      },
+      {
+        "id": "D",
+        "text": "Use git commit timestamps instead of transcript times."
+      }
+    ],
+    "expected": "C",
+    "assertion": "Baseline uses transcript mtime deliberately to survive reboot, one-level enumeration, newest cwd+branch."
+  },
+  {
+    "id": "evolve-skill-rule",
+    "kind": "behavior",
+    "skill": "evolve-skill",
+    "prompt": "A correction concerns a project-specific confidential convention rather than a reusable process rule. Where should it go?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "The public skill with the confidential example preserved."
+      },
+      {
+        "id": "B",
+        "text": "Every installed skill copy independently."
+      },
+      {
+        "id": "C",
+        "text": "The public README as a permanent incident transcript."
+      },
+      {
+        "id": "D",
+        "text": "Project memory or local skills."
+      }
+    ],
+    "expected": "D",
+    "assertion": "Baseline routes project-bound lessons to project memory/local skills and excludes private specifics."
+  },
+  {
+    "id": "fact-check-rule",
+    "kind": "behavior",
+    "skill": "fact-check",
+    "prompt": "A reviewer says a parser throws on empty input. Source reading suggests this, but the required runtime is unavailable and no run was made. What is the verdict treatment?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Withhold; list Not run, reason, and resolving command."
+      },
+      {
+        "id": "B",
+        "text": "Confirm it with a source-line citation."
+      },
+      {
+        "id": "C",
+        "text": "Report it as a likely runtime bug based on reading."
+      },
+      {
+        "id": "D",
+        "text": "Refute it because it could not be reproduced here."
+      }
+    ],
+    "expected": "A",
+    "assertion": "Baseline executable branch wins; no run means Not run, not a grounded runtime finding."
+  },
+  {
+    "id": "fix-pr-rule",
+    "kind": "behavior",
+    "skill": "fix-pr",
+    "prompt": "A headless fix-pr caller provides no reply, resolve, or tickets policy. Tested fixes are ready and the PR is still open. What happens?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Push fixes and post all replies automatically."
+      },
+      {
+        "id": "B",
+        "text": "Push fixes; draft replies/tickets; resolve nothing."
+      },
+      {
+        "id": "C",
+        "text": "Wait indefinitely for interactive consent before pushing."
+      },
+      {
+        "id": "D",
+        "text": "Resolve fixed threads without posting replies."
+      }
+    ],
+    "expected": "B",
+    "assertion": "Baseline headless defaults to draft, post nothing, file nothing; fix push remains automatic subject to open check."
+  },
+  {
+    "id": "fix-windows-terminal-rendering-rule",
+    "kind": "behavior",
+    "skill": "fix-windows-terminal-rendering",
+    "prompt": "The symptom is mojibake: accented characters appear as question marks, with no overwritten rows. Which diagnosis follows this skill?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Rewrite both host CLSIDs to the same value."
+      },
+      {
+        "id": "B",
+        "text": "Force the legacy terminal host."
+      },
+      {
+        "id": "C",
+        "text": "Treat it as encoding, outside this host fix."
+      },
+      {
+        "id": "D",
+        "text": "Treat all mojibake as ConPTY incremental repaint corruption."
+      }
+    ],
+    "expected": "C",
+    "assertion": "Baseline explicitly excludes garbled glyphs as encoding rather than host problems."
+  },
+  {
+    "id": "go-go-go-rule",
+    "kind": "behavior",
+    "skill": "go-go-go",
+    "prompt": "Another agent invokes go-go-go rather than a human typing it. What additional first step is required?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Immediately push whatever branch is checked out."
+      },
+      {
+        "id": "B",
+        "text": "Skip assumptions because the caller is an agent."
+      },
+      {
+        "id": "C",
+        "text": "Merge before conducting review."
+      },
+      {
+        "id": "D",
+        "text": "Run reflect first."
+      }
+    ],
+    "expected": "D",
+    "assertion": "Baseline agent invocation explicitly runs reflect first."
+  },
+  {
+    "id": "handoff-rule",
+    "kind": "behavior",
+    "skill": "handoff",
+    "prompt": "The user invokes handoff lite with open work. Where should the handover go?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "One inline fenced block; no files or context clearing."
+      },
+      {
+        "id": "B",
+        "text": "Always write HANDOFF.md first."
+      },
+      {
+        "id": "C",
+        "text": "Clear the context and then reconstruct the note."
+      },
+      {
+        "id": "D",
+        "text": "Print a complete chronological transcript."
+      }
+    ],
+    "expected": "A",
+    "assertion": "Baseline lite forces inline route and prohibits file writing/clearing/compacting."
+  },
+  {
+    "id": "housekeeping-rule",
+    "kind": "behavior",
+    "skill": "housekeeping",
+    "prompt": "An auditor worker dies and reports uncovered paths alongside several clean findings. What should synthesis do first?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Ignore uncovered paths if other workers found no issues."
+      },
+      {
+        "id": "B",
+        "text": "Inspect uncovered paths first."
+      },
+      {
+        "id": "C",
+        "text": "Declare the entire repo clean based on surviving workers."
+      },
+      {
+        "id": "D",
+        "text": "Delete the uncovered docs because they could not be checked."
+      }
+    ],
+    "expected": "B",
+    "assertion": "Baseline says read uncovered first: a dead auditor means surface was never examined."
+  },
+  {
+    "id": "invert-rule",
+    "kind": "behavior",
+    "skill": "invert",
+    "prompt": "An inversion pass has listed failure modes and blocked every one it can name. What remains in its answer?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Refuse the task because failure is imaginable."
+      },
+      {
+        "id": "B",
+        "text": "Keep inventing failures indefinitely."
+      },
+      {
+        "id": "C",
+        "text": "Stop inversion and provide the forward path."
+      },
+      {
+        "id": "D",
+        "text": "Return only the list of dangers."
+      }
+    ],
+    "expected": "C",
+    "assertion": "Baseline stop rule and explicit obligation to provide a forward path."
+  },
+  {
+    "id": "less-is-more-rule",
+    "kind": "behavior",
+    "skill": "less-is-more",
+    "prompt": "Two correct implementations fit the architecture: one dense expression or several clearly named steps. Which size criterion matters?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Always choose fewer lines."
+      },
+      {
+        "id": "B",
+        "text": "Remove validation until the diff is smaller."
+      },
+      {
+        "id": "C",
+        "text": "Combine unrelated concerns to minimize function count."
+      },
+      {
+        "id": "D",
+        "text": "Choose what a stranger understands faster."
+      }
+    ],
+    "expected": "D",
+    "assertion": "Baseline measures cognitive load rather than textual line count."
+  },
+  {
+    "id": "manager-rule",
+    "kind": "behavior",
+    "skill": "manager",
+    "prompt": "A manager mandate says merge=allow, but the execution harness denies the merge command. Which interpretation is valid?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Treat the denied action as ask; report the limitation."
+      },
+      {
+        "id": "B",
+        "text": "The mandate overrides the execution deny."
+      },
+      {
+        "id": "C",
+        "text": "Run the merge through another shell to evade the deny."
+      },
+      {
+        "id": "D",
+        "text": "Claim the merge succeeded based on the mandate."
+      }
+    ],
+    "expected": "A",
+    "assertion": "Baseline higher permission tighter fence: denied commands drop mandate key to ask."
+  },
+  {
+    "id": "merge-stack-rule",
+    "kind": "behavior",
+    "skill": "merge-stack",
+    "prompt": "A parent PR is about to be squash-merged and its branch deleted. Its child PR still targets that branch. What prevents automatic child closure?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Delete the parent first and reopen the child later."
+      },
+      {
+        "id": "B",
+        "text": "Retarget the child before deleting the parent branch."
+      },
+      {
+        "id": "C",
+        "text": "Force-push the base branch."
+      },
+      {
+        "id": "D",
+        "text": "Merge the child before the parent."
+      }
+    ],
+    "expected": "B",
+    "assertion": "Baseline deleting parent base closes child; retarget before deletion."
+  },
+  {
+    "id": "nights-watch-rule",
+    "kind": "behavior",
+    "skill": "nights-watch",
+    "prompt": "A well-specified ticket is explicitly parked pending a design decision. May the watcher dispatch implementation?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Yes; complete acceptance criteria override parked status."
+      },
+      {
+        "id": "B",
+        "text": "Yes; but let the main watcher implement it directly."
+      },
+      {
+        "id": "C",
+        "text": "No; it must be ready and wanted now."
+      },
+      {
+        "id": "D",
+        "text": "Yes; a parked ticket is equivalent to pending work."
+      }
+    ],
+    "expected": "C",
+    "assertion": "Baseline only work ready AND intended; parked/deferred/decision-blocked work is not wanted now."
+  },
+  {
+    "id": "nightshift-rule",
+    "kind": "behavior",
+    "skill": "nightshift",
+    "prompt": "The backlog parses and criteria can drive failing tests; foreseeable questions and permissions are settled, but the user has not explicitly said go. Enter Phase 2?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Yes; a valid backlog implies go."
+      },
+      {
+        "id": "B",
+        "text": "Yes; start only the easy items."
+      },
+      {
+        "id": "C",
+        "text": "Yes; infer consent from inactivity."
+      },
+      {
+        "id": "D",
+        "text": "No; explicit go is still required."
+      }
+    ],
+    "expected": "D",
+    "assertion": "Baseline preflight success includes explicit user go."
+  },
+  {
+    "id": "no-comment-rule",
+    "kind": "behavior",
+    "skill": "no-comment",
+    "prompt": "A proposed comment explains an opaque expression. A better name can express the same intent. What is the first move?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Rename it."
+      },
+      {
+        "id": "B",
+        "text": "Keep the name and add a paragraph."
+      },
+      {
+        "id": "C",
+        "text": "Extract a function before considering a name."
+      },
+      {
+        "id": "D",
+        "text": "Encode a new type before considering a name."
+      }
+    ],
+    "expected": "A",
+    "assertion": "Baseline ordered checks: name, extracted function, type before a comment."
+  },
+  {
+    "id": "omv-dev-server-rule",
+    "kind": "behavior",
+    "skill": "omv-dev-server",
+    "prompt": "A container edits configuration by writing a temp file and renaming it. How should its writable host configuration be mounted?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Bind-mount the single file read-write."
+      },
+      {
+        "id": "B",
+        "text": "Mount the directory."
+      },
+      {
+        "id": "C",
+        "text": "Mount the single file twice."
+      },
+      {
+        "id": "D",
+        "text": "Change the persistent container path on each restart."
+      }
+    ],
+    "expected": "B",
+    "assertion": "Baseline single-file inode bind fails or leaves host stale on temp-and-rename writes."
+  },
+  {
+    "id": "postmortem-rule",
+    "kind": "behavior",
+    "skill": "postmortem",
+    "prompt": "An incident is the third instance of an already-recorded failure class. How should the durable log avoid repetition?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Copy the entire previous analysis into the new entry."
+      },
+      {
+        "id": "B",
+        "text": "Replace the index with all incident narratives."
+      },
+      {
+        "id": "C",
+        "text": "One invariant, plus dated distinguishing instance lines."
+      },
+      {
+        "id": "D",
+        "text": "Write every incident into persistent memory regardless of assumptions."
+      }
+    ],
+    "expected": "C",
+    "assertion": "Baseline deduplicates class invariant and retains distinguishing dated instances."
+  },
+  {
+    "id": "prompt-backlog-rule",
+    "kind": "behavior",
+    "skill": "prompt-backlog",
+    "prompt": "Pending prompts have priorities P0, P1, P1; two P1 items differ only in file order. What determines execution order?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Newest item first regardless of priority."
+      },
+      {
+        "id": "B",
+        "text": "Shortest prompt first."
+      },
+      {
+        "id": "C",
+        "text": "Alphabetical title order."
+      },
+      {
+        "id": "D",
+        "text": "Priority first, file order for ties."
+      }
+    ],
+    "expected": "D",
+    "assertion": "Baseline pending selection uses priority then file order."
+  },
+  {
+    "id": "recurring-improvement-rule",
+    "kind": "behavior",
+    "skill": "recurring-improvement",
+    "prompt": "A repository already has a process folder with RUNBOOK and INDEX for an audit. How should recurring scheduling integrate it?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Adopt the existing folder and files."
+      },
+      {
+        "id": "B",
+        "text": "Overwrite it with the template every run."
+      },
+      {
+        "id": "C",
+        "text": "Create a duplicate folder to avoid reading existing contracts."
+      },
+      {
+        "id": "D",
+        "text": "Keep the schedule only in transient chat."
+      }
+    ],
+    "expected": "A",
+    "assertion": "Baseline adopt, do not recreate existing process folders."
+  },
+  {
+    "id": "reflect-rule",
+    "kind": "behavior",
+    "skill": "reflect",
+    "prompt": "A high-load assumption can be settled by reading the repository manifest. Which route should be used?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Ask the user before reading."
+      },
+      {
+        "id": "B",
+        "text": "Inspect the manifest."
+      },
+      {
+        "id": "C",
+        "text": "Pick a low-stakes default despite high load."
+      },
+      {
+        "id": "D",
+        "text": "Treat it as confirmed from model memory."
+      }
+    ],
+    "expected": "B",
+    "assertion": "Baseline discoverable facts go to look; never ask what repo can answer."
+  },
+  {
+    "id": "refresh-nuget-repo-rule",
+    "kind": "behavior",
+    "skill": "refresh-nuget-repo",
+    "prompt": "A publishing action exposes NUGET_API_KEY using setOutput/setSecret but not GITHUB_ENV. What should the publish command consume?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "env.NUGET_API_KEY without mapping it."
+      },
+      {
+        "id": "B",
+        "text": "A committed long-lived registry key."
+      },
+      {
+        "id": "C",
+        "text": "Use steps.<id>.outputs.NUGET_API_KEY."
+      },
+      {
+        "id": "D",
+        "text": "No key because id-token permission alone supplies the CLI key."
+      }
+    ],
+    "expected": "C",
+    "assertion": "Baseline explicitly requires step output and warns environment reference is not populated."
+  },
+  {
+    "id": "runbook-rule",
+    "kind": "behavior",
+    "skill": "runbook",
+    "prompt": "A walkthrough needs a new script flag that does not exist yet. When should the walkthrough begin?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Before coding, describing the flag as if available."
+      },
+      {
+        "id": "B",
+        "text": "After writing a chat-only procedure."
+      },
+      {
+        "id": "C",
+        "text": "After recording only the intended commit message."
+      },
+      {
+        "id": "D",
+        "text": "After testing/committing the flag and committing the runbook."
+      }
+    ],
+    "expected": "D",
+    "assertion": "Baseline enabling changes first and runbook committed before first walkthrough word."
+  },
+  {
+    "id": "save-tokens-rule",
+    "kind": "behavior",
+    "skill": "save-tokens",
+    "prompt": "A personally used plugin is useful in only one project but enabled at user scope. Which scope change reduces unrelated-session preload?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Move plugin@marketplace to project settings.local.json."
+      },
+      {
+        "id": "B",
+        "text": "Enable it in every shared project settings.json."
+      },
+      {
+        "id": "C",
+        "text": "Leave it global and shorten only final answers."
+      },
+      {
+        "id": "D",
+        "text": "Use a bare plugin name and assume it resolves."
+      }
+    ],
+    "expected": "A",
+    "assertion": "Baseline recommends local project scope for personal plugin choice and full plugin key.",
+    "references": {
+      "baseline": [],
+      "candidate": [
+        "save-tokens/MACHINE-SETTINGS.md"
+      ]
+    }
+  },
+  {
+    "id": "sdlc-old-fashioned-rule",
+    "kind": "behavior",
+    "skill": "sdlc-old-fashioned",
+    "prompt": "The proposed work is a single typo correction with no behavioral effect. How should this lifecycle handle it?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Run every lifecycle phase regardless of scope."
+      },
+      {
+        "id": "B",
+        "text": "Exit; route to go-go-go."
+      },
+      {
+        "id": "C",
+        "text": "Start schema migration analysis."
+      },
+      {
+        "id": "D",
+        "text": "Require a fresh process for every character changed."
+      }
+    ],
+    "expected": "B",
+    "assertion": "Baseline Step 0 right-sizing explicitly exits for typos and one-liners."
+  },
+  {
+    "id": "signal-verdict-rule",
+    "kind": "behavior",
+    "skill": "signal-verdict",
+    "prompt": "A signal experiment needs an optimization objective. Which separation is required?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Optimize raw PnL directly."
+      },
+      {
+        "id": "B",
+        "text": "Optimize AUC directly."
+      },
+      {
+        "id": "C",
+        "text": "Probability loss; keep label and verdict separate."
+      },
+      {
+        "id": "D",
+        "text": "Use the holdout repeatedly to choose the best threshold."
+      }
+    ],
+    "expected": "C",
+    "assertion": "Baseline separates label, objective, verdict and says objective never PnL or AUC."
+  },
+  {
+    "id": "snapshot-terminal-sessions-rule",
+    "kind": "behavior",
+    "skill": "snapshot-terminal-sessions",
+    "prompt": "Two live sessions share a directory. Start-time matching and elimination still cannot identify which transcript belongs to one process. What should its launch command use?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Guess the newest transcript and hard-code its ID."
+      },
+      {
+        "id": "B",
+        "text": "Use claude --continue and claim the exact original session was recovered."
+      },
+      {
+        "id": "C",
+        "text": "Discard the tab silently because the match is ambiguous."
+      },
+      {
+        "id": "D",
+        "text": "Use bare claude --resume for interactive selection."
+      }
+    ],
+    "expected": "D",
+    "assertion": "Baseline falls back to bare claude --resume instead of guessing when time proximity and elimination remain ambiguous."
+  },
+  {
+    "id": "statusline-rule",
+    "kind": "behavior",
+    "skill": "statusline",
+    "prompt": "Installation updated settings.json, but an already-open session shows no status line. What should happen first?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Restart; settings load at startup."
+      },
+      {
+        "id": "B",
+        "text": "Reinstall Node dependencies."
+      },
+      {
+        "id": "C",
+        "text": "Rewrite the script on each render."
+      },
+      {
+        "id": "D",
+        "text": "Wait for a git commit to enable the status line."
+      }
+    ],
+    "expected": "A",
+    "assertion": "Baseline startup settings versus live script rerender distinction."
+  },
+  {
+    "id": "triage-rule",
+    "kind": "behavior",
+    "skill": "triage",
+    "prompt": "During broad board grooming, an agent judges a feature unwanted. No person asked about that specific ticket. May it close or label the ticket into a refusal state?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Yes; apply wontfix and close every unwanted ticket."
+      },
+      {
+        "id": "B",
+        "text": "No; record reasons without enacting refusal."
+      },
+      {
+        "id": "C",
+        "text": "Yes; a board-wide triage request is specific-ticket consent."
+      },
+      {
+        "id": "D",
+        "text": "Yes; add a refusal comment while avoiding labels."
+      }
+    ],
+    "expected": "B",
+    "assertion": "Baseline Never enact a refusal applies unless person asked about that specific ticket and awaits answer."
+  },
+  {
+    "id": "walk-the-dog-rule",
+    "kind": "behavior",
+    "skill": "walk-the-dog",
+    "prompt": "A worker has read-only access and proposes a network write. Who decides before execution?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "The worker executes first and reports after."
+      },
+      {
+        "id": "B",
+        "text": "Every write must automatically go to the human."
+      },
+      {
+        "id": "C",
+        "text": "The walker vets it before execution."
+      },
+      {
+        "id": "D",
+        "text": "The proposal itself grants execution permission."
+      }
+    ],
+    "expected": "C",
+    "assertion": "Baseline leash requires walker judgment of every gated side effect."
+  },
+  {
+    "id": "whatever-rule",
+    "kind": "behavior",
+    "skill": "whatever",
+    "prompt": "A branch name is reversible and the repository has a clear naming convention. Should the agent pause for a choice?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Yes; every branch name requires approval."
+      },
+      {
+        "id": "B",
+        "text": "Yes; ask separately about name and commit wording."
+      },
+      {
+        "id": "C",
+        "text": "No; silently force-push the shared branch instead."
+      },
+      {
+        "id": "D",
+        "text": "Choose the conventional name, state it, continue."
+      }
+    ],
+    "expected": "D",
+    "assertion": "Baseline any false prong of consequential/hard-to-reverse/underdetermined means proceed."
+  },
+  {
+    "id": "whats-next-rule",
+    "kind": "behavior",
+    "skill": "whats-next",
+    "prompt": "A browser report includes a button to resume a local session. What enables launching the local process?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Register the local protocol handler."
+      },
+      {
+        "id": "B",
+        "text": "A plain HTML button can launch PowerShell without a handler."
+      },
+      {
+        "id": "C",
+        "text": "A JavaScript tooltip grants local process access."
+      },
+      {
+        "id": "D",
+        "text": "The report must run as administrator on every refresh."
+      }
+    ],
+    "expected": "A",
+    "assertion": "Baseline web page cannot start local process; user-scope wip protocol handler is bridge.",
+    "references": {
+      "baseline": [],
+      "candidate": [
+        "whats-next/SETUP.md"
+      ]
+    }
+  },
+  {
+    "id": "wrap-up-rule",
+    "kind": "behavior",
+    "skill": "wrap-up",
+    "prompt": "A session-created worktree looks clean, but contains the only ignored run logs used as evidence. Can it be swept now?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Yes; clean git status proves nothing useful remains."
+      },
+      {
+        "id": "B",
+        "text": "Preserve and verify the ignored evidence before approved removal."
+      },
+      {
+        "id": "C",
+        "text": "Yes; use force removal to include ignored files."
+      },
+      {
+        "id": "D",
+        "text": "No; clean worktrees can never be removed."
+      }
+    ],
+    "expected": "B",
+    "assertion": "Baseline clean is not empty; preserve unique ignored evidence before removal."
+  },
+  {
+    "id": "nightshift-authorized",
+    "kind": "behavior",
+    "skill": "nightshift",
+    "prompt": "Preflight parses the backlog, every pending item has testable criteria, all foreseeable questions are answered in Notes, permissions and delivery policy are settled, and the user explicitly said go. Next?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Ask for another go for each item."
+      },
+      {
+        "id": "B",
+        "text": "Wait for a second identical preflight session."
+      },
+      {
+        "id": "C",
+        "text": "Enter Phase 2 without repeating preflight."
+      },
+      {
+        "id": "D",
+        "text": "Skip the Red test phase because go authorizes shortcuts."
+      }
+    ],
+    "expected": "C",
+    "assertion": "Baseline successful preflight enables Phase 2; spawned workers never re-enter preflight."
+  },
+  {
+    "id": "fact-check-tested",
+    "kind": "behavior",
+    "skill": "fact-check",
+    "prompt": "A minimal parser experiment was actually executed and its captured output reproduces the claimed exception. How can that atom be reported?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Not run even though the experiment executed."
+      },
+      {
+        "id": "B",
+        "text": "Confirmed (sources) without any sources."
+      },
+      {
+        "id": "C",
+        "text": "Withhold all tested atoms because another unrelated atom is untested."
+      },
+      {
+        "id": "D",
+        "text": "Confirmed (tested), with snippet and actual output."
+      }
+    ],
+    "expected": "D",
+    "assertion": "Baseline tested runtime atoms may be reported with snippet and actual output; split compound findings."
+  },
+  {
+    "id": "fix-pr-authorized",
+    "kind": "behavior",
+    "skill": "fix-pr",
+    "prompt": "A headless caller explicitly sets reply=post, resolve=fixed, tickets=draft. A fixed thread has verified evidence and a drafted reply citing the pushed fix. What is allowed?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Post/verify reply, resolve fixed thread; keep tickets drafted."
+      },
+      {
+        "id": "B",
+        "text": "Resolve it before posting the reply."
+      },
+      {
+        "id": "C",
+        "text": "File carried tickets despite tickets=draft."
+      },
+      {
+        "id": "D",
+        "text": "Ignore the explicit policy and wait for interactive permission."
+      }
+    ],
+    "expected": "A",
+    "assertion": "Baseline explicit headless policy authorizes posting; resolution cannot exceed posting and fixed does not include carried."
+  },
+  {
+    "id": "triage-specific-ticket",
+    "kind": "behavior",
+    "skill": "triage",
+    "prompt": "A person asks specifically whether one feature ticket should be declined and is waiting. The supported verdict is wontfix. Which special refusal restriction applies?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Refusal is prohibited under every circumstance."
+      },
+      {
+        "id": "B",
+        "text": "The specific-ticket exception permits enacting the verdict; for a feature record out-of-scope reasoning and link it before closing."
+      },
+      {
+        "id": "C",
+        "text": "Close every related feature ticket too."
+      },
+      {
+        "id": "D",
+        "text": "Close without preserving the required feature refusal record."
+      }
+    ],
+    "expected": "B",
+    "assertion": "Baseline specific-ticket awaited answer is exception; feature wontfix records out-of-scope before closure."
+  },
+  {
+    "id": "whatever-consequential",
+    "kind": "behavior",
+    "skill": "whatever",
+    "prompt": "A decision has significant cost, is hard to reverse, and has no defensible default or prior authorization. What should the agent do?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Proceed because whatever forbids all questions."
+      },
+      {
+        "id": "B",
+        "text": "Infer authorization from user silence."
+      },
+      {
+        "id": "C",
+        "text": "Ask with a recommendation."
+      },
+      {
+        "id": "D",
+        "text": "Pick the cheapest irreversible action without discussing requirements."
+      }
+    ],
+    "expected": "C",
+    "assertion": "Baseline all three prongs true warrants asking."
+  },
+  {
+    "id": "wrap-up-authorized",
+    "kind": "behavior",
+    "skill": "wrap-up",
+    "prompt": "In an attended wrap-up, the user individually approved deleting a session-created clean worktree. Its branch is merged, ignored evidence was copied and verified, and no open item refers to it. What is the supported sweep?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Use force removal and force branch deletion by default."
+      },
+      {
+        "id": "B",
+        "text": "Delete every older session worktree too."
+      },
+      {
+        "id": "C",
+        "text": "Never remove a worktree even after all gates are satisfied."
+      },
+      {
+        "id": "D",
+        "text": "Remove without force; prune; delete only merged branches."
+      }
+    ],
+    "expected": "D",
+    "assertion": "Baseline allows scoped approved clean sweep with evidence preserved; no force and merged-only branch deletion."
+  },
+  {
+    "id": "routing-1",
+    "kind": "routing",
+    "prompt": "A review thread claims a null input breaks the changed function; address the PR comments.",
+    "choices": [
+      {
+        "id": "A",
+        "text": "fix-pr"
+      },
+      {
+        "id": "B",
+        "text": "code-review-grill"
+      },
+      {
+        "id": "C",
+        "text": "handoff"
+      },
+      {
+        "id": "D",
+        "text": "none"
+      }
+    ],
+    "expected": "A",
+    "assertion": "The request matches fix-pr description and scope."
+  },
+  {
+    "id": "routing-2",
+    "kind": "routing",
+    "prompt": "Please write a quick handover for another agent, printed here.",
+    "choices": [
+      {
+        "id": "A",
+        "text": "dump-sessions"
+      },
+      {
+        "id": "B",
+        "text": "handoff"
+      },
+      {
+        "id": "C",
+        "text": "snapshot-terminal-sessions"
+      },
+      {
+        "id": "D",
+        "text": "none"
+      }
+    ],
+    "expected": "B",
+    "assertion": "The request matches handoff description and scope."
+  },
+  {
+    "id": "routing-3",
+    "kind": "routing",
+    "prompt": "Find guaranteed failure modes for this plan and block them.",
+    "choices": [
+      {
+        "id": "A",
+        "text": "postmortem"
+      },
+      {
+        "id": "B",
+        "text": "statusline"
+      },
+      {
+        "id": "C",
+        "text": "invert"
+      },
+      {
+        "id": "D",
+        "text": "none"
+      }
+    ],
+    "expected": "C",
+    "assertion": "The request matches invert description and scope."
+  },
+  {
+    "id": "routing-4",
+    "kind": "routing",
+    "prompt": "Investigate an incident and preserve its causal chain and prevention lesson.",
+    "choices": [
+      {
+        "id": "A",
+        "text": "invert"
+      },
+      {
+        "id": "B",
+        "text": "merge-stack"
+      },
+      {
+        "id": "C",
+        "text": "none"
+      },
+      {
+        "id": "D",
+        "text": "postmortem"
+      }
+    ],
+    "expected": "D",
+    "assertion": "The request matches postmortem description and scope."
+  },
+  {
+    "id": "routing-5",
+    "kind": "routing",
+    "prompt": "Land this chain of dependent PRs bottom-up.",
+    "choices": [
+      {
+        "id": "A",
+        "text": "merge-stack"
+      },
+      {
+        "id": "B",
+        "text": "dead-branch-guard"
+      },
+      {
+        "id": "C",
+        "text": "fix-pr"
+      },
+      {
+        "id": "D",
+        "text": "none"
+      }
+    ],
+    "expected": "A",
+    "assertion": "The request matches merge-stack description and scope."
+  },
+  {
+    "id": "routing-6",
+    "kind": "routing",
+    "prompt": "Queue this deferred task as a standalone prompt for a fresh agent.",
+    "choices": [
+      {
+        "id": "A",
+        "text": "handoff"
+      },
+      {
+        "id": "B",
+        "text": "prompt-backlog"
+      },
+      {
+        "id": "C",
+        "text": "recurring-improvement"
+      },
+      {
+        "id": "D",
+        "text": "none"
+      }
+    ],
+    "expected": "B",
+    "assertion": "The request matches prompt-backlog description and scope."
+  },
+  {
+    "id": "routing-7",
+    "kind": "routing",
+    "prompt": "Review comments should become expressive code where names can carry the meaning.",
+    "choices": [
+      {
+        "id": "A",
+        "text": "context-reduction"
+      },
+      {
+        "id": "B",
+        "text": "housekeeping"
+      },
+      {
+        "id": "C",
+        "text": "no-comment"
+      },
+      {
+        "id": "D",
+        "text": "none"
+      }
+    ],
+    "expected": "C",
+    "assertion": "The request matches no-comment description and scope."
+  },
+  {
+    "id": "routing-8",
+    "kind": "routing",
+    "prompt": "Translate this short restaurant menu from French to English.",
+    "choices": [
+      {
+        "id": "A",
+        "text": "triage"
+      },
+      {
+        "id": "B",
+        "text": "fact-check"
+      },
+      {
+        "id": "C",
+        "text": "runbook"
+      },
+      {
+        "id": "D",
+        "text": "none"
+      }
+    ],
+    "expected": "D",
+    "assertion": "No supplied skill specializes in routine translation."
+  }
+]
