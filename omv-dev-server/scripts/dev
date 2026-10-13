@@ -193,6 +193,9 @@ if [ -n "${GH_TOKEN:-}" ]; then args+=( -e "GH_TOKEN=${GH_TOKEN}" ); fi
 if [ "$MOUNT_DOCKER_SOCK" = 1 ]; then
   echo "⚠️  mounting docker.sock — anything in this container has root on the host."
   args+=( -v /var/run/docker.sock:/var/run/docker.sock )
+  # The container runs as the host uid, which is not in the socket's group; without this the
+  # mount is there but every docker command says "permission denied".
+  args+=( --group-add "$(stat -c %g /var/run/docker.sock)" )
 fi
 
 echo "🚀 launching '${NAME}' at ${WORKDIR}"

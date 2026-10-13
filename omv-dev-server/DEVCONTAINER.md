@@ -246,6 +246,14 @@ verified**, and the agent CLI — then wires the non-interactive auth described 
 [AGENT-AUTH.md](AGENT-AUTH.md) and ends with a build-time smoke test so a future edit that
 drops one of them fails the build instead of someone's push.
 
+It also carries Google Chrome stable at `/opt/google/chrome/chrome` (so chrome-devtools MCP
+and Playwright work without configuration; the path is a wrapper that adds `--no-sandbox`,
+because the container is the sandbox) and the Docker CLI. The CLI is useless without a
+daemon: set `DEV_DOCKER_SOCK=1` and `dev` mounts the host socket and adds the container user
+to the socket's group. **That socket is root on the host** — anything in the container can
+start a privileged container that mounts `/`. Fine on a single-user box you own; do not turn
+it on where the container runs code you do not trust.
+
 Pin what you can. An unpinned CLI changing behaviour under an unchanged Dockerfile is the
 hardest kind of build regression to trace.
 

@@ -37,6 +37,33 @@ RUN set -eux; \
     install -m755 "gh_${GH_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh; \
     rm -rf "$pkg" gh_checksums.txt "gh_${GH_VERSION}_linux_amd64"
 
+# Headless browser, so an agent can look at a page instead of only reasoning about it. Chrome
+# stable at the path chrome-devtools MCP looks in by default; its apt dependencies also cover
+# Playwright's. Installing libraries later is impossible: the runtime user has no root and no
+# apt lists.
+# --no-sandbox is baked into a wrapper because Chrome's sandbox needs user namespaces, which
+# Docker's default seccomp profile blocks; the container is the isolation boundary. The wrapper
+# keeps the real binary in the same directory, since Chrome finds its resources next to itself.
+RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
+      | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg \
+ && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+      > /etc/apt/sources.list.d/google-chrome.list \
+ && apt-get update && apt-get install -y --no-install-recommends google-chrome-stable fonts-liberation \
+ && rm -rf /var/lib/apt/lists/* \
+ && mv /opt/google/chrome/chrome /opt/google/chrome/chrome.real \
+ && printf '#!/bin/sh\nexec /opt/google/chrome/chrome.real --no-sandbox "$@"\n' > /opt/google/chrome/chrome \
+ && chmod 755 /opt/google/chrome/chrome
+
+# Docker CLI only, no daemon: the launcher mounts the host socket when DEV_DOCKER_SOCK=1 (see
+# DEVCONTAINER.md for what that grants). Needed by Testcontainers-style integration tests.
+RUN . /etc/os-release \
+ && curl -fsSL https://download.docker.com/linux/debian/gpg \
+      | gpg --dearmor -o /usr/share/keyrings/docker.gpg \
+ && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/debian ${VERSION_CODENAME} stable" \
+      > /etc/apt/sources.list.d/docker.list \
+ && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli docker-compose-plugin \
+ && rm -rf /var/lib/apt/lists/*
+
 RUN npm install -g @anthropic-ai/claude-code
 
 # --- non-interactive auth: see AGENT-AUTH.md -------------------------------------------
@@ -63,7 +90,9 @@ ENV PATH=/dev-home/.npm-global/bin:$PATH
 # Fail the build rather than someone's push, months later.
 RUN gh --version \
  && git config --system --get credential.helper \
- && command -v ssh && command -v jq && command -v tmux
+ && command -v ssh && command -v jq && command -v tmux \
+ && docker --version \
+ && /opt/google/chrome/chrome --headless=new --dump-dom about:blank >/dev/null
 
 WORKDIR /workspace
 CMD ["bash"]
