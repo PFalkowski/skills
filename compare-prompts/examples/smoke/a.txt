@@ -1,0 +1,1 @@
+Extract the entire value after the first "value=" marker. Return only a JSON object with one string field named "value". Convert the extracted value to uppercase.

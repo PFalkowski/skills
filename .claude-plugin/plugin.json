@@ -8,6 +8,7 @@
     "./auto-mode-setup",
     "./clean-room",
     "./code-review-grill",
+    "./compare-prompts",
     "./context-reduction",
     "./dead-branch-guard",
     "./desloppify",

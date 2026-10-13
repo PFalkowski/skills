@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "arms": {
+    "a": {"files": ["a.txt"]},
+    "b": {"files": ["b.txt"]}
+  },
+  "model": "qwen2.5-coder:7b",
+  "host": "http://127.0.0.1:11434",
+  "options": {"temperature": 0, "seed": 0, "num_ctx": 4096, "num_predict": 128, "top_k": 1, "top_p": 1, "repeat_penalty": 1},
+  "repeats": 2,
+  "order_seed": 123,
+  "decision": {
+    "margin": 0.05,
+    "alpha": 0.05,
+    "min_clusters": 30,
+    "quality_floor": 0.9,
+    "sampling": "curated",
+    "holdout_frozen": false,
+    "grader_validated": true
+  },
+  "cases": [
+    {"id": "lower", "cluster": "lower", "split": "test", "critical": false, "input": "value=alpha", "grader": {"type": "json_equal", "expected": {"value": "alpha"}}},
+    {"id": "title", "cluster": "title", "split": "gate", "critical": true, "input": "value=Beta", "grader": {"type": "json_equal", "expected": {"value": "Beta"}}},
+    {"id": "mixed", "cluster": "mixed", "split": "test", "critical": false, "input": "value=MiXeD", "grader": {"type": "json_equal", "expected": {"value": "MiXeD"}}},
+    {"id": "spaces", "cluster": "spaces", "split": "test", "critical": false, "input": "value=two words", "grader": {"type": "json_equal", "expected": {"value": "two words"}}},
+    {"id": "upper", "cluster": "upper", "split": "test", "critical": false, "input": "value=UPPER", "grader": {"type": "json_equal", "expected": {"value": "UPPER"}}},
+    {"id": "unicode", "cluster": "unicode", "split": "test", "critical": false, "input": "value=åland", "grader": {"type": "json_equal", "expected": {"value": "åland"}}}
+  ]
+}
