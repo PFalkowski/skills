@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // Claude Code status line:
-//   📁 worktree · 🌿 branch · 🧠💡🌟🌌 model (by tier) · effort · 🪟 tokens
+//   🐳/⚠ place · 📁 worktree · 🌿 branch · 🧠💡🌟🌌 model (by tier) · effort · 🪟 tokens
 //   · ⏳ limit · 📝 churn · 🕐 time · $ cost
 // Reads the status JSON payload on stdin, prints one line on stdout.
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const R = '\x1b[0m';
@@ -22,6 +23,8 @@ const SEP = `${DIM} · ${R}`;
 // Swap any glyph here to restyle the line; set CLAUDE_STATUSLINE_ICONS=0 to
 // drop them all (useful over ssh or in a font without emoji fallback).
 const ICONS = {
+  container: '🐳',
+  host: '⚠️',
   worktree: '📁',
   branch: '🌿',
   model: '🧠', // fallback only — see MODEL_ICONS
@@ -134,6 +137,19 @@ function paceFuel(pct, projected) {
   return GREEN;
 }
 
+// Where this session runs. Two Claude installs on one box (host and dev
+// container) keep separate session lists and look identical, so the place is
+// the first thing on the line. The host tag is opt-in: on a machine without
+// containers it would be noise.
+function place(env = process.env, dockerenv = '/.dockerenv') {
+  const container = env.DEV_CONTAINER || (fs.existsSync(dockerenv) ? os.hostname() : null);
+  if (container) return `${ico('container')}${BOLD}${CYAN}${container.replace(/^dev_/, '')}${R}`;
+  if (env.CLAUDE_STATUSLINE_HOST_WARNING === '1') {
+    return `${ico('host')}${BOLD}${RED}HOST ${os.hostname()}${R}`;
+  }
+  return null;
+}
+
 // Resolve worktree name + branch by reading .git directly — no subprocess.
 // Handles the main worktree, linked worktrees (.git is a file), detached HEAD,
 // and unborn branches (fresh repo with no commits).
@@ -194,6 +210,9 @@ function gitInfo(startDir) {
 
 function render(d) {
   const parts = [];
+
+  const where = place();
+  if (where) parts.push(where);
 
   // worktree + branch — prefer the payload (Claude-managed worktree), else read .git
   const wt = d?.worktree || d?.workspace?.git_worktree;
@@ -270,6 +289,11 @@ function render(d) {
   if (Number.isFinite(cost)) parts.push(`${ico('cost')}${GREEN}${money(cost)}${R}`);
 
   return parts.join(SEP);
+}
+
+if (require.main !== module) {
+  module.exports = { place, render };
+  return;
 }
 
 let raw = '';

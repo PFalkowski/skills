@@ -240,6 +240,31 @@ pastes output invites guessing. Run one on the host, from the same phone:
 - `claude rc` refuses `$HOME`. Give it a trusted directory on the OS disk — the data disk may
   be what failed — in its own tmux session, since the key's forced command lands you in `main`.
 
+## Telling host from container
+
+The host's Claude and the containers' Claude (`HOME=/dev-home`) are separate installs with
+separate session lists. `claude agents` on the wrong side shows none of your sessions, and
+nothing on a bare screen says which side you are on: a container's hostname is a hex id, and
+tmux's `#H` names the host even for a pane behind `docker exec`.
+
+`70-where-am-i.sh` makes each side announce itself:
+
+| Where | Host | Container |
+|---|---|---|
+| Prompt (`where.bash`, both `~/.bashrc`s) | yellow `HOST <name>` | cyan `🐳 <container>` |
+| tmux window name, set by `dev` | — | `🐳 <container>` |
+| tmux bar, from the prompt's terminal title | `HOST <name> · <dir>` | `🐳 <container> · <dir>` |
+| Claude status line (`statusline` skill) | red `⚠️ HOST <name>` | `🐳 <container>` |
+| `claude` typed at the prompt | warns, then runs | runs |
+
+The host warns rather than refuses: the host agent is the one you need when a container is
+what broke. `where` prints side, tmux session, directory and branch, and which Claude install
+answers. tmux runs with `detach-on-destroy off`, so ending one session moves you to another
+instead of dropping you out — which on a phone looks like every session vanished.
+
+The host status line needs `node`, which the native Claude binary does not bring:
+`sudo apt install nodejs`.
+
 ## Script
 
 ```bash
