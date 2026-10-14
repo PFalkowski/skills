@@ -19,7 +19,7 @@ Single-file Node status line for Claude Code: no dependencies/subprocesses; erro
 node <skill-dir>/scripts/install.mjs
 ```
 
-Copies `statusline.js` into `CLAUDE_CONFIG_DIR` or `~/.claude`, backs up `settings.json`, and adds `statusLine`. Use `--dry-run` to preview; `--force` to replace another status line.
+Copies `statusline.js` into `CLAUDE_CONFIG_DIR` or `~/.claude`, backs up `settings.json`, and adds `statusLine`. Use `--dry-run` to preview; `--force` to replace another status line; `--host-warning` on the host of a box whose agents belong in dev containers.
 
 **Restart Claude Code** to load settings. Subsequent `statusline.js` edits apply live on each render.
 
@@ -29,6 +29,7 @@ Absent data omits its segment; sparse payloads can show only the model.
 
 | Segment | Source | Behavior |
 |---|---|---|
+| Place | `DEV_CONTAINER`, else `/.dockerenv` + hostname | `🐳 <container>`; on the host `⚠️ HOST <hostname>` only with `--host-warning` — host and container installs keep separate session lists |
 | Worktree/branch | Walk upward from cwd to `.git` | Follow file-form `gitdir:` for linked worktrees |
 | Model | `model.id` + `model.display_name` | Tier icons: Haiku → Sonnet → Opus → Fable |
 | Effort/fast | `effort.level`, `fast_mode` | Effort only where supported |

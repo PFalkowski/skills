@@ -24,6 +24,14 @@ exit 0
 FAKE
 chmod +x "$SANDBOX/bin/docker"
 
+cat > "$SANDBOX/bin/tmux" <<'FAKE'
+#!/usr/bin/env bash
+echo "tmux $*" >> "$FAKE_STATE/log"
+[ "$1" = display-message ] && echo "work:3"
+exit 0
+FAKE
+chmod +x "$SANDBOX/bin/tmux"
+
 NAME=dev_owner_repo
 fail=0
 total=0
@@ -41,7 +49,7 @@ run_dev() {
   printf '%s'   "$container_image" > "$FAKE_STATE/container_image"
   : > "$FAKE_STATE/log"
   ( cd "$SANDBOX/repos/owner/repo" && \
-    PATH="$SANDBOX/bin:$PATH" DEV_REPO_ROOT="$SANDBOX/repos" DEV_HOME_DIR="$SANDBOX/home" \
+    TMUX="${FAKE_TMUX:-}" PATH="$SANDBOX/bin:$PATH" DEV_REPO_ROOT="$SANDBOX/repos" DEV_HOME_DIR="$SANDBOX/home" \
     bash "$DEV" > "$FAKE_STATE/out" 2>&1 )
   local status=$?
   cat "$FAKE_STATE/log" "$FAKE_STATE/out" > "$FAKE_STATE/all"
@@ -91,6 +99,22 @@ run_dev "" "" sha256:new "" "no container: created"
 expect absent  "^rm "
 expect absent  "older than"
 expect present "^run .*--name $NAME "
+
+run_dev "$NAME" "$NAME" sha256:new sha256:new "outside tmux: told its container, no window renamed"
+expect present "^exec -it .*-e DEV_CONTAINER=$NAME "
+expect absent  "^tmux "
+expect absent  "DEV_TMUX"
+
+FAKE_TMUX=/tmp/tmux-1/default,1,0
+run_dev "$NAME" "$NAME" sha256:new sha256:new "inside tmux: window named for the container, then handed back"
+expect present "^exec -it .*-e DEV_TMUX=work:3 "
+expect present "^tmux rename-window 🐳 owner_repo\$"
+expect present "^tmux set-window-option automatic-rename on\$"
+
+run_dev "" "" sha256:new "" "inside tmux, no container: created and told its container"
+expect present "^run .*-e DEV_CONTAINER=$NAME "
+expect present "^tmux set-window-option automatic-rename on\$"
+FAKE_TMUX=
 
 echo "$((total - fail))/$total passed"
 [ "$fail" -eq 0 ]

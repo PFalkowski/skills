@@ -111,6 +111,19 @@ if ! grep -qxF "$passwd_line" "$PASSWD_FILE" 2>/dev/null; then
     || rm -f "$PASSWD_FILE"
 fi
 
+# Tells the shell inside which container it is in (its hostname is a hex id) and which tmux
+# window holds it (tmux is not in the image), for the prompt from where.bash.
+where_env=( -e "DEV_CONTAINER=$NAME" )
+if [ -n "${TMUX:-}" ]; then
+  where_env+=( -e "DEV_TMUX=$(tmux display-message -p '#S:#I' 2>/dev/null)" )
+  # Not exec'd: the window name must be handed back to automatic-rename on the way out.
+  tmux rename-window "🐳 ${NAME#dev_}" 2>/dev/null || true
+  trap 'tmux set-window-option automatic-rename on >/dev/null 2>&1 || true' EXIT
+  run_() { "$@"; }
+else
+  run_() { exec "$@"; }
+fi
+
 exists()  { docker ps -a --format '{{.Names}}' | grep -qx "$NAME"; }
 running() { docker ps    --format '{{.Names}}' | grep -qx "$NAME"; }
 # A container keeps the image it was created from; a rebuild only moves the tag.
@@ -155,7 +168,8 @@ if running || { exists && [ "$RECREATE" = 0 ]; }; then
   echo "🔗 attaching to '${NAME}' at ${WORKDIR}"
   # --user on exec too: it defaults to the IMAGE's user, not the running container's, so
   # without this an exec into a --user container still lands as root and writes root files.
-  exec docker exec -it --user "$(id -u):$(id -g)" -w "$WORKDIR" "$NAME" bash
+  run_ docker exec -it --user "$(id -u):$(id -g)" "${where_env[@]}" -w "$WORKDIR" "$NAME" bash
+  exit
 fi
 
 # --- create ------------------------------------------------------------------------------
@@ -203,4 +217,4 @@ echo "🚀 launching '${NAME}' at ${WORKDIR}"
 echo "   host port: docker port ${NAME} 5000"
 # Deliberately NOT --rm: it looks tidy and sets a trap, because typing `exit` would delete
 # a container that may be hosting a live agent session, with no way to start it again.
-exec docker run -it "${args[@]}" "$IMAGE" bash
+run_ docker run -it "${args[@]}" "${where_env[@]}" "$IMAGE" bash
