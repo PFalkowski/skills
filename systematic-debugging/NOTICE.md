@@ -6,8 +6,14 @@ This skill is adapted from the `systematic-debugging` skill in
 
 ## What changed
 
-- `SKILL.md` is condensed to this repository's size rules. The method is unchanged: the same four
-  phases, the stop after three failed fixes, and the same warning signs.
+- `SKILL.md` is condensed to this repository's size rules. It keeps the four gated phases, the stop
+  after three failed fixes, and every red flag and user signal. Dropped as rationale or examples
+  that teach no extra rule: the "common rationalizations" table, the quick-reference table (its
+  phase-1 exit condition is stated inline) and the multi-layer signing example.
+- One addition: verification also checks that the original symptom is gone where it was reported,
+  not only in the new test.
+- The polluter-bisection passage refuses to start if the pollution already exists, as upstream's
+  script did, and reports when no test is the polluter.
 - Pointers to skills that exist only in superpowers are replaced. The failing test and the
   verification before claiming success are stated inline, and the evidence standard points to the
   sibling `fact-check` skill.

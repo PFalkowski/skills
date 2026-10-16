@@ -100,13 +100,16 @@ If something appears during tests but you don't know which test:
 
 Run the test files one at a time, in order, and check for the pollution (a stray file, directory or
 state) after each one. Stop at the first file after which it appears: that test is the polluter.
-Make sure the pollution is absent before you start, or every test will look guilty.
+Remove the pollution before you start; if it is already there, the first test would be blamed.
 
 ```bash
+P=./stray-output   # the pollution to look for
+[ -e "$P" ] && { echo "$P already exists; remove it first"; exit 1; }
 for t in $(find . -path './src/*' -name '*.test.ts' | sort); do
   npm test "$t" >/dev/null 2>&1
-  [ -e .git ] && { echo "polluter: $t"; break; }
+  [ -e "$P" ] && { echo "polluter: $t"; exit 0; }
 done
+echo "no polluter found"
 ```
 
 Swap in the project's own test runner, file pattern and pollution check.

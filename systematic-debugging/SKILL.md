@@ -11,8 +11,9 @@ metadata:
 
 # Systematic debugging
 
-**No fix without a root cause.** Until phase 1 is done, do not propose a fix. A fix that removes a
-symptom without explaining it is a failure, however green the tests look.
+**No fix without a root cause.** Finish each phase before starting the next. Phase 1 is done when
+you can say what fails and why; until then, do not propose a fix. A fix that removes a symptom
+without explaining it is a failure, however green the tests look.
 
 Use it for any bug, failing test, build or integration failure, performance problem or surprise,
 and most of all when a quick fix looks obvious, time is short, or a fix has already failed.
@@ -27,8 +28,9 @@ inside this process, not replacements for it.
    guess.
 3. **Check what changed:** the diff, recent commits, dependencies, config, environment.
 4. **Across components, instrument every boundary before theorising.** Log what enters and leaves
-   each one (CI → build → deploy, API → service → database), run once, and let the evidence say
-   which boundary breaks. Then investigate only that component.
+   each one (CI → build → deploy, API → service → database), and confirm that config, environment
+   and state actually reach each layer. Run once, and let the evidence say which boundary breaks.
+   Then investigate only that component.
 5. **Trace a bad value backwards** to where it originates, and fix it there.
    Read [references/root-cause-tracing.md](references/root-cause-tracing.md) when the failure
    surfaces deep in a call stack, or when something appears during a test run and you do not know
@@ -74,13 +76,21 @@ flaky, races, or relies on a fixed sleep or timeout.
 ## Stop and return to phase 1 when
 
 - You are about to "try X and see", or change several things and rerun.
-- You think "quick fix now, investigate later", or "it's probably X".
+- You think "quick fix now, investigate later", "it's probably X", or "I don't fully understand,
+  but this might work".
 - You are listing fixes without having traced the data flow.
 - You want to skip the failing test and check by hand.
 - You are adapting a pattern you have not read in full.
+- A fix revealed a new problem somewhere else, whatever the count so far.
 - You are about to attempt one more fix after two have failed.
-- The user asks "is that actually happening?", "stop guessing", or "are we stuck?". Each of these
-  means you assumed something you did not verify.
+
+The user's words are signals too:
+
+- "Is that actually happening?" You assumed without verifying.
+- "Will it show us…?" You should have gathered evidence first.
+- "Stop guessing." You are proposing fixes without understanding.
+- "Ultra-think this." Question the fundamentals, not only the symptom.
+- "Are we stuck?" The approach is not working; go back to phase 1.
 
 ## When there is no root cause
 
