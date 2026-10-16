@@ -16,7 +16,7 @@ For guided procedures beyond assistant tools, the committed project file is the 
 1. State scope in one line and prerequisites with cheap verification commands.
 2. Verify every external price, console flow, flag, and URL; record sources and date instead of relying on memory.
 3. Implement, test, and commit enabling code first; reference its commit. The procedure must not assume nonexistent code.
-4. Write `docs/runbooks/<kebab-case-slug>.md`, creating the directory. Label each step **You** or **Assistant**; every You step says exactly what to report. Name command shells and use `<placeholders>` for supplied values.
+4. Write `docs/runbooks/<kebab-case-slug>.md`, creating the directory. Label each step **You** or **Assistant**; every You step says exactly what to report. Name command shells and use `<placeholders>` for supplied values. Write for the next run, not this one: generic steps with each step's reason inside it; this run's dates, measurements, decisions and ticket numbers go only in Outcomes.
 5. **Commit before walking through it.** In chat, link the file and give only the next You step/report-back requirement.
 6. On each report, execute unblocked Assistant steps and return the next You step.
 7. Immediately update and recommit corrections to prices, flags, credits, or procedure.
