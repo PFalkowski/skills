@@ -39,6 +39,7 @@
     "./signal-verdict",
     "./snapshot-terminal-sessions",
     "./statusline",
+    "./systematic-debugging",
     "./triage",
     "./walk-the-dog",
     "./whatever",
