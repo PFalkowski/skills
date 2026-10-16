@@ -90,6 +90,25 @@ console.log('single stance (the default) — exactly one reviewer, unlensed:')
   await t('...and its finding reaches the report', () => findingsOf(r).length === 1)
 }
 
+console.log('\none working tree (parallel 1) — slices build one after another:')
+{
+  const base = mkAgent()
+  const twoSlices = async (prompt, opts) => opts.label === 'slice'
+    ? { slices: [{ id: 's1', title: 'S1', acceptanceCriterion: 'AC1', effort: 'low' },
+                 { id: 's2', title: 'S2', acceptanceCriterion: 'AC2', effort: 'low' }] }
+    : base(prompt, opts)
+  const at = (r, label) => r.calls.findIndex(c => c.opts.label === label)
+  const serial = await runWorkhorse({ args: baseArgs(), agentFn: twoSlices })
+  await t('the second slice starts only after the first is reviewed',
+    () => at(serial, 'review:s1') >= 0 && at(serial, 'red:s2') > at(serial, 'review:s1'))
+  await t('...and no builder is sent to a separate worktree',
+    () => serial.calls.every(c => c.opts.isolation === undefined))
+  const overlapped = await runWorkhorse({ args: baseArgs({ parallel: 2 }), agentFn: twoSlices })
+  await t('with parallel 2, slices overlap, each builder in its own worktree',
+    () => at(overlapped, 'red:s2') < at(overlapped, 'review:s1') &&
+          overlapped.calls.filter(c => /^(red|green):/.test(c.opts.label)).every(c => c.opts.isolation === 'worktree'))
+}
+
 console.log('\nquorum — THE SEAM: the script convenes it, one agent per concern:')
 {
   const concerns = ['security', 'architecture', 'tests']
