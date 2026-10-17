@@ -42,7 +42,7 @@ run_dev() {
   : > "$FAKE_STATE/log"
   ( cd "$SANDBOX/repos/owner/repo" && \
     PATH="$SANDBOX/bin:$PATH" DEV_REPO_ROOT="$SANDBOX/repos" DEV_HOME_DIR="$SANDBOX/home" \
-    bash "$DEV" > "$FAKE_STATE/out" 2>&1 )
+    bash "$DEV" ${DEV_ARGS:-} > "$FAKE_STATE/out" 2>&1 )
   local status=$?
   cat "$FAKE_STATE/log" "$FAKE_STATE/out" > "$FAKE_STATE/all"
   [ "$status" -eq 0 ] || failed "dev exited $status"
@@ -58,6 +58,23 @@ expect() {
   if grep -q -- "$pattern" "$FAKE_STATE/all"; then found=present; else found=absent; fi
   [ "$found" = "$wanted" ] || failed "'$pattern' is $found, expected $wanted"
 }
+
+expect_file() {
+  local test_flag="$1" path="$2"
+  test "$test_flag" "$path" || failed "test $test_flag $path is false"
+}
+
+SHARED="$SANDBOX/home/.claude"
+OWN="$SANDBOX/home/.claude-containers/$NAME"
+mkdir -p "$SHARED/skills/some-skill" "$SHARED/projects"
+echo '{"user":"wide"}' > "$SHARED/settings.json"
+echo 'shared instructions' > "$SHARED/CLAUDE.md"
+echo 'secret' > "$SHARED/.credentials.json"
+echo '{"projects":{}}' > "$SANDBOX/home/.claude.json"
+
+run_dev "$NAME" "$NAME" sha256:new sha256:new "running and current: attached, nothing seeded"
+expect present "^exec -it"
+[ ! -e "$OWN" ] || failed "$OWN was created for a container that does not use it"
 
 run_dev "$NAME" "" sha256:new sha256:old "stopped and stale: recreated"
 expect present "^rm $NAME\$"
@@ -91,6 +108,34 @@ run_dev "" "" sha256:new "" "no container: created"
 expect absent  "^rm "
 expect absent  "older than"
 expect present "^run .*--name $NAME "
+expect present "^run .* -e CLAUDE_CONFIG_DIR=/dev-home/.claude-containers/$NAME "
+expect present "^run .* -e CLAUDE_SECURESTORAGE_CONFIG_DIR=/dev-home/.claude "
+expect present "^run .* -e DISABLE_AUTOUPDATER=1 "
+for item in settings.json CLAUDE.md skills projects; do
+  expect_file -L "$OWN/$item"
+  [ "$(readlink "$OWN/$item")" = "../../.claude/$item" ] || failed "$item link is not relative: $(readlink "$OWN/$item")"
+done
+[ "$(cat "$OWN/settings.json")" = '{"user":"wide"}' ] || failed "settings.json link does not reach the shared copy"
+expect_file -d "$OWN/skills/some-skill"
+expect_file -f "$OWN/.claude.json"
+[ ! -L "$OWN/.claude.json" ] || failed ".claude.json is a link, not a copy"
+[ ! -e "$OWN/.credentials.json" ] || failed ".credentials.json was placed in the per-container folder"
+[ ! -e "$OWN/settings.local.json" ] && [ ! -L "$OWN/settings.local.json" ] \
+  || failed "settings.local.json was linked although the shared one does not exist"
+
+echo '{"projects":{"edited":true}}' > "$OWN/.claude.json"
+rm "$OWN/settings.json"; echo 'own' > "$OWN/settings.json"
+ln -s ../../.claude/settings.local.json "$OWN/settings.local.json"
+run_dev "" "" sha256:new "" "created again: nothing seeded is overwritten, a dangling link is tolerated"
+expect present "^run .*--name $NAME "
+[ "$(cat "$OWN/.claude.json")" = '{"projects":{"edited":true}}' ] || failed ".claude.json was overwritten"
+[ "$(cat "$OWN/settings.json")" = 'own' ] || failed "settings.json was overwritten"
+rm "$OWN/settings.local.json"
+
+DEV_ARGS="--name workspace" run_dev "" "" sha256:new "" "the default updater container keeps auto-update"
+expect present "^run .*--name dev_workspace "
+expect absent  "DISABLE_AUTOUPDATER"
+expect_file -L "$SANDBOX/home/.claude-containers/dev_workspace/settings.json"
 
 echo "$((total - fail))/$total passed"
 [ "$fail" -eq 0 ]

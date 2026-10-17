@@ -166,6 +166,13 @@ versions behind on a remote box is the worse failure. Decide it per tool rather 
 default, and if you would rather hold the pinned version, set `DISABLE_AUTOUPDATER=1` and
 update by rebuilding.
 
+Only one container auto-updates Claude Code: `dev_workspace` by default, or
+`dev_$DEV_CLAUDE_UPDATER`. `dev` sets `DISABLE_AUTOUPDATER=1` on every other container. The
+update lock lives in each container's own config folder (see below), so nothing else stops two
+containers from installing into the one shared `~/.npm-global` at the same moment. The others
+pick the new binary up from that shared folder. If the updater container is never created,
+nothing auto-updates; run `claude update` in any one container instead.
+
 One trap when checking this. `dev` gives you an *interactive non-login* shell, which reads
 `.bashrc`; `bash -l` reads `.profile`. Test both, and give the test a real TTY — an
 interactive shell without one exits before running anything and appears to prove your
@@ -185,6 +192,35 @@ outright with `Device or resource busy`. Mounting the directory sidesteps the wh
 
 Seed `$DEV_HOME` by copying credentials in rather than mounting the host's. A compromised
 container then cannot rewrite your real keys, and the copy can hold a dedicated deploy key.
+
+## One Claude Code config folder per container
+
+The home is shared, but Claude Code's config folder must not be. It holds the background
+daemon's `daemon.lock`, `daemon.log` and `jobs/`. Each container runs its own daemon in its own
+process-ID space. When an auto-update changes the shared binary, every daemon restarts in the
+same second and races for the one lock. The winner cannot see the other containers' processes,
+so it marks their background sessions failed, and any request in flight is lost.
+
+So `dev` gives each new container `CLAUDE_CONFIG_DIR=/dev-home/.claude-containers/<name>` and
+seeds that folder once, each item only when absent:
+
+| Item | Handling | Why |
+|---|---|---|
+| `.credentials.json` | Stays in `/dev-home/.claude`, via `CLAUDE_SECURESTORAGE_CONFIG_DIR` | Claude opens it with `O_NOFOLLOW` and refuses a symlink, so a link would log every container out. One login covers all containers, and token refreshes stay shared |
+| `CLAUDE.md`, `settings.json`, `settings.local.json`, `skills/` | Relative symlink to the shared copy, when that copy exists | User-wide. **Claude's own saves to user settings are refused through a symlink** (`Refusing to write through symlink`), so edit `/dev-home/.claude/settings.json` directly |
+| `projects/` | Relative symlink | Memory and session transcripts. The folder name comes from the working directory, so containers rarely collide, and a recreate keeps memory and `--resume` |
+| `.claude.json` | Copied once from `/dev-home/.claude.json` | Claude rewrites it on exit, so two writers would clobber each other. Trust, user-scope MCP servers and per-project state therefore drift per container after the copy |
+| Everything else: `daemon*`, `jobs/`, `sessions/`, `history.jsonl`, `plugins/`, caches | Per container | Process state, or not worth sharing. Plugins installed later must be installed in each container |
+
+**Migrating an existing container.** It keeps the shared folder until `dev --recreate`, which
+destroys it, so first check nothing runs in it: `docker top <name>` shows no `claude`.
+Credentials, settings, skills, memory and transcripts carry over. Background jobs and prompt
+history (`history.jsonl`) do not. Until every container is recreated, the old ones can still
+race each other, and they still auto-update, so recreate them all.
+
+The software development kit's (SDK's) session-resume path reads credentials from
+`CLAUDE_CONFIG_DIR` and ignores `CLAUDE_SECURESTORAGE_CONFIG_DIR`. The command line is
+unaffected.
 
 ## Resource limits
 

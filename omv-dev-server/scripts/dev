@@ -158,6 +158,34 @@ if running || { exists && [ "$RECREATE" = 0 ]; }; then
   exec docker exec -it --user "$(id -u):$(id -g)" -w "$WORKDIR" "$NAME" bash
 fi
 
+# --- a Claude Code config folder per container -------------------------------------------
+# Every container runs its own Claude daemon in its own PID namespace. Sharing one config
+# folder means sharing one daemon.lock and one job list, so when an auto-update restarts
+# every daemon at once, the winner cannot see the other containers' sessions and marks them
+# failed. Each container gets its own folder, linked back to what is user-wide.
+#
+# Seeded on create only: a running container keeps the folder it was created with until
+# `dev --recreate`, and each item is seeded only when absent.
+CLAUDE_SHARED="$DEV_HOME/.claude"
+CLAUDE_OWN="$DEV_HOME/.claude-containers/$NAME"
+mkdir -p "$CLAUDE_OWN"
+for item in CLAUDE.md settings.json settings.local.json skills projects; do
+  # Relative, so the link resolves both on the host and under /dev-home in the container.
+  # -L as well as -e: a link whose shared target was deleted still occupies the name.
+  if [ -e "$CLAUDE_SHARED/$item" ] && [ ! -e "$CLAUDE_OWN/$item" ] && [ ! -L "$CLAUDE_OWN/$item" ]; then
+    ln -s "../../.claude/$item" "$CLAUDE_OWN/$item"
+  fi
+done
+# Copied, not linked: Claude rewrites it on exit, and two writers would clobber each other.
+if [ -f "$DEV_HOME/.claude.json" ] && [ ! -e "$CLAUDE_OWN/.claude.json" ]; then
+  cp -p "$DEV_HOME/.claude.json" "$CLAUDE_OWN/.claude.json"
+fi
+
+# The auto-update lock lives in the config folder too, so separate folders no longer stop two
+# containers from installing into the one shared npm prefix at the same moment. One container
+# updates; the rest pick the new binary up from that prefix.
+CLAUDE_UPDATER="dev_${DEV_CLAUDE_UPDATER:-workspace}"
+
 # --- create ------------------------------------------------------------------------------
 args=(
   --name "$NAME"
@@ -166,6 +194,9 @@ args=(
   -e HOME=/dev-home
   -e REPO_ROOT=/workspace
   -e GIT_TERMINAL_PROMPT=0
+  -e CLAUDE_CONFIG_DIR="/dev-home/.claude-containers/$NAME"
+  # Not a link into the shared folder: Claude refuses to open a symlinked .credentials.json.
+  -e CLAUDE_SECURESTORAGE_CONFIG_DIR=/dev-home/.claude
   -v "$REPO_ROOT:/workspace"
   -v "$DEV_HOME:/dev-home"
   -w "$WORKDIR"
@@ -189,6 +220,8 @@ fi
 # configured-but-broken credential instead of falling back to a stored login. Never baked
 # into a layer — a token in an image layer survives being deleted from it.
 if [ -n "${GH_TOKEN:-}" ]; then args+=( -e "GH_TOKEN=${GH_TOKEN}" ); fi
+
+if [ "$NAME" != "$CLAUDE_UPDATER" ]; then args+=( -e DISABLE_AUTOUPDATER=1 ); fi
 
 if [ "$MOUNT_DOCKER_SOCK" = 1 ]; then
   [ -S /var/run/docker.sock ] || { echo "DEV_DOCKER_SOCK=1 but /var/run/docker.sock is not a socket" >&2; exit 1; }
