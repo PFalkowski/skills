@@ -54,10 +54,12 @@ WORKDIR="/workspace${rel}"
 # Name from the FULL relative path, not the leaf: two repos sharing a basename would
 # otherwise collide on one container, and attaching lands in the wrong /workspace.
 slug="$(printf '%s' "${rel:-/workspace}" | sed 's|^/||; s|/|_|g')"
-NAME="dev_$(printf '%s' "${NAME_OVERRIDE:-${slug:-workspace}}" | tr -c 'a-zA-Z0-9_.-' '_')"
+container_name() { printf 'dev_%s' "$(printf '%s' "$1" | tr -c 'a-zA-Z0-9_.-' '_')"; }
+NAME="$(container_name "${NAME_OVERRIDE:-${slug:-workspace}}")"
 
 # --- the container's HOME ----------------------------------------------------------------
-mkdir -p "$DEV_HOME/.ssh" "$DEV_HOME/.config/gh" "$DEV_HOME/.claude"
+# projects/ and skills/ exist up front so they are linked, not created per container by Claude.
+mkdir -p "$DEV_HOME/.ssh" "$DEV_HOME/.config/gh" "$DEV_HOME/.claude/projects" "$DEV_HOME/.claude/skills"
 chmod 700 "$DEV_HOME" "$DEV_HOME/.ssh"
 find "$DEV_HOME/.ssh" -type f -exec chmod 600 {} + 2>/dev/null || true
 [ -f "$DEV_HOME/.gitconfig" ] || cp "$HOME/.gitconfig" "$DEV_HOME/.gitconfig" 2>/dev/null || touch "$DEV_HOME/.gitconfig"
@@ -158,6 +160,36 @@ if running || { exists && [ "$RECREATE" = 0 ]; }; then
   exec docker exec -it --user "$(id -u):$(id -g)" -w "$WORKDIR" "$NAME" bash
 fi
 
+# --- a Claude Code config folder per container -------------------------------------------
+# Every container runs its own Claude daemon in its own PID namespace. Sharing one config
+# folder means sharing one daemon.lock and one job list, so when an auto-update restarts
+# every daemon at once, the winner cannot see the other containers' sessions and marks them
+# failed. Each container gets its own folder, linked back to what is user-wide.
+#
+# Seeded on create only: a container keeps the folder it was created with until it is
+# recreated, and each item is seeded only when absent.
+CLAUDE_SHARED="$DEV_HOME/.claude"
+CLAUDE_OWN="$DEV_HOME/.claude-containers/$NAME"
+mkdir -p "$CLAUDE_OWN"
+for item in CLAUDE.md settings.json settings.local.json skills projects; do
+  # Relative, so the link resolves both on the host and under /dev-home in the container.
+  # -L as well as -e: a dangling link still occupies the name, and a shared item may be a
+  # link that resolves only inside the container.
+  if { [ -e "$CLAUDE_SHARED/$item" ] || [ -L "$CLAUDE_SHARED/$item" ]; } \
+     && [ ! -e "$CLAUDE_OWN/$item" ] && [ ! -L "$CLAUDE_OWN/$item" ]; then
+    ln -s "../../.claude/$item" "$CLAUDE_OWN/$item"
+  fi
+done
+# Copied, not linked: Claude rewrites it on exit, and two writers would clobber each other.
+if [ -f "$DEV_HOME/.claude.json" ] && [ ! -e "$CLAUDE_OWN/.claude.json" ]; then
+  cp -p "$DEV_HOME/.claude.json" "$CLAUDE_OWN/.claude.json"
+fi
+
+# The auto-update lock lives in the config folder too, so separate folders no longer stop two
+# containers from installing into the one shared npm prefix at the same moment. One container
+# updates; the rest pick the new binary up from that prefix.
+CLAUDE_UPDATER="$(container_name "${DEV_CLAUDE_UPDATER:-workspace}")"
+
 # --- create ------------------------------------------------------------------------------
 args=(
   --name "$NAME"
@@ -166,6 +198,9 @@ args=(
   -e HOME=/dev-home
   -e REPO_ROOT=/workspace
   -e GIT_TERMINAL_PROMPT=0
+  -e CLAUDE_CONFIG_DIR="/dev-home/.claude-containers/$NAME"
+  # Not a link into the shared folder: Claude refuses to open a symlinked .credentials.json.
+  -e CLAUDE_SECURESTORAGE_CONFIG_DIR=/dev-home/.claude
   -v "$REPO_ROOT:/workspace"
   -v "$DEV_HOME:/dev-home"
   -w "$WORKDIR"
@@ -189,6 +224,8 @@ fi
 # configured-but-broken credential instead of falling back to a stored login. Never baked
 # into a layer — a token in an image layer survives being deleted from it.
 if [ -n "${GH_TOKEN:-}" ]; then args+=( -e "GH_TOKEN=${GH_TOKEN}" ); fi
+
+if [ "$NAME" != "$CLAUDE_UPDATER" ]; then args+=( -e DISABLE_AUTOUPDATER=1 ); fi
 
 if [ "$MOUNT_DOCKER_SOCK" = 1 ]; then
   [ -S /var/run/docker.sock ] || { echo "DEV_DOCKER_SOCK=1 but /var/run/docker.sock is not a socket" >&2; exit 1; }
