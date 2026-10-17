@@ -18,8 +18,9 @@ Mount each repo at `/workspace` in turn and **every repo produces the same key**
 -v "$REPO_ROOT:/workspace"  -w "/workspace/<relative path from the root>"
 ```
 
-The same rule governs `~/.claude.json`, which stores trust and permission grants per
-absolute path. A path mismatch there does not error — it silently ignores your allow-list
+The same rule governs `.claude.json`, which stores trust and permission grants per
+absolute path. In a container created by `dev` it is the copy in that container's config
+folder, `$CLAUDE_CONFIG_DIR/.claude.json`, not `~/.claude.json`. A path mismatch there does not error — it silently ignores your allow-list
 and prints `Ignoring N permissions.allow entries`. Edit that file only with every session
 closed; a running session rewrites it on exit and clobbers the change.
 
@@ -212,8 +213,10 @@ seeds that folder once, each item only when absent:
 | `.claude.json` | Copied once from `/dev-home/.claude.json` | Claude rewrites it on exit, so two writers would clobber each other. Trust, user-scope MCP servers and per-project state therefore drift per container after the copy |
 | Everything else: `daemon*`, `jobs/`, `sessions/`, `history.jsonl`, `plugins/`, caches | Per container | Process state, or not worth sharing. Plugins installed later must be installed in each container |
 
-**Migrating an existing container.** It keeps the shared folder until `dev --recreate`, which
-destroys it, so first check nothing runs in it: `docker top <name>` shows no `claude`.
+**Migrating an existing container.** It keeps the shared folder until it is recreated: by
+`dev --recreate`, or automatically when it is stopped and its image has been rebuilt.
+Recreating destroys the container, so before `dev --recreate` check nothing runs in it:
+`docker top <name>` shows no `claude`.
 Credentials, settings, skills, memory and transcripts carry over. Background jobs and prompt
 history (`history.jsonl`) do not. Until every container is recreated, the old ones can still
 race each other, and they still auto-update, so recreate them all.

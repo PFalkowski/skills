@@ -125,17 +125,28 @@ expect_file -f "$OWN/.claude.json"
 
 echo '{"projects":{"edited":true}}' > "$OWN/.claude.json"
 rm "$OWN/settings.json"; echo 'own' > "$OWN/settings.json"
-ln -s ../../.claude/settings.local.json "$OWN/settings.local.json"
+echo '{}' > "$SHARED/settings.local.json"
+ln -s ../../.claude/gone "$OWN/settings.local.json"
 run_dev "" "" sha256:new "" "created again: nothing seeded is overwritten, a dangling link is tolerated"
 expect present "^run .*--name $NAME "
 [ "$(cat "$OWN/.claude.json")" = '{"projects":{"edited":true}}' ] || failed ".claude.json was overwritten"
 [ "$(cat "$OWN/settings.json")" = 'own' ] || failed "settings.json was overwritten"
-rm "$OWN/settings.local.json"
+[ "$(readlink "$OWN/settings.local.json")" = ../../.claude/gone ] || failed "the dangling link was replaced"
+rm "$OWN/settings.local.json" "$SHARED/settings.local.json"
 
 DEV_ARGS="--name workspace" run_dev "" "" sha256:new "" "the default updater container keeps auto-update"
 expect present "^run .*--name dev_workspace "
 expect absent  "DISABLE_AUTOUPDATER"
 expect_file -L "$SANDBOX/home/.claude-containers/dev_workspace/settings.json"
+
+DEV_ARGS="--name o/r" DEV_CLAUDE_UPDATER="o/r" run_dev "" "" sha256:new "" "an updater name is sanitised like a container name"
+expect present "^run .*--name dev_o_r "
+expect absent  "DISABLE_AUTOUPDATER"
+
+rm -rf "$SANDBOX/home"; mkdir -p "$SANDBOX/home"
+run_dev "" "" sha256:new "" "fresh home: projects and skills are linked even before they exist"
+expect_file -L "$SANDBOX/home/.claude-containers/$NAME/projects"
+expect_file -L "$SANDBOX/home/.claude-containers/$NAME/skills"
 
 echo "$((total - fail))/$total passed"
 [ "$fail" -eq 0 ]

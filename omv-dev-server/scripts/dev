@@ -54,10 +54,12 @@ WORKDIR="/workspace${rel}"
 # Name from the FULL relative path, not the leaf: two repos sharing a basename would
 # otherwise collide on one container, and attaching lands in the wrong /workspace.
 slug="$(printf '%s' "${rel:-/workspace}" | sed 's|^/||; s|/|_|g')"
-NAME="dev_$(printf '%s' "${NAME_OVERRIDE:-${slug:-workspace}}" | tr -c 'a-zA-Z0-9_.-' '_')"
+container_name() { printf 'dev_%s' "$(printf '%s' "$1" | tr -c 'a-zA-Z0-9_.-' '_')"; }
+NAME="$(container_name "${NAME_OVERRIDE:-${slug:-workspace}}")"
 
 # --- the container's HOME ----------------------------------------------------------------
-mkdir -p "$DEV_HOME/.ssh" "$DEV_HOME/.config/gh" "$DEV_HOME/.claude"
+# projects/ and skills/ exist up front so they are linked, not created per container by Claude.
+mkdir -p "$DEV_HOME/.ssh" "$DEV_HOME/.config/gh" "$DEV_HOME/.claude/projects" "$DEV_HOME/.claude/skills"
 chmod 700 "$DEV_HOME" "$DEV_HOME/.ssh"
 find "$DEV_HOME/.ssh" -type f -exec chmod 600 {} + 2>/dev/null || true
 [ -f "$DEV_HOME/.gitconfig" ] || cp "$HOME/.gitconfig" "$DEV_HOME/.gitconfig" 2>/dev/null || touch "$DEV_HOME/.gitconfig"
@@ -164,15 +166,17 @@ fi
 # every daemon at once, the winner cannot see the other containers' sessions and marks them
 # failed. Each container gets its own folder, linked back to what is user-wide.
 #
-# Seeded on create only: a running container keeps the folder it was created with until
-# `dev --recreate`, and each item is seeded only when absent.
+# Seeded on create only: a container keeps the folder it was created with until it is
+# recreated, and each item is seeded only when absent.
 CLAUDE_SHARED="$DEV_HOME/.claude"
 CLAUDE_OWN="$DEV_HOME/.claude-containers/$NAME"
 mkdir -p "$CLAUDE_OWN"
 for item in CLAUDE.md settings.json settings.local.json skills projects; do
   # Relative, so the link resolves both on the host and under /dev-home in the container.
-  # -L as well as -e: a link whose shared target was deleted still occupies the name.
-  if [ -e "$CLAUDE_SHARED/$item" ] && [ ! -e "$CLAUDE_OWN/$item" ] && [ ! -L "$CLAUDE_OWN/$item" ]; then
+  # -L as well as -e: a dangling link still occupies the name, and a shared item may be a
+  # link that resolves only inside the container.
+  if { [ -e "$CLAUDE_SHARED/$item" ] || [ -L "$CLAUDE_SHARED/$item" ]; } \
+     && [ ! -e "$CLAUDE_OWN/$item" ] && [ ! -L "$CLAUDE_OWN/$item" ]; then
     ln -s "../../.claude/$item" "$CLAUDE_OWN/$item"
   fi
 done
@@ -184,7 +188,7 @@ fi
 # The auto-update lock lives in the config folder too, so separate folders no longer stop two
 # containers from installing into the one shared npm prefix at the same moment. One container
 # updates; the rest pick the new binary up from that prefix.
-CLAUDE_UPDATER="dev_${DEV_CLAUDE_UPDATER:-workspace}"
+CLAUDE_UPDATER="$(container_name "${DEV_CLAUDE_UPDATER:-workspace}")"
 
 # --- create ------------------------------------------------------------------------------
 args=(
