@@ -303,10 +303,26 @@ it on where the container runs code you do not trust.
 Pin what you can. An unpinned CLI changing behaviour under an unchanged Dockerfile is the
 hardest kind of build regression to trace.
 
+## Skills from main, not from a checkout
+
+Linking `~/.claude/skills/*` into the skills repo you work in looks like the obvious setup and
+quietly isn't: every container then runs whatever branch that checkout last switched to, and
+a checkout left on a feature branch serves weeks-old skills with nothing on screen saying so.
+
+`80-skills.sh` keeps a clone of its own in the dev home (`~/.local/share/skills`), links each
+skill into it, and adds a SessionStart hook that runs `skills-sync.sh` in the background: it
+fast-forwards the clone and relinks, so a skill merged to main is there from the next session
+and a removed one disappears. A real directory in `~/.claude/skills` is yours and is never
+replaced. To try a branch, link that one skill by hand; the next sync points it back.
+
+The hook runs code from main on every container session start — the same trust the skills
+already get, since agents run their scripts.
+
 ## Scripts
 
 ```bash
 scripts/50-dev-image.sh          # build the image, run the smoke test
 scripts/60-launcher.sh           # install scripts/dev to ~/bin/dev
+scripts/80-skills.sh             # skills clone tracking main, links, SessionStart refresh
 scripts/smoke-test.sh [image]    # the cold-container checks, standalone
 ```
