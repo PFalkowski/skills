@@ -54,7 +54,10 @@ elif [ "$CHECK_ONLY" = 1 ]; then
 else
   do_ "stage status line in $staged" install -D -o "$DEV_USER" -g "$gid" -m 644 \
       -t "$staged" "$statusline/statusline.js" "$statusline/install.mjs"
-  do_ "install container status line via $ctr" docker exec --user "$uid:$gid" -e HOME=/dev-home "$ctr" \
+  # CLAUDE_CONFIG_DIR pinned to the shared folder: a container's own one (see DEVCONTAINER.md)
+  # would put statusline.js where only that container's settings point.
+  do_ "install container status line via $ctr" docker exec --user "$uid:$gid" -e HOME=/dev-home \
+      -e CLAUDE_CONFIG_DIR=/dev-home/.claude "$ctr" \
       node /dev-home/.local/share/omv-dev/statusline/install.mjs
 fi
 
