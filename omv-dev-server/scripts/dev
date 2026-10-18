@@ -115,6 +115,20 @@ if ! grep -qxF "$passwd_line" "$PASSWD_FILE" 2>/dev/null; then
     || rm -f "$PASSWD_FILE"
 fi
 
+# Tells the shell inside which container it is in (its hostname is a hex id) and which tmux
+# window holds it (tmux is not in the image), for the prompt from where.bash.
+where_env=( -e "DEV_CONTAINER=$NAME" )
+# --detach opens no shell, so there is no window to name.
+if [ -n "${TMUX:-}" ] && [ "$DETACH" = 0 ]; then
+  where_env+=( -e "DEV_TMUX=$(tmux display-message -p '#S:#I' 2>/dev/null)" )
+  # Not exec'd: the window name must be handed back to automatic-rename on the way out.
+  tmux rename-window "🐳 ${NAME#dev_}" 2>/dev/null || true
+  trap 'tmux set-window-option automatic-rename on >/dev/null 2>&1 || true' EXIT
+  run_() { "$@"; }
+else
+  run_() { exec "$@"; }
+fi
+
 exists()  { docker ps -a --format '{{.Names}}' | grep -qx "$NAME"; }
 running() { docker ps    --format '{{.Names}}' | grep -qx "$NAME"; }
 # A container keeps the image it was created from; a rebuild only moves the tag.
@@ -160,7 +174,8 @@ if running || { exists && [ "$RECREATE" = 0 ]; }; then
   echo "🔗 attaching to '${NAME}' at ${WORKDIR}"
   # --user on exec too: it defaults to the IMAGE's user, not the running container's, so
   # without this an exec into a --user container still lands as root and writes root files.
-  exec docker exec -it --user "$(id -u):$(id -g)" -w "$WORKDIR" "$NAME" bash
+  run_ docker exec -it --user "$(id -u):$(id -g)" "${where_env[@]}" -w "$WORKDIR" "$NAME" bash
+  exit
 fi
 
 # --- a Claude Code config folder per container -------------------------------------------
@@ -246,4 +261,4 @@ echo "   host port: docker port ${NAME} 5000"
 # Detached still takes -it: the container's PID 1 is an interactive bash, which exits at once
 # without a terminal, and `dev` attaches to it later with exec.
 if [ "$DETACH" = 1 ]; then run_mode=( -d -it ); else run_mode=( -it ); fi
-exec docker run "${run_mode[@]}" "${args[@]}" "$IMAGE" bash
+run_ docker run "${run_mode[@]}" "${args[@]}" "${where_env[@]}" "$IMAGE" bash

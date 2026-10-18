@@ -806,16 +806,17 @@ note('Slice', `${slices.length} tracer bullet(s): ${slices.map(s => `${s.id}[${s
 // who will notice. Here the red output is re-read by a fresh cheap agent that
 // only answers "did this fail for the reason claimed?".
 //
-// isolation:'worktree' only when slices actually run concurrently — otherwise
-// the lone builder should use the working tree it was dispatched into.
+// pipeline() starts EVERY item at once, so it runs only when each slice has its
+// own worktree. With one working tree the slices go one after another: in #126
+// twelve builders shared one tree, compiled each other's half-written edits, and
+// two real reds were rejected for a sibling's compile errors.
 // ---------------------------------------------------------------------------
 phase('Build')
 const poolSize = Math.max(1, Math.min(parallelSlices, maxWorkers, slices.length))
 const isolate = poolSize > 1
 if (isolate) say(`${poolSize} slices in flight — each gets its own worktree; expect a PR stack (hand it to merge-stack).`)
 
-const built = await pipeline(
-  slices,
+const buildStages = [
   // Stage 1 — RED, then an independent check that it is a real red.
   async (slice) => {
     if (budget.total && budget.remaining() < reserve) {
@@ -828,7 +829,9 @@ const built = await pipeline(
       `Write EXACTLY ONE failing test that encodes the acceptance criterion. Write NO implementation — not a stub, not ` +
       `a signature. Run the test. Paste its ACTUAL output.\n\n` +
       `The test must fail because the BEHAVIOUR is absent, not because of an import error, a typo, or a missing ` +
-      `fixture. A test that fails for the wrong reason proves nothing and will be rejected.\n\n` +
+      `fixture. A test that fails for the wrong reason proves nothing and will be rejected. In a compiled language, ` +
+      `when the criterion needs a type or member that does not exist yet, the red is a compile error that names ` +
+      `only that missing symbol, in your test file and nowhere else.\n\n` +
       `Use the "tdd" skill's RED discipline.\n\n${LIBRARY_RULE}\n${CHRONICLE_RULE(chronicle(`slice-${slice.id}`))}`,
       { label: `red:${slice.id}`, phase: 'Build', model: tiers.build, effort: slice.effort, schema: RED_SCHEMA, isolation: isolate ? 'worktree' : undefined }
     )
@@ -839,7 +842,8 @@ const built = await pipeline(
       `Command: ${red.testCommand}\nOutput:\n${red.output}\n\n` +
       `Answer one question with evidence: did this fail because the ASSERTED BEHAVIOUR is missing, or did it fail for ` +
       `an unrelated reason (import error, syntax error, missing fixture, wrong path, test never ran)? ` +
-      `An unrelated failure is a FALSE RED and must be refuted.`,
+      `An unrelated failure is a FALSE RED and must be refuted. In a compiled language a compile error that names ` +
+      `only a symbol the criterion introduces, in the new test file only, is a real red; any other compile error is not.`,
       { label: `red-check:${slice.id}`, phase: 'Build', model: tiers.verify, schema: REFUTE_SCHEMA }
     )
     const realRed = red.failedForTheRightReason && redCheck && redCheck.status !== 'refuted'
@@ -934,7 +938,16 @@ const built = await pipeline(
     say(`slice ${slice.id}: ${findings.length} finding(s), ${real.length} survived verification`)
     return { ...prev, findings: real }
   }
-)
+]
+
+const built = isolate ? await pipeline(slices, ...buildStages) : []
+if (!isolate) {
+  for (const slice of slices) {
+    let result = slice
+    for (const stage of buildStages) result = await stage(result)
+    built.push(result)
+  }
+}
 
 const results = built.filter(Boolean)
 const done = results.filter(r => !r.skipped && r.green && r.green.passed)

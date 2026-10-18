@@ -2,10 +2,11 @@
 // One-time installer: copy statusline.js into the Claude Code config dir and
 // wire it up as the `statusLine` command in settings.json.
 //
-//   node install.mjs [--force] [--dry-run]
+//   node install.mjs [--force] [--dry-run] [--host-warning]
 //
-// --force    replace an existing statusLine that points somewhere else
-// --dry-run  print what would change, touch nothing
+// --force         replace an existing statusLine that points somewhere else
+// --dry-run       print what would change, touch nothing
+// --host-warning  tag the line ⚠️ HOST — for the host of a box whose agents belong in containers
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -15,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 const args = new Set(process.argv.slice(2));
 const FORCE = args.has('--force');
 const DRY = args.has('--dry-run');
+const HOST_WARNING = args.has('--host-warning');
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const source = path.join(here, 'statusline.js');
@@ -26,7 +28,10 @@ const settingsPath = path.join(configDir, 'settings.json');
 
 // Forward slashes even on Windows: node accepts them, and they survive a trip
 // through JSON and a shell without backslash-escaping games.
-const command = `node "${target.split(path.sep).join('/')}"`;
+// The flag rides in the command rather than settings.env: the command line is what the
+// renderer actually runs, so the setting can be read off settings.json at a glance.
+const command =
+  (HOST_WARNING ? 'CLAUDE_STATUSLINE_HOST_WARNING=1 ' : '') + `node "${target.split(path.sep).join('/')}"`;
 
 const log = (s) => process.stdout.write(s + '\n');
 const die = (s) => {
@@ -69,7 +74,7 @@ if (fs.existsSync(settingsPath)) {
 }
 
 const already = fs.existsSync(target) && fs.readFileSync(target, 'utf8') === fs.readFileSync(source, 'utf8');
-const wired = pointsAtTarget(settings.statusLine?.command);
+const wired = settings.statusLine?.command === command;
 
 if (DRY) {
   log(`would copy   ${source}`);
