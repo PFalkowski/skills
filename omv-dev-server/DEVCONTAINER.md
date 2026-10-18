@@ -221,6 +221,13 @@ Credentials, settings, skills, memory and transcripts carry over. Background job
 history (`history.jsonl`) do not. Until every container is recreated, the old ones can still
 race each other, and they still auto-update, so recreate them all.
 
+`scripts/migrate-claude-config.sh` does this from the host. `recreate` recreates every idle
+container still on the shared folder; it skips any with `claude` running and can be re-run.
+`check` confirms each container has its own folder, sees the shared items and is logged in,
+and that exactly one auto-updates. `race A B` reproduces the original fault safely: it starts
+a background session in two containers, touches the shared binary, and fails if either
+session is lost.
+
 The software development kit's (SDK's) session-resume path reads credentials from
 `CLAUDE_CONFIG_DIR` and ignores `CLAUDE_SECURESTORAGE_CONFIG_DIR`. The command line is
 unaffected.

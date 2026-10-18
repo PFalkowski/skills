@@ -148,5 +148,13 @@ run_dev "" "" sha256:new "" "fresh home: projects and skills are linked even bef
 expect_file -L "$SANDBOX/home/.claude-containers/$NAME/projects"
 expect_file -L "$SANDBOX/home/.claude-containers/$NAME/skills"
 
+DEV_ARGS="--recreate --detach" run_dev "$NAME" "$NAME" sha256:new sha256:new "detached recreate: created in the background"
+expect present "^rm -f $NAME\$"
+expect present "^run -d -it .*--name $NAME "
+
+DEV_ARGS="--detach" run_dev "$NAME" "" sha256:new sha256:new "detached and stopped: started, no shell"
+expect present "^start $NAME\$"
+expect absent  "^exec -it"
+
 echo "$((total - fail))/$total passed"
 [ "$fail" -eq 0 ]
