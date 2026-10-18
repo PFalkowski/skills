@@ -26,7 +26,7 @@ On existing hosts, run `--check` first to establish missing components and appli
 | [HOST.md](HOST.md) | OMV, users/groups, storage and removable disks | `10-dev-user.sh`, `20-storage.sh` |
 | [REMOTE.md](REMOTE.md) | Tailscale, HTTPS, SSH, Termius/tmux; telling host from container | `30-remote-access.sh`, `70-where-am-i.sh` |
 | [IMMICH.md](IMMICH.md) | OMV Compose-managed Immich; no hand-editing generated compose files | `40-immich.sh` |
-| [DEVCONTAINER.md](DEVCONTAINER.md) | Images, launcher, per-repo containers, persistent agent memory | `50-dev-image.sh`, `60-launcher.sh`, `dev` |
+| [DEVCONTAINER.md](DEVCONTAINER.md) | Images, launcher, per-repo containers, persistent agent memory, skills | `50-dev-image.sh`, `60-launcher.sh`, `dev`, `80-skills.sh` |
 | [AGENT-AUTH.md](AGENT-AUTH.md) | Noninteractive `git push`/`gh pr create` | `Dockerfile`, `dev` |
 | [PITFALLS.md](PITFALLS.md) | Read first for failures: symptom, cause, fix | `smoke-test.sh` |
 

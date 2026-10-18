@@ -11,7 +11,7 @@
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 
-STEPS=(10-dev-user 20-storage 30-remote-access 40-immich 50-dev-image 60-launcher 70-where-am-i)
+STEPS=(10-dev-user 20-storage 30-remote-access 40-immich 50-dev-image 60-launcher 70-where-am-i 80-skills)
 
 want=(); passthru=()
 for a in "$@"; do
