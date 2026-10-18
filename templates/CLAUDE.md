@@ -10,6 +10,7 @@ Keep the main context clean: send research and exploration to subagents, and off
 
 # Which process runs the work
 `sdlc-old-fashioned` runs all work except quick fixes and throwaway experiments. `manager` is its principal; invoke it if the user has not (`manager run <skill> <task>`). It sets models per phase, answers reversible questions, and decides what is posted and filed. `walk-the-dog` vets delegated side effects. Workers run on Opus at low or medium effort; adversarial and hard-to-reverse phases run on the strongest tier.
+In a local-model session (`CLAUDE_LOCAL=1`) run one subagent or nested Claude Code session at a time, never in parallel: each local GPU serves one request at a time. Hand reviews of high-stakes diffs to a normal session.
 
 # What good looks like
 In order: software that works and is worth having; security by design; then simplicity, maintainability, and the least context to load.
