@@ -28,11 +28,11 @@ jobs:
           bash scripts/check-finding-gate.test.sh
           bash dead-branch-guard/scripts/pre-push.test.sh
           bash nights-watch/scripts/salvage-gate.test.sh
+          bash omv-dev-server/scripts/skills-sync.test.sh
           bash auto-mode-setup/scripts/deny-rules.test.sh
           bash scripts/link-skills-claude-md.test.sh
           bash whats-next/scripts/wip.test.sh
           bash omv-dev-server/scripts/dev.test.sh
-          bash omv-dev-server/scripts/skills-sync.test.sh
           for t in tests/workflows/*.test.js clean-room/*.test.mjs statusline/scripts/*.test.js; do
             node --test "$t"
           done
