@@ -60,13 +60,6 @@ required_rules=(
   'Bash(git push -f:*)'
   'Bash(git push * -f)'
   'Bash(git push * -f *)'
-  'Bash(git push --delete:*)'
-  'Bash(git push origin --delete:*)'
-  'Bash(git push * --delete)'
-  'Bash(git push * --delete *)'
-  'Bash(git push -d:*)'
-  'Bash(git push * -d)'
-  'Bash(git push * -d *)'
   'Bash(git push --mirror:*)'
   'Bash(git push * --mirror)'
   'Bash(git push * --mirror *)'
@@ -87,6 +80,38 @@ if [ "${#missing[@]}" -gt 0 ]; then
   fail=$((fail + 1))
 else
   echo "PASS: every load-bearing git-push deny rule is present, verbatim, in the deny block"
+fi
+
+# --- 2b. Static guard: single-branch deletes ask, and are not denied --------------------------
+
+# Deleting one named branch is routine cleanup once the user approves it, so it lives in the ask
+# tier. A copy left in the deny block would silently win (deny is evaluated first) and make the
+# approval impossible, so absence from deny is asserted too.
+ask_rules="$(awk '/^## The ask tier/{flag=1} flag && /^```$/{c++; if(c==2){exit}; next} flag && c==1 {print}' "$BASELINE")"
+total=$((total + 1))
+delete_rules=(
+  'Bash(git push --delete:*)'
+  'Bash(git push origin --delete:*)'
+  'Bash(git push * --delete)'
+  'Bash(git push * --delete *)'
+  'Bash(git push -d:*)'
+  'Bash(git push * -d)'
+  'Bash(git push * -d *)'
+  'Bash(git branch -D:*)'
+  'Bash(git -C * branch -D *)'
+)
+misplaced=()
+for rule in "${delete_rules[@]}"; do
+  if ! printf '%s\n' "$ask_rules" | grep -qxF "$rule" || printf '%s\n' "$rules" | grep -qxF "$rule"; then
+    misplaced+=("$rule")
+  fi
+done
+if [ "${#misplaced[@]}" -gt 0 ]; then
+  echo "FAIL: branch-delete rule(s) missing from the ask block, or still in the deny block:"
+  printf '  %s\n' "${misplaced[@]}"
+  fail=$((fail + 1))
+else
+  echo "PASS: every single-branch delete rule is in the ask block and not in the deny block"
 fi
 
 # --- 3. Static guard: no completeness overclaim about the git-push grant ----------------------
@@ -146,7 +171,14 @@ mkdir -p "$REPO"
 
 SETTINGS="$WORK/settings.json"
 {
-  printf '{"permissions":{"allow":["Bash(git push:*)"],"deny":['
+  printf '{"permissions":{"allow":["Bash(git push:*)"],"ask":['
+  first=1
+  while IFS= read -r rule; do
+    [ -z "$rule" ] && continue
+    if [ "$first" -eq 1 ]; then first=0; else printf ','; fi
+    printf '%s' "$rule" | sed 's/.*/"&"/'
+  done <<< "$ask_rules"
+  printf '],"deny":['
   first=1
   while IFS= read -r rule; do
     [ -z "$rule" ] && continue
@@ -189,7 +221,7 @@ check() {
 check deny "git push --force origin main"
 check deny "git push origin main --force --quiet"
 check deny "git push -f origin main"
-check deny "git push origin b1 --delete --quiet"
+check deny "git push origin b1 --delete --quiet"   # an ask rule, so with no one to approve it is refused
 check deny "git push origin --mirror --quiet"
 check deny "git push origin +main:main"
 check deny "git push --prune origin"
