@@ -4,8 +4,9 @@
 # Runs as an ARBITRARY uid — the launcher passes --user "$(id -u):$(id -g)" so files written
 # into the mounted repo stay owned by the host user. Nothing here may assume /root or a
 # named account; HOME is injected at runtime.
-# From .NET 10 on, the default tag is Ubuntu (24.04 "noble"); there is no Debian variant.
-FROM mcr.microsoft.com/dotnet/sdk:10.0
+# From .NET 10 on, the sdk images are Ubuntu; there is no Debian variant. Pinned to noble
+# (24.04) because the userdel below assumes it, and a newer Ubuntu is already tagged.
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble
 
 # The Ubuntu base ships a user `ubuntu` with uid 1000. The launcher's generated /etc/passwd
 # starts from the image's, so on a host whose dev user is uid 1000 that entry would win
