@@ -4,7 +4,13 @@
 # Runs as an ARBITRARY uid — the launcher passes --user "$(id -u):$(id -g)" so files written
 # into the mounted repo stay owned by the host user. Nothing here may assume /root or a
 # named account; HOME is injected at runtime.
-FROM mcr.microsoft.com/dotnet/sdk:9.0
+# From .NET 10 on, the default tag is Ubuntu (24.04 "noble"); there is no Debian variant.
+FROM mcr.microsoft.com/dotnet/sdk:10.0
+
+# The Ubuntu base ships a user `ubuntu` with uid 1000. The launcher's generated /etc/passwd
+# starts from the image's, so on a host whose dev user is uid 1000 that entry would win
+# getpwuid() and point ssh at /home/ubuntu instead of /dev-home.
+RUN userdel --remove ubuntu
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -57,9 +63,9 @@ RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
 # Docker CLI only, no daemon: the launcher mounts the host socket when DEV_DOCKER_SOCK=1 (see
 # DEVCONTAINER.md for what that grants). Needed by Testcontainers-style integration tests.
 RUN . /etc/os-release \
- && curl -fsSL https://download.docker.com/linux/debian/gpg \
+ && curl -fsSL "https://download.docker.com/linux/${ID}/gpg" \
       | gpg --dearmor -o /usr/share/keyrings/docker.gpg \
- && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/debian ${VERSION_CODENAME} stable" \
+ && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/${ID} ${VERSION_CODENAME} stable" \
       > /etc/apt/sources.list.d/docker.list \
  && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli \
  && rm -rf /var/lib/apt/lists/*
