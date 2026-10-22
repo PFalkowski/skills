@@ -269,6 +269,14 @@ Prefer a **named, persistent** container over `--rm`:
   and recreates a *stopped* container that falls behind; only changes made inside the
   container, outside the mounted repos and home, are lost. A *running* one may host a live
   session, so it only warns; pick up the rebuild there with `dev --recreate`.
+  To move every container at once, have the build script do it from the host after
+  tagging: for each `dev_*` whose image ID differs from the tag's, `docker rm` a stopped one,
+  and for a running one run `dev --recreate --detach --name <name without dev_>` from the
+  host directory its working dir maps to. Skip and name any container whose `docker top`
+  shows the agent, since recreating ends that session. Capture `docker top` into a variable
+  before grepping it: under `pipefail`, `grep -q` exiting early can kill `docker top` and
+  make a busy container look idle. Add a no-build flag so the skipped ones can be retried
+  once their sessions are closed.
 
 ### Attaching to a live session
 
