@@ -4,9 +4,14 @@
 # Runs as an ARBITRARY uid — the launcher passes --user "$(id -u):$(id -g)" so files written
 # into the mounted repo stay owned by the host user. Nothing here may assume /root or a
 # named account; HOME is injected at runtime.
-FROM mcr.microsoft.com/dotnet/sdk:9.0
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble
 
 ENV DEBIAN_FRONTEND=noninteractive
+
+# Ubuntu images ship a `ubuntu` account at uid 1000, the usual host uid. The launcher's passwd
+# file lists the image's accounts before yours, so that entry would win and ssh would look for
+# keys under /home/ubuntu instead of /dev-home.
+RUN userdel --remove ubuntu
 
 # openssh-client: a key in ~/.ssh with no ssh binary is a decoy that costs real debugging
 # time. jq: scripts assume it exists. tmux: long runs survive a dropped mobile connection.
@@ -57,9 +62,9 @@ RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
 # Docker CLI only, no daemon: the launcher mounts the host socket when DEV_DOCKER_SOCK=1 (see
 # DEVCONTAINER.md for what that grants). Needed by Testcontainers-style integration tests.
 RUN . /etc/os-release \
- && curl -fsSL https://download.docker.com/linux/debian/gpg \
+ && curl -fsSL "https://download.docker.com/linux/${ID}/gpg" \
       | gpg --dearmor -o /usr/share/keyrings/docker.gpg \
- && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/debian ${VERSION_CODENAME} stable" \
+ && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/${ID} ${VERSION_CODENAME} stable" \
       > /etc/apt/sources.list.d/docker.list \
  && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli \
  && rm -rf /var/lib/apt/lists/*
