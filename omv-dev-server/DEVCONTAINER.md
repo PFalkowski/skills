@@ -276,7 +276,13 @@ Prefer a **named, persistent** container over `--rm`:
   shows the agent, since recreating ends that session. Capture `docker top` into a variable
   before grepping it: under `pipefail`, `grep -q` exiting early can kill `docker top` and
   make a busy container look idle. Add a no-build flag so the skipped ones can be retried
-  once their sessions are closed.
+  once their sessions are closed, and a `--force` flag that recreates them anyway, for when
+  ending those sessions is acceptable. Run `dev` with the host's login environment: if the
+  script starts from ssh, cron or an agent, `~/.profile` is never read, and the recreated
+  container silently loses `DEV_DOCKER_SOCK`, `GH_TOKEN` and `DEV_CLAUDE_UPDATER`. Load the
+  profile with `bash -lc 'exec bash "$0" "$@"'` rather than running the script itself as a
+  login shell. A login shell runs `~/.bash_logout` when it exits, and on Debian its
+  `clear_console` fails without a console, which under `set -e` makes every run exit 1.
 
 ### Attaching to a live session
 
