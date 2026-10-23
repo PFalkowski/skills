@@ -272,12 +272,16 @@ Prefer a **named, persistent** container over `--rm`:
   To move every container at once, have the build script do it from the host after
   tagging: for each `dev_*` whose image ID differs from the tag's, `docker rm` a stopped one,
   and for a running one run `dev --recreate --detach --name <name without dev_>` from the
-  host directory its working dir maps to. Skip and name any container whose `docker top`
-  shows the agent, since recreating ends that session. Capture `docker top` into a variable
-  before grepping it: under `pipefail`, `grep -q` exiting early can kill `docker top` and
-  make a busy container look idle. Add a no-build flag so the skipped ones can be retried
-  once their sessions are closed, and a `--force` flag that recreates them anyway, for when
-  ending those sessions is acceptable. Run `dev` with the host's login environment: if the
+  host directory its working dir maps to. Do that only when the container is idle, meaning
+  `docker top` lists nothing but `docker-init` and the command it started. Match that child by
+  its parent and by the container's `{{.Path}} {{.Args}}`, not by ps order, since PIDs wrap.
+  Checking for the agent alone is not enough. A test run, a dev server, a `docker exec`
+  shell or an orphan reparented to init would also die in the recreate. Count a failed
+  `docker top` as busy too. Skip a busy container and list each blocking process with its
+  PID, elapsed time, CPU and memory (`docker top <name> -o pid,ppid,etime,pcpu,rss,args`),
+  so a stuck orphan is easy to tell from live work. Add a no-build flag so the skipped ones
+  can be retried once they are free, and a `--force` flag that recreates them anyway, for
+  when ending that work is acceptable. Run `dev` with the host's login environment: if the
   script starts from ssh, cron or an agent, `~/.profile` is never read, and the recreated
   container silently loses `DEV_DOCKER_SOCK`, `GH_TOKEN` and `DEV_CLAUDE_UPDATER`. Load the
   profile with `bash -lc 'exec bash "$0" "$@"'` rather than running the script itself as a
