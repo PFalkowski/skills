@@ -144,11 +144,11 @@ git clone https://github.com/PFalkowski/skills skills-main
 ./skills-main/link-skills.ps1
 ```
 
-Keep it current with a `SessionStart` hook in `~/.claude/settings.json`. A pull updates the skills already linked; re-running the script links a skill added since, so the hook does both. A hook's output goes into the session, so it keeps only the lines that report a change or a warning:
+Keep it current with a `SessionStart` hook in `~/.claude/settings.json`. A pull updates the skills already linked; re-running the script links a skill added since, so the hook does both. A hook's output goes into the session, so it keeps only the lines that report a changed link or a checkout warning:
 
 ```json
 "hooks": { "SessionStart": [{ "hooks": [{ "type": "command", "timeout": 30,
-  "command": "git -C /path/to/skills-main pull --ff-only -q origin main && { pwsh -NoProfile -File /path/to/skills-main/link-skills.ps1 | grep -v '^=' || true; }" }] }] }
+  "command": "git -C /path/to/skills-main pull --ff-only -q origin main && { pwsh -NoProfile -File /path/to/skills-main/link-skills.ps1 | grep -v -e '^=' -e '^!  CLAUDE.md' || true; }" }] }] }
 ```
 
 The script warns (`!  checkout`) when the checkout it runs from is on another branch, on a detached HEAD, or behind `origin/main` as of the last fetch. It still links: linking a branch on purpose to try in-progress edits is fine.

@@ -20,6 +20,7 @@ total=0
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 export USERPROFILE="$WORK/home"
+export MSYS=winsymlinks:nativestrict   # Git Bash on Windows otherwise copies instead of linking
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.invalid GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.invalid
 
 check() {
@@ -71,9 +72,12 @@ out="$(run "$WORK/clone")"
 check "behind origin/main after a fetch: warns with the count" has "$out" '^!  checkout.* 1 commit behind origin/main'
 
 git -C "$WORK/clone" switch -q feature
-ln -s "$WORK/clone" "$WORK/clone-link"
-out="$(run "$WORK/clone-link")"
-check "reached through a symlink, on a feature branch: still warns" has "$out" "^!  checkout.*'feature'"
+if ln -s "$WORK/clone" "$WORK/clone-link" 2>/dev/null && [ -L "$WORK/clone-link" ]; then
+  out="$(run "$WORK/clone-link")"
+  check "reached through a symlink, on a feature branch: still warns" has "$out" "^!  checkout.*'feature'"
+else
+  echo "SKIP: this system cannot create a symlink -- the symlinked-checkout case not run"
+fi
 git -C "$WORK/clone" switch -q main
 git -C "$WORK/clone" merge -q --ff-only origin/main
 
@@ -88,6 +92,13 @@ mkdir -p "$WORK/plain"
 cp -r "$WORK/origin/demo" "$WORK/origin/workflows" "$WORK/origin/link-skills.ps1" "$WORK/plain/"
 out="$(run "$WORK/plain")"
 check "not a git checkout (a zip download): no warning and no error" lacks "$out" '^!  checkout|fatal|Exception'
+
+mkdir -p "$WORK/broken"
+cp -r "$WORK/origin/demo" "$WORK/origin/workflows" "$WORK/origin/link-skills.ps1" "$WORK/broken/"
+printf 'gitdir: %s
+' "$WORK/gone" > "$WORK/broken/.git"
+out="$(run "$WORK/broken")"
+check "a .git that git cannot read (a moved worktree): no false warning" lacks "$out" '^!  checkout'
 
 echo "$((total - fail))/$total passed"
 [ "$fail" -eq 0 ]
