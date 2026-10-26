@@ -71,8 +71,10 @@ $repo = $PSScriptRoot
 
 # Every link, and a CLAUDE.md that imports this repo's templates, follows whatever this checkout has
 # checked out. Say so when that is not the default branch or lags it; linking a branch on purpose
-# to try in-progress edits stays allowed.
-if ((Get-Command git -ErrorAction SilentlyContinue) -and (git -C $repo rev-parse --show-toplevel 2>$null) -eq ($repo -replace '\\', '/')) {
+# to try in-progress edits stays allowed. A copy without its own .git (a zip, or one nested in
+# another repo) is skipped, and a git error must never stop the linking below.
+if ((Get-Command git -ErrorAction SilentlyContinue) -and (Test-Path (Join-Path $repo '.git'))) {
+    $PSNativeCommandUseErrorActionPreference = $false
     $default = (git -C $repo symbolic-ref --short refs/remotes/origin/HEAD 2>$null) -replace '^origin/', ''
     if (-not $default) { $default = 'main' }
     $branch = git -C $repo branch --show-current
@@ -82,7 +84,7 @@ if ((Get-Command git -ErrorAction SilentlyContinue) -and (git -C $repo rev-parse
     }
     elseif (git -C $repo rev-parse --verify --quiet "origin/$default") {
         $behind = [int](git -C $repo rev-list --count "HEAD..origin/$default")
-        if ($behind) { "!  checkout ($repo is $behind commits behind origin/$default as of the last fetch: git -C $repo pull --ff-only)" }
+        if ($behind) { "!  checkout ($repo is $behind commit$(if ($behind -ne 1) { 's' }) behind origin/$default as of the last fetch: git -C $repo pull --ff-only)" }
     }
 }
 foreach ($destination in $Dest) {

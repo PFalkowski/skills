@@ -127,7 +127,7 @@ Codex reads `AGENTS.md`, not `CLAUDE.md`: copy the content of `templates/CLAUDE.
 
 > Installing or updating these skills as a user? See [Install](#install) and [Updating](#updating) above — you don't need any of this.
 
-Link every skill in this repo into both `~/.claude/skills/` and `~/.agents/skills/` so Claude Code and Codex-compatible harnesses pick up your in-progress edits live (the link target *is* the repo file — no installer, no copies). **All skills are linked by default**, not just the one you're editing.
+Link every skill in this repo into both `~/.claude/skills/` and `~/.agents/skills/` so Claude Code and Codex-compatible harnesses load them straight from the repo (the link target *is* the repo file — no installer, no copies). **All skills are linked by default**, not just the one you're editing.
 
 ### Windows (PowerShell)
 
@@ -137,18 +137,18 @@ Link every skill in this repo into both `~/.claude/skills/` and `~/.agents/skill
 
 Idempotent and self-healing — run it after adding a skill or to repair a machine: already-correct links are left alone (`=`), missing ones are created (`+`), and stale copies / wrong targets are replaced with a junction (`~`). Junctions need no admin rights or developer mode.
 
-Link from a checkout that stays on `main`. Every link, and a `~/.claude/CLAUDE.md` that imports `templates/`, follows whatever that checkout has checked out: switch it to a feature branch and every session loads that branch's skills and rules; let it fall behind and new rules never arrive. So link from a separate clone that is only ever fast-forwarded, and edit skills elsewhere:
+Every link, and a `~/.claude/CLAUDE.md` that imports `templates/`, follows whatever the linked checkout has checked out: switch it to a feature branch and every session loads that branch's skills and rules; let it fall behind and new rules never arrive. So for everyday use, link from a separate clone that stays on `main` and is only ever fast-forwarded. To try in-progress edits live, link from your working checkout for the session and link back afterwards:
 
 ```powershell
 git clone https://github.com/PFalkowski/skills skills-main
 ./skills-main/link-skills.ps1
 ```
 
-Keep it current with a `SessionStart` hook in `~/.claude/settings.json`:
+Keep it current with a `SessionStart` hook in `~/.claude/settings.json`. A pull updates the skills already linked; re-running the script links a skill added since, so the hook does both. A hook's output goes into the session, so it keeps only the lines that report a change or a warning:
 
 ```json
 "hooks": { "SessionStart": [{ "hooks": [{ "type": "command", "timeout": 30,
-  "command": "git -C /path/to/skills-main pull --ff-only -q origin main" }] }] }
+  "command": "git -C /path/to/skills-main pull --ff-only -q origin main && { pwsh -NoProfile -File /path/to/skills-main/link-skills.ps1 | grep -v '^=' || true; }" }] }] }
 ```
 
 The script warns (`!  checkout`) when the checkout it runs from is on another branch, on a detached HEAD, or behind `origin/main` as of the last fetch. It still links: linking a branch on purpose to try in-progress edits is fine.

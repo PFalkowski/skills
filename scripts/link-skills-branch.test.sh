@@ -36,7 +36,9 @@ check() {
 has() { printf '%s' "$1" | grep -qE "$2"; }
 lacks() { ! has "$1" "$2"; }
 
+# Each run starts from empty destinations, so a link left by an earlier case cannot pass a later one.
 run() {
+  rm -rf "$WORK/dest" "$WORK/workflows-link"
   CI=true pwsh -NoProfile -File "$1/link-skills.ps1" -Dest "$WORK/dest" -WorkflowsPath "$WORK/workflows-link" < /dev/null 2>&1
 }
 
@@ -66,7 +68,21 @@ git -C "$WORK/clone" switch -q main
 git -C "$WORK/origin" commit -q --allow-empty -m later
 git -C "$WORK/clone" fetch -q
 out="$(run "$WORK/clone")"
-check "behind origin/main after a fetch: warns with the count" has "$out" '^!  checkout.*1 commits? behind origin/main'
+check "behind origin/main after a fetch: warns with the count" has "$out" '^!  checkout.* 1 commit behind origin/main'
+
+git -C "$WORK/clone" switch -q feature
+ln -s "$WORK/clone" "$WORK/clone-link"
+out="$(run "$WORK/clone-link")"
+check "reached through a symlink, on a feature branch: still warns" has "$out" "^!  checkout.*'feature'"
+git -C "$WORK/clone" switch -q main
+git -C "$WORK/clone" merge -q --ff-only origin/main
+
+mkdir -p "$WORK/clone/nested"
+cp -r "$WORK/origin/demo" "$WORK/origin/workflows" "$WORK/origin/link-skills.ps1" "$WORK/clone/nested/"
+git -C "$WORK/clone" switch -q feature
+out="$(run "$WORK/clone/nested")"
+check "a copy nested inside another repo: does not report that repo's branch" lacks "$out" '^!  checkout'
+git -C "$WORK/clone" switch -q main
 
 mkdir -p "$WORK/plain"
 cp -r "$WORK/origin/demo" "$WORK/origin/workflows" "$WORK/origin/link-skills.ps1" "$WORK/plain/"
