@@ -37,6 +37,15 @@ check() {
 has() { printf '%s' "$1" | grep -qE "$2"; }
 lacks() { ! has "$1" "$2"; }
 
+# The script links with junctions, which exist only on Windows; elsewhere the README uses ln -s.
+linked() {
+  if [ "${OS:-}" = "Windows_NT" ]; then
+    check "$1" test -e "$WORK/dest/demo/SKILL.md"
+  else
+    echo "SKIP: $1 (junctions are Windows-only)"
+  fi
+}
+
 # Each run starts from empty destinations, so a link left by an earlier case cannot pass a later one.
 run() {
   rm -rf "$WORK/dest" "$WORK/workflows-link"
@@ -54,12 +63,12 @@ git clone -q "$WORK/origin" "$WORK/clone"
 
 out="$(run "$WORK/clone")"
 check "on main and current: no checkout warning" lacks "$out" '^!  checkout'
-check "on main and current: the skill is still linked" has "$out" 'demo'
+linked "on main and current: the skill is still linked"
 
 git -C "$WORK/clone" switch -qc feature
 out="$(run "$WORK/clone")"
 check "on a feature branch: warns and names the branch" has "$out" "^!  checkout.*'feature'"
-check "on a feature branch: still links (a warning, not a refusal)" test -e "$WORK/dest/demo/SKILL.md"
+linked "on a feature branch: still links (a warning, not a refusal)"
 
 git -C "$WORK/clone" switch -q --detach main
 out="$(run "$WORK/clone")"
