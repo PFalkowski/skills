@@ -36,7 +36,7 @@ def send(port, method, path, headers=None, body=None, host="default", chunked=Fa
         conn.endheaders()
         if body is not None:
             conn.send(f"{len(body):x}\r\n".encode() + body + b"\r\n0\r\n\r\n" if chunked else body)
-    except OSError:
+    except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
         pass  # a server may answer and close before reading the whole body; read what it sent
     try:
         response = conn.getresponse()

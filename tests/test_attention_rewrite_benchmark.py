@@ -188,6 +188,13 @@ class ParityTests(unittest.TestCase):
             result = parity.send(port, 'POST', '/api/submit', {'Content-Type': 'application/json'}, body)
             self.assertTrue(str(result['status']).startswith('EXC '), result['status'])
 
+    def test_a_server_that_is_not_listening_is_an_error_not_a_result(self):
+        import socket
+        with socket.create_server(('127.0.0.1', 0)) as closed:
+            port = closed.getsockname()[1]
+        with self.assertRaises(ConnectionRefusedError):
+            parity.send(port, 'POST', '/api/submit', {'Content-Type': 'application/json'}, b'{}')
+
     def test_script_has_129_requests_and_no_embedded_answers(self):
         steps = list(parity.script(1234, {'ids': {}}))
         self.assertEqual(len(steps), 129)
