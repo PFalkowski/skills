@@ -108,7 +108,7 @@ The lead merges agent outputs into **one table** (templates + severity legend in
 
 > **Under a standing posting policy** — a `manager` mandate (`post=`, `tickets=`), a `CLAUDE.md` that
 > names who answers this step, or a lifecycle or patrol that dispatched this review (`sdlc-old-fashioned`
-> with its dial on autonomous, `nights-watch`): the three questions go to that principal instead of the
+> with its dial on autonomous, `nights-watch`, or [`CLAUDE_AUTONOMY=autonomous`](../templates/autonomy.md#the-autonomy-flag)): the three questions go to that principal instead of the
 > human. An attended `sdlc-old-fashioned` run still asks the human.
 > Post the findings it selects, by the same mechanics.
 

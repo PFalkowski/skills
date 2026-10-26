@@ -113,7 +113,7 @@ default undeliverable. **Deny is evaluated before ask and allow, and a tool deni
 cannot be allowed at another**, so there was no way to grant it back for one repo — the rule had to
 go or the feature did.
 
-Removing it from `deny` does not add a grant. With no rule matching, `gh pr merge` prompts like any
+Removing it from `deny` does not add a grant, and an `ask` rule for it in user settings beats any project `allow` (ask is evaluated before allow, whatever the scope). With no rule matching, `gh pr merge` prompts like any
 other unlisted command; the repos that should run it unattended opt in per repo, below. What
 replaces the blanket deny is a control the forge enforces and no permission rule can match:
 **branch protection, or a ruleset with bypass disallowed**, on the branches that matter. That holds

@@ -37,7 +37,7 @@ Run only after shipping leaves nothing outstanding in scope.
 - Run `git fetch --prune` for stale remote-tracking refs.
 - Retain any branch/worktree referenced by an open account item and explain why.
 
-All deletions still require per-item approval. Never force-push.
+All deletions still require per-item approval, except under [`CLAUDE_AUTONOMY`](../templates/autonomy.md#the-autonomy-flag)`=autonomous`: a clean worktree whose branch has merged, and that merged local branch, are removed without asking, because their commits are in the base. Never force-push.
 
 ## 3. Account
 

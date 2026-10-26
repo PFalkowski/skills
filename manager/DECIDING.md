@@ -17,6 +17,8 @@ The mandate is the one paragraph every decision is checked against. It is writte
 | `hard="…"` | see below | Extra lines that always escalate. Extends the defaults; cannot shrink them. |
 | `tracker=` | the house tracker | Whatever the repo already files its tickets in, detected rather than asked for: `github` when the remote is github.com, `azdo` for dev.azure.com, `jira` when the repo's docs or `CLAUDE.md` name it or an Atlassian integration is connected. What the repo's own docs say wins over what the remote implies. Pass the key only to override the detection. |
 
+**`merge=` and `cleanup=` default to `ask` unless [`CLAUDE_AUTONOMY`](../templates/autonomy.md#the-autonomy-flag) is `autonomous`.**
+
 **Default hard lines** — always escalated, with a recommendation, whatever the mandate: publishing or releasing; spending money; deleting data, history or someone else's branch; force-pushing a shared branch; weakening security or removing a guard; contacting people outside the team; any action that breaks a working assumption of the mandate; merging to a protected branch under `merge=ask`.
 
 **"Deleting" here means someone else's work, not the run's own scaffolding.** A worktree a managed run created, and the local branch of a PR that has merged, are neither data nor history — the commits are in the target branch and the tree is one `git worktree add` from existing again. What stays a hard line is anything reachable only from the thing being deleted: an unmerged branch, a stash, a worktree with uncommitted changes. Check that before deleting, not the label on the artifact.

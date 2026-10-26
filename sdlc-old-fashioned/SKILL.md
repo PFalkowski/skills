@@ -22,8 +22,8 @@ For a generic workflow request on load-bearing work, check whether [dynamic-work
 
 State both choices up front, then run accordingly:
 
-**Dial 1 — Autonomy: attended or autonomous?**
-- **Attended** *(default)* — you stop at every gate for the human; an unresolved question blocks until answered. Use for the highest-stakes, hardest-to-reverse work.
+**Dial 1 — Autonomy: attended or autonomous?** Read [`CLAUDE_AUTONOMY`](../templates/autonomy.md#the-autonomy-flag) instead of asking: autonomous when it says so, attended otherwise. An autonomous run takes Phases 9–13 through the flag's loop: review, fix, re-review, merge, cleanup, `wrap-up`.
+- **Attended** *(default when the flag is unset)* — you stop at every gate for the human; an unresolved question blocks until answered. Use for the highest-stakes, hardest-to-reverse work.
 - **Autonomous** — runs the lifecycle unattended, **deferring questions to the backlog file** (nightshift-style) instead of stopping, and pausing only at genuinely irreversible gates (merge to a protected branch, schema/data migration, publish, spend). Drive it with `nightshift` over the Step-6 backlog. Pick this when the user says "run it overnight", "unattended", "autonomous", or hands off and walks away.
 
 **Dial 2 — Execution model: how each phase runs.** Whichever you pick, state the **model tier and reasoning effort** per phase up front rather than leaving it to chance — cheap tiers for mechanical phases, the strongest tier for anything adversarial or hard to reverse.

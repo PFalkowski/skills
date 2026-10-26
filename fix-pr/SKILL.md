@@ -25,7 +25,7 @@ metadata:
 
 ## Step 1 — Pick the mode
 
-If the invocation didn't name one, ask: **hybrid** (default), **interactive**, or **auto**.
+If the invocation didn't name one, ask: **hybrid** (default), **interactive**, or **auto**. Under [`CLAUDE_AUTONOMY`](../templates/autonomy.md#the-autonomy-flag)`=autonomous` don't ask: use **auto**, and Step 4 posts the replies, files the carried tickets and resolves the threads without asking (`reply=post`, `resolve=carried`, `tickets=file`).
 
 - **interactive** — every confirmed comment is presented to the user with options; the user picks.
 - **hybrid** (default) — mechanical comments (typo, import, lint, formatting; the list in [code-review-grill REFERENCE, § The bar](../code-review-grill/REFERENCE.md#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr)) are fixed autonomously by subagents; everything substantive goes through the interactive flow. Only the substantive ones ever reach the user.
