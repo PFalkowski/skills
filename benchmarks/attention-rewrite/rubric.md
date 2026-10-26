@@ -5,6 +5,10 @@ anchor Y. Six reviewers each look at one dimension. One judge then reads the six
 sets the final scores. All steps run one at a time (this matters on a machine that serves one
 model request at a time, and it keeps reviewers from seeing each other's work).
 
+Blinding limit: the anchors can be identified from the mechanical scorecards (test counts,
+parity numbers, lifecycle results), and a reviewer who has seen the calibration table could
+recognise them. The review hides names, paths and history, not what the evidence shows.
+
 Judged scores are not deterministic. Calibrate first (see "Check your judges"), and treat a
 one-point gap as noise.
 
@@ -28,6 +32,7 @@ one-point gap as noise.
 
 3. Score each label folder: `score.py --private <private> --candidate <review>/A --out <review>/score-A --label A`.
    Put the three or four `scorecard.md` files and their logs where the reviewers can read them.
+   Do not pass `--meta` values that name the subject.
 
 ## Reviewer brief (shared by all six)
 
@@ -98,8 +103,8 @@ dimension (the helper prints it) so that no label is always read first.
 2. **ADR-0007 boundaries and architecture test.** The project's architecture decision 0007
    (in `ref/docs/adr/`) fixes the module boundaries: one repository, one project per module,
    only public contracts shared between modules, tables owned by their module, reuse by
-   copying in with a source note. Check how well the subject follows it, and whether an
-   architecture test fails the build on a wrong-direction or internal-type dependency. Test
+   copying in with a source note. Check how well the subject follows it, and whether some
+   test catches a module depending on another the wrong way or reaching its internals. Test
    that claim by mutation: in a copy, add a wrong-direction project reference, an
    `InternalsVisibleTo`, or make an internal type public, and see whether any test fails. Also
    check that domain logic sits in the module that owns it, not in the host.
@@ -131,8 +136,9 @@ dimension (the helper prints it) so that no label is always read first.
 
 ## Judge brief
 
-You are the judge. You did not write any subject and you did not review any. Read the six
-reports and the scorecards only. Do not open the subjects unless a report's claim cannot be
+You are the judge. You did not write any subject and you did not review any. You are told one
+thing about the labels: which one is anchor X (the helper prints it). You are not told which
+label is the candidate or anchor Y. Read the six reports and the scorecards only. Do not open the subjects unless a report's claim cannot be
 checked any other way, and then say so.
 
 For each dimension, say whether you confirm each reviewer score or move it, and why. Move a
@@ -145,8 +151,8 @@ Output:
 
 1. A score table: dimension, reviewer score and judge score per label.
 2. A short verdict per dimension.
-3. An overall verdict that names the best subject, and for the candidate says whether it is
-   better than, equal to or worse than anchor X.
+3. An overall verdict that names the best label and says, for every other label, whether it is
+   better than, equal to or worse than the anchor X label.
 4. Residual risks: what nobody ran, and whether it could change the verdict.
 
 The final judged scores are the judge's scores. Only now open `mapping.json` and attach the
@@ -157,9 +163,7 @@ real names.
 Before trusting a setup, run it once on the two anchors with anchor X and anchor Y as the two
 subjects. The known judged scores are in `RESULTS.md`. Expect:
 
-- Y has a blocker on dimension 1 (a stale click leaves a transaction open, so every later
-  write fails, and the server does not stop on interrupt) and scores 1 there.
-- X scores at least as high as Y on every dimension and 4 on most.
+- X scores at least as high as Y on every dimension.
 - Every judged score within one point of the table. A larger gap means the briefs or the
   judge differ from the calibration setup; fix that before scoring candidates.
 

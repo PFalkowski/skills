@@ -42,6 +42,7 @@ def main(argv=None):
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps({"seed": args.seed, "mapping": labels}, indent=1), encoding="utf-8")
     print("Labels:", ", ".join(sorted(labels)))
+    print("Tell the judge, and only the judge, that anchor X is label", next(k for k, v in labels.items() if v == "anchor-x"))
     for dim, order in orders(labels).items():
         print(f"  {dim}: {' then '.join(order)}")
     print(f"Mapping written to {out}. Do not read it until the judge has finished.")

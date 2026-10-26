@@ -11,7 +11,7 @@ No real database is ever opened. Every process it starts is stopped on exit.
 import argparse
 import json
 import shlex
-import shutil
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -29,21 +29,63 @@ class ScoreError(Exception):
     pass
 
 
-def candidate_tokens(root, override, out_dir, build_ok):
-    """Return (tokens, description, skip reason). tokens always ends with the port and database options."""
+def candidate_tokens(root, override, out_dir, build_ok, newer_than=None):
+    """Return (tokens, description, skip reason). A failed build is never scored: a stale bin could be."""
+    if not build_ok:
+        return None, None, "the build failed, so the Host is not scored"
     if override:
         tokens = shlex.split(override, posix=not common.WINDOWS)
         if not any("{db}" in t for t in tokens):
             raise ScoreError("--candidate-cmd must contain {db} so the server gets a temporary database")
         return tokens, f"override: {override}", None
     try:
-        project, dll = buildtest.find_host(root)
+        project, dll = buildtest.find_host(root, newer_than)
     except buildtest.DiscoveryError as error:
         return None, None, str(error)
     rel = project.relative_to(root).as_posix()
     if dll is None:
-        return None, None, f"host project {rel} has no Debug build output"
+        return None, None, f"host project {rel} has no Debug build output newer than this build"
     return ["dotnet", str(dll), "--port", "0", "--database", "{db}"], f"{rel} -> {dll.relative_to(root).as_posix()}", None
+
+
+def parse_meta(items):
+    meta = {}
+    for item in items or []:
+        key, sep, value = item.partition("=")
+        if not sep or not key:
+            raise ScoreError(f"--meta needs key=value, got {item!r}")
+        meta[key] = value
+    return meta
+
+
+def run_server_checks(card, reference, cand, out, skip_lifecycle=False):
+    """Parity, database compatibility and lifecycle. A server that cannot start ends the checks, not the scorecard."""
+    out = Path(out)
+    stages = [("parity", lambda: parity.run_parity(reference, cand, out / "parity")),
+              ("dbcompat", lambda: dbcompat.run_dbcompat(reference, cand, out / "parity", out / "dbcompat"))]
+    if skip_lifecycle:
+        card["skipped"]["lifecycle"] = "skipped (--skip-lifecycle)"
+    else:
+        stages.append(("lifecycle", lambda: lifecycle.run_lifecycle(reference, cand, out / "lifecycle")))
+    failure = None
+    for name, stage in stages:
+        if failure:
+            card["skipped"][name] = "not run after the earlier failure"
+            continue
+        try:
+            card[name] = stage()
+        except (RuntimeError, OSError, sqlite3.Error) as error:
+            failure = f"host failed to start: {error}" if isinstance(error, RuntimeError) else f"{name} failed: {error}"
+            card["skipped"][name] = failure
+        finally:
+            common.kill_all()
+    return failure
+
+
+def finish(card, out):
+    card["summary"] = scorecard.summarize(card)
+    (Path(out) / "scorecard.json").write_text(json.dumps(card, indent=1, default=str), encoding="utf-8")
+    (Path(out) / "scorecard.md").write_text(scorecard.render_markdown(card), encoding="utf-8")
 
 
 def check_out(out, root, private):
@@ -69,23 +111,29 @@ def main(argv=None):
     ap.add_argument("--candidate-cmd", help="server command with {db}, e.g. \"dotnet bin/App.dll --port 0 --database {db}\"")
     ap.add_argument("--docker", action="store_true", help="also run dotnet test and node --check in Docker containers")
     ap.add_argument("--allow-ancestor-props", action="store_true", help="build even if a parent folder holds MSBuild or global.json files")
+    ap.add_argument("--meta", action="append", metavar="KEY=VALUE", help="run details to store in the scorecard (repeatable): harness, model, effort, skills commit, minutes")
+    ap.add_argument("--start-timeout", type=int, default=60, help="seconds to wait for a server to print its address")
     ap.add_argument("--skip-lifecycle", action="store_true", help="skip the Ctrl+C / SIGINT checks")
     args = ap.parse_args(argv)
     if not (args.private or args.reference_dir):
         ap.error("give --private or --reference-dir")
+    common.START_TIMEOUT = args.start_timeout
     candidate = Path(args.candidate).resolve()
     private = Path(args.private).resolve() if args.private else Path(args.reference_dir).resolve()
     try:
         out = check_out(args.out, candidate, private)
         pins = gitutil.resolve(private) if args.private else {}
-        card = {"label": args.label or candidate.name, "pins": pins, "environment": scorecard.environment(), "skipped": {}}
-        if args.private:
-            ref_dir = gitutil.archive(private, gitutil.PINS["start"]["tag"], out / "reference")
-        else:
-            ref_dir = private
+        card = {"label": args.label or candidate.name, "meta": parse_meta(args.meta), "pins": pins,
+                "environment": scorecard.environment(), "skipped": {}, "warnings": []}
+        if not args.private:
+            card["warnings"].append("--reference-dir was used: no pin is verified, so the reference is not proven to be the start tag")
+        ref_dir = gitutil.archive(private, gitutil.PINS["start"]["tag"], out / "reference") if args.private else private
         if args.ref:
             root = gitutil.archive(candidate, args.ref, out / "candidate-src")
-            card["candidate_source"] = f"{candidate} at {args.ref} ({gitutil.git(candidate, 'rev-parse', '--short', args.ref)})"
+            commit = gitutil.git(candidate, "rev-parse", "--verify", f"{args.ref}^{{commit}}")
+            card["candidate_source"] = f"{candidate} at {args.ref} ({commit[:7]})"
+            card["candidate_commit"] = commit
+            card["candidate_pin"] = next((n for n, c in pins.items() if c == commit), None)
         else:
             root = candidate
             card["candidate_source"] = str(candidate)
@@ -93,32 +141,29 @@ def main(argv=None):
         if inherited and not args.allow_ancestor_props:
             raise ScoreError(f"parent folders hold files that change the build: {[str(p) for p in inherited]}. "
                              "Score a folder outside any other checkout (use --ref to export one), or pass --allow-ancestor-props.")
-        card["tests"] = buildtest.build_and_test(root, out, "local")
+        try:
+            card["tests"] = buildtest.build_and_test(root, out, "local")
+        except buildtest.DiscoveryError as error:
+            card["tests"] = {"error": str(error), "build": {"exit": None, "ok": False}}
+        build_ok = card["tests"]["build"]["ok"]
         if args.docker:
             card["docker"] = buildtest.docker_checks(root, out)
         else:
             card["skipped"]["docker"] = "not requested (--docker)"
-        tokens, description, reason = candidate_tokens(root, args.candidate_cmd, out, card["tests"]["build"]["exit"] == 0)
+        started = card["tests"].get("build_started")
+        tokens, description, reason = candidate_tokens(root, args.candidate_cmd, out, build_ok, started and started - 2)
         card["host"] = {"description": description or f"not found: {reason}"}
         if tokens is None:
             card["skipped"]["parity, database compatibility, lifecycle"] = reason
         else:
             reference = (str(ref_dir), [sys.executable, "server.py", "--port", "0", "--database", "{db}"])
-            cand = (str(root), tokens)
-            card["parity"] = parity.run_parity(reference, cand, out / "parity")
-            card["dbcompat"] = dbcompat.run_dbcompat(reference, cand, out / "parity", out / "dbcompat")
-            if args.skip_lifecycle:
-                card["skipped"]["lifecycle"] = "skipped (--skip-lifecycle)"
-            else:
-                card["lifecycle"] = lifecycle.run_lifecycle(reference, cand, out / "lifecycle")
-    except (ScoreError, gitutil.GitError, buildtest.DiscoveryError) as error:
+            run_server_checks(card, reference, (str(root), tokens), out, args.skip_lifecycle)
+    except (ScoreError, gitutil.GitError) as error:
         print(f"score refused: {error}", file=sys.stderr)
         return 2
     finally:
         common.kill_all()
-    card["summary"] = scorecard.summarize(card)
-    (out / "scorecard.json").write_text(json.dumps(card, indent=1, default=str), encoding="utf-8")
-    (out / "scorecard.md").write_text(scorecard.render_markdown(card), encoding="utf-8")
+    finish(card, out)
     print(json.dumps(card["summary"], indent=1))
     print(f"scorecard: {out / 'scorecard.md'}")
     return 0

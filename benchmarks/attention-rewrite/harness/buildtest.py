@@ -3,8 +3,12 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import common
 
 SKIP_DIRS = {"bin", "obj", ".git", "node_modules", ".data"}
 VSTEST = re.compile(r"(?:Passed|Failed)!\s+-\s+Failed:\s+(\d+),\s+Passed:\s+(\d+),\s+Skipped:\s+(\d+),\s+Total:\s+(\d+)")
@@ -84,7 +88,7 @@ def discover_hosts(root):
     return sorted(hosts)
 
 
-def find_host(root):
+def find_host(root, newer_than=None):
     """Return (csproj, built dll or None). Several executables: prefer one whose name has 'Host'."""
     hosts = discover_hosts(root)
     if not hosts:
@@ -95,36 +99,63 @@ def find_host(root):
             raise DiscoveryError(f"several executable projects ({[str(h[0].relative_to(root)) for h in hosts]}); pass --candidate-cmd")
         hosts = named
     project, stem = hosts[0]
-    return project, built_dll(project, stem)
+    return project, built_dll(project, stem, newer_than)
 
 
-def built_dll(project, stem):
-    """The newest Debug build output of the project, or None if it has not been built."""
+def built_dll(project, stem, newer_than=None):
+    """The newest Debug build output of the project, or None. A dll older than `newer_than` (an epoch time) is ignored."""
     found = sorted((p for p in (project.parent / "bin" / "Debug").glob(f"*/{stem}.dll")), key=lambda p: p.stat().st_mtime)
+    if newer_than is not None:
+        found = [p for p in found if p.stat().st_mtime >= newer_than]
     return found[-1] if found else None
 
 
 def run_logged(argv, cwd, log_path, timeout=1800):
-    """Run a command, write its combined output to log_path and return (exit code, output, seconds)."""
+    """Run a command, write its combined output to log_path and return (exit code, output, seconds).
+
+    On a timeout the whole process tree is killed, because `dotnet test` leaves test host children.
+    """
     t0 = time.monotonic()
+    kwargs = {} if common.WINDOWS else {"start_new_session": True}
     try:
-        p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
-        code, out = p.returncode, p.stdout + p.stderr
-    except subprocess.TimeoutExpired as error:
-        code, out = "timeout", f"timed out after {timeout}s\n{error.stdout or ''}"
-    except FileNotFoundError as error:
+        p = subprocess.Popen(argv, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                             text=True, encoding="utf-8", errors="replace", **kwargs)
+    except OSError as error:
         code, out = "missing", str(error)
-    Path(log_path).write_text(out if isinstance(out, str) else str(out), encoding="utf-8")
+    else:
+        try:
+            out, _ = p.communicate(timeout=timeout)
+            code = p.returncode
+        except subprocess.TimeoutExpired:
+            common.kill_tree(p)
+            out, _ = p.communicate()
+            code, out = "timeout", "timed out after " + str(timeout) + "s" + chr(10) + (out or "")
+    Path(log_path).write_text(out, encoding="utf-8")
     return code, out, round(time.monotonic() - t0, 1)
+
+
+def clean_outputs(root):
+    """Delete every bin and obj folder, so only what this build produces can be scored."""
+    removed = 0
+    for dirpath, dirnames, _ in os.walk(root):
+        for d in list(dirnames):
+            if d in ("bin", "obj"):
+                shutil.rmtree(Path(dirpath) / d, ignore_errors=True)
+                removed += 1
+                dirnames.remove(d)
+            elif d in (".git", "node_modules"):
+                dirnames.remove(d)
+    return removed
 
 
 def build_and_test(root, out_dir, label="local"):
     """dotnet build, dotnet test and node --check app.js. `label` names the log files."""
     root, out_dir = Path(root), Path(out_dir)
     solution = find_solution(root)
-    result = {"solution": solution.name}
+    result = {"solution": solution.name, "cleaned_output_folders": clean_outputs(root), "build_started": time.time()}
     code, text, secs = run_logged(["dotnet", "build", solution.name, "--nologo"], root, out_dir / f"{label}-build.log")
     result["build"] = {"exit": code, "seconds": secs, **parse_build_output(text)}
+    result["build"]["ok"] = code == 0 and not result["build"]["errors"]
     code, text, secs = run_logged(["dotnet", "test", solution.name, "--nologo"], root, out_dir / f"{label}-test.log")
     result["dotnet_test"] = {"exit": code, "seconds": secs, **parse_test_output(text)}
     result["node_check"] = node_check(root, out_dir / f"{label}-node.log")

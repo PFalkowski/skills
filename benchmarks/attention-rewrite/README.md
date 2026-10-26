@@ -47,6 +47,14 @@ The candidate sees only the start snapshot.
 - The task files go beside the repository (`<out>/task/`), not inside it.
 - Give the run no GitHub credentials, and do not log the harness in to the private account.
   The candidate must not be able to fetch the answer. NuGet restore may use the network.
+- The private clone must not be readable by the candidate. Run the candidate as another OS
+  user, in a container that does not mount the clone, or on another machine. `setup.py`
+  removes git's record of where the objects came from (`FETCH_HEAD`, reflogs) and fails if the
+  clone's path appears anywhere under the sandbox's `.git`, but it cannot stop a candidate
+  that knows the path from opening it.
+- The skills tree the harness runs with must not contain `benchmarks/attention-rewrite/`. Give
+  the harness a skills checkout or export without that folder, and record which one in the run
+  details. The scorer and rubric describe the app's HTTP and database contract.
 - Do not place the sandbox, or any candidate, under another checkout that has MSBuild files
   in a parent folder (`Directory.Build.props`, `Directory.Packages.props`, `global.json`).
   They change the build. `score.py` refuses such a folder.
@@ -113,6 +121,17 @@ do not trust its numbers for a candidate.
   browser check is included.
 - Windows and Linux differ slightly (Python itself answers the 1 MB upload differently, and
   one parity group shifts by one). Compare candidates only within one platform.
+- The public harness reveals the app's HTTP and database contract (route, field and table
+  names, and which requests the scorer sends), though never the expected outputs. A candidate
+  that read it would learn what is checked. Keep it out of the candidate's reach (see Sandbox
+  rules).
+- The scorer does not prove that the Host binds only to loopback. The security reviewer in
+  `rubric.md` checks that with a socket listing.
+- One parity case (the 1 MB upload) is left out of the three difference counts and reported on
+  its own line, because the Python reference answers it differently from run to run (400, or an
+  aborted connection). The counts are therefore not comparable with the original report's.
+- Anchors can be recognised from their mechanical scorecards (test counts, parity numbers,
+  lifecycle results). Tier 2 is blind to names and paths, not to what the evidence shows.
 - The Python reference runs under whatever Python is on the machine. Its `Server` header
   therefore changes with the version; this is not counted as a difference.
 
@@ -132,6 +151,12 @@ python benchmarks/attention-rewrite/score.py --private <private> --candidate D:/
 
 # 4. Read D:/bench/run1-score/scorecard.md (and scorecard.json).
 ```
+
+The scorer deletes every `bin` and `obj` folder in the candidate folder before it builds, and
+it does not score a Host when the build fails or when the dll is older than the build. Use
+`--meta key=value` (repeatable) to store run details such as harness, model, effort and skills
+commit in the scorecard; it also stores the resolved commit of every pin. With
+`--reference-dir`, no pin is verified and the scorecard says so.
 
 Options: `--docker` adds the container test run; `--candidate-cmd "<command with {db}>"`
 overrides Host discovery (a Host is an executable project under `src/`); `--skip-lifecycle`

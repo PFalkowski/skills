@@ -12,6 +12,7 @@ WINDOWS = os.name == "nt"
 HARNESS = Path(__file__).resolve().parent
 ADDRESS = re.compile(r"http://127\.0\.0\.1:(\d+)")
 _STARTED = []
+START_TIMEOUT = 60
 
 
 class Server:
@@ -39,10 +40,13 @@ def assert_safe_db(path):
 
 
 def kill_tree(process):
-    if process.poll() is not None and not WINDOWS:
+    alive = process.poll() is None
+    if not alive and not WINDOWS:
         return
     if WINDOWS:
-        subprocess.run(["taskkill", "/T", "/F", "/PID", str(process.pid)], capture_output=True)
+        done = subprocess.run(["taskkill", "/T", "/F", "/PID", str(process.pid)], capture_output=True, text=True)
+        if done.returncode != 0 and alive:
+            print(f"taskkill of {process.pid} exited {done.returncode}: {done.stderr.strip()}", file=sys.stderr)
     else:
         try:
             os.killpg(process.pid, signal.SIGKILL)
@@ -88,7 +92,7 @@ def start(cwd, tokens, db, log_path, console=False):
     process = subprocess.Popen(argv, cwd=cwd, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, **kwargs)
     _STARTED.append(process)
     try:
-        deadline = time.monotonic() + 60
+        deadline = time.monotonic() + START_TIMEOUT
         while time.monotonic() < deadline:
             text = Path(log_path).read_text(encoding="utf-8", errors="replace")
             match = ADDRESS.search(text)
@@ -97,7 +101,7 @@ def start(cwd, tokens, db, log_path, console=False):
             if process.poll() is not None:
                 raise RuntimeError(f"server exited before listening: {text.strip()[-400:]}")
             time.sleep(0.1)
-        raise RuntimeError("server startup timeout")
+        raise RuntimeError(f"server did not print its address within {START_TIMEOUT}s")
     except BaseException:
         kill_tree(process)
         _forget(process)

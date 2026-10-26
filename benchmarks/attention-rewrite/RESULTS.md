@@ -28,7 +28,9 @@ X: 4 / 4 / 4 / 4 / 4 / 4. Y: 1 / 2 / 3 / 2 / 2 / 2. Verdict: continue X.
 
 Each anchor was exported with `git archive` to a clean folder outside both repositories and
 scored with `score.py` (commands below). "Target" is the number in the original report; "Run"
-is what `score.py` produced. Every number matches.
+is what `score.py` produced. Every number matches except the Windows parity counts, which are
+one lower in each group because the scorer now leaves out one case (see below). Windows was
+scored three times for each anchor and the counts did not change between runs.
 
 ### Windows 11
 
@@ -41,7 +43,7 @@ reference's `Server` header reads `BaseHTTP/0.6 Python/3.13.1`), Node v22.13.1.
 | `dotnet test` pass / fail / skip | 98 / 0 / 1 | 98 / 0 / 1 | 28 / 0 / 0 | 28 / 0 / 0 |
 | Build warnings | 0 | 0 | 0 | 0 |
 | `node --check app.js` | pass | pass | pass | pass |
-| Parity diffs: status / body / security headers | 5 / 17 / 11 | 5 / 17 / 11 | 53 / 57 / 17 | 53 / 57 / 17 |
+| Parity diffs: status / body / security headers | 5 / 17 / 11 | 4 / 16 / 10 (3 runs) | 53 / 57 / 17 | 52 / 56 / 16 (3 runs) |
 | Database compatibility (both directions, six checks) | all yes | all yes | all yes | all yes |
 | Stale-guard repro, statuses of the five later steps | 200 x5 | 200 x5 | 200, 200, 500, 500, 200 | 200, 200, 500, 500, 200 |
 | Stops on Ctrl+C when idle | yes, exit 0 | yes, exit 0 | no | no, still running after 15 s |
@@ -70,8 +72,21 @@ inside the container on `git archive` exports.
 The same Docker image also ran the tests from the Windows host with `score.py --docker`:
 X 99 / 0 / 0 and Y 28 / 0 / 0, zero build warnings, and `node --check` passing in `node:22`.
 
+### The 1 MB parity case
+
+The original counts included `POST 1MB`. On Windows the Python reference answers that request
+400 on some runs and aborts the connection (WinError 10053) on others, so a count that includes
+it flips by one in every group. A first set of three Y runs gave 52 / 56 / 16 once and
+53 / 57 / 17 twice. The scorer now leaves that case out of the status, body and header counts and
+prints it on its own line (128 of the 129 requests are counted). With it left out, the three
+re-scored runs of each anchor on Windows were identical: X 4 / 16 / 10 and Y 52 / 56 / 16. The
+original report's 5 / 17 / 11 and 53 / 57 / 17 are exactly one higher in every group, which is
+the 1 MB case counted as a difference. On Linux the reference answers it 400 every time and the
+case was not a difference for either anchor, so the Linux numbers did not move.
+
 ## Differences from the original method, and why they do not change the numbers
 
+- **1 MB case left out of the counts.** See the section above.
 - **Edge case reported separately.** The original compatibility runs left out the request that
   stores an item with a lone-surrogate escape, because such a row breaks `GET /api/state`
   for every reader. `score.py` does the same for the writer databases and reports the edge case
@@ -95,8 +110,10 @@ X 99 / 0 / 0 and Y 28 / 0 / 0, zero build warnings, and `node --check` passing i
 From the skills worktree, with `<private>` a clone of the private repository:
 
 ```powershell
-python benchmarks/attention-rewrite/score.py --private <private> --candidate <private> --ref benchmark/issue-25-v1/anchor-x --out <tmp>/sc-x --label anchor-x --docker
-python benchmarks/attention-rewrite/score.py --private <private> --candidate <private> --ref benchmark/issue-25-v1/anchor-y --out <tmp>/sc-y --label anchor-y --docker
+python benchmarks/attention-rewrite/score.py --private <private> --candidate <private> --ref benchmark/issue-25-v1/anchor-x --out <tmp>/sc-x --label anchor-x
+python benchmarks/attention-rewrite/score.py --private <private> --candidate <private> --ref benchmark/issue-25-v1/anchor-y --out <tmp>/sc-y --label anchor-y
 ```
 
-Linux: the recipe in the README, once per anchor.
+Each Windows command was run three times into a new folder. The earlier `--docker` run from
+Windows (X 99 / 0 / 0, Y 28 / 0 / 0) used the same command with `--docker` added. Linux: the
+recipe in the README, once per anchor.

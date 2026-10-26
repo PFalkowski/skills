@@ -7,6 +7,7 @@ Creates <out>/repo (history of the start tag only, branch main, no remote) and
 <out>/repo and reads the task files beside it. Nothing in the private clone is changed.
 """
 import argparse
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -31,9 +32,40 @@ def check_output_folder(out, private):
         raise SetupError(f"{out} is inside the private clone; use a folder outside it")
 
 
-def check_isolation(repo, forbidden, start_commit):
-    """No ref other than main, no remote, no commit past the start, and none of the forbidden objects."""
+def path_spellings(path):
+    p = Path(path)
+    forms = {str(p), p.as_posix(), str(p.resolve()), p.resolve().as_posix()}
+    return {f.encode("utf-8") for f in forms} | {f.lower().encode("utf-8") for f in forms}
+
+
+def names_the_source(repo, private):
+    """Files under .git whose bytes contain the private clone's path, in any common spelling."""
+    needles = path_spellings(private)
+    hits = []
+    for f in (Path(repo) / ".git").rglob("*"):
+        if f.is_file() and not f.name.endswith((".pack", ".idx")):
+            data = f.read_bytes()
+            if any(n in data for n in needles):
+                hits.append(str(f.relative_to(repo)))
+    return hits
+
+
+def scrub(repo):
+    """Remove everything git wrote about where the objects came from."""
+    git_dir = Path(repo) / ".git"
+    for name in ("FETCH_HEAD", "ORIG_HEAD"):
+        (git_dir / name).unlink(missing_ok=True)
+    shutil.rmtree(git_dir / "logs", ignore_errors=True)
+
+
+def check_isolation(repo, forbidden, start_commit, private=None):
+    """No ref other than main, no remote, no commit past the start, none of the forbidden objects,
+    and (when `private` is given) no mention of the private clone's path anywhere under .git."""
     problems = []
+    if private is not None:
+        named = names_the_source(repo, private)
+        if named:
+            problems.append(f"the private clone's path appears in {named}")
     refs = git(repo, "for-each-ref", "--format=%(refname)").splitlines()
     if refs != ["refs/heads/main"]:
         problems.append(f"unexpected refs: {refs}")
@@ -73,7 +105,8 @@ def build(private, out, pins=PINS):
         data = git(private, "show", f"{pins['fixtures']['tag']}:{name}", binary=True)
         (task / name).write_bytes(data)
     forbidden = [commits["anchor-x"], commits["anchor-y"], commits["fixtures"]]
-    check_isolation(repo, forbidden, commits["start"])
+    scrub(repo)
+    check_isolation(repo, forbidden, commits["start"], private)
     return {"repo": repo, "task": task, "start": commits["start"]}
 
 

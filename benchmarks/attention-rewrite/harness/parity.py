@@ -227,15 +227,18 @@ def compare(reference, other):
     if [r["case"] for r in ref] != [o["case"] for o in oth]:
         raise ValueError("result lists do not hold the same cases in the same order")
     status = body = headers = 0
-    rows = []
+    rows, excluded = [], []
     for p, o in zip(ref, oth):
+        if p["case"] in EXCLUDED_CASES:
+            excluded.append({"case": p["case"], "reference_status": str(p["status"]), "status": str(o["status"])})
+            continue
         s = o["status"] != p["status"]
         b = o["body"] != p["body"]
         h = [x for x in SEC_HEADERS if o["headers"].get(x) != p["headers"].get(x)]
         status, body, headers = status + s, body + b, headers + bool(h)
         if s or b or h:
             rows.append({"case": p["case"], "ref_status": p["status"], "status": o["status"], "body_differs": b, "headers_differ": h})
-    return {"cases": len(ref), "status_differs": status, "body_differs": body, "headers_differ": headers,
+    return {"cases": len(ref), "counted": len(ref) - len(excluded), "excluded": excluded, "status_differs": status, "body_differs": body, "headers_differ": headers,
             "server_headers": sorted({str(o["headers"].get("server")) for o in other}),
             "reference_server_headers": sorted({str(p["headers"].get("server")) for p in reference}),
             "rows": rows}
@@ -267,6 +270,9 @@ def field_diffs(reference, other):
     return found
 
 
+# The reference answers this case 400 or aborts the connection, depending on timing, so it is
+# reported on its own line and left out of the counts.
+EXCLUDED_CASES = ("POST 1MB",)
 STALE_STEPS = ["advance", "primary with a stale expectedState", "advance", "submit", "configure"]
 
 

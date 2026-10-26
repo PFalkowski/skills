@@ -31,9 +31,21 @@ def environment():
 def summarize(card):
     """Reduce a scorecard to the headline numbers the calibration table compares."""
     out = {}
-    t = card.get("tests", {}).get("dotnet_test")
+    tests = card.get("tests", {})
+    b = tests.get("build")
+    if b:
+        out["build_exit"] = b.get("exit")
+        out["build_ok"] = bool(b.get("ok"))
+    flags = []
+    t = tests.get("dotnet_test")
     if t:
         out["tests"] = f"{t['passed']} / {t['failed']} / {t['skipped']}"
+        if not t.get("test_projects") or not t.get("total"):
+            flags.append("no test projects ran")
+    elif b:
+        flags.append("no test projects ran")
+    if flags:
+        out["flags"] = flags
     p = card.get("parity")
     if p:
         out["parity"] = f"{p['status_differs']} / {p['body_differs']} / {p['headers_differ']}"
@@ -56,20 +68,31 @@ def _yes(v):
 def render_markdown(card):
     L = [f"# Scorecard: {card['label']}", ""]
     pins = card.get("pins", {})
+    for w in card.get("warnings", []):
+        L += [f"**Warning:** {w}", ""]
     L += ["| Item | Value |", "|---|---|"]
     L += [f"| Candidate | {card.get('candidate_source')} |"]
-    L += [f"| Reference commit | {pins.get('start')} |"]
+    if card.get("candidate_commit"):
+        L += [f"| Candidate commit | {card['candidate_commit']} ({card.get('candidate_pin') or 'not a pinned tag'}) |"]
+    for name, sha in pins.items():
+        L += [f"| Pin {name} | {sha} |"]
+    for k, v in card.get("meta", {}).items():
+        L += [f"| {k} | {v} |"]
     for k, v in card.get("environment", {}).items():
         L += [f"| {k} | {v} |"]
     L += [""]
     b = card.get("tests")
-    if b:
+    if b and "error" in b:
+        L += ["## Build and tests", "", f"Not run: {b['error']}", ""]
+    elif b:
         L += ["## Build and tests", "", "| Check | Result |", "|---|---|"]
         L += [f"| Solution | {b['solution']} |"]
         bd = b["build"]
         L += [f"| Build | exit {bd['exit']}, {bd['warnings']} warnings, {bd['errors']} errors |"]
         t = b["dotnet_test"]
         L += [f"| dotnet test (pass / fail / skip) | {t['passed']} / {t['failed']} / {t['skipped']} in {t['test_projects']} test projects (exit {t['exit']}) |"]
+        if not t["test_projects"] or not t["total"]:
+            L += ["| Flag | **no test projects ran** |"]
         L += [f"| node --check app.js | {b['node_check']['status']} |"]
         dk = card.get("docker")
         if dk and dk.get("status") == "ran":
@@ -84,7 +107,8 @@ def render_markdown(card):
     p = card.get("parity")
     if p:
         L += ["## HTTP parity against the Python reference", "",
-              f"{p['cases']} scripted requests. Status differs {p['status_differs']}, body differs {p['body_differs']}, security headers differ {p['headers_differ']}.",
+              f"{p['cases']} scripted requests ({p.get('counted', p['cases'])} counted). Status differs {p['status_differs']}, body differs {p['body_differs']}, security headers differ {p['headers_differ']}.",
+              *([("Left out of the counts (the reference's own answer varies from run to run): " + "; ".join(f"{e['case']}: reference {e['reference_status'][:60]}, candidate {e['status'][:60]}" for e in p["excluded"]) + "."), ""] if p.get("excluded") else []),
               f"`Server` header values: {p['server_headers']} (reference: {p['reference_server_headers']}).", "",
               f"Field-level differences in answers that both sides gave with status 200: {len(p.get('field_diffs', []))}.", "",
               "Stale-guard repro (statuses for: " + ", ".join(p["stale_guard"]["steps"]) + "):", "",

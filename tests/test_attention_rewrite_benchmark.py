@@ -1,10 +1,12 @@
 import importlib.util
 import json
+import os
 import pathlib
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 BENCH = pathlib.Path(__file__).resolve().parents[1] / 'benchmarks/attention-rewrite'
 sys.path.insert(0, str(BENCH / 'harness'))
@@ -222,8 +224,8 @@ class LifecycleTests(unittest.TestCase):
 def card(**over):
     base = {
         'label': 'demo', 'candidate_source': 'somewhere', 'pins': {'start': 'abc'}, 'environment': {'os': 'test'},
-        'tests': {'solution': 'A.slnx', 'build': {'exit': 0, 'warnings': 0, 'errors': 0},
-                  'dotnet_test': {'exit': 0, 'passed': 98, 'failed': 0, 'skipped': 1, 'test_projects': 4},
+        'tests': {'solution': 'A.slnx', 'build': {'exit': 0, 'ok': True, 'warnings': 0, 'errors': 0},
+                  'dotnet_test': {'exit': 0, 'passed': 98, 'failed': 0, 'skipped': 1, 'total': 99, 'test_projects': 4},
                   'node_check': {'status': 'pass'}},
         'parity': {'cases': 129, 'status_differs': 5, 'body_differs': 17, 'headers_differ': 11, 'server_headers': ['None'],
                    'reference_server_headers': ['py'], 'rows': [], 'field_diffs': [],
@@ -378,6 +380,23 @@ class SetupTests(unittest.TestCase):
             with self.assertRaises(setup_mod.SetupError):
                 setup_mod.check_isolation(repo, [], commits['start'])
 
+    def test_sandbox_never_names_the_private_clone(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            private = self.make_private(root)
+            made = setup_mod.build(private, root / 'out', self.PINS)
+            repo = made['repo']
+            fetch_head = repo / '.git' / 'FETCH_HEAD'
+            self.assertFalse(fetch_head.exists())
+            self.assertEqual(setup_mod.names_the_source(repo, private), [])
+            commits = gitutil.resolve(private, self.PINS)
+            for spelling in (str(private), private.as_posix()):
+                fetch_head.write_text('abc\tnot-for-merge\t of ' + spelling + '\n', encoding='utf-8')
+                with self.assertRaises(setup_mod.SetupError):
+                    setup_mod.check_isolation(repo, [], commits['start'], private)
+            fetch_head.unlink()
+            setup_mod.check_isolation(repo, [], commits['start'], private)
+
     def test_missing_or_moved_pin_is_refused(self):
         with tempfile.TemporaryDirectory() as d:
             root = pathlib.Path(d)
@@ -395,6 +414,170 @@ class SetupTests(unittest.TestCase):
             out = gitutil.archive(private, 't/anchor-x', root / 'export')
             self.assertEqual((out / 'answer.txt').read_text(encoding='utf-8'), 'x')
             self.assertFalse((out / '.git').exists())
+
+
+class RoundTwoTests(unittest.TestCase):
+    def test_flaky_one_megabyte_case_is_reported_not_counted(self):
+        ref = [result('a'), result('POST 1MB', status='EXC aborted')]
+        for other_status in (400, 'EXC ConnectionAbortedError'):
+            oth = [result('a'), result('POST 1MB', status=other_status)]
+            r = parity.compare(ref, oth)
+            self.assertEqual((r['status_differs'], r['body_differs'], r['headers_differ'], r['counted']), (0, 0, 0, 1))
+            self.assertEqual([e['case'] for e in r['excluded']], ['POST 1MB'])
+
+    def test_summary_carries_build_state_and_flags_zero_tests(self):
+        c = card()
+        c['tests']['dotnet_test'].update(total=0, test_projects=0, passed=0, skipped=0)
+        s = scorecard.summarize(c)
+        self.assertEqual((s['build_exit'], s['build_ok']), (0, True))
+        self.assertEqual(s['flags'], ['no test projects ran'])
+        c['tests']['build'].update(exit=1, ok=False)
+        self.assertFalse(scorecard.summarize(c)['build_ok'])
+
+    def test_a_failed_build_is_never_scored(self):
+        tokens, _, reason = score_mod.candidate_tokens('.', 'dotnet app.dll --database {db}', '.', False)
+        self.assertIsNone(tokens)
+        self.assertIn('build failed', reason)
+
+    def test_old_build_output_is_ignored(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = pathlib.Path(d)
+            write(root / 'src/App/App.csproj', '<Project><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup></Project>')
+            dll = write(root / 'src/App/bin/Debug/net10.0/App.dll')
+            self.assertEqual(buildtest.find_host(root, os.path.getmtime(dll) - 1)[1], dll)
+            self.assertIsNone(buildtest.find_host(root, os.path.getmtime(dll) + 100)[1])
+            buildtest.clean_outputs(root)
+            self.assertFalse((root / 'src/App/bin').exists())
+
+    def test_meta_and_warnings_show_in_the_scorecard(self):
+        self.assertEqual(score_mod.parse_meta(['model=x', 'effort=a=b']), {'model': 'x', 'effort': 'a=b'})
+        with self.assertRaises(score_mod.ScoreError):
+            score_mod.parse_meta(['nokey'])
+        c = card(meta={'model': 'm-1'}, warnings=['no pin is verified'], pins={'start': 'abc123'},
+                 candidate_commit='def456', candidate_pin='anchor-x')
+        text = scorecard.render_markdown(c)
+        for needle in ('m-1', 'no pin is verified', 'abc123', 'def456', 'anchor-x'):
+            self.assertIn(needle, text)
+
+    def test_excluded_case_line_is_rendered(self):
+        c = card()
+        c['parity']['excluded'] = [{'case': 'POST 1MB', 'reference_status': '400', 'status': '400'}]
+        self.assertIn('Left out of the counts', scorecard.render_markdown(c))
+
+    def test_taskkill_failure_is_logged_for_a_live_process(self):
+        proc = mock.Mock(pid=4242)
+        proc.poll.return_value = None
+        proc.wait.return_value = 0
+        with mock.patch.object(common, 'WINDOWS', True), \
+                mock.patch.object(common.subprocess, 'run', return_value=mock.Mock(returncode=5, stderr='denied')), \
+                mock.patch('sys.stderr') as err:
+            common.kill_tree(proc)
+        self.assertIn('denied', ''.join(str(c) for c in err.write.call_args_list))
+
+    def test_a_timed_out_command_is_killed(self):
+        with tempfile.TemporaryDirectory() as d:
+            log = pathlib.Path(d) / 'l.log'
+            code, out, _ = buildtest.run_logged([sys.executable, '-c', 'import time; time.sleep(60)'], d, log, timeout=1)
+            self.assertEqual(code, 'timeout')
+            self.assertIn('timed out', log.read_text(encoding='utf-8'))
+
+
+FAKE_HOST = """
+import os, signal, sys, time
+from http.server import BaseHTTPRequestHandler, HTTPServer
+mode = sys.argv[1]
+with open(os.environ["FAKE_PIDS"], "a") as f:
+    f.write(str(os.getpid()) + chr(10))
+if mode == "exit":
+    print("fake host crashed", flush=True)
+    sys.exit(3)
+if mode == "silent":
+    time.sleep(300)
+class H(BaseHTTPRequestHandler):
+    def reply(self):
+        self.send_response(200)
+        self.send_header("Content-Length", "2")
+        self.end_headers()
+        self.wfile.write(b"{}")
+    do_GET = do_POST = reply
+    def log_message(self, *a):
+        pass
+srv = HTTPServer(("127.0.0.1", 0), H)
+print("http://127.0.0.1:%d" % srv.server_port, flush=True)
+if mode == "deaf":
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+try:
+    srv.serve_forever()
+except KeyboardInterrupt:
+    pass
+"""
+
+
+def pid_alive(pid):
+    if os.name == 'nt':
+        out = subprocess.run(['tasklist', '/FI', f'PID eq {pid}', '/NH', '/FO', 'CSV'], capture_output=True, text=True).stdout
+        return f'"{pid}"' in out
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+class FragileHostTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = pathlib.Path(self.tmp.name)
+        self.script = write(self.dir / 'fake.py', FAKE_HOST)
+        self.pids = self.dir / 'pids.txt'
+        patches = [mock.patch.dict(os.environ, {'FAKE_PIDS': str(self.pids)}),
+                   mock.patch.object(common, 'START_TIMEOUT', 1), mock.patch.object(lifecycle, 'EXIT_TIMEOUT', 1)]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+
+    def tearDown(self):
+        common.kill_all()
+        self.tmp.cleanup()
+
+    def spec(self, mode):
+        return (str(self.dir), [sys.executable, str(self.script), mode, '--database', '{db}'])
+
+    def assert_nothing_left(self):
+        self.assertEqual(common._STARTED, [])
+        pids = [int(x) for x in self.pids.read_text().split()]
+        self.assertTrue(pids)
+        for pid in pids:
+            self.assertFalse(pid_alive(pid), f'process {pid} is still running')
+
+    def check_failed_start(self, mode):
+        out = self.dir / 'out'
+        out.mkdir()
+        c = {'label': 'fake', 'skipped': {}, 'warnings': [], 'meta': {}, 'pins': {}, 'environment': {},
+             'tests': {'solution': 'x.sln', 'build': {'exit': 0, 'ok': True, 'warnings': 0, 'errors': 0},
+                       'dotnet_test': {'exit': 0, 'passed': 3, 'failed': 0, 'skipped': 0, 'total': 3, 'test_projects': 1},
+                       'node_check': {'status': 'pass'}}}
+        failure = score_mod.run_server_checks(c, self.spec('ok'), self.spec(mode), out)
+        score_mod.finish(c, out)
+        self.assertIn('host failed to start', failure)
+        self.assertIn('host failed to start', c['skipped']['parity'])
+        self.assertIn('not run', c['skipped']['dbcompat'])
+        self.assertIn('not run', c['skipped']['lifecycle'])
+        self.assertIn('3 / 0 / 0', (out / 'scorecard.md').read_text(encoding='utf-8'))
+        self.assertEqual(json.loads((out / 'scorecard.json').read_text(encoding='utf-8'))['summary']['tests'], '3 / 0 / 0')
+        self.assert_nothing_left()
+
+    def test_host_that_exits_early_still_gives_a_scorecard(self):
+        self.check_failed_start('exit')
+
+    def test_host_that_never_prints_its_address_still_gives_a_scorecard(self):
+        self.check_failed_start('silent')
+
+    def test_host_that_ignores_the_interrupt_is_reported_and_killed(self):
+        result = lifecycle.run_lifecycle(self.spec('ok'), self.spec('deaf'), self.dir / 'life')
+        self.assertFalse(result['candidate']['stops_when_idle'])
+        self.assertFalse(result['candidate']['exits_with_request_in_flight'])
+        self.assert_nothing_left()
 
 
 if __name__ == '__main__':

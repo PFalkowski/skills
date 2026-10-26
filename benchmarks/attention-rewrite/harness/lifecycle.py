@@ -19,6 +19,7 @@ import common
 
 WINDOWS = common.WINDOWS
 HELPER = common.HARNESS / "ctrlc.py"
+EXIT_TIMEOUT = 15
 BODY = {"text": "In flight during shutdown", "key": "inflight"}
 
 
@@ -29,7 +30,8 @@ def interrupt(process):
     return 0
 
 
-def wait_exit(server, timeout=15):
+def wait_exit(server, timeout=None):
+    timeout = EXIT_TIMEOUT if timeout is None else timeout
     t0 = time.monotonic()
     try:
         code = server.process.wait(timeout)
