@@ -32,12 +32,12 @@ def send(port, method, path, headers=None, body=None, host="default", chunked=Fa
         conn.putheader("Content-Length", str(len(body)))
     if chunked:
         conn.putheader("Transfer-Encoding", "chunked")
-    conn.endheaders()
-    if body is not None:
-        if chunked:
-            conn.send(f"{len(body):x}\r\n".encode() + body + b"\r\n0\r\n\r\n")
-        else:
-            conn.send(body)
+    try:
+        conn.endheaders()
+        if body is not None:
+            conn.send(f"{len(body):x}\r\n".encode() + body + b"\r\n0\r\n\r\n" if chunked else body)
+    except OSError:
+        pass  # a server may answer and close before reading the whole body; read what it sent
     try:
         response = conn.getresponse()
         data = response.read()

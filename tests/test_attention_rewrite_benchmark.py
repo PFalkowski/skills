@@ -172,6 +172,22 @@ def result(case, status=200, body=None, server='x', ctype='application/json'):
 
 
 class ParityTests(unittest.TestCase):
+    def test_a_server_that_drops_an_upload_is_a_result_not_a_crash(self):
+        import socket
+        import threading
+        listener = socket.create_server(('127.0.0.1', 0))
+        self.addCleanup(listener.close)
+
+        def drop_every_connection():
+            for _ in range(2):
+                conn, _ = listener.accept()
+                conn.close()
+        threading.Thread(target=drop_every_connection, daemon=True).start()
+        port = listener.getsockname()[1]
+        for body in (b'x' * 8_000_000, b'{}'):
+            result = parity.send(port, 'POST', '/api/submit', {'Content-Type': 'application/json'}, body)
+            self.assertTrue(str(result['status']).startswith('EXC '), result['status'])
+
     def test_script_has_129_requests_and_no_embedded_answers(self):
         steps = list(parity.script(1234, {'ids': {}}))
         self.assertEqual(len(steps), 129)
