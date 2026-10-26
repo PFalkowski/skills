@@ -36,7 +36,7 @@ def summarize(card):
     if b:
         out["build_exit"] = b.get("exit")
         out["build_ok"] = bool(b.get("ok"))
-    flags = []
+    flags = ["build failed"] if b and not b.get("ok") else []
     t = tests.get("dotnet_test")
     if t:
         out["tests"] = f"{t['passed']} / {t['failed']} / {t['skipped']}"

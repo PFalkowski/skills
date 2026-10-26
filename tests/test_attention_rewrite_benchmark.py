@@ -433,6 +433,25 @@ class RoundTwoTests(unittest.TestCase):
         self.assertEqual(s['flags'], ['no test projects ran'])
         c['tests']['build'].update(exit=1, ok=False)
         self.assertFalse(scorecard.summarize(c)['build_ok'])
+        self.assertIn('build failed', scorecard.summarize(c)['flags'])
+
+    def test_cleaning_never_follows_a_link_out_of_the_candidate(self):
+        with tempfile.TemporaryDirectory() as d:
+            outside, cand = pathlib.Path(d, 'outside'), pathlib.Path(d, 'cand')
+            write(outside / 'bin/keep.txt')
+            write(outside / 'proj/obj/keep.txt')
+            write(cand / 'src/App/bin/old.dll')
+            for name in ('lnk', 'bin'):
+                link = cand / name
+                if os.name == 'nt':
+                    subprocess.run(['cmd', '/c', 'mklink', '/J', str(link), str(outside)], check=True, capture_output=True)
+                else:
+                    link.symlink_to(outside, target_is_directory=True)
+            buildtest.clean_outputs(cand)
+            self.assertTrue((outside / 'bin/keep.txt').exists())
+            self.assertTrue((outside / 'proj/obj/keep.txt').exists())
+            self.assertFalse((cand / 'src/App/bin').exists())
+            self.assertFalse(os.path.lexists(cand / 'bin'))
 
     def test_a_failed_build_is_never_scored(self):
         tokens, _, reason = score_mod.candidate_tokens('.', 'dotnet app.dll --database {db}', '.', False)

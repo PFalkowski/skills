@@ -134,17 +134,26 @@ def run_logged(argv, cwd, log_path, timeout=1800):
     return code, out, round(time.monotonic() - t0, 1)
 
 
+def _is_link(path):
+    return os.path.islink(path) or (hasattr(os.path, "isjunction") and os.path.isjunction(path))
+
+
 def clean_outputs(root):
-    """Delete every bin and obj folder, so only what this build produces can be scored."""
+    """Delete every bin and obj folder, so only what this build produces can be scored.
+    Links and junctions are never followed: one named bin or obj is removed as a link."""
     removed = 0
     for dirpath, dirnames, _ in os.walk(root):
         for d in list(dirnames):
-            if d in ("bin", "obj"):
-                shutil.rmtree(Path(dirpath) / d, ignore_errors=True)
-                removed += 1
+            path = Path(dirpath) / d
+            if _is_link(path) or d in ("bin", "obj", ".git", "node_modules"):
                 dirnames.remove(d)
-            elif d in (".git", "node_modules"):
-                dirnames.remove(d)
+            if d not in ("bin", "obj"):
+                continue
+            if _is_link(path):
+                os.rmdir(path) if os.name == "nt" else os.unlink(path)
+            else:
+                shutil.rmtree(path, ignore_errors=True)
+            removed += 1
     return removed
 
 
