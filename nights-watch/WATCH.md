@@ -186,7 +186,7 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
        READ-ONLY on the working tree: you share it with rangers/grills/other agents
        running concurrently. Do NOT checkout, switch, stash, pull, reset, or write
        anything in it. If proving a claim needs a build or a real checkout, make your
-       own worktree (git worktree add <tmp> <ref>), work there, and remove it when done.
+       own worktree (git worktree add <repo-root>/.claude/worktrees/<slug> <ref>), work there, and remove it when done.
        MANDATORY — run the "fact-check" skill on EVERY load-bearing claim before you
        record it. Decompose each into independently verifiable sub-claims and prove each:
        an executable claim — what the code does at runtime — is grounded only by running
@@ -389,7 +389,7 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
          Get the diff with "gh pr diff ${res.prUrl}" and read files where they already are.
          Do NOT checkout, switch, stash, pull, reset, or write anything in it. If proving a
          finding needs a build or a test run, make your own worktree
-         (git worktree add <tmp> <branch>), work there, and remove it when done.
+         (git worktree add <repo-root>/.claude/worktrees/<slug> <branch>), work there, and remove it when done.
          Post the confirmed findings to the PR as an ordinary review. Write as any reviewer
          would: nothing in the review names the Watch, nights-watch, "ranger", the grill, or
          otherwise reveals an automated process (Oath rule 8).

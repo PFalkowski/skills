@@ -44,6 +44,7 @@
     "./walk-the-dog",
     "./whatever",
     "./whats-next",
+    "./worktree-guard",
     "./wrap-up"
   ]
 }

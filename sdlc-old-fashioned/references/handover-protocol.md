@@ -38,7 +38,7 @@ git worktree list
 **Isolate** the work on its own worktree by default (override: user says "work in place"):
 
 ```bash
-git worktree add ../<repo>-<feature> -b <feature-branch>    # or the harness EnterWorktree
+git worktree add .claude/worktrees/<feature> -b <feature-branch> origin/main    # or the harness EnterWorktree
 ```
 
 Run the conductor from inside the worktree so every spawned phase process inherits that cwd (or pass `--add-dir <worktree>` explicitly). The committed deliverables (ADRs, runbooks, the lessons entry) live in the worktree and land on the branch. `<state>/` — the backlog and the per-phase runs alike — is outside the tree: it stays on disk for inspection and cross-session resume, never reaches the branch, and needs nothing deleted at publish time.
@@ -46,7 +46,7 @@ Run the conductor from inside the worktree so every spawned phase process inheri
 **Clean up** once the PR is open and pushed — propose, don't auto-remove:
 
 ```bash
-git worktree remove ../<repo>-<feature>                     # after confirming; or ExitWorktree
+git worktree remove .claude/worktrees/<feature>             # after confirming; or ExitWorktree
 ```
 
 Safe as soon as the PR carries what it has to carry. `<state>/` is not in the worktree, so the briefs and `.log` files survive the removal — which matters for a phase that ran as an in-session subagent, where there is no canonical `.jsonl` to name and those logs are the only transcript and the only proof each test went RED.

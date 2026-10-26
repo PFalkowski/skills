@@ -49,7 +49,7 @@ git diff       <base>...HEAD
 ```
 Read the changed files at **full context**, not just the hunks — a change is only correct in the surrounding code (mirrors `AZURE-DEVOPS.md` step 3). On a re-review, the delta is `<last-reviewed-head>..HEAD`, the head the newest summary thread names (REFERENCE, § Re-review); the full three-dot diff is context only. With no summary thread, review the full three-dot diff and say so.
 
-Consider a PR-head worktree (`git worktree add`) for full-file reads, ripple searches and accurate inline line numbers without disturbing the user's checkout. This is a checkout, not restore/build. For small diffs, `git show <ref>:<path>` may suffice; ask before creating a worktree in a large/heavy repo where checkout cost is unclear.
+Consider a PR-head worktree (`git worktree add .claude/worktrees/<slug> <ref>`) for full-file reads, ripple searches and accurate inline line numbers without disturbing the user's checkout. This is a checkout, not restore/build. For small diffs, `git show <ref>:<path>` may suffice; ask before creating a worktree in a large/heavy repo where checkout cost is unclear.
 
 ## Step 3 — Trace ripple effects
 

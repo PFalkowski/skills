@@ -53,6 +53,17 @@ Group by repo, ordered by its hottest item; within repo sort by rank. Show at mo
 
 Only propose removal when the branch is an ancestor of default (ordinary merge), or the forge confirms a PR from that branch head merged (covers squash merges). Never propose dirty/untracked/stashed worktrees. Deleted upstream alone is not proof: report unmerged commits and leave the worktree.
 
+### Scheduled prune
+
+Run `-Apply` unattended once a day so merged worktrees go without anyone asking. On Windows:
+
+```powershell
+$action = New-ScheduledTaskAction -Execute pwsh -Argument '-NoProfile -File "<skill-dir>/scripts/wip.ps1" prune -Fetch -Apply'
+Register-ScheduledTask -TaskName wip-prune -Action $action -Trigger (New-ScheduledTaskTrigger -Daily -At 9am) -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable)
+```
+
+Elsewhere, a crontab line: `0 9 * * * <skill-dir>/scripts/wip prune -Fetch -Apply`.
+
 ## Boundaries
 
 `dump-sessions` saves crash-recovery handovers; `snapshot-terminal-sessions` restores Windows tab layouts; `wrap-up` closes a session; `handoff` transfers one session's context; `prompt-backlog` manages deferred prompts that this board only reads.
