@@ -95,8 +95,7 @@ check "not a git checkout (a zip download): no warning and no error" lacks "$out
 
 mkdir -p "$WORK/broken"
 cp -r "$WORK/origin/demo" "$WORK/origin/workflows" "$WORK/origin/link-skills.ps1" "$WORK/broken/"
-printf 'gitdir: %s
-' "$WORK/gone" > "$WORK/broken/.git"
+printf 'gitdir: %s\n' "$WORK/gone" > "$WORK/broken/.git"
 out="$(run "$WORK/broken")"
 check "a .git that git cannot read (a moved worktree): no false warning" lacks "$out" '^!  checkout'
 
