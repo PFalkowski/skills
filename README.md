@@ -112,7 +112,7 @@ Issues are groomed with the `triage` skill into three label lanes (category, sta
 
 [templates/CLAUDE.md](templates/CLAUDE.md) is the portable global instruction file. It sets one worktree per branch, `sdlc-old-fashioned` under the `manager` as the default process, and `less-is-more` plus `no-comment` as the quality gate, and leaves pushing and irreversible actions to Claude Code's default of asking first. [templates/autonomy.md](templates/autonomy.md) is the opt-in that drops those questions: PR-by-default delivery, merging reviewed PRs its auto-merge rule clears, the `CLAUDE_AUTONOMY` flag that lets process skills run a PR through review, merge and cleanup without asking, and only the hard lines it lists reach the human. This repo's [CLAUDE.md](CLAUDE.md) imports both.
 
-To install without overwriting your own `~/.claude/CLAUDE.md`, add an import line with the absolute path to your clone, plus the second line if you want the autonomy:
+To install without overwriting your own `~/.claude/CLAUDE.md`, add an import line with the absolute path to a clone that stays on `main` (see [Local development](#local-development-maintainers)), plus the second line if you want the autonomy:
 
 ```
 @/path/to/skills/templates/CLAUDE.md
@@ -136,6 +136,22 @@ Link every skill in this repo into both `~/.claude/skills/` and `~/.agents/skill
 ```
 
 Idempotent and self-healing — run it after adding a skill or to repair a machine: already-correct links are left alone (`=`), missing ones are created (`+`), and stale copies / wrong targets are replaced with a junction (`~`). Junctions need no admin rights or developer mode.
+
+Link from a checkout that stays on `main`. Every link, and a `~/.claude/CLAUDE.md` that imports `templates/`, follows whatever that checkout has checked out: switch it to a feature branch and every session loads that branch's skills and rules; let it fall behind and new rules never arrive. So link from a separate clone that is only ever fast-forwarded, and edit skills elsewhere:
+
+```powershell
+git clone https://github.com/PFalkowski/skills skills-main
+./skills-main/link-skills.ps1
+```
+
+Keep it current with a `SessionStart` hook in `~/.claude/settings.json`:
+
+```json
+"hooks": { "SessionStart": [{ "hooks": [{ "type": "command", "timeout": 30,
+  "command": "git -C /path/to/skills-main pull --ff-only -q origin main" }] }] }
+```
+
+The script warns (`!  checkout`) when the checkout it runs from is on another branch, on a detached HEAD, or behind `origin/main` as of the last fetch. It still links: linking a branch on purpose to try in-progress edits is fine.
 
 It also links `~/.claude/workflows` to this repo's [workflows/](workflows/), so the saved workflows resolve by bare name (`housekeeping-audit`) in every project; a plugin install names them `pfalkowski-skills:housekeeping-audit`. A real `~/.claude/workflows` directory is left untouched.
 

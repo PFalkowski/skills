@@ -31,6 +31,7 @@ jobs:
           bash omv-dev-server/scripts/skills-sync.test.sh
           bash auto-mode-setup/scripts/deny-rules.test.sh
           bash scripts/link-skills-claude-md.test.sh
+          bash scripts/link-skills-branch.test.sh
           bash whats-next/scripts/wip.test.sh
           bash omv-dev-server/scripts/dev.test.sh
           bash omv-dev-server/scripts/migrate-claude-config.test.sh

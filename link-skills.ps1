@@ -68,6 +68,23 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repo = $PSScriptRoot
+
+# Every link, and a CLAUDE.md that imports this repo's templates, follows whatever this checkout has
+# checked out. Say so when that is not the default branch or lags it; linking a branch on purpose
+# to try in-progress edits stays allowed.
+if ((Get-Command git -ErrorAction SilentlyContinue) -and (git -C $repo rev-parse --show-toplevel 2>$null) -eq ($repo -replace '\\', '/')) {
+    $default = (git -C $repo symbolic-ref --short refs/remotes/origin/HEAD 2>$null) -replace '^origin/', ''
+    if (-not $default) { $default = 'main' }
+    $branch = git -C $repo branch --show-current
+    if ($branch -ne $default) {
+        $on = if ($branch) { "branch '$branch'" } else { 'a detached HEAD' }
+        "!  checkout ($repo is on $on, not '$default': every link follows it. Link from a checkout that stays on $default.)"
+    }
+    elseif (git -C $repo rev-parse --verify --quiet "origin/$default") {
+        $behind = [int](git -C $repo rev-list --count "HEAD..origin/$default")
+        if ($behind) { "!  checkout ($repo is $behind commits behind origin/$default as of the last fetch: git -C $repo pull --ff-only)" }
+    }
+}
 foreach ($destination in $Dest) {
     New-Item -ItemType Directory -Force -Path $destination | Out-Null
 
