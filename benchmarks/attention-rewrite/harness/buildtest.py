@@ -2,6 +2,7 @@
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -135,7 +136,8 @@ def run_logged(argv, cwd, log_path, timeout=1800):
 
 
 def _is_link(path):
-    return os.path.islink(path) or (hasattr(os.path, "isjunction") and os.path.isjunction(path))
+    """A symlink, or any Windows reparse point such as a junction, on every Python version."""
+    return os.path.islink(path) or bool(getattr(os.lstat(path), "st_file_attributes", 0) & stat.FILE_ATTRIBUTE_REPARSE_POINT)
 
 
 def clean_outputs(root):

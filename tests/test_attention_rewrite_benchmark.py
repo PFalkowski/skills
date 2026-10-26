@@ -434,8 +434,17 @@ class RoundTwoTests(unittest.TestCase):
         c['tests']['build'].update(exit=1, ok=False)
         self.assertFalse(scorecard.summarize(c)['build_ok'])
         self.assertIn('build failed', scorecard.summarize(c)['flags'])
+        self.assertIn('**build failed**', scorecard.render_markdown(c))
 
     def test_cleaning_never_follows_a_link_out_of_the_candidate(self):
+        self.check_cleaning_stays_inside()
+
+    def test_cleaning_stays_inside_without_isjunction(self):
+        # Python before 3.12 has no os.path.isjunction.
+        with mock.patch.object(os.path, 'isjunction', lambda path: False, create=True):
+            self.check_cleaning_stays_inside()
+
+    def check_cleaning_stays_inside(self):
         with tempfile.TemporaryDirectory() as d:
             outside, cand = pathlib.Path(d, 'outside'), pathlib.Path(d, 'cand')
             write(outside / 'bin/keep.txt')

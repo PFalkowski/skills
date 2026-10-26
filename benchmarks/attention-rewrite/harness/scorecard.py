@@ -89,6 +89,8 @@ def render_markdown(card):
         L += [f"| Solution | {b['solution']} |"]
         bd = b["build"]
         L += [f"| Build | exit {bd['exit']}, {bd['warnings']} warnings, {bd['errors']} errors |"]
+        if not bd.get("ok"):
+            L += ["| Flag | **build failed** |"]
         t = b["dotnet_test"]
         L += [f"| dotnet test (pass / fail / skip) | {t['passed']} / {t['failed']} / {t['skipped']} in {t['test_projects']} test projects (exit {t['exit']}) |"]
         if not t["test_projects"] or not t["total"]:
