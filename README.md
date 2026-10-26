@@ -112,7 +112,7 @@ Issues are groomed with the `triage` skill into three label lanes (category, sta
 
 [templates/CLAUDE.md](templates/CLAUDE.md) is the portable global instruction file. It sets one worktree per branch, `sdlc-old-fashioned` under the `manager` as the default process, and `less-is-more` plus `no-comment` as the quality gate, and leaves pushing and irreversible actions to Claude Code's default of asking first. [templates/autonomy.md](templates/autonomy.md) is the opt-in that drops those questions: PR-by-default delivery, merging reviewed PRs its auto-merge rule clears, the `CLAUDE_AUTONOMY` flag that lets process skills run a PR through review, merge and cleanup without asking, and only the hard lines it lists reach the human. This repo's [CLAUDE.md](CLAUDE.md) imports both.
 
-To install without overwriting your own `~/.claude/CLAUDE.md`, add an import line with the absolute path to your clone, plus the second line if you want the autonomy:
+To install without overwriting your own `~/.claude/CLAUDE.md`, add an import line with the absolute path to a clone that stays on `main` (see [Local development](#local-development-maintainers)), plus the second line if you want the autonomy:
 
 ```
 @/path/to/skills/templates/CLAUDE.md
@@ -127,7 +127,7 @@ Codex reads `AGENTS.md`, not `CLAUDE.md`: copy the content of `templates/CLAUDE.
 
 > Installing or updating these skills as a user? See [Install](#install) and [Updating](#updating) above — you don't need any of this.
 
-Link every skill in this repo into both `~/.claude/skills/` and `~/.agents/skills/` so Claude Code and Codex-compatible harnesses pick up your in-progress edits live (the link target *is* the repo file — no installer, no copies). **All skills are linked by default**, not just the one you're editing.
+Link every skill in this repo into both `~/.claude/skills/` and `~/.agents/skills/` so Claude Code and Codex-compatible harnesses load them straight from the repo (the link target *is* the repo file — no installer, no copies). **All skills are linked by default**, not just the one you're editing.
 
 ### Windows (PowerShell)
 
@@ -136,6 +136,22 @@ Link every skill in this repo into both `~/.claude/skills/` and `~/.agents/skill
 ```
 
 Idempotent and self-healing — run it after adding a skill or to repair a machine: already-correct links are left alone (`=`), missing ones are created (`+`), and stale copies / wrong targets are replaced with a junction (`~`). Junctions need no admin rights or developer mode.
+
+Every link, and a `~/.claude/CLAUDE.md` that imports `templates/`, follows whatever the linked checkout has checked out: switch it to a feature branch and every session loads that branch's skills and rules; let it fall behind and new rules never arrive. So for everyday use, link from a separate clone that stays on `main` and is only ever fast-forwarded. To try in-progress edits live, link from your working checkout for the session and link back afterwards:
+
+```powershell
+git clone https://github.com/PFalkowski/skills skills-main
+./skills-main/link-skills.ps1
+```
+
+Keep it current with a `SessionStart` hook in `~/.claude/settings.json`. A pull updates the skills already linked; re-running the script links a skill added since, so the hook does both. A hook's output goes into the session, so it keeps only the lines that report a changed link or a checkout warning:
+
+```json
+"hooks": { "SessionStart": [{ "hooks": [{ "type": "command", "timeout": 30,
+  "command": "git -C /path/to/skills-main pull --ff-only -q origin main && { pwsh -NoProfile -File /path/to/skills-main/link-skills.ps1 | grep -v -e '^=' -e '^!  CLAUDE.md' || true; }" }] }] }
+```
+
+The script warns (`!  checkout`) when the checkout it runs from is on another branch, on a detached HEAD, or behind `origin/main` as of the last fetch. It still links: linking a branch on purpose to try in-progress edits is fine.
 
 It also links `~/.claude/workflows` to this repo's [workflows/](workflows/), so the saved workflows resolve by bare name (`housekeeping-audit`) in every project; a plugin install names them `pfalkowski-skills:housekeeping-audit`. A real `~/.claude/workflows` directory is left untouched.
 
