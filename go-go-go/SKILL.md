@@ -111,7 +111,7 @@ Diagnose why the PR is stalled, then fix:
 | Review comments | Address each comment; push; re-request review |
 | Merge conflicts | Rebase onto base, force-with-lease, push |
 | Awaiting approval | Post a summary comment nudging the reviewer; don't spam |
-| Ready to merge | `gh pr merge --squash --delete-branch` (only if user authorized auto-merge) |
+| Ready to merge | `gh pr merge --squash --delete-branch` (only if the user authorized it or the [auto-merge rule](../templates/autonomy.md#auto-merge) clears it) |
 
 ## Step 8 — Report
 

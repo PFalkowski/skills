@@ -7,7 +7,7 @@ The mandate is the one paragraph every decision is checked against. It is writte
 | Key | Default | Meaning |
 |---|---|---|
 | `goal="…"` | taken from the ticket / PR / PRD the output concerns | What the work is for and what done looks like. Without it, "aligned" has no referent. |
-| `merge=` | `allow` | `allow`: a PR that is green, independently grilled with findings resolved, and inside the goal merges without a human. `ask`: the same PR is escalated with the recommendation "merge". Merging is consequential and hard to reverse; the mandate is what makes it *determined* (rule 3), and the default hands it to the manager because a PR that has passed every gate is the decision the gates were for. |
+| `merge=` | `allow` | `allow`: a PR that is green, independently grilled with findings resolved, inside the goal, and a good candidate under the [auto-merge rule](../templates/autonomy.md#auto-merge) merges without a human. `ask`: the same PR is escalated with the recommendation "merge". Merging is consequential and hard to reverse; the mandate is what makes it *determined* (rule 3), and the default hands it to the manager because a PR that has passed every gate is the decision the gates were for. |
 | `post=` | `post` | Whether replies, review threads and decision comments are posted where the work lives, or drafted into the report. Posting on the team's own PRs and tickets is reversible and is how rule 7 is met. |
 | `tickets=` | `file` | Whether deferred work is filed as tracker tickets or drafted. Filing is reversible (a ticket can be closed) and keeps the board the source of truth. |
 | `reply=` | the `post=` value | The `post=` value passed to `fix-pr` under that skill's own name; it never exceeds `post=`. |

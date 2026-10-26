@@ -109,7 +109,7 @@ Issues are groomed with the `triage` skill into three label lanes (category, sta
 
 ## Global CLAUDE.md
 
-[templates/CLAUDE.md](templates/CLAUDE.md) is the portable global instruction file. It sets one worktree per branch, `sdlc-old-fashioned` under the `manager` as the default process, and `less-is-more` plus `no-comment` as the quality gate, and leaves pushing and irreversible actions to Claude Code's default of asking first. [templates/autonomy.md](templates/autonomy.md) is the opt-in that drops those questions: PR-by-default delivery, and only the hard lines it lists reach the human. This repo's [CLAUDE.md](CLAUDE.md) imports both.
+[templates/CLAUDE.md](templates/CLAUDE.md) is the portable global instruction file. It sets one worktree per branch, `sdlc-old-fashioned` under the `manager` as the default process, and `less-is-more` plus `no-comment` as the quality gate, and leaves pushing and irreversible actions to Claude Code's default of asking first. [templates/autonomy.md](templates/autonomy.md) is the opt-in that drops those questions: PR-by-default delivery, merging reviewed PRs its auto-merge rule clears, and only the hard lines it lists reach the human. This repo's [CLAUDE.md](CLAUDE.md) imports both.
 
 To install without overwriting your own `~/.claude/CLAUDE.md`, add an import line with the absolute path to your clone, plus the second line if you want the autonomy:
 
