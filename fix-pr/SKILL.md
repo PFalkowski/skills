@@ -17,7 +17,7 @@ metadata:
 1. Identify the PR from the argument (number, URL, or current branch):
    - **GitHub** → `gh pr view <n> --json number,url,title,headRefName,baseRefName`.
    - **Azure DevOps** → delegate resolution and all later thread mechanics to [AZURE-DEVOPS.md](../code-review-grill/AZURE-DEVOPS.md).
-2. Check out the PR head branch (`gh pr checkout <n>`, or fetch + checkout). If the current checkout is on unrelated dirty work, use a worktree instead of disturbing it.
+2. Check out the PR head branch (`gh pr checkout <n>`, or fetch + checkout). If the current checkout is on unrelated dirty work, use a worktree instead of disturbing it. In a cloud session, work only on a PR whose head branch the session may push, and read threads with `gh api` ([cloud sessions](../docs/cloud-session.md)).
 3. Pull the review threads — **unresolved/active only** by default:
    - **GitHub** → `gh api repos/{owner}/{repo}/pulls/<n>/comments` for inline comments and `gh pr view --json reviews,comments` for review bodies; group into threads and drop resolved ones (GraphQL `reviewThreads.isResolved` is the reliable source for resolution state).
    - **Azure DevOps** → threads API via the sibling skill; keep `status=active`.

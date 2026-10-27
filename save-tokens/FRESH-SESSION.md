@@ -1,5 +1,7 @@
 # Fresh-session launcher
 
+In a cloud session there is no terminal to launch: show the handoff inline and offer to start a new cloud session with it as the prompt ([cloud sessions](../docs/cloud-session.md)).
+
 A fresh session:
 
 1. Write the [`handoff`](../handoff/SKILL.md) `lite` note to `handoff.md` in a folder of its own in

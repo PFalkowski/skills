@@ -20,6 +20,8 @@ Map PR heads/bases with `gh pr list`. Capture **every old-parent-tip SHA** using
 
 ## Per PR, bottom-up
 
+In a cloud session that may not push these branches, or where `gh pr` fails on GraphQL, stop at ready with a recommendation ([cloud sessions](../docs/cloud-session.md)).
+
 For branch `B`, original parent tip `T`, PR `P`, next child `C`:
 
 1. `git fetch origin`.

@@ -32,7 +32,7 @@ Read [PREFLIGHT.md](PREFLIGHT.md). Resolve design, acceptance criteria, fixtures
 
 Follow [LOOP.md](LOOP.md) per item: read backlog → `in_progress` → plan TDD slice → Red → Green → Refactor → fresh adversarial review ([CODE-REVIEW.md](CODE-REVIEW.md)) → commit → push/open PR per delivery policy → post review to PR → update backlog → fresh subagent for next item. Children run Phase 2 only.
 
-For dependent items, stack branches and PRs: each branches from its predecessor, with that branch as PR base; keep all PRs open. See LOOP.md “Stacked PRs”. Land with `merge-stack`, not ad-hoc merges.
+For dependent items, stack branches and PRs: each branches from its predecessor, with that branch as PR base; keep all PRs open. See LOOP.md “Stacked PRs”. Land with `merge-stack`, not ad-hoc merges. In a cloud session that may not create branches, put every item on the session's branch in one PR and post the run record on it ([cloud sessions](../docs/cloud-session.md)).
 
 ## Backlog item schema
 

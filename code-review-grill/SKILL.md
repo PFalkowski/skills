@@ -121,7 +121,7 @@ This step runs after **every** review — single adversarial or quorum alike, wh
 2. **Ask three things explicitly:** (a) *do you want to post comments to PR #N (`<url>`)?*, (b) *which finding IDs?* — offer only the 🔥/⚠️ rows whose line is in the PR diff (e.g. `F1,F3`, `all blockers`, `none`), and on a re-review only the 🔥 rows; off-diff 🔥/⚠️ rows go in the summary thread (REFERENCE, § The bar); 📦 rows are never offered inline, and ⛏️ rows only when the user names them, the first five per round and none on a re-review, and (c) *post the summary thread and file the Carried class tickets?* Default is **post nothing and file nothing** until the user answers. A Carried `data` finding is named first in the report whatever the answer; its ticket is filed with the others on yes.
 3. Post **only** the selected subset. Post **one** thread first, confirm it landed (numeric `id` in the response), then the rest; file the tickets, then the summary thread that links them. Each inline comment is the four-part body drafted in Step 6 (REFERENCE, § Comment body). A ⛏️ the user named anyway opens with the nit marker (REFERENCE, § The nit marker) above all of it.
 
-- **GitHub** → inline review comments via `gh api` (path + line + body).
+- **GitHub** → inline review comments via `gh api` (path + line + body). In a cloud session, read the repo and PR head with `gh api`, not `gh repo view`/`gh pr view`, or use the GitHub MCP tools ([cloud sessions](../docs/cloud-session.md)).
 - **Azure DevOps** → delegate to **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)** (its thread/encoding workarounds).
 
 Mechanics for both hosts are in **[REFERENCE.md](REFERENCE.md)**. If there is no PR, or the user declines, stop after the table.
