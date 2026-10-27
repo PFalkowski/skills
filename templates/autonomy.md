@@ -3,7 +3,7 @@ On hobby and non-client-facing projects, deliver every change as a PR without as
 
 ## Auto-merge
 An unmerged PR leaves its issue unsolved and stalls everything that depends on it, so a ready PR merges without waiting for a human. The model running the process merges once all of these hold:
-- A fresh agent ran `code-review-grill` on the final head and found nothing blocking. Fixes pushed after a review count only once a re-review of their delta passes; `merge-guard` refuses `gh pr merge` until the newest `Reviewed at <sha>` summary names the head.
+- A fresh agent ran `code-review-grill` on the final head and found nothing blocking. Fixes pushed after a review count only once a re-review of their delta passes; `merge-guard` refuses `gh pr merge` until a `Reviewed at <sha>` summary names the head.
 - Every review comment is addressed: fixed, answered, or carried over to a filed GitHub issue linked from its thread.
 - Checks are green and the branch merges cleanly into its base.
 - The model judges the PR a good candidate. The signs: a human asked for the change, explicitly or implicitly; it is a bug fix or an improvement; it is short or limited in scope, even when that scope is core code.
