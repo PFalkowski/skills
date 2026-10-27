@@ -23,6 +23,7 @@
     "./invert",
     "./less-is-more",
     "./manager",
+    "./merge-guard",
     "./merge-stack",
     "./nights-watch",
     "./nightshift",
