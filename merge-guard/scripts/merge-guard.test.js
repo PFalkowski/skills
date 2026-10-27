@@ -37,9 +37,25 @@ test('allows a short sha and a summary posted as a review', () => {
 test('denies a merge whose head moved after the last review', () => {
   const { view } = pr({ comments: [comment(`Reviewed at ${OLD}`)] });
   const why = reason('gh pr merge 42 --merge --delete-branch', view);
-  assert.match(why, /0f1e2d3/);
-  assert.match(why, /a1b2c3d/);
-  assert.match(why, /0f1e2d3\.\.a1b2c3d/);
+  assert.match(why, /0f1e2d3c4b5a\.\.a1b2c3d4e5f6/);
+});
+
+test('reads a summary line wrapped in markdown', () => {
+  for (const line of ['**Reviewed at a1b2c3d**', 'Reviewed at `a1b2c3d`', '## Reviewed at a1b2c3d', 'Reviewed at A1B2C3D']) {
+    const { view } = pr({ comments: [comment(`${line}\n\nok`)] });
+    assert.strictEqual(reason('gh pr merge 42', view), null, line);
+  }
+});
+
+test('denies auto-merge, which would merge later commits nobody reviewed', () => {
+  const { view } = pr({ comments: [comment(`Reviewed at ${HEAD}`)] });
+  assert.match(reason('gh pr merge 42 --auto --squash', view), /--auto/);
+});
+
+test('asks for the PR literally when the command names it through a variable', () => {
+  const { view, calls } = pr();
+  assert.match(reason('gh pr merge $PR --squash', view), /name the PR/);
+  assert.strictEqual(calls.length, 0);
 });
 
 test('names the newest review in the delta, not an older one', () => {
@@ -47,7 +63,7 @@ test('names the newest review in the delta, not an older one', () => {
     comments: [comment('Reviewed at 1111111', '2026-10-27T09:00:00Z')],
     reviews: [{ body: `Reviewed at ${OLD}`, submittedAt: '2026-10-27T11:00:00Z' }],
   });
-  assert.match(reason('gh pr merge 42', view), /0f1e2d3\.\.a1b2c3d/);
+  assert.match(reason('gh pr merge 42', view), /0f1e2d3c4b5a\.\.a1b2c3d4e5f6/);
 });
 
 test('denies a merge with no review summary', () => {
@@ -71,10 +87,12 @@ test('reads the PR and repo from the merge command, wherever it sits', () => {
   reason('Set-Location C:\\src\\x; gh pr merge 42 --repo owner/name --merge 2>&1 | Select-Object -Last 3', view);
   reason('gh.exe pr merge --subject "fix 7" -R=other/repo https://github.com/o/r/pull/9', view);
   reason("gh pr merge --body 'a b' --repo=o/r 12 && gh pr view 12", view);
+  reason('(gh pr merge 7)', view);
   assert.deepStrictEqual(calls, [
     { number: '42', repo: 'owner/name' },
     { number: 'https://github.com/o/r/pull/9', repo: 'other/repo' },
     { number: '12', repo: 'o/r' },
+    { number: '7', repo: undefined },
   ]);
 });
 

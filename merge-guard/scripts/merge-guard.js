@@ -4,7 +4,7 @@ const { execFileSync } = require('node:child_process');
 
 const MERGE = /\bgh(?:\.exe)?\s+pr\s+merge\b([^;&|\n]*)/g;
 const VALUED = new Set(['-A', '--author-email', '-b', '--body', '-F', '--body-file', '--match-head-commit', '-t', '--subject']);
-const REVIEWED = /^Reviewed at ([0-9a-f]{7,40})\b/m;
+const REVIEWED = /^[#>*\s]*Reviewed at\s+`?([0-9a-f]{7,40})\b/im;
 const PROSE = ' If this text is prose rather than a command, pass it through a file instead.';
 
 function target(args) {
@@ -14,15 +14,16 @@ function target(args) {
     const [flag, value] = words[i].split(/=(.*)/s);
     if (flag === '-R' || flag === '--repo') repo = value ?? words[++i];
     else if (VALUED.has(flag)) { if (value === undefined) i++; }
-    else if (!flag.startsWith('-') && !/^\d*[<>]/.test(flag)) number ??= words[i];
+    else if (!flag.startsWith('-') && !/^\d*[<>]/.test(flag)) number ??= words[i].replace(/[)"']+$/, '');
   }
-  return { number, repo };
+  return { number, repo, auto: words.includes('--auto') };
 }
 
 function reason(command, view) {
   for (const [, args] of command.matchAll(MERGE)) {
-    const { number, repo } = target(args);
-    if (!number) return 'merge-guard: name the PR (`gh pr merge <number|url>`), so the guard can check that its head was reviewed.' + PROSE;
+    const { number, repo, auto } = target(args);
+    if (!number || number.startsWith('$')) return 'merge-guard: name the PR literally (`gh pr merge <number|url>`), so the guard can check that its head was reviewed.' + PROSE;
+    if (auto) return 'merge-guard: `--auto` would also merge commits pushed after the review. Merge without it once the review of the final head is in.' + PROSE;
     let pr;
     try { pr = view(number, repo); } catch (error) { return `merge-guard could not read PR ${number}: ${error.message}`; }
     const reviewed = [...pr.comments.map((c) => [c.createdAt, c.body]), ...pr.reviews.map((r) => [r.submittedAt, r.body])]
@@ -30,9 +31,9 @@ function reason(command, view) {
       .map(([, body]) => REVIEWED.exec(body ?? '')?.[1].toLowerCase())
       .filter(Boolean);
     if (reviewed.some((sha) => pr.headRefOid.startsWith(sha))) continue;
-    const head = pr.headRefOid.slice(0, 7);
+    const head = pr.headRefOid.slice(0, 12);
     if (!reviewed.length) return `PR ${number} has no "Reviewed at <sha>" summary. Run code-review-grill on head ${head} and post its summary before merging.` + PROSE;
-    const last = reviewed.at(-1).slice(0, 7);
+    const last = reviewed.at(-1).slice(0, 12);
     return `PR ${number} was last reviewed at ${last}, but its head is ${head}. A verdict covers only the head it reviewed: ` +
       `re-review ${last}..${head} with code-review-grill, post its summary, then merge.` + PROSE;
   }
