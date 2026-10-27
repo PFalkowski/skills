@@ -632,7 +632,7 @@ phase('Spec')
 const spec = await agent(
   `Write the spec for this work. No code, no design — what and why only.\n\nGOAL: ${cfg.goal}\n\n${pitfallRule}\n\n` +
   `Problem, goal, scope, NON-GOALS, and observable success criteria. Save it in the repo and report the path.\n` +
-  `Use the "to-prd" skill if it is available.\n\n${FACT_CHECK_RULE}\n\n${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('spec'))}`,
+  `Use the "to-spec" skill if it is available.\n\n${FACT_CHECK_RULE}\n\n${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('spec'))}`,
   { label: 'spec', phase: 'Spec', model: tiers.spec, schema: SPEC_SCHEMA }
 )
 if (!spec) throw new Error('sdlc-workhorse: spec agent returned nothing.')

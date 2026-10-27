@@ -35,7 +35,7 @@ git status --short --branch
 git worktree list
 ```
 
-**Isolate** the work on its own worktree by default (override: user says "work in place"):
+**Isolate** the work on its own worktree by default (override: user says "work in place"; a cloud session skips this, see SKILL.md Step 0.7):
 
 ```bash
 git worktree add .claude/worktrees/<feature> -b <feature-branch> origin/main    # or the harness EnterWorktree
