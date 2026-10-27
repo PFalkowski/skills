@@ -22,4 +22,4 @@ The container is deleted when the session ends: the home folder, `~/.agent-state
 
 ## No local machine
 
-There is no terminal or PowerShell to open, no OS scheduler, and no local GPU, and a standing loop ends with the session. Start a fresh session through the harness, passing the handoff as its prompt, and schedule recurring work with the harness's scheduled tasks. A file meant for the user goes in the working directory or the scratchpad, because those are the only places the user's app can open.
+There is no terminal or PowerShell to open, no OS scheduler, and no local GPU, and a standing loop ends with the session. Start a fresh session through the harness, passing the handoff as its prompt, and schedule recurring work with the harness's scheduled tasks. A file meant for the user goes where the session's instructions say the user can open it, usually the working directory.

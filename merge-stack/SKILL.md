@@ -16,11 +16,11 @@ Squash merging replaces parent commits, so each child needs `rebase --onto <base
 
 ## Prepare
 
+In a cloud session `gh pr` commands fail on GraphQL. Unless the session may push these branches and you drive every step through `gh api` REST routes, stop at ready with a recommendation ([cloud sessions](../docs/cloud-session.md)).
+
 Map PR heads/bases with `gh pr list`. Capture **every old-parent-tip SHA** using `git rev-parse origin/<branch>` before rewriting; each tip is the next child's drop-point. On an unprotected base, enforce the CI gate yourself.
 
 ## Per PR, bottom-up
-
-In a cloud session that may not push these branches, or where `gh pr` fails on GraphQL, stop at ready with a recommendation ([cloud sessions](../docs/cloud-session.md)).
 
 For branch `B`, original parent tip `T`, PR `P`, next child `C`:
 

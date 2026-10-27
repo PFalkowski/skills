@@ -25,7 +25,7 @@ Inventory each project, including session worktrees:
 - Pushed branches without PRs: `gh pr list --head <branch>` or host equivalent.
 - Session-created stashes: `git stash list`.
 
-In a cloud session nothing local survives: parked work, stashes and copied-out logs are lost, so ship or post them, and skip the worktree sweep ([cloud sessions](../docs/cloud-session.md)).
+In a cloud session nothing local survives: parked work, stashes and copied-out logs are lost, so ship or post them, and skip the worktree sweep. Find PRs with `gh api 'repos/{owner}/{repo}/pulls?head=<owner>:<branch>'`, since `gh pr list` fails on GraphQL ([cloud sessions](../docs/cloud-session.md)).
 
 Classify each as **work** (commit → push → PR), **junk** (delete), or **park** (retain for account). Show the full list with recommendations; let the user choose. Each deletion needs its own yes; pushes may be batch-approved. Unattended: ship work, park ambiguity, delete nothing.
 

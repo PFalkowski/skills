@@ -23,7 +23,7 @@ Everything not in this table is unchanged: the Oath, the fact-check discipline a
 
 ## The ranging, step by step
 
-**1. Accept the ticket.** Resolve what the user handed over into a brief. A tracker ref → fetch title, body, comments (`gh issue view <id> --comments`, or the Jira MCP/CLI). Prose → the prose *is* the ticket; offer to file it on the tracker so the PR has something to reference, but don't insist.
+**1. Accept the ticket.** Resolve what the user handed over into a brief. A tracker ref → fetch title, body, comments (`gh issue view <id> --comments`, or the Jira MCP/CLI; in a cloud session `gh api repos/{owner}/{repo}/issues/<id>` and `.../issues/<id>/comments`, [cloud sessions](../docs/cloud-session.md)). Prose → the prose *is* the ticket; offer to file it on the tracker so the PR has something to reference, but don't insist.
 
 **2. Gate it — with the user in the room.** Run the readiness gate ([TRIAGE.md](TRIAGE.md) § Readiness gate) exactly as written, including rule 6: every load-bearing claim in the ticket goes through **fact-check** before a single line is planned. The difference is what a failure means. A patrol blocks and moves on; a ranging turns to the user and asks — the missing acceptance criterion, the human fork in the road, the epic that needs splitting. Ask once, ask precisely, ask everything at once. A refuted premise still stops the work: report the evidence, don't negotiate around it.
 
