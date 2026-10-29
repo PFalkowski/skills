@@ -212,7 +212,7 @@ Fix: pass `userId` as a `SqlParameter`.
 Line one is the severity, the ID and the finding with its consequence in one sentence. `Reproduce` is the verification artifact verbatim: the command and its output, the `path:line` and the quoted lines, or the deep link and the quoted text; for a `behaviour` finding, the `expected` contract follows it on one line. `Fix` is one line for the author to act on, never a patch for the reviewer to vet. No preamble, no restatement of the code, no praise.
 
 ### GitHub
-Resolve repo + PR head, then post each selected 🔥/⚠️ finding as an inline review comment. Post **one first** and confirm the response has a numeric `id` before sending the rest.
+Resolve repo + PR head, then post each selected 🔥/⚠️ finding as an inline review comment. In a cloud session `gh repo view`, `gh pr view`, `gh pr comment` and `gh issue create` can fail on GraphQL: take the head from `gh api repos/{owner}/{repo}/pulls/<PR> -q .head.sha`, and post through `gh api` REST routes or the GitHub MCP tools ([cloud sessions](../docs/cloud-session.md)). Post **one first** and confirm the response has a numeric `id` before sending the rest.
 ```bash
 OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 HEAD_SHA=$(gh pr view <PR> --json headRefOid -q .headRefOid)

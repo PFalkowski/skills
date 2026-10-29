@@ -17,7 +17,7 @@ metadata:
 Run in parallel:
 
 - `git status` + `git diff --stat HEAD` — what's here, what's changed, what's staged
-- `git branch --show-current` + `gh pr list --head $(git branch --show-current) 2>/dev/null` — is there already a branch and PR?
+- `git branch --show-current` + `gh pr list --head $(git branch --show-current)` — is there already a branch and PR? In a cloud session, do this and every later PR step with `gh api` or the GitHub MCP tools ([cloud sessions](../docs/cloud-session.md)).
 - Scan for a backlog file (`backlog.md`, `TODO.md`, `TASKS.md`, `.claude/backlog.md`, `docs/work.md`) — is there unfinished work to implement first?
 - Check open tasks in the current conversation or TaskList — anything in-progress?
 
@@ -88,7 +88,7 @@ Pick the PR title from the branch name / commit subject — don't ask. Keep it u
 Before creating the PR, re-read the body against the diff: every claim true, nothing the diff does left out. The test plan says what you tried by hand and how a reviewer can repeat it, not only which automated checks ran.
 
 If the branch is `main`/`master` with no feature branch yet → create one first:
-`git checkout -b <slug-from-task-description>` → push that branch → PR to main.
+`git checkout -b <slug-from-task-description>` → push that branch → PR to main. In a cloud session, use the branch the session's instructions name ([cloud sessions](../docs/cloud-session.md)).
 
 ## Step 6 — Review & triage the PR (ALWAYS, once it's raised)
 

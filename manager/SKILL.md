@@ -43,7 +43,7 @@ Mandate keys (all optional): `goal="…"`, `merge=allow|ask`, `post=draft|post`,
 
 **Step 2 — Ledger the output.** Tag items **claim**, **decision-made**, **ask** (explicit/implicit), **open item**, or **promise**. Mark load-bearing items whose falsity changes the verdict. Example: [EXAMPLE.md](EXAMPLE.md).
 
-**Step 3 — Verify load-bearing claims.** Check cheap facts in one command (`gh pr checks`, `gh pr view --json state,reviews`, ticket status). Dispatch deeper checks to a fresh [fact-check](../fact-check/SKILL.md) agent that has not read the report. Treat unverifiable load-bearing claims as false and say so. Sample a second point before making an ongoing rate/condition part of the mandate.
+**Step 3 — Verify load-bearing claims.** Check cheap facts in one command (`gh pr checks`, `gh pr view --json state,reviews`, ticket status); in a cloud session, through `gh api` or the GitHub MCP tools ([cloud sessions](../docs/cloud-session.md)). Dispatch deeper checks to a fresh [fact-check](../fact-check/SKILL.md) agent that has not read the report. Treat unverifiable load-bearing claims as false and say so. Sample a second point before making an ongoing rate/condition part of the mandate.
 
 Add and verify implicit claims: *this needed custom code* (Rule 8) and *this covers every affected call site*, not just the ticket's site.
 

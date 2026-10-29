@@ -20,7 +20,7 @@ Read [DOC-TRIAGE.md](DOC-TRIAGE.md) before adjudication, [FILING.md](FILING.md) 
 
 Use for a repository pass; fix a single stale paragraph directly. Report:
 
-- Dedicated worktree + branch (`EnterWorktree`).
+- Dedicated worktree + branch (`EnterWorktree`); in a cloud session, the session's own clone and branch ([cloud sessions](../docs/cloud-session.md)).
 - Authoritative external sources and access (MCP/CLI/URL). Externals are always read-only.
 - Issue tracker and conventions; ask if the repo does not establish them.
 

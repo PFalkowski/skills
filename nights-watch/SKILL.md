@@ -67,7 +67,7 @@ Invoking this skill is the user's explicit opt-in to multi-agent orchestration (
 
 Every agent of the Watch reads the Library's `INDEX.md` before working (rangers open only entries relevant to their ticket — recall stays lean) and writes to its own chronicle as it goes. Only the fire writes the Library.
 
-**The default runs two modes.** Bare `/nights-watch` runs patrol and hunt concurrently, each on its own cadence without waiting for the other. `patrol`, `hunt` and `grill` run only their named mode; `ticket=<id>` runs one ranging without a loop.
+**The default runs two modes.** Bare `/nights-watch` runs patrol and hunt concurrently, each on its own cadence without waiting for the other. `patrol`, `hunt` and `grill` run only their named mode; `ticket=<id>` runs one ranging without a loop. In a cloud session a loop ends with the session and per-machine state is lost, so run one `ticket=` ranging there, on the branch the session's instructions name ([cloud sessions](../docs/cloud-session.md)).
 
 **Modes may meet other sessions' live state.** Leave another mode's `.lock/` and unowned `ai-working` claims alone. Hunt lock `owner.md` records start, range and host; only a lock older than `lockTtl` is stale ([HUNT.md](HUNT.md)).
 
