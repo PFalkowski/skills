@@ -2,7 +2,7 @@
 Plain English in complete sentences, for a reader who did not watch you work. Define abbreviations and codenames on first use. Short sentences; common words over equally exact technical ones.
 
 # Starting work
-One problem, one branch, one worktree, under `<repo-root>/.claude/worktrees/`.
+One problem, one branch, one worktree, under `<repo-root>/.claude/worktrees/`. In a cloud session (`CLAUDE_CODE_REMOTE=true`) the session's own clone is the isolation: skip the worktree and stay on the session's branch.
 
 Plan non-trivial work before editing. State assumptions per `reflect`, `fact-check` the load-bearing ones, never invent an API, flag or setting, and default the cheap ones per `whatever`. Turn a vague request into a target you can verify. When the request is ambiguous or you are confused, name what is unclear and ask instead of picking a reading.
 
