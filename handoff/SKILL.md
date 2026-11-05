@@ -32,7 +32,7 @@ If a short note would lose essential understanding, say so and prefer `/compact`
 
 ## Delivery
 
-- **Fresh session / `/clear` / `/compact`:** write a durable file such as `HANDOFF.md`, then give one resume command. Never clear or compact for the user.
+- **Fresh session / `/clear` / `/compact`:** write a durable file such as `HANDOFF.md`, then give one resume command. A fresh session at a `save-tokens` boundary is launched for the user instead ([FRESH-SESSION.md](../save-tokens/FRESH-SESSION.md)). Never clear or compact for the user.
 - **Subagent now:** use the note as the spawn prompt.
 - **Another agent/model/human, or `lite`:** one paste-ready fenced block.
 

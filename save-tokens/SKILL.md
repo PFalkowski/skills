@@ -1,6 +1,6 @@
 ---
 name: save-tokens
-description: Reduce context/model cost on new requests, dispatches, phase checkpoints or usage limits; offer fresh sessions.
+description: Reduce context/model cost on new requests, dispatches, phase checkpoints or usage limits; start fresh sessions.
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -48,7 +48,7 @@ Keep final answers short; link files/output instead of pasting or repeating them
 
 ## What the agent recommends, and when
 
-One exact-command suggestion per boundary; after a decline, drop it for the task. Detect spills, finished large outputs, unrelated prompts, auto-compaction, and unused tools. User gauges: [`statusline`](../statusline/SKILL.md), `/context`, `/usage` (`/cost`).
+One exact-command suggestion per boundary for steps only the user can take; after a decline, drop it for the task. Detect spills, finished large outputs, unrelated prompts, auto-compaction, and unused tools. User gauges: [`statusline`](../statusline/SKILL.md), `/context`, `/usage` (`/cost`).
 
 | Trigger | Recommendation |
 |---|---|
@@ -58,7 +58,7 @@ One exact-command suggestion per boundary; after a decline, drop it for the task
 | Wrong tier/effort for the next stretch | `/model` or `/effort` at a boundary, ideally after clear/compact. Model switches and most effort switches re-prefill (effort exception: Fable 5.1); choices persist as next-session defaults. Known grunt session: `MAX_THINKING_TOKENS=0 claude` (no Fable effect) |
 | Had to search for the user's file | After searching, suggest an @-mention once; avoids a Read. Repeated mentions attach duplicate copies |
 | Setting up local `/loop`, reminder, or cron | Use a fresh session/terminal: each firing carries its full conversation; after 1h idle, cache misses too. Cloud `/schedule` is exempt |
-| Delegated work reaches a committed checkpoint, or a usage limit is hit | Offer a fresh session unprompted. First save every prompt needed next to a file and identify session-started background processes that will die with the session |
+| Delegated work reaches a committed checkpoint, or a usage limit is hit | Start a fresh session unprompted. First save every prompt needed next to a file and identify session-started background processes that will die with the session |
 | Fresh session, unused MCPs, or workflow-heavy CLAUDE.md | `/context`, `/model`, `/effort`; `/mcp disable <server>` for this session. Offer moving workflow prose into skills |
 | Repeated noisy command now has a known quiet form | Propose its exact one-line CLAUDE.md invocation. Alternatively offer a `PreToolUse` Bash hook via `hookSpecificOutput.updatedInput.command`; [example](https://code.claude.com/docs/en/costs#offload-processing-to-hooks-and-skills) |
 | Repeated delegated noisy job | Write `.claude/agents/<name>.md` with explicit worker `model:` and appropriate `effort:`; report in one line |
@@ -68,9 +68,10 @@ One exact-command suggestion per boundary; after a decline, drop it for the task
 - Builds on active work or arrives mid-task: continue silently.
 - Needs session context but finished detail dominates: recommend compact with explicit keep/drop.
 - Third correction of the same issue after two failed corrections: offer a fresh session with a note stating the correct target.
-- Needs little context: offer a fresh session. If too entangled for a short note, compact instead; for fire-and-forget work, dispatch a subagent with the note.
+- A quick question or a quick fix: answer here.
+- Needs little context, such as a new lifecycle or `manager run`: start a fresh session. If too entangled for a short note, compact instead; for fire-and-forget work, dispatch a subagent with the note.
 
-Before offering/launching a fresh session, read [FRESH-SESSION.md](FRESH-SESSION.md): prepare a scratch handoff and platform launcher, show both, then ask. Only after yes, launch and stop working on the request here. Never clear/compact for the user.
+Before launching a fresh session, read [FRESH-SESSION.md](FRESH-SESSION.md): prepare a scratch handoff and platform launcher, show the note, launch without asking, and stop working on the request here unless the launch fails. Never clear/compact for the user.
 
 ## Relationship to sibling skills
 
