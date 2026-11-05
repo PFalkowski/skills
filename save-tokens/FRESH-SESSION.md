@@ -1,6 +1,6 @@
 # Fresh-session launcher
 
-In a cloud session there is no terminal to launch: show the handoff inline and start a new cloud session with it as the prompt through the harness's create-session tool ([cloud sessions](../docs/cloud-session.md)).
+In a cloud session there is no terminal to launch: show the handoff inline and start a new cloud session with it as the prompt through the harness's create-session tool ([cloud sessions](../docs/cloud-session.md)). If the tool is missing, refused or fails, say so and carry on with the request here.
 
 A fresh session:
 
@@ -31,5 +31,5 @@ open -a Terminal "<launch.sh>"            # macOS
 x-terminal-emulator -e bash "<launch.sh>" # Linux
 ```
 
-No terminal launcher (SSH, no display): tell the user to run the launcher in a new terminal, or to
-run `/clear` and paste the note (`/rename` first if they want this session back).
+No terminal launcher (SSH, no display), or the launch fails: tell the user to run the launcher in a
+new terminal, or to run `/clear` and paste the note (`/rename` first if they want this session back).

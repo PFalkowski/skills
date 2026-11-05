@@ -48,7 +48,7 @@ Keep final answers short; link files/output instead of pasting or repeating them
 
 ## What the agent recommends, and when
 
-One exact-command suggestion per boundary; after a decline, drop it for the task. Detect spills, finished large outputs, unrelated prompts, auto-compaction, and unused tools. User gauges: [`statusline`](../statusline/SKILL.md), `/context`, `/usage` (`/cost`).
+One exact-command suggestion per boundary for steps only the user can take; after a decline, drop it for the task. Detect spills, finished large outputs, unrelated prompts, auto-compaction, and unused tools. User gauges: [`statusline`](../statusline/SKILL.md), `/context`, `/usage` (`/cost`).
 
 | Trigger | Recommendation |
 |---|---|
@@ -68,6 +68,7 @@ One exact-command suggestion per boundary; after a decline, drop it for the task
 - Builds on active work or arrives mid-task: continue silently.
 - Needs session context but finished detail dominates: recommend compact with explicit keep/drop.
 - Third correction of the same issue after two failed corrections: offer a fresh session with a note stating the correct target.
+- A quick question or a quick fix: answer here.
 - Needs little context, such as a new lifecycle or `manager run`: start a fresh session. If too entangled for a short note, compact instead; for fire-and-forget work, dispatch a subagent with the note.
 
 Before launching a fresh session, read [FRESH-SESSION.md](FRESH-SESSION.md): prepare a scratch handoff and platform launcher, show the note, launch without asking, and stop working on the request here. Never clear/compact for the user.
