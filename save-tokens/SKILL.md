@@ -71,7 +71,7 @@ One exact-command suggestion per boundary for steps only the user can take; afte
 - A quick question or a quick fix: answer here.
 - Needs little context, such as a new lifecycle or `manager run`: start a fresh session. If too entangled for a short note, compact instead; for fire-and-forget work, dispatch a subagent with the note.
 
-Before launching a fresh session, read [FRESH-SESSION.md](FRESH-SESSION.md): prepare a scratch handoff and platform launcher, show the note, launch without asking, and stop working on the request here. Never clear/compact for the user.
+Before launching a fresh session, read [FRESH-SESSION.md](FRESH-SESSION.md): prepare a scratch handoff and platform launcher, show the note, launch without asking, and stop working on the request here unless the launch fails. Never clear/compact for the user.
 
 ## Relationship to sibling skills
 
