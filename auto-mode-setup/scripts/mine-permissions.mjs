@@ -45,7 +45,7 @@ const TOOLS = [
 // Subcommand classification. Anything unmatched falls through to "mutating", on the principle that
 // an unrecognised command is not assumed safe.
 const READONLY = {
-  git: /^(log|diff|status|show|branch|rev-parse|ls-files|ls-tree|merge-base|rev-list|cat-file|check-ignore|describe|blame|shortlog|grep|ls-remote|symbolic-ref|merge-tree|count-objects|whatchanged|reflog)$/,
+  git: /^(log|diff|status|show|branch|rev-parse|ls-files|ls-tree|merge-base|rev-list|cat-file|check-ignore|describe|blame|shortlog|symbolic-ref|merge-tree|count-objects|whatchanged|reflog)$/,
   gh: /^(browse|search)$/,
   dotnet: /^(--version|--list-sdks|--list-runtimes|--info)$/,
   docker: /^(ps|images|image|inspect|logs|version|info|history|stats|port|top|diff|events)$/,
@@ -55,7 +55,6 @@ const READONLY = {
   npm: /^(ls|list|view|outdated|audit|why)$/,
   cargo: /^(tree|metadata|--version)$/,
   go: /^(list|version|env|vet)$/,
-  jq: /.*/,
   rg: /.*/,
 }
 
