@@ -62,7 +62,7 @@ as `script` instead ([WATCH.md § Dispatch](../../nights-watch/WATCH.md)).
 | The premise is floored | Spec, grill, plan and plan review run at opus or above whatever `tiers` says, and the clamp is logged. |
 | invert in design | Plan and plan review read invert/SKILL.md; every failure mode names what blocks it. |
 | The quality standard is a gate | GREEN writes to `less-is-more` and `no-comment`; a verified breach blocks `mergeReady` whatever its severity. |
-| Findings are verified | Every review finding is refute-tested before it counts; one no refuter could settle blocks `mergeReady`. |
+| Findings are verified | Every review finding is refute-tested before it counts; a blocking one the refuters leave without a majority either way blocks `mergeReady`. |
 | A gate that did not run did not pass | A dead reviewer, lens or claim extractor blocks `mergeReady` and is named in `mergeBlockedBy`. |
 | Docs ship with the code | The Document phase updates docs and re-runs the baseline. |
 | The retro closes every path | Including a run that stopped at the design gate. |

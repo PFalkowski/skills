@@ -467,6 +467,29 @@ console.log('\na gate that did not run never reads as passed:')
   await t('a finding actually refuted is dropped and does not block (control)', () => r.mergeReady === true)
 }
 {
+  const split = { 'refute:1': () => ({ status: 'confirmed', evidence: 'repro' }),
+    'refute:2': () => ({ status: 'refuted', evidence: 'guarded' }),
+    'refute:3': () => ({ status: 'unverifiable', evidence: 'no runtime' }) }
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding(split,
+    mkAgent({ reviews: { _single: [blockerFinding] } })) })
+  await t('a blocker with no majority either way (1 confirmed, 1 refuted, 1 unverifiable) blocks as unadjudicated',
+    () => r.mergeReady === false && r.mergeBlockedBy.some(b => /unadjudicated/.test(b)))
+}
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ 'refute:': () => null },
+    mkAgent({ reviews: { _single: [finding({ severity: 'nit' })] } })) })
+  await t('an unadjudicated nit does not block — it would not block if confirmed either', () => r.mergeReady === true)
+}
+{
+  let round = 0
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({
+    'claims:plan': () => (round === 1 ? null : undefined),
+    'plan:': () => { round++ },
+    'plan-review:r1': () => ({ verdict: 'revise', findings: [{ category: 'x', concern: 'y', mustFix: true }] }) }) })
+  await t('a dead extractor in a plan round that was then replaced does not block the approved plan',
+    () => r.mergeReady === true)
+}
+{
   const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ 'claims:plan': () => null }) })
   await t('a dead claim extractor at the plan gate blocks mergeReady', () =>
     r.mergeReady === false && r.mergeBlockedBy.some(b => /plan/.test(b)))
@@ -503,7 +526,7 @@ console.log('\na gate that did not run never reads as passed:')
 console.log('\nevery agent is told the lines it must not cross:')
 {
   const r = await runWorkhorse({ args: baseArgs(), agentFn: mkAgent() })
-  const WRITERS = /^(baseline|red:|green:|document|retro)/
+  const WRITERS = /^(baseline|spec|grill:|plan:|plan-review:|slice|red:|green:|document|retro)/
   const READERS = /^(claims:|refute:|red-check:|review:)/
   await t('every agent that writes is told never to push, open a PR or merge', () =>
     r.calls.filter(c => WRITERS.test(c.opts.label)).every(c => /never push/i.test(c.prompt)))
