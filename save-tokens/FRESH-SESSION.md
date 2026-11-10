@@ -8,9 +8,14 @@ A fresh session:
    the scratchpad (the system temp directory when there is none), never in the target worktree,
    where the next `git add -A` would commit it. Beside it write a launcher that
    reads the note at run time, so multi-line text and quotes survive:
-   - Windows, `launch.ps1`: `claude (Get-Content -Raw "$PSScriptRoot\handoff.md")`
+   - Windows, `launch.ps1`:
+     `Remove-Item Env:CLAUDE_CODE_CHILD_SESSION, Env:CLAUDE_CODE_SESSION_ID, Env:CLAUDE_CODE_SESSION_ATTENDED -ErrorAction SilentlyContinue`,
+     then `claude (Get-Content -Raw "$PSScriptRoot\handoff.md")`
    - macOS and Linux, `launch.sh` (made executable):
-     `cd "<dir>" && claude "$(cat "$(dirname "$0")/handoff.md")"`
+     `cd "<dir>" && env -u CLAUDE_CODE_CHILD_SESSION -u CLAUDE_CODE_SESSION_ID -u CLAUDE_CODE_SESSION_ATTENDED claude "$(cat "$(dirname "$0")/handoff.md")"`
+
+   A launcher run from inside a session must not hand the new session the parent's markers, or the
+   new session stops saving its transcript.
 2. Show the note and the command, with one line saying why: "This needs little of our context, so
    it starts fresh."
 3. Run the command yourself, without asking, and do not start the request here. It opens a new terminal
