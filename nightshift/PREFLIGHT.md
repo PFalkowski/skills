@@ -14,7 +14,7 @@ If any item lacks acceptance criteria, ask: "What's the observable outcome that 
 
 ### Multi-cycle naming on the same date
 
-If a run record already exists in today's date directory under the state root, do NOT overwrite — increment a numeric suffix (`run-2.md`, `run-3.md`, …) per the [SKILL.md multi-run convention](SKILL.md#multiple-runs-on-the-same-date). Confirm with the user which cycle suffix you are writing into before proceeding.
+If a run record already exists in today's date directory under the state root, do NOT overwrite — increment a numeric suffix (`run-2.md`, `run-3.md`, …) per the [SKILL.md multi-run convention](SKILL.md). Confirm with the user which cycle suffix you are writing into before proceeding.
 
 ## 2. Design ambiguity sweep
 
