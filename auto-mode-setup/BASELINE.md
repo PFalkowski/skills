@@ -246,6 +246,8 @@ Bash(git cat-file:*)
 Bash(git check-ignore:*)
 Bash(git remote -v:*)
 Bash(git worktree list:*)
+Bash(git grep:*)
+Bash(git ls-remote:*)
 Bash(git push:*)
 Bash(gh pr view:*)
 Bash(gh pr list:*)
@@ -253,14 +255,24 @@ Bash(gh issue view:*)
 Bash(gh issue list:*)
 Bash(gh run view:*)
 Bash(gh run list:*)
+Bash(gh pr checks:*)
+Bash(gh search:*)
 Bash(gh api:*)
 Bash(docker ps:*)
 Bash(docker images:*)
 Bash(docker inspect:*)
 Bash(docker logs:*)
+Bash(docker info:*)
+Bash(docker image ls:*)
 Bash(dotnet --version:*)
 Bash(dotnet --list-sdks:*)
+Bash(dotnet --list-runtimes:*)
 ```
+
+Seven of these rules were added on 2026-11-10 after counting real use across 91 session transcripts:
+`git grep`, `git ls-remote`, `gh pr checks`, `gh search`, `docker info`, `docker image ls` and
+`dotnet --list-runtimes`. `jq` was used more than most of them but stays out: like `cat`, it reads
+any file it is given, past the `Read()` deny rules above.
 
 `gh api` is read-only only by convention — it will happily `-X DELETE`. Narrow it to
 `Bash(gh api -X GET:*)` if the tree contains repos you do not control.
