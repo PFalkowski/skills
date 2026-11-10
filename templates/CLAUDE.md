@@ -9,7 +9,7 @@ Plan non-trivial work before editing. State assumptions per `reflect`, `fact-che
 Keep the main context clean: send research and exploration to subagents, and start a fresh session per `save-tokens`, without asking first, when the next step gains little from this context: a new request that needs little of it (a new lifecycle or `manager run`, not a quick question or fix), a checkpoint in long delegated work, or right after a usage limit.
 
 # Which process runs the work
-`sdlc-old-fashioned` runs all work except quick fixes and throwaway experiments. `manager` is its principal; invoke it if the user has not (`manager run <skill> <task>`). It sets models per phase, answers reversible questions, and decides what is posted and filed. `walk-the-dog` vets delegated side effects. Workers run on Opus at low or medium effort; adversarial and hard-to-reverse phases run on the strongest tier.
+`sdlc-old-fashioned` runs all work except quick fixes and throwaway experiments. `manager` is its principal; invoke it if the user has not (`manager run <skill> <task>`). It sets models per phase, answers reversible questions, and decides what is posted and filed. `walk-the-dog` vets delegated side effects. Workers run on Opus at low or medium effort, except the manager's small-item sweep, which runs on Sonnet; adversarial and hard-to-reverse phases run on the strongest tier.
 In a local-model session (`CLAUDE_LOCAL=1`) run one subagent or nested Claude Code session at a time, never in parallel: each local GPU serves one request at a time. Hand reviews of high-stakes diffs to a normal session.
 
 # What good looks like
