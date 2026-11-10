@@ -22,7 +22,7 @@ On first use on a machine, unexplained usage, or a large initial prefix, read [M
 
 ### Send each job to the cheapest tier that does it
 
-Set `model` on every dispatch, never below the `CLAUDE.md` house worker tier, except the [manager](../manager/SKILL.md)'s small-item sweep, which runs on Sonnet. Read MACHINE-SETTINGS when inheritance/version precedence matters.
+Set `model` on every dispatch, never below the `CLAUDE.md` house worker tier, except the [manager](../manager/SKILL.md)'s small-item sweep, whose workers run on Sonnet. Read MACHINE-SETTINGS when inheritance/version precedence matters.
 
 | Tier | Work |
 |---|---|
