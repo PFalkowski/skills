@@ -66,7 +66,9 @@ Post spec, plan, review notes, verdicts and retro on the PR; commit ADRs, runboo
 
 **Plan & its adversarial review (Phases 4–5).** Spawn a reviewer that did not author the written plan. Brief it to use [inversion](../invert/SKILL.md): name three failure conditions and check the plan against them. Slice only an approved plan; otherwise return to design or requirements. Stop paper review once remaining questions require execution: answer them in the first slice with a probe or guard test and no production change. Optional `reflect` focuses the review.
 
-**The quality standard — always on for every line of code.** Two skills bind every code phase of this lifecycle.
+### The quality standard — always on for every line of code
+
+Two skills bind every code phase of this lifecycle.
 
 - **[`less-is-more`](../less-is-more/SKILL.md)** — code is a liability, so inside the slice's blast radius make the smallest *architecturally honest* change. Modify code you understand instead of bolting a parallel path beside it, search the repo before writing a second implementation of something, add no interface for one implementation or flag for one caller, and delete what the change orphans. The measure is **cognitive load, not line count**: splitting dense cleverness into named parts is *less* even when it adds lines.
 - **[`no-comment`](../no-comment/SKILL.md)** — a comment is usually a failure to say it in code. Try a better name, then an extracted function, then a type. A comment that survives all three states **why**, never what. Commented-out code and comments that have drifted from the code beneath them are deleted on sight.
