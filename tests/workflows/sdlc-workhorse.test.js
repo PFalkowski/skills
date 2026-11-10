@@ -20,7 +20,8 @@
 //
 // The stubs mirror the documented Workflow contract, which is the authority here:
 //   - parallel(thunks) resolves a throwing thunk to null and NEVER rejects
-//   - pipeline(items, ...stages) passes (prevResult, originalItem, index) to each stage
+//   - pipeline(items, ...stages) passes (prevResult, originalItem, index) to each stage, and a
+//     stage that throws drops that item to null
 const fs = require('fs')
 const path = require('path')
 
@@ -34,9 +35,11 @@ async function runWorkhorse ({ args, agentFn, budget }) {
     `return (async () => { ${SRC} })()`)
   const parallel = thunks => Promise.all(thunks.map(async t => { try { return await t() } catch { return null } }))
   const pipeline = async (items, ...stages) => Promise.all(items.map(async (item, i) => {
-    let v = item
-    for (const s of stages) v = await s(v, item, i)
-    return v
+    try {
+      let v = item
+      for (const s of stages) v = await s(v, item, i)
+      return v
+    } catch { return null }
   }))
   const spy = async (prompt, opts) => { calls.push({ prompt, opts }); return agentFn(prompt, opts) }
   const out = await fn(args, budget || { total: null, spent: () => 0, remaining: () => Infinity },
@@ -413,6 +416,130 @@ console.log('\na claim proved once is not re-proved when a later gate re-extract
 // watcher's clock, passed in — the script has none (Date.now() throws here), so
 // the failures to guard are a line that silently loses its stamp, and an absent
 // stamp rendering as "[undefined]", which reads like a real timestamp.
+// ---------------------------------------------------------------------------
+// A GATE THAT DID NOT RUN NEVER READS AS A GATE THAT PASSED. agent() returns null when a
+// subagent dies, and every `|| []` that turns that null into "no findings" or "no claims"
+// opens the gate it was meant to hold. mergeReady is what the dispatchers act on.
+// ---------------------------------------------------------------------------
+const overriding = (overrides, base = mkAgent()) => async (prompt, opts) => {
+  for (const [prefix, fn] of Object.entries(overrides)) {
+    if (opts.label.startsWith(prefix)) { const v = await fn(prompt, opts); if (v !== undefined) return v }
+  }
+  return base(prompt, opts)
+}
+const nSlices = n => ({ slices: Array.from({ length: n }, (_, i) =>
+  ({ id: `s${i + 1}`, title: `S${i + 1}`, acceptanceCriterion: `AC${i + 1}`, effort: 'low' })) })
+const blockerFinding = finding({ summary: 'SQL injection in query builder', severity: 'blocker' })
+
+console.log('\na gate that did not run never reads as passed:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: mkAgent({ reviewDies: ['_single'] }) })
+  await t('a dead single reviewer blocks mergeReady', () => r.mergeReady === false)
+  await t('...and says why', () => r.mergeBlockedBy.some(b => /review did not run/.test(b)))
+}
+{
+  const r = await runWorkhorse({ args: baseArgs({ reviewStance: 'quorum', reviewConcerns: ['security', 'tests'] }),
+    agentFn: mkAgent({ reviewDies: ['security', 'tests', 'quality-standard'] }) })
+  await t('a quorum whose every lens died blocks mergeReady', () => r.mergeReady === false)
+}
+{
+  const r = await runWorkhorse({ args: baseArgs({ reviewStance: 'quorum', reviewConcerns: ['security', 'tests'] }),
+    agentFn: mkAgent({ reviewDies: ['security'] }) })
+  await t('one dead lens blocks too — that concern was never reviewed',
+    () => r.mergeReady === false && r.mergeBlockedBy.some(b => /security/.test(b)))
+}
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ 'refute:': () => null },
+    mkAgent({ reviews: { _single: [blockerFinding] } })) })
+  await t('a blocker whose refuters all died is not dropped: it blocks as unadjudicated',
+    () => r.mergeReady === false && r.mergeBlockedBy.some(b => /unadjudicated/.test(b)))
+}
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding(
+    { 'refute:': () => ({ status: 'unverifiable', evidence: 'no runtime' }) },
+    mkAgent({ reviews: { _single: [blockerFinding] } })) })
+  await t('...and the same when every refuter answers "unverifiable"', () => r.mergeReady === false)
+}
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding(
+    { 'refute:': () => ({ status: 'refuted', evidence: 'the guard is at a.js:3' }) },
+    mkAgent({ reviews: { _single: [blockerFinding] } })) })
+  await t('a finding actually refuted is dropped and does not block (control)', () => r.mergeReady === true)
+}
+{
+  const split = { 'refute:1': () => ({ status: 'confirmed', evidence: 'repro' }),
+    'refute:2': () => ({ status: 'refuted', evidence: 'guarded' }),
+    'refute:3': () => ({ status: 'unverifiable', evidence: 'no runtime' }) }
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding(split,
+    mkAgent({ reviews: { _single: [blockerFinding] } })) })
+  await t('a blocker with no majority either way (1 confirmed, 1 refuted, 1 unverifiable) blocks as unadjudicated',
+    () => r.mergeReady === false && r.mergeBlockedBy.some(b => /unadjudicated/.test(b)))
+  const tie = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ ...split, 'refute:3': () => null },
+    mkAgent({ reviews: { _single: [blockerFinding] } })) })
+  await t('...and so does a 1–1 tie where the third refuter died', () => tie.mergeReady === false)
+}
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ 'refute:': () => null },
+    mkAgent({ reviews: { _single: [finding({ severity: 'nit' })] } })) })
+  await t('an unadjudicated nit does not block — it would not block if confirmed either', () => r.mergeReady === true)
+}
+{
+  let round = 0
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({
+    'claims:plan': () => (round === 1 ? null : undefined),
+    'plan:': () => { round++ },
+    'plan-review:r1': () => ({ verdict: 'revise', findings: [{ category: 'x', concern: 'y', mustFix: true }] }) }) })
+  await t('a dead extractor in a plan round that was then replaced does not block the approved plan',
+    () => r.mergeReady === true)
+}
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ 'claims:plan': () => null }) })
+  await t('a dead claim extractor at the plan gate blocks mergeReady', () =>
+    r.mergeReady === false && r.mergeBlockedBy.some(b => /plan/.test(b)))
+}
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding(
+    { 'red-check:': () => ({ status: 'unverifiable', evidence: 'could not run it' }) }) })
+  await t('a RED the checker could not confirm is not a real red', () =>
+    r.mergeReady === false && r.slices[0].skipped === 'false red')
+}
+{
+  const r = await runWorkhorse({ args: baseArgs({ maxSlices: 1 }), agentFn: overriding({ slice: () => nSlices(2) }) })
+  await t('slices left past the maxSlices cap block mergeReady', () =>
+    r.mergeReady === false && r.mergeBlockedBy.some(b => /cap/.test(b)))
+}
+{
+  let r = null
+  try {
+    r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ 'green:': () => { throw new Error('budget exceeded') } }) })
+  } catch {}
+  await t('one tree: a slice that throws does not reject the run', () => r !== null)
+  await t('...the retro still runs and the slice is reported as not landed', () =>
+    r && r.calls.some(c => c.opts.label === 'retro') && r.mergeReady === false &&
+    /budget exceeded/.test(r.slices[0].skipped || ''))
+}
+{
+  const r = await runWorkhorse({ args: baseArgs({ parallel: 2 }), agentFn: overriding({
+    slice: () => nSlices(2),
+    'green:s2': () => { throw new Error('budget exceeded') } }) })
+  await t('worktrees: a slice that threw is still reported, not silently missing',
+    () => r.slices.length === 2 && r.slices.some(s => s.id === 's2' && s.skipped))
+}
+
+console.log('\nevery agent is told the lines it must not cross:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: mkAgent() })
+  const WRITERS = /^(baseline|spec|grill:|plan:|plan-review:|slice|red:|green:|document|retro)/
+  const READERS = /^(claims:|refute:|red-check:|review:)/
+  await t('every agent that writes is told never to push, open a PR or merge', () =>
+    r.calls.filter(c => WRITERS.test(c.opts.label)).every(c => /never push/i.test(c.prompt)))
+  await t('every checker is told the tree is read-only and which git commands are forbidden', () =>
+    r.calls.filter(c => READERS.test(c.opts.label)).every(c => /read-only/i.test(c.prompt) && /git stash/.test(c.prompt)))
+}
+
+console.log('\nthis repo is public — no bare issue numbers from elsewhere:')
+await t('the script holds no bare #<number> reference', () => !/(^|[^\w/])#\d+/m.test(SRC))
+
 // ---------------------------------------------------------------------------
 console.log('')
 console.log('stamped output — every line says which run it belongs to:')

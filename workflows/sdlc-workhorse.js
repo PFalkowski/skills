@@ -131,11 +131,21 @@ const CHRONICLE_RULE = (path) =>
 const LIBRARY_RULE = libraryIndex
   ? `Before working, read the Library index at ${libraryIndex} and open ONLY the entries relevant to this task. Recall stays lean.`
   : ''
+// The dispatcher pushes and opens the PR (nights-watch WATCH.md, sdlc-old-fashioned workflow-mode.md). The
+// templates every agent loads say "deliver every change as a PR", so the line has to be said, not left absent.
+const OUTWARD_RULE =
+  `Commit only on the branch you were started on. NEVER push, open, comment on or merge a PR, file an issue, ` +
+  `force-push, or delete or switch a branch: those steps belong to whoever dispatched this run.`
 const BACKLOG_RULE =
   `This run is AUTONOMOUS. A question you cannot answer does NOT stop the run: if it is REVERSIBLE, pick the sensible ` +
   `default, log the choice and its rationale to ${backlogPath}, and carry on. If it is IRREVERSIBLE (schema/data ` +
-  `migration, publish, spend, protected-branch merge, anything outward-facing), do NOT do it — record it as a blocker ` +
-  `and return. Out-of-scope work you discover is filed to ${backlogPath} on the spot, never silently absorbed.`
+  `migration, publishing or releasing, spending money, deleting data, history or another person's branch, ` +
+  `force-pushing, weakening security, contacting anyone outside the team, any merge), do NOT do it — record it as a ` +
+  `blocker and return. Out-of-scope work you discover is filed to ${backlogPath} on the spot, never silently absorbed. ` +
+  OUTWARD_RULE
+const READ_ONLY_RULE =
+  `The working tree is READ-ONLY for you and shared with other agents: put any scratch file outside it, and never ` +
+  `run git checkout, git switch, git stash, git reset, git clean, git commit, or git worktree add/remove.`
 
 // The premise phases (spec, grill, plan) do not merely *permit* fact-checking —
 // they are where "what correct means" is fixed, so grounding is the work rather
@@ -176,6 +186,7 @@ const QUALITY_REFUTE_RULE =
   `A quality finding is refuted if the lines it cites are not in this slice's diff; for no-comment, if the comment ` +
   `says why rather than what; for less-is-more, if the smaller change it names does not keep the slice's test green.`
 const isQualityFinding = f => f.rule && f.rule !== 'behaviour'
+const blocksMerge = f => f.severity === 'blocker' || f.severity === 'major' || isQualityFinding(f)
 
 // Several skills this workflow composes are INTERACTIVE by design — grill-me and
 // grill-with-docs interview a user; code-review-grill has two ALWAYS-ASK gates.
@@ -463,18 +474,23 @@ async function proven(claim, whyLoadBearing, phaseName, context) {
       `citation or link in its place; about this codebase → cite the exact path:line; documentable → confirm across ` +
       `two or more independent authoritative sources. Attach the evidence itself, never your confidence.\n\n` +
       `Return only your own verdict on this one claim. You are one vote of ${LENSES.length}; do not try to reach a ` +
-      `balanced conclusion on your own — attack the claim from your lens and report what you actually found.`,
+      `balanced conclusion on your own — attack the claim from your lens and report what you actually found.\n\n` +
+      READ_ONLY_RULE,
       { label: `refute:${i + 1}`, phase: phaseName, model: tiers.verify, schema: REFUTE_SCHEMA }
     )
   ))
   const valid = votes.filter(Boolean)
   // Not memoized: no verdict is not a verdict, and a transient agent failure must not pin this
   // claim as unproven for the rest of the run.
-  if (!valid.length) return { proven: false, why: 'no verifier returned a verdict — treated as unproven' }
+  if (!valid.length) return { proven: false, unverified: true, why: 'no verifier returned a verdict — treated as unproven' }
   const confirmed = valid.filter(v => v.status === 'confirmed')
   const refuted = valid.filter(v => v.status === 'refuted')
+  const majority = (side, other) => side.length > other.length && side.length >= Math.ceil(valid.length / 2)
+  const isProven = majority(confirmed, refuted)
   const verdict = {
-    proven: confirmed.length > refuted.length && confirmed.length >= Math.ceil(valid.length / 2),
+    proven: isProven,
+    // No majority either way: a premise treats that as false, a review finding as open.
+    unverified: !isProven && !majority(refuted, confirmed),
     why: refuted.length ? refuted.map(v => v.evidence).join(' | ')
        : confirmed.length ? confirmed.map(v => v.evidence).join(' | ')
        : valid.map(v => v.evidence).join(' | '),   // all-unverifiable: carry the reason and command onward
@@ -498,10 +514,12 @@ async function proven(claim, whyLoadBearing, phaseName, context) {
 async function adjudicateClaims(artifactName, artifactText, phaseName) {
   const extracted = await agent(
     `Extract ONLY the load-bearing claims from this ${artifactName} — the facts it leans on, where it collapses if the ` +
-    `claim is false. Ignore stylistic assertions and hedged asides.\n\n<${artifactName}>\n${artifactText}\n</${artifactName}>`,
+    `claim is false. Ignore stylistic assertions and hedged asides.\n\n<${artifactName}>\n${artifactText}\n</${artifactName}>\n\n` +
+    READ_ONLY_RULE,
     { label: `claims:${artifactName}`, phase: phaseName, model: tiers.verify, schema: CLAIM_LIST }
   )
-  const claims = (extracted && extracted.claims) || []
+  if (!extracted) return { held: [], rejected: [], extracted: 0, notRun: true }
+  const claims = extracted.claims || []
   if (!claims.length) return { held: [], rejected: [], extracted: 0 }
   // Most blast radius first, then cap. Sorting before slicing is the whole point: an arbitrary
   // five of fifteen would be worse than no cap, because it spends the budget on whatever the
@@ -510,8 +528,7 @@ async function adjudicateClaims(artifactName, artifactText, phaseName) {
   const ranked = [...claims].sort((a, b) => (BLAST[a.blastRadius] ?? 1) - (BLAST[b.blastRadius] ?? 1))
   const examined = ranked.slice(0, maxClaimsPerGate)
   const dropped = ranked.slice(maxClaimsPerGate)
-  // Oath rule 7 applies as hard to a cap as to a crash: an unexamined claim that nobody names
-  // reads downstream as a claim that passed.
+  // An unexamined claim that nobody names reads downstream as a claim that passed.
   if (dropped.length) {
     say(`${artifactName}: ${claims.length} load-bearing claims extracted, refuting the ${examined.length} with the ` +
       `largest blast radius (maxClaimsPerGate=${maxClaimsPerGate}). NOT examined, and NOT part of the verified premise:\n` +
@@ -543,11 +560,10 @@ const premiseBlock = (held) => held.length
   : `VERIFIED PREMISE: none. No load-bearing claim survived refutation, so you may treat NOTHING in the artifacts\n` +
     `below as established fact. Prove what you need with the "fact-check" skill before leaning on it.`
 
-// A premise gate: adjudicate, log, and hand back the held set. `blocking` says
-// whether a rejected claim should stop the run — true at the gates whose output
-// everything downstream inherits as fact.
-async function premiseGate(artifactName, artifactText, phaseName) {
-  const { held, rejected, extracted, unexamined } = await adjudicateClaims(artifactName, artifactText, phaseName)
+// A premise gate: adjudicate, log, and hand back the held set.
+async function premiseGate(artifactName, artifactText, phaseName, unchecked = record.unchecked) {
+  const { held, rejected, extracted, unexamined, notRun } = await adjudicateClaims(artifactName, artifactText, phaseName)
+  if (notRun) unchecked.push(`${artifactName}: claim extraction did not run, so its premise was never checked`)
   note(phaseName, `${extracted} load-bearing claim(s): ${held.length} held, ${rejected.length} refuted` +
     (unexamined ? `, ${unexamined} unexamined (over maxClaimsPerGate)` : ''))
   if (rejected.length) {
@@ -557,7 +573,9 @@ async function premiseGate(artifactName, artifactText, phaseName) {
   return { held, rejected }
 }
 
-const record = { phases: [], blockers: [], deferred: [] }
+// `unchecked` holds gates that never ran. It blocks mergeReady but does not stop the run before code:
+// a transient agent death is not a design that failed its review.
+const record = { phases: [], blockers: [], deferred: [], unchecked: [] }
 const note = (phase, detail) => { record.phases.push({ phase, detail }); say(`${phase}: ${detail}`) }
 
 // ---------------------------------------------------------------------------
@@ -574,18 +592,21 @@ async function runRetro(sliceCount) {
     `notes of what actually happened, written as it happened.\n\n` +
     `WHAT HAPPENED:\n${record.phases.map(p => `- ${p.phase}: ${p.detail}`).join('\n')}\n\n` +
     `${record.blockers.length ? `BLOCKERS:\n${record.blockers.map(b => `- ${b.what}: ${JSON.stringify(b.detail).slice(0, 300)}`).join('\n')}\n\n` : ''}` +
+    `${record.unchecked.length ? `GATES THAT DID NOT RUN:\n${record.unchecked.map(u => `- ${u}`).join('\n')}\n\n` : ''}` +
     `${record.deferred.length ? `DEFERRED:\n${record.deferred.map(d => `- ${d.what}: ${JSON.stringify(d.detail).slice(0, 300)}`).join('\n')}\n\n` : ''}` +
     `Turn the lens on the run itself: what slowed it down, what was ambiguous, what broke, what you would want to ` +
     `already know next time. Split every finding by what can be acted on NOW:\n` +
     `- evolved-now — anything improvable this session: sharpen a skill ("evolve-skill"), write a missing one ` +
-    `("write-a-skill"), fix the docs/ADR/lessons file. DO it, do not just note it.\n` +
+    `("write-a-skill"), fix the docs/ADR/lessons file. DO it, do not just note it — on this run's branch, in this ` +
+    `repo. A lesson for another repository (a skill, a shared template) is filed-for-human instead, never pushed.\n` +
     `- filed-for-human — needs a human decision or a future session. File it to ${backlogPath}, and carry it into the PR description or the tracker too: state is not a record, so the backlog alone does not keep it.\n` +
     `- flagged-blocker — blocking, neither evolvable nor plannable. Surface it plainly.\n\n` +
     `${record.blockers.length ? `This run hit real failures. Use the "postmortem" skill's discipline on them: symptom → root-cause chain → fix → forward-looking rule, and check whether a regression test is missing.\n\n` : ''}` +
     `${libraryIndex ? `Curate the durable lessons into the Library at ${libraryIndex} (one fact per file + index): conventions, gotchas, token calibrations, settled decisions, tooling. Noise dies with the chronicle.\n\n` : ''}` +
     `Token spend this run: ~${Math.round(budget.spent() / 1000)}k output tokens across ${sliceCount} slice(s) — ` +
     `record it as a calibration lesson so the next run's reserve is a number, not a guess.\n\n` +
-    `The output is an artifact: a short WRITTEN reflection committed to the repo, not a feeling that it went fine.`,
+    `The output is an artifact: a short WRITTEN reflection committed to the repo, not a feeling that it went fine.\n\n` +
+    OUTWARD_RULE,
     { label: 'retro', phase: 'Retrospective', model: tiers.retro, effort: 'medium', schema: RETRO_SCHEMA }
   )
 }
@@ -604,7 +625,7 @@ const baseline = await agent(
   `2. Identify the guardrails this change needs — linter, formatter, unit tests, integration tests, and a CI that runs them.\n` +
   `3. RUN them, right now, unchanged. Report each command with its ACTUAL output tail and whether it passed.\n` +
   `4. Report any guardrail that is simply missing.\n\n` +
-  `Do not fix anything. Do not write code. This phase only observes and reports.\n\n${LIBRARY_RULE}\n${CHRONICLE_RULE(chronicle('baseline'))}`,
+  `Do not fix anything. Do not write code. This phase only observes and reports.\n\n${OUTWARD_RULE}\n${LIBRARY_RULE}\n${CHRONICLE_RULE(chronicle('baseline'))}`,
   { label: 'baseline', phase: 'Baseline', model: tiers.baseline, effort: 'low', schema: BASELINE_SCHEMA }
 )
 if (!baseline) throw new Error('sdlc-workhorse: baseline agent returned nothing — cannot proceed without a known starting state.')
@@ -702,7 +723,9 @@ let plan = null
 let planReview = null
 let planFeedback = ''
 let planHeld = []
+let planUnchecked = []          // only the last round's plan is built on, so only its gaps count
 for (let round = 1; round <= maxPlanRounds; round++) {
+  planUnchecked = []
   phase('Plan')
   plan = await agent(
     `Design the implementation. Still NO code.\n\n${premiseBlock(heldPremise)}\n\n<spec>\n${sharpSpec}\n</spec>\n\n` +
@@ -725,12 +748,13 @@ for (let round = 1; round <= maxPlanRounds; round++) {
       `cheaper path to the same outcome; and the big one — does it actually satisfy the spec, or a nearby easier ` +
       `problem? Mark a finding mustFix only if shipping this plan unchanged would be a defect.\n\n${INVERT_RULE} A failure ` +
       `this plan does not already block is a finding (category "unhandled-failure").\n\n` +
-      `Use the "grill-with-docs" skill if available.\n\n${NO_HUMAN_RULE}\n\n${CHRONICLE_RULE(chronicle('plan-review'))}`,
+      `Use the "grill-with-docs" skill if available.\n\n${NO_HUMAN_RULE}\n\n${OUTWARD_RULE}\n${CHRONICLE_RULE(chronicle('plan-review'))}`,
       { label: `plan-review:r${round}`, phase: 'Plan review', model: tiers.planReview, schema: PLAN_REVIEW_SCHEMA }
     ),
-    () => premiseGate('plan', planText, 'Plan review'),
+    () => premiseGate('plan', planText, 'Plan review', planUnchecked),
   ])
   planReview = review
+  if (!refuted) planUnchecked.push(`plan round ${round}: claim adjudication did not run`)
   planHeld = (refuted && refuted.held) || []
   const bad = ((refuted && refuted.rejected) || []).filter(Boolean)
   const mustFix = (review && review.findings.filter(f => f.mustFix)) || []
@@ -752,6 +776,7 @@ for (let round = 1; round <= maxPlanRounds; round++) {
     say(`Plan still unapproved after ${maxPlanRounds} rounds — proceeding would be building on a design nobody signed off.`)
   }
 }
+record.unchecked.push(...planUnchecked)
 
 if (record.blockers.length) {
   say('Stopping before any code: the design did not clear its gate. No code before the plan is reviewed.')
@@ -769,7 +794,7 @@ if (record.blockers.length) {
     blockers: record.blockers,
     deferred: record.deferred,
     mergeReady: false,
-    mergeBlockedBy: record.blockers.map(b => b.what),
+    mergeBlockedBy: [...record.blockers.map(b => b.what), ...record.unchecked],
     reproduction: { goal: cfg.goal, tiers, backlogPath, chronicleDir, tokensSpent: budget.spent() },
   }
 }
@@ -783,7 +808,7 @@ const sliced = await agent(
   `each with a single observable acceptance criterion that ONE test can encode.\n\n` +
   `<plan>\n${JSON.stringify(plan, null, 2)}\n</plan>\n\nACCEPTANCE CRITERIA:\n${acceptance.map(a => `- ${a}`).join('\n')}\n\n` +
   `Assign each slice the LOWEST effort that can actually do it: low for mechanical, medium default, high only for ` +
-  `genuine design risk. Record the slices in ${backlogPath} as the live source of truth.\n\n${CHRONICLE_RULE(chronicle('slice'))}`,
+  `genuine design risk. Record the slices in ${backlogPath} as the live source of truth.\n\n${OUTWARD_RULE}\n${CHRONICLE_RULE(chronicle('slice'))}`,
   { label: 'slice', phase: 'Slice', model: tiers.slice, effort: 'medium', schema: SLICES_SCHEMA }
 )
 if (!sliced || !sliced.slices.length) throw new Error('sdlc-workhorse: slicing produced no slices.')
@@ -791,7 +816,7 @@ if (!sliced || !sliced.slices.length) throw new Error('sdlc-workhorse: slicing p
 let slices = sliced.slices
 if (slices.length > maxSlices) {
   say(`${slices.length} slices produced, capping at ${maxSlices}. NOT worked this run: ${slices.slice(maxSlices).map(s => s.id).join(', ')} — left in ${backlogPath}.`)
-  record.deferred.push({ what: 'slices deferred past the cap', detail: slices.slice(maxSlices).map(s => s.id) })
+  record.blockers.push({ what: `${slices.length - maxSlices} slice(s) left past the maxSlices cap`, detail: slices.slice(maxSlices).map(s => s.id) })
   slices = slices.slice(0, maxSlices)
 }
 note('Slice', `${slices.length} tracer bullet(s): ${slices.map(s => `${s.id}[${s.effort}]`).join(', ')}`)
@@ -807,7 +832,7 @@ note('Slice', `${slices.length} tracer bullet(s): ${slices.map(s => `${s.id}[${s
 // only answers "did this fail for the reason claimed?".
 //
 // pipeline() starts EVERY item at once, so it runs only when each slice has its
-// own worktree. With one working tree the slices go one after another: in #126
+// own worktree. With one working tree the slices go one after another: in one lifecycle run
 // twelve builders shared one tree, compiled each other's half-written edits, and
 // two real reds were rejected for a sibling's compile errors.
 // ---------------------------------------------------------------------------
@@ -832,7 +857,7 @@ const buildStages = [
       `fixture. A test that fails for the wrong reason proves nothing and will be rejected. In a compiled language, ` +
       `when the criterion needs a type or member that does not exist yet, the red is a compile error that names ` +
       `only that missing symbol, in your test file and nowhere else.\n\n` +
-      `Use the "tdd" skill's RED discipline.\n\n${LIBRARY_RULE}\n${CHRONICLE_RULE(chronicle(`slice-${slice.id}`))}`,
+      `Use the "tdd" skill's RED discipline.\n\n${OUTWARD_RULE}\n${LIBRARY_RULE}\n${CHRONICLE_RULE(chronicle(`slice-${slice.id}`))}`,
       { label: `red:${slice.id}`, phase: 'Build', model: tiers.build, effort: slice.effort, schema: RED_SCHEMA, isolation: isolate ? 'worktree' : undefined }
     )
     if (!red) return { slice, skipped: 'red agent returned nothing' }
@@ -843,10 +868,11 @@ const buildStages = [
       `Answer one question with evidence: did this fail because the ASSERTED BEHAVIOUR is missing, or did it fail for ` +
       `an unrelated reason (import error, syntax error, missing fixture, wrong path, test never ran)? ` +
       `An unrelated failure is a FALSE RED and must be refuted. In a compiled language a compile error that names ` +
-      `only a symbol the criterion introduces, in the new test file only, is a real red; any other compile error is not.`,
+      `only a symbol the criterion introduces, in the new test file only, is a real red; any other compile error is not.\n\n` +
+      READ_ONLY_RULE,
       { label: `red-check:${slice.id}`, phase: 'Build', model: tiers.verify, schema: REFUTE_SCHEMA }
     )
-    const realRed = red.failedForTheRightReason && redCheck && redCheck.status !== 'refuted'
+    const realRed = red.failedForTheRightReason && redCheck && redCheck.status === 'confirmed'
     if (!realRed) {
       say(`slice ${slice.id}: FALSE RED rejected — ${redCheck ? redCheck.evidence : 'no independent check'}`)
       return { slice, skipped: 'false red', red }
@@ -901,7 +927,7 @@ const buildStages = [
       `result instead — the human decides what gets posted, and this run has no authority to speak on a PR.\n` +
       `Everything else in the skill applies in full — especially Step 4: read this project's own documentation and ` +
       `distil its house rules first, because the same construct that is right in one architecture is a defect in another.\n\n` +
-      `${NO_HUMAN_RULE}\n\n${CHRONICLE_RULE(chronicle(`review-${slice.id}${concern ? `-${concern}` : ''}`))}`,
+      `${NO_HUMAN_RULE}\n\n${READ_ONLY_RULE}\n\n${CHRONICLE_RULE(chronicle(`review-${slice.id}${concern ? `-${concern}` : ''}`))}`,
       { label: `review:${slice.id}${concern ? `:${concern}` : ''}`, phase: 'Review',
         model: tiers.review, schema: REVIEW_SCHEMA }
     )
@@ -910,11 +936,11 @@ const buildStages = [
     // — the concerns collapse into one pass and the independence that makes a quorum
     // worth its cost is silently gone. Fan out here instead: one agent per concern, each
     // blind to the others. Same fix as the nights-watch grill (PFalkowski/skills#46).
-    const reviews = reviewStance === 'quorum'
-      ? (await parallel(reviewConcerns.map(c => () => grill(c).then(r => ({ r, c })))))
-          .filter(Boolean).filter(x => x.r)
-          .flatMap(x => ((x.r.findings) || []).map(f => ({ ...f, concern: x.c })))
-      : (((await grill(null)) || {}).findings || [])
+    const lenses = reviewStance === 'quorum' ? reviewConcerns : [null]
+    const ran = await parallel(lenses.map(c => () => grill(c)))
+    const missing = lenses.filter((c, i) => !ran[i]).map(c => c || 'single reviewer')
+    if (missing.length) record.unchecked.push(`slice ${slice.id}: review did not run (${missing.join(', ')})`)
+    const reviews = ran.flatMap((r, i) => ((r && r.findings) || []).map(f => lenses[i] ? { ...f, concern: lenses[i] } : f))
     // Lenses overlap, so the same defect can arrive more than once. Drop exact restatements
     // before paying to verify each; paraphrases survive to verification, which is the real
     // filter anyway — this only avoids obviously duplicated work.
@@ -932,9 +958,13 @@ const buildStages = [
       proven(f.summary, f.failureScenario, 'Review',
         `Slice: ${slice.title}\nCriterion: ${slice.acceptanceCriterion}\nRule: ${f.rule || 'behaviour'}` +
         (isQualityFinding(f) ? `\n${QUALITY_REFUTE_RULE}` : ''))
-        .then(v => ({ ...f, confirmed: v.proven, evidence: v.why }))
+        .then(v => ({ ...f, confirmed: v.proven, unverified: v.unverified, evidence: v.why }))
     ))
-    const real = verified.filter(Boolean).filter(f => f.confirmed)
+    const real = verified.filter(f => f && f.confirmed)
+    const unadjudicated = findings.filter((f, i) => blocksMerge(f) && (!verified[i] || verified[i].unverified))
+    if (unadjudicated.length) {
+      record.unchecked.push(`slice ${slice.id}: ${unadjudicated.length} finding(s) unadjudicated — the refuters reached no majority either way`)
+    }
     say(`slice ${slice.id}: ${findings.length} finding(s), ${real.length} survived verification`)
     return { ...prev, findings: real }
   }
@@ -944,12 +974,16 @@ const built = isolate ? await pipeline(slices, ...buildStages) : []
 if (!isolate) {
   for (const slice of slices) {
     let result = slice
-    for (const stage of buildStages) result = await stage(result)
+    try {
+      for (const stage of buildStages) result = await stage(result)
+    } catch (e) {
+      result = { slice, skipped: `threw: ${e.message}` }
+    }
     built.push(result)
   }
 }
 
-const results = built.filter(Boolean)
+const results = built.map((r, i) => r || { slice: slices[i], skipped: 'threw' })
 const done = results.filter(r => !r.skipped && r.green && r.green.passed)
 const failed = results.filter(r => r.skipped || !r.green || !r.green.passed)
 for (const f of failed) {
@@ -979,7 +1013,7 @@ const docs = done.length ? await agent(
   `made (including the alternatives it rejected and why); a changelog entry. Match the docs to the SHIPPED behaviour, ` +
   `not to the plan's intent — where they diverged, the code is the truth.\n\n` +
   `Then re-run the Phase-1 baseline checks and report whether they are still green:\n` +
-  `${baseline.checks.map(c => `- ${c.command}`).join('\n')}\n\n${CHRONICLE_RULE(chronicle('document'))}`,
+  `${baseline.checks.map(c => `- ${c.command}`).join('\n')}\n\n${OUTWARD_RULE}\n${CHRONICLE_RULE(chronicle('document'))}`,
   { label: 'document', phase: 'Document', model: tiers.document, effort: 'medium', schema: {
     type: 'object',
     required: ['docsChanged', 'baselineStillGreen', 'baselineOutput'],
@@ -1011,6 +1045,7 @@ const retro = await runRetro(slices.length)
 const mergeReady =
   done.length === slices.length &&
   !record.blockers.length &&
+  !record.unchecked.length &&
   !blockerFindings.length &&
   !ruleFindings.length &&
   !!docs && docs.baselineStillGreen
@@ -1021,6 +1056,7 @@ return {
   mergeBlockedBy: mergeReady ? [] : [
     ...(done.length !== slices.length ? [`${slices.length - done.length} slice(s) not green`] : []),
     ...record.blockers.map(b => b.what),
+    ...record.unchecked,
     ...(blockerFindings.length ? [`${blockerFindings.length} verified blocker/major review finding(s)`] : []),
     ...(ruleFindings.length ? [`${ruleFindings.length} verified less-is-more / no-comment finding(s)`] : []),
     ...(docs && !docs.baselineStillGreen ? ['baseline regressed'] : []),
