@@ -20,6 +20,7 @@
 #      the guard's own comment below for why it is scoped and how the qualifier exclusion keeps it
 #      from firing on the accurate claim it is meant to leave alone.
 #   4. A live guard: feeds the current deny block plus `Bash(git push:*)` to a real `claude -p`
+#      (with `--setting-sources project`, so the user's own settings are not loaded)
 #      session against a scratch repo with a nonexistent remote host, so a command that reaches
 #      git (git produces its own error or output) is unambiguously distinguishable from one the
 #      permission layer denied outright (no tool call happens at all). Requires the `claude` CLI
@@ -89,30 +90,30 @@ fi
 # `git branch -D` stays in the ask tier, and a copy in the deny block would make approval impossible.
 ask_rules="$(awk '/^## The ask tier/{flag=1} flag && /^```$/{c++; if(c==2){exit}; next} flag && c==1 {print}' "$BASELINE")"
 total=$((total + 1))
-remote_delete_rules=(
-  'Bash(git push --delete:*)'
-  'Bash(git push origin --delete:*)'
-  'Bash(git push * --delete)'
-  'Bash(git push * --delete *)'
-  'Bash(git push -d:*)'
-  'Bash(git push * -d)'
-  'Bash(git push * -d *)'
-)
 local_delete_rules=(
   'Bash(git branch -D:*)'
   'Bash(git -C * branch -D *)'
 )
+# Any spelling counts: a line pairing `git push` with `--delete` or a standalone `-d` (not the
+# tail of `--dry-run` or a bundled option).
+remote_delete_pattern='git push.*(--delete|[[:space:]]-d([[:space:]:)]|$))'
 misplaced=()
-for rule in "${remote_delete_rules[@]}"; do
-  if printf '%s\n%s\n' "$ask_rules" "$rules" | grep -qxF "$rule"; then
-    misplaced+=("$rule")
-  fi
-done
+while IFS= read -r rule; do
+  misplaced+=("$rule")
+done < <(printf '%s\n%s\n' "$ask_rules" "$rules" | grep -E "$remote_delete_pattern" || true)
 for rule in "${local_delete_rules[@]}"; do
   if ! printf '%s\n' "$ask_rules" | grep -qxF "$rule" || printf '%s\n' "$rules" | grep -qxF "$rule"; then
     misplaced+=("$rule")
   fi
 done
+self_test_fail=0
+for fixture in 'Bash(git push * --delete:*)' 'Bash(git push origin -d:*)' 'Bash(git push origin --delete *)' 'Bash(git push * -d)'; do
+  printf '%s\n' "$fixture" | grep -qE "$remote_delete_pattern" || { echo "FAIL (self-test): guard 2b misses: $fixture"; self_test_fail=1; }
+done
+for fixture in 'Bash(git push --dry-run:*)' 'Bash(git push * --force)' 'Bash(git branch -D:*)'; do
+  printf '%s\n' "$fixture" | grep -qE "$remote_delete_pattern" && { echo "FAIL (self-test): guard 2b flags: $fixture"; self_test_fail=1; }
+done
+[ "$self_test_fail" -eq 0 ] || fail=$((fail + 1))
 if [ "${#misplaced[@]}" -gt 0 ]; then
   echo "FAIL: branch-delete rule(s) in the wrong tier (remote deletes in ask or deny, or local force deletes not in ask):"
   printf '  %s\n' "${misplaced[@]}"
@@ -195,7 +196,7 @@ SETTINGS="$WORK/settings.json"
   printf ']}}'
 } > "$SETTINGS"
 
-preflight="$(cd "$REPO" && claude -p "reply with exactly: ok" --settings "$SETTINGS" --permission-prompts none --output-format json 2>&1)"
+preflight="$(cd "$REPO" && claude -p "reply with exactly: ok" --settings "$SETTINGS" --setting-sources project --permission-prompts none --output-format json 2>&1)"
 if ! printf '%s' "$preflight" | grep -q '"is_error":false'; then
   echo "SKIP: 'claude' is present but not usable here (no credentials?) -- live checks not run"
   echo "  preflight said: $(printf '%s' "$preflight" | head -c 300)"
@@ -207,7 +208,7 @@ check() {
   local expect="$1" cmd="$2" out actual
   total=$((total + 1))
   out="$(cd "$REPO" && claude -p "Use the Bash tool to run exactly this command, verbatim, with no explanation first: $cmd" \
-        --settings "$SETTINGS" --permission-prompts none --output-format json 2>&1)"
+        --settings "$SETTINGS" --setting-sources project --permission-prompts none --output-format json 2>&1)"
   if printf '%s' "$out" | grep -q '"permission_denials":\[\]'; then
     actual=allow
   else
