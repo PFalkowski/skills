@@ -37,7 +37,7 @@ node scripts/mine-permissions.mjs --top 60 --json
 
 The miner streams transcripts, splits Bash/PowerShell commands on `|`, `;`, `&&`, and ranks command pairs as read-only/mutating/dangerous. Derive additional allows only from read-only entries. Omit built-in unprompted reads (`ls`, `cat`, `echo`, `pwd`, `head`, `tail`, `grep`, `find`, `wc`, `which`, `diff`, `stat`, `du`, `cd`, read-only git).
 
-Frequency is not safety: `docker run`/`dotnet run` are not globally safe. Baseline `git push` is an explicit exception requiring paired deny rules and accepted gaps, including bundled short flags such as `-fd`; read [BASELINE.md](BASELINE.md).
+Frequency is not safety: `docker run`/`dotnet run` are not globally safe. Baseline `git push` is an explicit exception requiring paired deny rules and accepted gaps, including bundled short flags such as `-fd`, and named remote deletes are allowed; read [BASELINE.md](BASELINE.md).
 
 ### 3. Write the user-scope baseline
 

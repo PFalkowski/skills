@@ -70,8 +70,8 @@ wildcard — see the syntax reminders at the top of this file. The leading-flag 
 a shape the `* --flag` rules do not match. These pairs cover every **unbundled** spelling of each
 flag, including `--prune` (which deletes every remote branch with no local counterpart, in bulk and
 unnamed, the same blast radius as `--mirror`, confirmed by direct test against a scratch remote).
-Deleting one *named* branch (`--delete`, `-d`, `git branch -D`) is not here: it is routine cleanup
-once the user approves it, so it lives in the ask tier below. They do not,
+Deleting *named* remote refs is not here: `--delete` and `-d`, tags included, are allowed, and
+`git branch -D` waits in the ask tier below. These pairs do not,
 and cannot, cover a bundled short option like `-fd` or `-df` — see the note under the allow list
 below, where `git push` itself is granted, for the full, measured statement of what that leaves
 open.
@@ -158,22 +158,14 @@ Bash(dotnet ef migrations remove:*)
 Bash(docker system prune:*)
 Bash(docker volume rm:*)
 Bash(docker volume prune:*)
-Bash(git push --delete:*)
-Bash(git push origin --delete:*)
-Bash(git push * --delete)
-Bash(git push * --delete *)
-Bash(git push -d:*)
-Bash(git push * -d)
-Bash(git push * -d *)
 Bash(git branch -D:*)
 Bash(git -C * branch -D *)
 ```
 
-Branch deletes moved here from the deny list on 2026-10-19. Once a PR merges, deleting its branch
-is routine cleanup, and a deny made every approved cleanup impossible: the agent could only hand
-the commands back. Deleting one named branch now prompts, so the user's approval is what lets it
-through. The same flags in their position-pair spellings follow the deny-list convention above.
-`git -C * branch -D *` is needed because the allow list grants `git -C * branch:*`. Plain
+Of the branch deletes, only the local force delete stays here. Deleting named remote refs left this
+tier on 2026-11-10: once a PR merges, deleting its branch is routine cleanup, so `Bash(git push:*)`
+now covers it. The grant also deletes tags and several refs in one command, and no rule can limit it
+to merged branches or to your own, so protect the branches and tags that matter with forge rulesets. `git -C * branch -D *` is needed because the allow list grants `git -C * branch:*`. Plain
 `git branch -d` stays allowed, because git itself refuses it for an unmerged branch.
 
 In an interactive session these prompt, and you approve them in a
@@ -234,7 +226,8 @@ holds anything worth exfiltrating; skip it where it will just generate friction.
 
 Frequent enough in real transcripts to be worth the rule, and safe in any repo — with one
 exception. `Bash(git push:*)` is the one rule in this block that is not read-only; it is granted
-because the deny-list pairs under "Irreversible history loss" above cover the destructive forms.
+because the deny-list pairs under "Irreversible history loss" above cover the destructive forms,
+except deleting named refs, which is allowed on purpose.
 See the note after the block for what that does and does not close off. Everything else here is
 read-only, and anything already in Claude Code's built-in read-only set is deliberately
 **omitted** — those never prompt.
@@ -261,14 +254,25 @@ Bash(gh issue view:*)
 Bash(gh issue list:*)
 Bash(gh run view:*)
 Bash(gh run list:*)
+Bash(gh pr checks:*)
+Bash(gh search:*)
 Bash(gh api:*)
 Bash(docker ps:*)
 Bash(docker images:*)
 Bash(docker inspect:*)
 Bash(docker logs:*)
+Bash(docker info:*)
+Bash(docker image ls:*)
 Bash(dotnet --version:*)
 Bash(dotnet --list-sdks:*)
+Bash(dotnet --list-runtimes:*)
 ```
+
+Five of these rules were added on 2026-11-10 after counting real use across 91 session transcripts:
+`gh pr checks`, `gh search`, `docker info`, `docker image ls` and `dotnet --list-runtimes`. Three
+frequent commands stay out. `jq` reads any file it is given, like `cat`, past the `Read()` deny
+rules above. `git grep -O` and `git ls-remote --upload-pack` each run any program, and plain
+`git grep` needs no rule.
 
 `gh api` is read-only only by convention — it will happily `-X DELETE`. Narrow it to
 `Bash(gh api -X GET:*)` if the tree contains repos you do not control.
@@ -307,9 +311,9 @@ reading arbitrary paths; they are frequent in any .NET tree and prompted every t
 **`Bash(git push:*)` is a deliberate, accepted risk, not an oversight — the repository owner was
 shown the gap below in full and chose to keep the grant anyway.** The deny-list pairs above are a
 real, measured improvement: every **unbundled** destructive spelling — `--force`, `-f`, `--mirror`,
-`--prune`, and the `+` force-refspec — in both leading and trailing position, is genuinely blocked,
-and every **unbundled** single-branch delete (`--delete`, `-d`) waits for the user in the ask tier.
-`Bash(git push:*)` does not undo any of that, because ask beats allow.
+`--prune`, and the `+` force-refspec — in both leading and trailing position, is genuinely blocked.
+`Bash(git push:*)` does not undo any of that, because deny beats allow. Deleting named remote refs,
+tags included, is allowed on purpose.
 
 What it does not close off:
 
@@ -319,7 +323,7 @@ What it does not close off:
   the remote and fail there instead). No deny rule here catches them: per the documented matching
   rules, `Bash(git push -f:*)` is equivalent to `Bash(git push -f *)`, and the space before a
   trailing `*` is part of the pattern — the same reason `Bash(ls *)` does not match `lsof`. `-fd`
-  has a `d` where the rule needs a space, so it slips every `-f` and every `-d` rule for exactly
+  has a `d` where the rule needs a space, so it slips every `-f` rule for exactly
   that reason, and the same holds for `-df`. **This is not patchable with a cleverer pattern**: a
   Bash rule's `*` is arbitrary-text substitution with no character classes and no alternation, so
   no finite rule set covers `-f`, `-fd`, `-df`, and `-xfz` alike. Do not "fix" this later by
@@ -420,10 +424,9 @@ you actually want — a repo running with `merge=ask` has no business granting t
 Two things are deliberately absent. **`git branch -d` needs no rule** — `Bash(git branch:*)` is
 already in the user allow list and the force form is caught by the `Bash(git branch -D:*)` ask, so
 the safe delete is granted and the destructive one waits for the user. And **no remote-branch
-delete appears here**: the merged branch is cleaned up by turning on the repository's own
-*automatically delete head branches* setting (`gh api -X PATCH repos/OWNER/REPO -f
-delete_branch_on_merge=true`), which costs no permission at all, applies to human merges too, and
-leaves `git push origin --delete` in the ask tier, behind the user's approval.
+delete appears here**: the user-level `Bash(git push:*)` grant already covers it. The repository's
+own *automatically delete head branches* setting (`gh api -X PATCH repos/OWNER/REPO -f
+delete_branch_on_merge=true`) also cleans up merged branches, and it applies to human merges too.
 
 **Grant this to repos you own.** These verbs write to a tracker and a branch, and on a public repo
 a comment is publication.
