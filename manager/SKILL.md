@@ -61,6 +61,8 @@ The manager stays on a self-paced `/loop`, waking when dispatched work reports b
 
 Proactively dispatch [triage](../triage/SKILL.md) for board grooming, [wrap-up](../wrap-up/SKILL.md) for session leftovers, and `housekeeping` for doc/code drift. Suggest `/desloppify` for code drift (manual-only). Rule 5, the mandate and hard lines still apply.
 
+**Sweep small open items.** When small tickets pile up, such as review follow-ups, carried findings and doc fixes, close them in one dynamic `Workflow`: one Sonnet worker per ticket, each in its own worktree, test-first, opening its own PR, then a fresh reviewer at the strongest tier per PR. The manager merges each under the mandate. Small means one PR, no design decision and no hard line; anything else goes through the [routing table](#routing-table). These tickets block nothing on their own, so they pile up unless someone batches them, and Sonnet is enough for them.
+
 Groom when board state would change dispatch, not on a schedule. Filing, `nights-watch` and `nightshift` share [READINESS.md](../triage/READINESS.md).
 
 The mandate still bounds what the maintenance may do. The manager grants the yeses these skills would otherwise hold for a human, but only the reversible ones — filing, committing, pushing, removing a merged worktree. Deleting an unmerged branch, a stash, or untracked work is Rule 4's line and escalates like anything else.
@@ -82,6 +84,7 @@ The mandate still bounds what the maintenance may do. The manager grants the yes
 |---|---|
 | load-bearing: public API, schema, subsystem, money, security | `sdlc-old-fashioned` (autonomous dial; its dynamic-workflow mode runs the `sdlc-workhorse` workflow) |
 | small, mechanical, well-understood | `go-go-go`, or a `nightshift` backlog item |
+| a batch of small, ready tickets | a `Workflow` of Sonnet workers, one per ticket ([§ Maintenance](#maintenance-the-manager-starts-itself)) |
 | a PR with no independent review yet | `code-review-grill` — a fresh reviewer, then `fix-pr` headless for what it finds |
 | review comments to work | `fix-pr` with `reply=`/`resolve=` from the mandate |
 | a claim the decision hinges on | `fact-check` in a fresh subagent |
