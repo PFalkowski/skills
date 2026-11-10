@@ -82,14 +82,14 @@ else
   echo "PASS: every load-bearing git-push deny rule is present, verbatim, in the deny block"
 fi
 
-# --- 2b. Static guard: single-branch deletes ask, and are not denied --------------------------
+# --- 2b. Static guard: remote branch deletes are allowed, local force deletes ask ---------------
 
-# Deleting one named branch is routine cleanup once the user approves it, so it lives in the ask
-# tier. A copy left in the deny block would silently win (deny is evaluated first) and make the
-# approval impossible, so absence from deny is asserted too.
+# Deleting one named remote branch is routine cleanup after a merge, so the git push grant covers
+# it. A copy left in the ask or deny block would win over that grant and bring the prompt back.
+# `git branch -D` stays in the ask tier, and a copy in the deny block would make approval impossible.
 ask_rules="$(awk '/^## The ask tier/{flag=1} flag && /^```$/{c++; if(c==2){exit}; next} flag && c==1 {print}' "$BASELINE")"
 total=$((total + 1))
-delete_rules=(
+remote_delete_rules=(
   'Bash(git push --delete:*)'
   'Bash(git push origin --delete:*)'
   'Bash(git push * --delete)'
@@ -97,21 +97,28 @@ delete_rules=(
   'Bash(git push -d:*)'
   'Bash(git push * -d)'
   'Bash(git push * -d *)'
+)
+local_delete_rules=(
   'Bash(git branch -D:*)'
   'Bash(git -C * branch -D *)'
 )
 misplaced=()
-for rule in "${delete_rules[@]}"; do
+for rule in "${remote_delete_rules[@]}"; do
+  if printf '%s\n%s\n' "$ask_rules" "$rules" | grep -qxF "$rule"; then
+    misplaced+=("$rule")
+  fi
+done
+for rule in "${local_delete_rules[@]}"; do
   if ! printf '%s\n' "$ask_rules" | grep -qxF "$rule" || printf '%s\n' "$rules" | grep -qxF "$rule"; then
     misplaced+=("$rule")
   fi
 done
 if [ "${#misplaced[@]}" -gt 0 ]; then
-  echo "FAIL: branch-delete rule(s) missing from the ask block, or still in the deny block:"
+  echo "FAIL: branch-delete rule(s) in the wrong tier (remote deletes in ask or deny, or local force deletes not in ask):"
   printf '  %s\n' "${misplaced[@]}"
   fail=$((fail + 1))
 else
-  echo "PASS: every single-branch delete rule is in the ask block and not in the deny block"
+  echo "PASS: remote branch deletes are in neither ask nor deny, and git branch -D is in ask"
 fi
 
 # --- 3. Static guard: no completeness overclaim about the git-push grant ----------------------
@@ -221,7 +228,7 @@ check() {
 check deny "git push --force origin main"
 check deny "git push origin main --force --quiet"
 check deny "git push -f origin main"
-check deny "git push origin b1 --delete --quiet"   # an ask rule, so with no one to approve it is refused
+check allow "git push origin b1 --delete --quiet"
 check deny "git push origin --mirror --quiet"
 check deny "git push origin +main:main"
 check deny "git push --prune origin"
@@ -238,7 +245,7 @@ check allow "git push origin :b1 main"
 
 # The other half of the documented gap, settled by measurement (#149): bundled short options
 # (-fd, -df) are parsed by git itself as force+delete, and no deny rule here matches a bundled
-# spelling -- only the unbundled --force/-f/--delete/-d/--mirror/+ forms in leading or trailing
+# spelling -- only the unbundled --force/-f/--mirror/--prune/+ forms in leading or trailing
 # position. These stay `allow` on purpose; if a future rule change makes either `deny`,
 # BASELINE.md's prose needs updating in the same commit, not just this script.
 check allow "git push -fd origin main"
