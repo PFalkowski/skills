@@ -62,15 +62,16 @@ as `script` instead ([WATCH.md § Dispatch](../../nights-watch/WATCH.md)).
 | The premise is floored | Spec, grill, plan and plan review run at opus or above whatever `tiers` says, and the clamp is logged. |
 | invert in design | Plan and plan review read invert/SKILL.md; every failure mode names what blocks it. |
 | The quality standard is a gate | GREEN writes to `less-is-more` and `no-comment`; a verified breach blocks `mergeReady` whatever its severity. |
-| Findings are verified | Every review finding is refute-tested before it counts. |
+| Findings are verified | Every review finding is refute-tested before it counts; one no refuter could settle blocks `mergeReady`. |
+| A gate that did not run did not pass | A dead reviewer, lens or claim extractor blocks `mergeReady` and is named in `mergeBlockedBy`. |
 | Docs ship with the code | The Document phase updates docs and re-runs the baseline. |
 | The retro closes every path | Including a run that stopped at the design gate. |
-| No irreversible line is crossed | There is no merge, push, publish, migrate or spend path in the script. |
+| No irreversible line is crossed | There is no merge, push, publish, migrate or spend path in the script, and every agent that writes is told never to push or touch a PR. |
 
 ## Reading the report
 
-- `mergeReady` — every slice green, no blockers, no verified blocker/major or quality-standard finding, baseline
-  still green. When false, `mergeBlockedBy` says why; report it unsoftened.
+- `mergeReady` — every planned slice built and green, every gate ran, no blockers, no verified blocker/major or
+  quality-standard finding, baseline still green. When false, `mergeBlockedBy` says why; report it unsoftened.
 - `stoppedAt` — the design never cleared its gate; no code was written.
 - `slices[].verifiedFindings` — findings that survived refutation, each with its `rule`.
 - `blockers` / `deferred` — what needs a human, and what was parked in the backlog with a default chosen.
