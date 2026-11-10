@@ -485,11 +485,12 @@ async function proven(claim, whyLoadBearing, phaseName, context) {
   if (!valid.length) return { proven: false, unverified: true, why: 'no verifier returned a verdict — treated as unproven' }
   const confirmed = valid.filter(v => v.status === 'confirmed')
   const refuted = valid.filter(v => v.status === 'refuted')
-  const isProven = confirmed.length > refuted.length && confirmed.length >= Math.ceil(valid.length / 2)
+  const majority = (side, other) => side.length > other.length && side.length >= Math.ceil(valid.length / 2)
+  const isProven = majority(confirmed, refuted)
   const verdict = {
     proven: isProven,
     // No majority either way: a premise treats that as false, a review finding as open.
-    unverified: !isProven && refuted.length < Math.ceil(valid.length / 2),
+    unverified: !isProven && !majority(refuted, confirmed),
     why: refuted.length ? refuted.map(v => v.evidence).join(' | ')
        : confirmed.length ? confirmed.map(v => v.evidence).join(' | ')
        : valid.map(v => v.evidence).join(' | '),   // all-unverifiable: carry the reason and command onward
@@ -962,7 +963,7 @@ const buildStages = [
     const real = verified.filter(f => f && f.confirmed)
     const unadjudicated = findings.filter((f, i) => blocksMerge(f) && (!verified[i] || verified[i].unverified))
     if (unadjudicated.length) {
-      record.unchecked.push(`slice ${slice.id}: ${unadjudicated.length} finding(s) unadjudicated — no refuter confirmed or refuted them`)
+      record.unchecked.push(`slice ${slice.id}: ${unadjudicated.length} finding(s) unadjudicated — the refuters reached no majority either way`)
     }
     say(`slice ${slice.id}: ${findings.length} finding(s), ${real.length} survived verification`)
     return { ...prev, findings: real }

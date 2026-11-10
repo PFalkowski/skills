@@ -474,6 +474,9 @@ console.log('\na gate that did not run never reads as passed:')
     mkAgent({ reviews: { _single: [blockerFinding] } })) })
   await t('a blocker with no majority either way (1 confirmed, 1 refuted, 1 unverifiable) blocks as unadjudicated',
     () => r.mergeReady === false && r.mergeBlockedBy.some(b => /unadjudicated/.test(b)))
+  const tie = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ ...split, 'refute:3': () => null },
+    mkAgent({ reviews: { _single: [blockerFinding] } })) })
+  await t('...and so does a 1–1 tie where the third refuter died', () => tie.mergeReady === false)
 }
 {
   const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ 'refute:': () => null },
