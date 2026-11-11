@@ -127,9 +127,9 @@ reverting. A skill that needs to describe its fallback points here instead.
 | `.housekeeping/chronicles/` | the state root's `housekeeping/chronicles/` | `housekeeping` |
 | `.recurring-improvement/recurring-backlog.md` | `docs/recurring-backlog.md` | `recurring-improvement` |
 | `.agents/recurring-backlog.md` (bare, non-conforming) | `docs/recurring-backlog.md` | `recurring-improvement` |
-| `docs/sdlc/runs/` | the state root's `sdlc-old-fashioned/runs/` | `sdlc-old-fashioned` |
+| `docs/sdlc/runs/` | the state root's `sdlc-old-fashioned/<run-id>/runs/` | `sdlc-old-fashioned` |
 | `docs/sdlc/` (spec, plan, review notes, retro) | posted on the PR — see "Publication" above | `sdlc-old-fashioned` |
-| `prompts/sdlc-backlog.md` | the state root's `sdlc-old-fashioned/backlog.md` | `sdlc-old-fashioned` |
+| `prompts/sdlc-backlog.md` | the state root's `sdlc-old-fashioned/<run-id>/backlog.md` | `sdlc-old-fashioned` |
 | `prompts/sdlc-backlog.md` (workflow default) | the state root's `sdlc-workhorse/backlog.md` | `workflows/sdlc-workhorse.js` (`sdlc-old-fashioned` workflow mode) |
 | `.sdlc/chronicles/` | the state root's `sdlc-workhorse/chronicles/` | `workflows/sdlc-workhorse.js` (`sdlc-old-fashioned` workflow mode) |
 
