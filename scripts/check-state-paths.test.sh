@@ -169,7 +169,7 @@ check_retired 'nights-watch locks' \
 check_retired 'nights-watch hunts' \
   'Watermark in `.nights-watch/hunts/`.' '~/.agent-state/<repo-slug>/nights-watch/'
 check_retired 'sdlc run logs' \
-  'Phase logs under `docs/sdlc/runs/`.' '~/.agent-state/<repo-slug>/sdlc-old-fashioned/runs/'
+  'Phase logs under `docs/sdlc/runs/`.' '~/.agent-state/<repo-slug>/sdlc-old-fashioned/<run-id>/runs/'
 # This one path has two owners (sdlc-old-fashioned and the sdlc-workhorse
 # workflow default) and so two destinations, which is why its message points
 # at the table rather than naming one and misleading the other's reader.
@@ -204,7 +204,11 @@ check_retired 'a near miss of Codex skills' \
 check_retired 'home-directory Hunt root' \
   'Public state at `~/.nights-watch/<repo-slug>/hunts/`.' '~/.agent-state/<repo-slug>/nights-watch/'
 check_retired 'repo-prefixed sdlc runs' \
-  'Logs at `<repo>/docs/sdlc/runs/`.' '~/.agent-state/<repo-slug>/sdlc-old-fashioned/runs/'
+  'Logs at `<repo>/docs/sdlc/runs/`.' '~/.agent-state/<repo-slug>/sdlc-old-fashioned/<run-id>/runs/'
+check_retired 'per-repo sdlc state root' \
+  'Runs under `~/.agent-state/<repo-slug>/sdlc-old-fashioned/runs/`.' '<run-id>'
+check_retired 'in-tree per-repo sdlc backlog' \
+  'Backlog at `.agent-state/sdlc-old-fashioned/backlog.md`.' '<run-id>'
 check_retired 'dot-slash prefixed journal' \
   'Logbook at `./.nights-watch/JOURNAL.md`.' '~/.agent-state/<repo-slug>/nights-watch/'
 
@@ -257,7 +261,8 @@ description: 'Fixture only, not a real skill.'
 Curated memory in `.nights-watch/library/INDEX.md`, rejected requests in
 `.out-of-scope/`, the schedule in `docs/recurring-backlog.md`, the queue in
 `prompts/backlog.md`, and run state in
-`~/.agent-state/<repo-slug>/retired-fixture-skill/runs/`.
+`~/.agent-state/<repo-slug>/retired-fixture-skill/runs/`, and the per-run sdlc
+state in `~/.agent-state/<repo-slug>/sdlc-old-fashioned/<run-id>/runs/`.
 EOF
 expect_status "deliverable paths beside the retired ones stay green" 0 \
   env CHECK_STATE_PATHS_ROOT="$FIXTURE_ROOT5" bash "$CHECK"

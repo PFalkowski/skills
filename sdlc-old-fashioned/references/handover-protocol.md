@@ -6,7 +6,7 @@ This is the detail behind **Dial 2 → "fresh process per phase"** and the **han
 
 ## File layout
 
-The run's state root — `~/.agent-state/<repo-slug>/sdlc-old-fashioned/`, written `<state>/` here — is outside the tree, so it survives the worktree and never reaches the PR ([agent-state.md](../../docs/agent-state.md)):
+The run's state folder — `~/.agent-state/<repo-slug>/sdlc-old-fashioned/<run-id>/`, written `<state>/` here, one folder per run (SKILL.md Step 0.7) — is outside the tree, so it survives the worktree and never reaches the PR ([agent-state.md](../../docs/agent-state.md)):
 
 ```
 <state>/
@@ -43,10 +43,10 @@ git worktree add .claude/worktrees/<feature> -b <feature-branch> origin/main    
 
 Run the conductor from inside the worktree so every spawned phase process inherits that cwd (or pass `--add-dir <worktree>` explicitly). The committed deliverables (ADRs, runbooks, the lessons entry) live in the worktree and land on the branch. `<state>/` — the backlog and the per-phase runs alike — is outside the tree: it stays on disk for inspection and cross-session resume, never reaches the branch, and needs nothing deleted at publish time.
 
-**Clean up** once the PR is open and pushed — propose, don't auto-remove:
+**Clean up** — attended: propose once the PR is open and pushed, and remove on a go; autonomous: `wrap-up` removes a clean worktree once its branch has merged:
 
 ```bash
-git worktree remove .claude/worktrees/<feature>             # after confirming; or ExitWorktree
+git worktree remove .claude/worktrees/<feature>             # attended: after a go; or ExitWorktree
 ```
 
 Safe as soon as the PR carries what it has to carry. `<state>/` is not in the worktree, so the briefs and `.log` files survive the removal — which matters for a phase that ran as an in-session subagent, where there is no canonical `.jsonl` to name and those logs are the only transcript and the only proof each test went RED.
@@ -147,7 +147,7 @@ It checks the gate against those, writes its decision (scope change, revised fig
 
 ## The backlog — schema
 
-`<state>/backlog.md`, updated by every phase before it exits. It is run scaffolding, not a deliverable, and the ignored state root keeps it out of the merged tree on its own — but it also dies with the worktree, so **its still-open items are filed to the tracker or the PR before Phase 13 sweeps** (see `SKILL.md`, Step 6):
+`<state>/backlog.md`, updated by every phase before it exits. It is run scaffolding, not a deliverable, the state root sits outside the tree, so it never reaches the merged tree and outlives the worktree. **Its still-open items are still filed to the tracker or the PR before Phase 13 closes**, because that is where the next reader looks (see `SKILL.md`, Step 6):
 
 ```markdown
 # SDLC backlog — <feature / epic name>
@@ -182,4 +182,4 @@ It checks the gate against those, writes its decision (scope change, revised fig
 
 ## Autonomous mode
 
-When Dial 1 = autonomous, `nightshift` is the driver that walks the Step-6 backlog and runs this loop per item. Questions the child can't resolve are appended to the backlog (with the chosen default logged) instead of blocking — except at irreversible gates, which still wait for a human.
+When Dial 1 = autonomous, the conductor runs this same loop without stopping at the gates. A child appends any question it cannot resolve to the backlog's `Decisions / notes`, with the default it chose. The conductor confirms or changes that default when it consumes the result (step 4), logs the decision, and dispatches the next phase. Irreversible gates still wait for a human. In dynamic-workflow mode the `sdlc-workhorse` script runs the loop instead ([workflow-mode.md](workflow-mode.md)).

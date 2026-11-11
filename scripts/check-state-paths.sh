@@ -45,7 +45,8 @@ nights_watch_allowed_seg='library'
 # ./x as it is bare, and those qualified spellings are the ones these skills
 # actually use.
 retired_res=(
-  'docs/sdlc/runs/;~/.agent-state/<repo-slug>/sdlc-old-fashioned/runs/'
+  'docs/sdlc/runs/;~/.agent-state/<repo-slug>/sdlc-old-fashioned/<run-id>/runs/'
+  '\.agent-state/(<repo-slug>/)?sdlc-old-fashioned/([^<]|$);~/.agent-state/<repo-slug>/sdlc-old-fashioned/<run-id>/'
   'prompts/sdlc-backlog\.md;~/.agent-state/<repo-slug>/<owning skill>/backlog.md -- see docs/agent-state.md, Retired paths'
   '\.housekeeping/;~/.agent-state/<repo-slug>/housekeeping/'
   '\.recurring-improvement/;docs/recurring-backlog.md'
