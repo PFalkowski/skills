@@ -760,7 +760,7 @@ for (let round = 1; round <= maxPlanRounds; round++) {
   planHeld = (refuted && refuted.held) || []
   const bad = ((refuted && refuted.rejected) || []).filter(Boolean)
   const mustFix = (review && review.findings.filter(f => f.mustFix)) || []
-  const fixes = mustFix.length ? mustFix : ((review && review.findings) || [])
+  const fixes = mustFix.length || (review && review.verdict === 'approved') ? mustFix : ((review && review.findings) || [])
   note('Plan review', `round ${round}: verdict=${review ? review.verdict : 'none'}, ${mustFix.length} must-fix, ${bad.length} refuted claim(s)`)
 
   if (review && review.verdict === 'approved' && !mustFix.length && !bad.length) break
@@ -826,8 +826,7 @@ if (slices.length > maxSlices) {
 note('Slice', `${slices.length} tracer bullet(s): ${slices.map(s => `${s.id}[${s.effort}]`).join(', ')}`)
 
 // ---------------------------------------------------------------------------
-// PHASES 7–9 — Build and review: a slice hits review the
-// moment it is green.
+// PHASES 7–9 — Build and review. Slices build one after another in the one working tree.
 //
 // RED is verified by a DIFFERENT agent than the one that wrote the test. That
 // is the gate prose cannot hold: "write a failing test first" is trivially

@@ -600,6 +600,16 @@ console.log('\na rejected plan always says why:')
   await t('with no findings the planner still learns it was rejected', () => /REJECTED/.test(promptFor(r2, 'plan:r2')))
 }
 
+console.log('\nan approved plan with a refuted claim does not forward optional findings:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({
+    'claims:plan': () => ({ claims: [{ claim: 'plan claim X', blastRadius: 'total' }] }),
+    'refute:': prompt => prompt.includes('plan claim X') ? { status: 'refuted', evidence: 'no' } : undefined,
+    'plan-review:r1': () => ({ verdict: 'approved', findings: [{ category: 'perf', concern: 'OPTIONAL-consider caching', mustFix: false }] }) }) })
+  await t('the refuted claim is forwarded but the optional finding is not', () =>
+    promptFor(r, 'plan:r2').includes('plan claim X') && !promptFor(r, 'plan:r2').includes('OPTIONAL-consider caching'))
+}
+
 console.log('\nmergeBlockedBy tells the truth about the document phase:')
 {
   const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ document: () => null }) })
