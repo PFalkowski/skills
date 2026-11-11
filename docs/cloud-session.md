@@ -10,8 +10,8 @@ The session's instructions name the branch to push to. Push there, and create an
 
 GraphQL is blocked, so `gh` commands built on it fail with `HTTP 403: GitHub GraphQL is not available from Claude Code sessions`. In testing this hit `gh pr list`, `gh pr checks`, `gh pr view --json reviews,comments`, `gh issue list`, `gh issue view` and `gh repo view`; expect other `gh pr` and `gh issue` subcommands to do the same. Use instead:
 
-- `gh api` with REST routes, for example `gh api repos/{owner}/{repo}/pulls/{n}/comments`.
-- The routes the 403 message names for review threads, thread resolution, auto-merge and draft state, for example `gh api repos/{owner}/{repo}/pulls/{n}/ccr/review_threads`.
+- `gh api` with REST routes, for example `gh api --paginate repos/{owner}/{repo}/pulls/{n}/comments`. A list route returns 30 items per page and gh api reads only the first unless given --paginate, so a list read without it loses the rest silently. Each page prints as its own JSON array; --jq '.[]' prints one item per line.
+- The routes the 403 message names for review threads, thread resolution, auto-merge and draft state, for example `gh api --paginate repos/{owner}/{repo}/pulls/{n}/ccr/review_threads`.
 - The GitHub MCP tools (`mcp__github__*`) when the session has them.
 
 Never send stderr to `/dev/null` on a check whose empty result decides what happens next. A hidden 403 looks like "no PR yet" and leads to a duplicate.
