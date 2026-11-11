@@ -147,7 +147,7 @@ It checks the gate against those, writes its decision (scope change, revised fig
 
 ## The backlog — schema
 
-`<state>/backlog.md`, updated by every phase before it exits. It is run scaffolding, not a deliverable, the state root sits outside the tree, so it never reaches the merged tree and outlives the worktree. **Its still-open items are still filed to the tracker or the PR before Phase 13 closes**, because that is where the next reader looks (see `SKILL.md`, Step 6):
+`<state>/backlog.md`, updated by every phase before it exits. It is run scaffolding, not a deliverable. The state root sits outside the tree, so the backlog never reaches the merged tree and outlives the worktree. **Its still-open items are still filed to the tracker or the PR before Phase 13 closes**, because that is where the next reader looks (see `SKILL.md`, Step 6):
 
 ```markdown
 # SDLC backlog — <feature / epic name>

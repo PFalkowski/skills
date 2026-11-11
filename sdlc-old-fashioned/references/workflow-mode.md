@@ -80,7 +80,7 @@ The script never commits, pushes or touches a PR. When it returns, the conductor
 
 1. commits the run's work on the run's branch;
 2. pushes and opens the PR with the manual-testing notes Phase 8 asks for, as a draft with `mergeBlockedBy` in its body when `mergeReady` is false;
-3. posts the report's `spec`, `plan`, verified findings with their verdicts, and `retro` on the PR ([SKILL.md](../SKILL.md), Step 0.7);
+3. posts the report's `spec`, `plan`, each slice's `verifiedFindings` (severity, rule, summary, evidence), and `retro` on the PR ([SKILL.md](../SKILL.md), Step 0.7);
 4. runs Phase 9 onward: `code-review-grill` on the PR head, Phase 10, the Phase 12 merge gate, Phase 13.
 
 When `stoppedAt` is set, no code was written: post the spec, plan and retro on the tracker issue instead and report.
