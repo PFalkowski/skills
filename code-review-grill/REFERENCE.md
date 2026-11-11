@@ -243,7 +243,7 @@ The summary thread and the Carried tickets, when the user approves them:
 gh issue create --title "<defect shape>" --body "<sites as path:line, the verification artifact, found reviewing PR #N>"
 gh pr comment <PR> --body "<the summary thread, § The bar>"
 ```
-File the tickets first so the summary thread can link them. A Carried `data` finding gets the repo's blocker label or priority. When the user declines the tickets it stays a drafted ticket, named first in the report.
+File the tickets first so the summary thread can link them. A Carried `data` finding gets the repo's blocker label or priority, and a security one goes through the [disclosure gate](../docs/disclosure.md) first. When the user declines the tickets it stays a drafted ticket, named first in the report.
 
 ### Azure DevOps
 Delegate to **[AZURE-DEVOPS.md](AZURE-DEVOPS.md)** — it encodes the `pullRequestThreads` JSON schema, left/right anchoring, and the Windows console-encoding workarounds. Build the finding bodies here; let that skill post the threads. The summary thread is a PR thread with no file anchor; Carried tickets are work items (`az boards work-item create`).

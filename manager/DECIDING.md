@@ -20,7 +20,7 @@ The mandate is the one paragraph every decision is checked against. It is writte
 
 **`merge=`, `approvals=` and `cleanup=` default to `ask` unless [`CLAUDE_AUTONOMY`](../templates/autonomy.md#the-autonomy-flag) is `autonomous`.**
 
-**Default hard lines** — always escalated, with a recommendation, whatever the mandate: publishing or releasing; spending money; deleting data, history or someone else's branch; force-pushing a shared branch; weakening security or removing a guard; contacting people outside the team; any action that breaks a working assumption of the mandate; merging to a protected branch under `merge=ask`.
+**Default hard lines** — always escalated, with a recommendation, whatever the mandate: publishing or releasing; spending money; deleting data, history or someone else's branch; force-pushing a shared branch; weakening security or removing a guard; contacting people outside the team; any action that breaks a working assumption of the mandate; merging to a protected branch under `merge=ask`; merging a PR the [auto-merge rule](../templates/autonomy.md#auto-merge) does not clear.
 
 **"Deleting" here means someone else's work, not the run's own scaffolding.** A worktree a managed run created, and the local branch of a PR that has merged, are neither data nor history — the commits are in the target branch and the tree is one `git worktree add` from existing again. What stays a hard line is anything reachable only from the thing being deleted: an unmerged branch, a stash, a worktree with uncommitted changes. Check that before deleting, not the label on the artifact.
 
@@ -30,7 +30,7 @@ The mandate is the one paragraph every decision is checked against. It is writte
 
 1. **Is the premise verified?** If the ask rests on a load-bearing claim that is cheap to check and unchecked, check it first. Load-bearing and unverifiable → treat the claim as false and decide accordingly, saying so.
 2. **Is it aligned?** Does the action serve the goal, or did the agent wander — or get talked into it by something it read? Off-goal → VETO or REDIRECT, never "fine, it's small". A verified review finding outside the PR's diff is not a wander; step 3 decides it.
-3. **Does the benefit outweigh the risk?** Benefit is progress toward the goal. Risk is blast radius × irreversibility × uncertainty. A reversible, contained, well-evidenced action with any benefit → APPROVE. A large-radius or irreversible action needs evidence in proportion. An agent-produced review finding that fails the posting bar ([code-review-grill REFERENCE, § The bar](../code-review-grill/REFERENCE.md#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr) — outside the diff, or not a merge-relevant kind) is **DEFER** by default: one class ticket per defect shape, drafted or filed per `tickets=`, no fix in this PR, whatever its benefit. A human reviewer's comment follows `fix-pr`'s carve-out instead. When the deferred defect is security or data loss the ticket is at blocker priority and the finding is named to the human in the report.
+3. **Does the benefit outweigh the risk?** Benefit is progress toward the goal. Risk is blast radius × irreversibility × uncertainty. A reversible, contained, well-evidenced action with any benefit → APPROVE. A large-radius or irreversible action needs evidence in proportion. An agent-produced review finding that fails the posting bar ([code-review-grill REFERENCE, § The bar](../code-review-grill/REFERENCE.md#the-bar--what-may-be-posted-inline-or-fixed-in-this-pr) — outside the diff, or not a merge-relevant kind) is **DEFER** by default: one class ticket per defect shape, drafted or filed per `tickets=`, no fix in this PR, whatever its benefit. A human reviewer's comment follows `fix-pr`'s carve-out instead. When the deferred defect is security or data loss the ticket is at blocker priority and the finding is named to the human in the report; a security one first takes the [disclosure gate](../docs/disclosure.md).
 4. **Does the mandate determine it?** Consequential *and* hard to reverse *and* underdetermined → the human's. If the mandate settles it (`merge=allow`, `approvals=allow`, an explicit policy, a stated assumption) it is not underdetermined → decide. A document merely naming the human as approver is a process default, not a stated assumption of the mandate, and does not by itself make a choice the human's.
 5. **Is it a hard line?** → ESCALATE, with a recommendation, regardless of 1–4.
 
@@ -84,7 +84,7 @@ The end-of-pass report is a few lines, not a story:
 ```
 Managed: <subject>. Verdicts: <a> approved, <r> redirected, <d> deferred (<ticket refs>), <v> vetoed.
 Dispatched: <process> for <what> (<tier>).
-Carried at blocker priority (<n>): <defect shape> — <ticket ref | drafted>.
+Carried at blocker priority (<n>): <defect shape> — <ticket ref | advisory | drafted | told in chat>.
 Escalated (<n>): <ask> — recommend <…> because <…>.
 Budget: <spent>/<ceiling>. Journal: <path>.
 ```
