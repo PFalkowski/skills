@@ -20,17 +20,16 @@ Workflow({
     chronicleDir: '<state>/chronicles',
     startedAt: '<MM-dd HH:mm>',            // stamps every log line with the run
     // optional, defaults shown
-    parallel: 1,                           // slices in flight; >1 gives each a worktree and yields a PR stack
-    maxWorkers: 3,
+    parallel: 1,                           // only 1 is supported; a higher value throws until each slice gets its own worktree
     maxSlices: 12,
     maxGrillRounds: 3,                     // then unresolved questions defer with their defaults logged
-    maxPlanRounds: 2,                      // then it stops rather than build on an unapproved design
+    maxPlanRounds: 2,                      // at least 1; then it stops rather than build on an unapproved design
     maxClaimsPerGate: 5,                   // claims refuted per premise gate, largest blast radius first
     reserve: 60000,                        // output tokens held back per slice
     reviewStance: 'single',                // code-review-grill Step 0; 'quorum' fans out one reviewer per concern
     reviewConcerns: ['correctness', 'documentation'],   // quorum only; the script appends 'quality-standard'
     libraryIndex: null,                    // '.nights-watch/library/INDEX.md' if the repo keeps one
-    tiers: { plan: 'fable' },              // per-phase model; spec, grill, plan and plan review never drop below opus
+    tiers: { document: 'sonnet' },         // per-phase model; fable throws; spec, grill, plan and plan review never drop below opus
   },
 })
 ```
@@ -62,7 +61,7 @@ as `script` instead ([WATCH.md § Dispatch](../../nights-watch/WATCH.md)).
 | The premise is floored | Spec, grill, plan and plan review run at opus or above whatever `tiers` says, and the clamp is logged. |
 | invert in design | Plan and plan review read invert/SKILL.md; every failure mode names what blocks it. |
 | The quality standard is a gate | GREEN writes to `less-is-more` and `no-comment`; a verified breach blocks `mergeReady` whatever its severity. |
-| Findings are verified | Every review finding is refute-tested before it counts; a blocking one the refuters leave without a majority either way blocks `mergeReady`. |
+| Findings are verified | Every review finding is refute-tested before it counts; a blocking one the refuters leave without a majority either way blocks `mergeReady`. A verdict needs two of the three refuters; a dead or unverifiable one is no verdict. |
 | A gate that did not run did not pass | A dead reviewer, lens or claim extractor blocks `mergeReady` and is named in `mergeBlockedBy`. |
 | Docs ship with the code | The Document phase updates docs and re-runs the baseline. |
 | The retro closes every path | Including a run that stopped at the design gate. |
