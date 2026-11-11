@@ -69,9 +69,9 @@ One exact-command suggestion per boundary for steps only the user can take; afte
 - Needs session context but finished detail dominates: recommend compact with explicit keep/drop.
 - Third correction of the same issue after two failed corrections: offer a fresh session with a note stating the correct target.
 - A quick question or a quick fix: answer here.
-- Needs little context, such as a new lifecycle or `manager run`: start a fresh session. If too entangled for a short note, compact instead; for fire-and-forget work, dispatch a subagent with the note.
+- Needs little context and can be handed off, such as a new lifecycle, a `manager run` or a small-item sweep: run it as a `Workflow` from this session (a lifecycle through `sdlc-old-fashioned`'s dynamic-workflow mode). With `CLAUDE_AUTONOMY=autonomous` do it without asking; attended, offer it and ask first. If too entangled for a short note, compact instead; for fire-and-forget work, dispatch a subagent with the note.
 
-Before launching a fresh session, read [FRESH-SESSION.md](FRESH-SESSION.md): prepare a scratch handoff and platform launcher, show the note, launch without asking, and stop working on the request here unless the launch fails. Never clear/compact for the user.
+A workflow cannot stop to ask the human: its questions return to this session, which answers as principal, and hard lines still reach the human with a recommendation. In a local-model session it runs one agent at a time. Start a fresh session instead only when the work needs the human at its keyboard, at a checkpoint in long delegated work, right after a usage limit, or when this context is too full to continue. Before launching a fresh session, read [FRESH-SESSION.md](FRESH-SESSION.md): prepare a scratch handoff and platform launcher, show the note, launch without asking, and stop working on the request here unless the launch fails. Never clear/compact for the user.
 
 ## Relationship to sibling skills
 
