@@ -106,10 +106,13 @@ console.log('\none working tree (parallel 1) — slices build one after another:
     () => at(serial, 'review:s1') >= 0 && at(serial, 'red:s2') > at(serial, 'review:s1'))
   await t('...and no builder is sent to a separate worktree',
     () => serial.calls.every(c => c.opts.isolation === undefined))
-  const overlapped = await runWorkhorse({ args: baseArgs({ parallel: 2 }), agentFn: twoSlices })
-  await t('with parallel 2, slices overlap, each builder in its own worktree',
-    () => at(overlapped, 'red:s2') < at(overlapped, 'review:s1') &&
-          overlapped.calls.filter(c => /^(red|green):/.test(c.opts.label)).every(c => c.opts.isolation === 'worktree'))
+  let dispatched = 0
+  let refusal = null
+  try {
+    await runWorkhorse({ args: baseArgs({ parallel: 2 }), agentFn: async (p, o) => { dispatched++; return twoSlices(p, o) } })
+  } catch (e) { refusal = e }
+  await t('parallel 2 is refused before any agent runs',
+    () => refusal && /parallel > 1 is not supported/.test(refusal.message) && dispatched === 0)
 }
 
 console.log('\nquorum — THE SEAM: the script convenes it, one agent per concern:')
@@ -251,14 +254,14 @@ console.log('\nthe premise gates are FLOORED at opus, not merely defaulted to it
 {
   // THE SEAM: a caller trying to buy a cheap premise. Object.assign alone honours this.
   const r = await runWorkhorse({
-    args: baseArgs({ tiers: { spec: 'haiku', grill: 'haiku', plan: 'haiku', planReview: 'sonnet', document: 'fable' } }),
+    args: baseArgs({ tiers: { spec: 'haiku', grill: 'haiku', plan: 'haiku', planReview: 'sonnet', document: 'sonnet' } }),
     agentFn: mkAgent() })
   await t('cfg.tiers CANNOT lower a premise phase below opus',
     () => tierOf(r, PREMISE).every(m => m === 'opus'))
   await t('...and the substitution is logged, never silent',
     () => r.logs.some(m => /floor/i.test(m) && /opus/.test(m)))
   await t('...while a NON-premise phase is still freely tunable',
-    () => { const d = tierOf(r, l => l === 'document'); return d.length === 1 && d[0] === 'fable' })
+    () => { const d = tierOf(r, l => l === 'document'); return d.length === 1 && d[0] === 'sonnet' })
 }
 {
   const r = await runWorkhorse({ args: baseArgs({ tiers: { plan: 'gpt-cheap' } }), agentFn: mkAgent() })
@@ -476,7 +479,8 @@ console.log('\na gate that did not run never reads as passed:')
     () => r.mergeReady === false && r.mergeBlockedBy.some(b => /unadjudicated/.test(b)))
   const tie = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ ...split, 'refute:3': () => null },
     mkAgent({ reviews: { _single: [blockerFinding] } })) })
-  await t('...and so does a 1–1 tie where the third refuter died', () => tie.mergeReady === false)
+  await t('...and so does a 1–1 tie where the third refuter died',
+    () => tie.mergeReady === false && tie.mergeBlockedBy.some(b => /unadjudicated/.test(b)))
 }
 {
   const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ 'refute:': () => null },
@@ -518,12 +522,102 @@ console.log('\na gate that did not run never reads as passed:')
     r && r.calls.some(c => c.opts.label === 'retro') && r.mergeReady === false &&
     /budget exceeded/.test(r.slices[0].skipped || ''))
 }
+
+// ---------------------------------------------------------------------------
+// INPUTS THAT WOULD LET A GATE PASS SILENTLY ARE REFUSED, AND A DEAD AGENT IS NO VOTE.
+// ---------------------------------------------------------------------------
+const rejects = async (args, re) => {
+  try { await runWorkhorse({ args, agentFn: mkAgent() }); return false } catch (e) { return re.test(e.message) }
+}
+
+console.log('\nconfig that would skip or fake a gate throws:')
+await t('maxPlanRounds 0 throws', () => rejects(baseArgs({ maxPlanRounds: 0 }), /maxPlanRounds must be at least 1/))
+await t('a fable tier throws', () => rejects(baseArgs({ tiers: { document: 'fable' } }), /never run on fable/))
 {
-  const r = await runWorkhorse({ args: baseArgs({ parallel: 2 }), agentFn: overriding({
+  const r = await runWorkhorse({ args: baseArgs({ reviewStance: 'quorum', reviewConcerns: 'security' }), agentFn: mkAgent() })
+  const labels = reviewCalls(r).map(c => c.opts.label).sort()
+  await t('a string reviewConcerns is one concern, not its characters',
+    () => labels.join() === 'review:s1:quality-standard,review:s1:security')
+}
+
+console.log('\na dead refuter is no verdict:')
+{
+  const deadTwo = { 'refute:1': () => ({ status: 'refuted', evidence: 'guarded' }),
+    'refute:2': () => null, 'refute:3': () => null }
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding(deadTwo,
+    mkAgent({ reviews: { _single: [blockerFinding] } })) })
+  await t('one refuted vote with two dead does not drop a blocker',
+    () => r.mergeReady === false && r.mergeBlockedBy.some(b => /unadjudicated/.test(b)))
+}
+{
+  const claim = 'the cache is write-through'
+  const base = mkClaimAgent({ claims: [claim], verdicts: {} })
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding(
+    { 'refute:2': () => null, 'refute:3': () => null }, base) })
+  const p = promptFor(r, 'plan:r1')
+  await t('one confirmed vote with two dead does not hold a premise claim',
+    () => !p.slice(p.indexOf('VERIFIED PREMISE'), p.indexOf('<spec>')).includes(claim))
+}
+{
+  const claim = 'the cache is write-through'
+  const base = mkClaimAgent({ claims: [claim], verdicts: {} })
+  let n = 0
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding(
+    { 'refute:': (_, o) => (++n <= 3 && o.label !== 'refute:1' ? null : undefined) }, base) })
+  const p = promptFor(r, 'plan:r1')
+  await t('a transient death is not memoized: the later gate re-proves the claim',
+    () => p.slice(p.indexOf('VERIFIED PREMISE'), p.indexOf('<spec>')).includes(claim) &&
+          r.calls.filter(c => c.opts.label.startsWith('refute:') && c.prompt.includes(claim)).length === 6)
+}
+
+console.log('\na verdict on one slice is not reused for another:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({
     slice: () => nSlices(2),
-    'green:s2': () => { throw new Error('budget exceeded') } }) })
-  await t('worktrees: a slice that threw is still reported, not silently missing',
-    () => r.slices.length === 2 && r.slices.some(s => s.id === 's2' && s.skipped))
+    'refute:': prompt => (prompt.includes('Slice: S1') ? { status: 'refuted', evidence: 'guarded' }
+      : prompt.includes('Slice: S2') ? { status: 'confirmed', evidence: 'repro' } : undefined) },
+    mkAgent({ reviews: { _single: [blockerFinding] } })) })
+  const s2 = r.slices.find(s => s.id === 's2')
+  await t('s2 keeps its own confirmed blocker', () => s2.verifiedFindings.length === 1 && r.mergeReady === false)
+}
+
+console.log('\na grill that dies later keeps the earlier round:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({
+    'grill:r1': () => ({ holes: [], verdict: 'needs-another-round', acceptanceCriteria: ['AC-from-round-1'] }),
+    'grill:r2': () => null }) })
+  await t('round 1 criteria reach the plan', () => promptFor(r, 'plan:r1').includes('AC-from-round-1'))
+}
+
+console.log('\na rejected plan always says why:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({
+    'plan-review:r1': () => ({ verdict: 'revise', findings: [{ category: 'x', concern: 'consider caching', mustFix: false }] }) }) })
+  await t('non-must-fix findings are forwarded', () =>
+    /consider caching/.test(promptFor(r, 'plan:r2')) && /REJECTED/.test(promptFor(r, 'plan:r2')))
+  const r2 = await runWorkhorse({ args: baseArgs(), agentFn: overriding({
+    'plan-review:r1': () => ({ verdict: 'revise', findings: [] }) }) })
+  await t('with no findings the planner still learns it was rejected', () => /REJECTED/.test(promptFor(r2, 'plan:r2')))
+}
+
+console.log('\nan approved plan with a refuted claim does not forward optional findings:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({
+    'claims:plan': () => ({ claims: [{ claim: 'plan claim X', blastRadius: 'total' }] }),
+    'refute:': prompt => prompt.includes('plan claim X') ? { status: 'refuted', evidence: 'no' } : undefined,
+    'plan-review:r1': () => ({ verdict: 'approved', findings: [{ category: 'perf', concern: 'OPTIONAL-consider caching', mustFix: false }] }) }) })
+  await t('the refuted claim is forwarded but the optional finding is not', () =>
+    promptFor(r, 'plan:r2').includes('plan claim X') && !promptFor(r, 'plan:r2').includes('OPTIONAL-consider caching'))
+}
+
+console.log('\nmergeBlockedBy tells the truth about the document phase:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ document: () => null }) })
+  await t('a dead Document agent is named', () => r.mergeReady === false && r.mergeBlockedBy.some(b => /document/.test(b)))
+  const r2 = await runWorkhorse({ args: baseArgs(), agentFn: overriding({
+    document: () => ({ docsChanged: [], baselineStillGreen: false, baselineOutput: 'red' }) }) })
+  await t('a regressed baseline is listed once',
+    () => r2.mergeBlockedBy.filter(b => /baseline regressed/.test(b)).length === 1)
 }
 
 console.log('\nevery agent is told the lines it must not cross:')

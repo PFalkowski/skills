@@ -45,11 +45,16 @@ if (typeof cfg.goal !== 'string' || !cfg.goal.trim()) {
   throw new Error('sdlc-workhorse: args.goal is required — the change to build, in enough detail to specify.')
 }
 
+if ((cfg.parallel ?? 1) > 1) {
+  throw new Error('sdlc-workhorse: parallel > 1 is not supported yet. Each builder call got its own worktree, so GREEN never saw the RED test and the reviewers read a tree without the slice. Run with parallel: 1 (the default).')
+}
+
 const backlogPath = cfg.backlogPath || '$HOME/.agent-state/<repo dir name>/sdlc-workhorse/backlog.md'
 const chronicleDir = cfg.chronicleDir || '$HOME/.agent-state/<repo dir name>/sdlc-workhorse/chronicles'
 const libraryIndex = cfg.libraryIndex || null          // nights-watch Library, if the repo keeps one
 const maxGrillRounds = cfg.maxGrillRounds ?? 3
 const maxPlanRounds = cfg.maxPlanRounds ?? 2
+if (!(maxPlanRounds >= 1)) throw new Error('sdlc-workhorse: maxPlanRounds must be at least 1 — the design gate cannot be skipped.')
 const maxSlices = cfg.maxSlices ?? 12
 // Refuters are the dominant cost of a run — 93 of 103 agents on a measured P3 fix, because every
 // gate refuted every extracted claim with three lenses and each plan round re-proved the last
@@ -62,15 +67,10 @@ const maxClaimsPerGate = cfg.maxClaimsPerGate ?? 5
 // code-review-grill's two ALWAYS-ASK gates, pre-answered — there is no human to ask.
 const reviewStance = cfg.reviewStance || 'single'
 const QUALITY_LENS = 'quality-standard'
-const callerConcerns = cfg.reviewConcerns || ['correctness', 'documentation']
+const callerConcerns = [].concat(cfg.reviewConcerns || ['correctness', 'documentation'])
 const appendsQualityLens = !callerConcerns.includes(QUALITY_LENS)
 const reviewConcerns = appendsQualityLens ? [...callerConcerns, QUALITY_LENS] : callerConcerns
 const reserve = cfg.reserve ?? 60000                    // output tokens held back per slice
-// NOT `parallel` — that is the Workflow-injected fan-out helper this script calls in five
-// places. A top-level `const parallel = <number>` shadows it, and every one of those calls
-// dies (TypeError at runtime, or SyntaxError if the runtime injects helpers as parameters).
-const parallelSlices = cfg.parallel ?? 1                // slices in flight; 1 = one branch, one PR
-const maxWorkers = cfg.maxWorkers ?? 3
 
 // Model per phase — never default a worker to the session tier. Workers vary effort, not model.
 const tiers = Object.assign({
@@ -86,6 +86,8 @@ const tiers = Object.assign({
   document: 'opus',
   retro: 'opus',
 }, cfg.tiers || {})
+const fableTier = Object.entries(tiers).find(([, m]) => /fable/i.test(String(m)))
+if (fableTier) throw new Error(`sdlc-workhorse: tiers.${fableTier[0]} is '${fableTier[1]}' — subagents never run on fable; use opus or sonnet.`)
 
 // ---------------------------------------------------------------------------
 // The premise gates are FLOORED, not defaulted. These four phases are where
@@ -101,7 +103,7 @@ const tiers = Object.assign({
 // a caller may raise a premise phase, never lower it. An unrecognised tier name
 // is clamped too — an unknown string is not evidence of a capable model.
 // ---------------------------------------------------------------------------
-const TIER_RANK = { haiku: 0, sonnet: 1, fable: 2, opus: 2 }
+const TIER_RANK = { haiku: 0, sonnet: 1, opus: 2 }
 const PREMISE_PHASES = ['spec', 'grill', 'plan', 'planReview']
 const PREMISE_FLOOR = 'opus'
 const tiersFloored = []
@@ -456,8 +458,7 @@ const LENSES = [
 // the moment master does.
 const provenMemo = new Map()
 
-async function proven(claim, whyLoadBearing, phaseName, context) {
-  const memoKey = String(claim).trim()
+async function proven(claim, whyLoadBearing, phaseName, context, memoKey = String(claim).trim()) {
   if (provenMemo.has(memoKey)) return provenMemo.get(memoKey)
   const votes = await parallel(LENSES.map((lens, i) => () =>
     agent(
@@ -485,7 +486,7 @@ async function proven(claim, whyLoadBearing, phaseName, context) {
   if (!valid.length) return { proven: false, unverified: true, why: 'no verifier returned a verdict — treated as unproven' }
   const confirmed = valid.filter(v => v.status === 'confirmed')
   const refuted = valid.filter(v => v.status === 'refuted')
-  const majority = (side, other) => side.length > other.length && side.length >= Math.ceil(valid.length / 2)
+  const majority = (side, other) => side.length > other.length && side.length >= Math.ceil(LENSES.length / 2)
   const isProven = majority(confirmed, refuted)
   const verdict = {
     proven: isProven,
@@ -496,7 +497,7 @@ async function proven(claim, whyLoadBearing, phaseName, context) {
        : valid.map(v => v.evidence).join(' | '),   // all-unverifiable: carry the reason and command onward
     votes: valid,
   }
-  provenMemo.set(memoKey, verdict)
+  if (valid.length === votes.length) provenMemo.set(memoKey, verdict)
   return verdict
 }
 
@@ -678,7 +679,7 @@ phase('Grill')
 let grill = null
 let sharpSpec = specText
 for (let round = 1; round <= maxGrillRounds; round++) {
-  grill = await agent(
+  const g = await agent(
     `Grill this spec. You did NOT write it and you owe it nothing.\n\n${premiseBlock(specPremise.held)}\n\n` +
     `<spec>\n${sharpSpec}\n</spec>\n\n${pitfallRule}\n\n` +
     `Attack every load-bearing ambiguity: what does this NOT say that someone must know to build it? Where could two ` +
@@ -689,7 +690,8 @@ for (let round = 1; round <= maxGrillRounds; round++) {
     `${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('grill'))}`,
     { label: `grill:r${round}`, phase: 'Grill', model: tiers.grill, schema: GRILL_SCHEMA }
   )
-  if (!grill) break
+  if (!g) break
+  grill = g
   const unresolved = grill.holes.filter(h => h.severity === 'load-bearing' && h.resolution === 'unresolved')
   note('Grill', `round ${round}: ${grill.holes.length} hole(s), ${unresolved.length} load-bearing unresolved`)
   if (grill.verdict === 'sharp' && !unresolved.length) break
@@ -758,13 +760,15 @@ for (let round = 1; round <= maxPlanRounds; round++) {
   planHeld = (refuted && refuted.held) || []
   const bad = ((refuted && refuted.rejected) || []).filter(Boolean)
   const mustFix = (review && review.findings.filter(f => f.mustFix)) || []
+  const fixes = mustFix.length || (review && review.verdict === 'approved') ? mustFix : ((review && review.findings) || [])
   note('Plan review', `round ${round}: verdict=${review ? review.verdict : 'none'}, ${mustFix.length} must-fix, ${bad.length} refuted claim(s)`)
 
   if (review && review.verdict === 'approved' && !mustFix.length && !bad.length) break
 
   planFeedback =
-    (mustFix.length ? `Must-fix findings:\n${mustFix.map(f => `- [${f.category}] ${f.concern}`).join('\n')}\n` : '') +
+    (fixes.length ? `${mustFix.length ? 'Must-fix findings' : 'Findings'}:\n${fixes.map(f => `- [${f.category}] ${f.concern}`).join('\n')}\n` : '') +
     (bad.length ? `\nClaims this plan leans on that could NOT be proven (treat as false):\n${bad.map(c => `- ${c.claim}\n    why it failed: ${c.why}`).join('\n')}\n` : '')
+  if (!planFeedback) planFeedback = `The review returned "${review ? review.verdict : 'nothing'}" without naming a fix. Re-check the design against the spec.\n`
 
   if (review && review.verdict === 'reopens-requirements') {
     record.blockers.push({ what: 'plan review reopened a requirement', detail: planFeedback })
@@ -822,8 +826,7 @@ if (slices.length > maxSlices) {
 note('Slice', `${slices.length} tracer bullet(s): ${slices.map(s => `${s.id}[${s.effort}]`).join(', ')}`)
 
 // ---------------------------------------------------------------------------
-// PHASES 7–9 — Build and review, as a pipeline so a slice hits review the
-// moment it is green rather than waiting on its slowest sibling.
+// PHASES 7–9 — Build and review. Slices build one after another in the one working tree.
 //
 // RED is verified by a DIFFERENT agent than the one that wrote the test. That
 // is the gate prose cannot hold: "write a failing test first" is trivially
@@ -831,15 +834,9 @@ note('Slice', `${slices.length} tracer bullet(s): ${slices.map(s => `${s.id}[${s
 // who will notice. Here the red output is re-read by a fresh cheap agent that
 // only answers "did this fail for the reason claimed?".
 //
-// pipeline() starts EVERY item at once, so it runs only when each slice has its
-// own worktree. With one working tree the slices go one after another: in one lifecycle run
-// twelve builders shared one tree, compiled each other's half-written edits, and
-// two real reds were rejected for a sibling's compile errors.
+// Slices build one after another in the one working tree.
 // ---------------------------------------------------------------------------
 phase('Build')
-const poolSize = Math.max(1, Math.min(parallelSlices, maxWorkers, slices.length))
-const isolate = poolSize > 1
-if (isolate) say(`${poolSize} slices in flight — each gets its own worktree; expect a PR stack (hand it to merge-stack).`)
 
 const buildStages = [
   // Stage 1 — RED, then an independent check that it is a real red.
@@ -858,7 +855,7 @@ const buildStages = [
       `when the criterion needs a type or member that does not exist yet, the red is a compile error that names ` +
       `only that missing symbol, in your test file and nowhere else.\n\n` +
       `Use the "tdd" skill's RED discipline.\n\n${OUTWARD_RULE}\n${LIBRARY_RULE}\n${CHRONICLE_RULE(chronicle(`slice-${slice.id}`))}`,
-      { label: `red:${slice.id}`, phase: 'Build', model: tiers.build, effort: slice.effort, schema: RED_SCHEMA, isolation: isolate ? 'worktree' : undefined }
+      { label: `red:${slice.id}`, phase: 'Build', model: tiers.build, effort: slice.effort, schema: RED_SCHEMA }
     )
     if (!red) return { slice, skipped: 'red agent returned nothing' }
 
@@ -895,7 +892,7 @@ const buildStages = [
       `Unprovable means false. If the root cause turns out to be something other than you assumed, that discovery is a ` +
       `success: say so and act on it.\n\nUse the "tdd" skill's GREEN → REFACTOR discipline.\n\n${QUALITY_RULE}\n\n` +
       `${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle(`slice-${slice.id}`))}`,
-      { label: `green:${slice.id}`, phase: 'Build', model: tiers.build, effort: slice.effort, schema: GREEN_SCHEMA, isolation: isolate ? 'worktree' : undefined }
+      { label: `green:${slice.id}`, phase: 'Build', model: tiers.build, effort: slice.effort, schema: GREEN_SCHEMA }
     )
     return { ...prev, green }
   },
@@ -957,7 +954,8 @@ const buildStages = [
     const verified = await parallel(findings.map(f => () =>
       proven(f.summary, f.failureScenario, 'Review',
         `Slice: ${slice.title}\nCriterion: ${slice.acceptanceCriterion}\nRule: ${f.rule || 'behaviour'}` +
-        (isQualityFinding(f) ? `\n${QUALITY_REFUTE_RULE}` : ''))
+        (isQualityFinding(f) ? `\n${QUALITY_REFUTE_RULE}` : ''),
+        `${slice.id}::${f.file || ''}::${f.summary}`)
         .then(v => ({ ...f, confirmed: v.proven, unverified: v.unverified, evidence: v.why }))
     ))
     const real = verified.filter(f => f && f.confirmed)
@@ -970,20 +968,16 @@ const buildStages = [
   }
 ]
 
-const built = isolate ? await pipeline(slices, ...buildStages) : []
-if (!isolate) {
-  for (const slice of slices) {
-    let result = slice
-    try {
-      for (const stage of buildStages) result = await stage(result)
-    } catch (e) {
-      result = { slice, skipped: `threw: ${e.message}` }
-    }
-    built.push(result)
+const results = []
+for (const slice of slices) {
+  let result = slice
+  try {
+    for (const stage of buildStages) result = await stage(result)
+  } catch (e) {
+    result = { slice, skipped: `threw: ${e.message}` }
   }
+  results.push(result)
 }
-
-const results = built.map((r, i) => r || { slice: slices[i], skipped: 'threw' })
 const done = results.filter(r => !r.skipped && r.green && r.green.passed)
 const failed = results.filter(r => r.skipped || !r.green || !r.green.passed)
 for (const f of failed) {
@@ -1025,6 +1019,7 @@ const docs = done.length ? await agent(
     },
   } }
 ) : null
+if (done.length && !docs) record.unchecked.push('document: the agent returned nothing, so the docs were not updated and the baseline was not re-run')
 if (docs && !docs.baselineStillGreen) {
   record.blockers.push({ what: 'baseline regressed', detail: docs.baselineOutput })
   say('BASELINE REGRESSED — the change broke a check that was green before it. Not merge-ready.');
@@ -1059,7 +1054,6 @@ return {
     ...record.unchecked,
     ...(blockerFindings.length ? [`${blockerFindings.length} verified blocker/major review finding(s)`] : []),
     ...(ruleFindings.length ? [`${ruleFindings.length} verified less-is-more / no-comment finding(s)`] : []),
-    ...(docs && !docs.baselineStillGreen ? ['baseline regressed'] : []),
   ],
   baseline: { green: baseline.green, checks: baseline.checks.map(c => c.command), pitfalls: baseline.pitfalls },
   spec,
@@ -1079,5 +1073,5 @@ return {
   blockers: record.blockers,
   deferred: record.deferred,
   // Everything a human (or the next run) needs to pick this up cold.
-  reproduction: { goal: cfg.goal, tiers, parallel: poolSize, backlogPath, chronicleDir, tokensSpent: budget.spent() },
+  reproduction: { goal: cfg.goal, tiers, backlogPath, chronicleDir, tokensSpent: budget.spent() },
 }
