@@ -26,7 +26,7 @@ Adapted from grill-me's interrogation discipline, applied to code:
 ## Step 0 — Pick the stance (decide; do not ask)
 
 Decide the stance yourself and state it in one line; asking only stalls the review, because the diff already answers the question. A stance or concern list the user names always wins.
-- **Single** — one fresh reviewer over the whole diff. The default, and the fallback whenever the call is not clear-cut or no `Agent` tool is available: small or contained diffs, docs, config.
+- **Single** — one fresh reviewer over the whole diff. The default, and the fallback whenever the call is not clear-cut: small or contained diffs, docs, config.
 - **Quorum** — when the diff is load-bearing; one of these is enough: production data or migrations, security or auth, money, a public API, a large change spanning layers. One fresh subagent per concern, run in parallel, each with a sharp brief (objective / output / tools / boundaries) and effort sized to the diff. If the user names concerns, use exactly those; if not, the orchestrator picks the relevant subset from the diff. Concern menu + the auto-pick heuristic live in **[REFERENCE.md](REFERENCE.md)**.
 - **Re-review** (the PR was grilled before) — single, one fresh reviewer, briefed with what survives of the previous round and only the delta since the last reviewed head. It scores each previous fix fixed / partial / regressed and grills only the delta (REFERENCE, § Re-review). A verdict covers only the head it reviewed: after any later commit, even a fix the reviewer asked for, the PR is not merge-ready until a re-review of that delta finds nothing blocking.
 
@@ -74,6 +74,7 @@ Attach a short **house-rules brief** to every reviewer: documented patterns, arc
 ## Step 5 — Run the review (fresh, adversarial grilling)
 
 Spawn via the **Agent tool** — never review from the calling context. Each reviewer applies the **grilling stance** above and judges the diff against the **Step-4 house rules**.
+- **No `Agent` tool** (the caller is itself a subagent): a caller that did not write the diff and holds none of its authoring context is the fresh reviewer; it runs the chosen stance itself, Quorum one concern at a time. Any other caller stops and reports that no fresh reviewer could run.
 - **Single:** one fresh reviewer; brief = the whole diff + full-file context + the Step-3 ripple set + the Step-4 house rules; stance = find correctness bugs, risks, omissions, **and deviations from the documented conventions/architecture**, assume guilty until proven innocent.
 - **Quorum:** one fresh subagent **per chosen concern, in parallel (one message)**, each with a sharp objective / output / tools / boundaries brief (templates in REFERENCE). The **documentation/conventions concern is on by default** (see auto-pick in REFERENCE) — it owns the Step-4 house rules: it checks the diff for conformance to the project's ADRs, coding guidelines, and architectural style, *and* gets `WebSearch` + `WebFetch` to apply **[fact-check](../fact-check/SKILL.md)** on doc/API/version claims against ≥2 authoritative sources, handing back deep-linked evidence. Budget low (per orchestrate): one worker per concern, do not over-spawn.
 
