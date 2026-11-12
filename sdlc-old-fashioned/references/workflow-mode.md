@@ -23,8 +23,8 @@ Workflow({
     parallel: 1,                           // only 1 is supported; a higher value throws until each slice gets its own worktree
     maxSlices: 12,
     maxGrillRounds: 3,                     // then unresolved questions defer with their defaults logged
-    maxPlanRounds: 2,                      // at least 1; then it stops rather than build on an unapproved design
-    maxClaimsPerGate: 5,                   // claims refuted per premise gate, largest blast radius first
+    maxPlanRounds: 2,                      // at least 1; then it stops rather than build on an unapproved design. Pipeline, SEO or consent changes took 4 (static-export run); set 4 for them
+    maxClaimsPerGate: 5,                   // claims refuted per premise gate, largest blast radius first. 5-9 per gate went unexamined in the static-export run and later rounds refuted some of them; raise it to 8+ for infra changes
     reserve: 60000,                        // output tokens held back per slice
     reviewStance: 'single',                // code-review-grill Step 0; 'quorum' fans out one reviewer per concern
     reviewConcerns: ['correctness', 'documentation'],   // quorum only; the script appends 'quality-standard'
@@ -59,6 +59,9 @@ as `script` instead ([WATCH.md § Dispatch](../../nights-watch/WATCH.md)).
 | No code before a real red test | A second agent confirms the RED failed on the asserted behaviour; a false red stops the slice. |
 | Unprovable = false | Load-bearing claims at each premise gate face three refuters; only survivors reach the next phase as `VERIFIED PREMISE`. |
 | The premise is floored | Spec, grill, plan and plan review run at opus or above whatever `tiers` says, and the clamp is logged. |
+| A reviewer "approved" with a refuted claim is still a block | The static-export run's round 4 verdict was approved yet the run reported the plan unapproved, because one claim stayed refuted. Fold or fix the refuted claim before the last round, or the run stops with nothing built. |
+| Deferred controls need a hook | When a control goes to the owner (approval check, variable group), the plan must create the hook the owner will attach it to (an `environment`, a named variable). |
+| Pipeline macros and cleaning are test-backed | Every `$(name)` in pipeline YAML is checked by a test against a declared variable, and every "folder is cleaned between runs" assumption is proven for the agent pool that runs it. |
 | invert in design | Plan and plan review read invert/SKILL.md; every failure mode names what blocks it. |
 | The quality standard is a gate | GREEN writes to `less-is-more` and `no-comment`; a verified breach blocks `mergeReady` whatever its severity. |
 | Findings are verified | Every review finding is refute-tested before it counts; a blocking one the refuters leave without a majority either way blocks `mergeReady`. A verdict needs two of the three refuters; a dead or unverifiable one is no verdict. |
