@@ -5,6 +5,7 @@
     "name": "PFalkowski"
   },
   "skills": [
+    "./atomic-decomposition",
     "./auto-mode-setup",
     "./clean-room",
     "./code-review-grill",
