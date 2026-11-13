@@ -1,6 +1,6 @@
 ---
 name: atomic-decomposition
-description: 'Split a claim too large or too vague to check in one step, when a wrong answer is costly.'
+description: 'When being wrong is costly, split a claim too big or vague to check at once into checkable atoms.'
 license: MIT
 metadata:
   author: Piotr Falkowski
