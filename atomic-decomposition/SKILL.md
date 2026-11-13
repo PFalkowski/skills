@@ -1,6 +1,6 @@
 ---
 name: atomic-decomposition
-description: 'Split a claim, plan or finding into atoms one check can settle, then carry the verdicts up the tree.'
+description: 'Split a claim too large or too vague to check in one step, when a wrong answer is costly.'
 license: MIT
 metadata:
   author: Piotr Falkowski
