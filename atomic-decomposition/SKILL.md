@@ -1,6 +1,6 @@
 ---
 name: atomic-decomposition
-description: 'Split a load-bearing claim too big or vague to check at once into checkable atoms.'
+description: 'Split a claim that other work depends on, too big or vague to check at once, into checkable atoms.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -12,7 +12,7 @@ metadata:
 
 Divide a claim until one check can settle each piece, true or false, then settle the pieces. The method favours neither verdict: a check counts only if it could come out either way.
 
-Use it when a load-bearing claim is too large or too vague to check in one step. Skip it when one check already settles the claim.
+Use it when other work depends on a claim that is too large or too vague to check in one step. Skip it when one check already settles the claim.
 
 The method works only on claims, so restate anything else as the claim it makes:
 - A plan claims that following its steps reaches the goal.
@@ -23,7 +23,7 @@ The method works only on claims, so restate anything else as the claim it makes:
 
 1. **Make the root testable.** Replace vague words with concrete values: "the import is slow" becomes "the import runs one query per row". If no observation could show the claim true or show it false, it is not ready to split; rewrite it first.
 2. **Split it into the claims it needs.** Each child must hold for the parent to hold, so a parent needs all of its children. When a parent can hold in more than one way, give each way its own branch and mark the parent `any`.
-3. **Check every split before its pieces.** When the claim is load-bearing, an agent that did not write the split makes these checks.
+3. **Check every split before its pieces.** When a decision that is hard to undo depends on the claim, an agent that did not write the split makes these checks.
    - *Enough* (a parent that needs all its children): if every child held, could the parent still be false? If so, a child is missing; add it. Otherwise a confirmed tree proves a claim nobody checked.
    - *Needed* (the same parent): if this child were false, would the parent have to be false? If not, the child is too strong and its failure would wrongly refute the parent; weaken it to what the parent needs.
    - *Sufficient* (an `any` parent): if this branch alone held, could the parent still be false? If so, the branch is too weak and would wrongly confirm the parent; strengthen it.
@@ -41,7 +41,7 @@ The method works only on claims, so restate anything else as the claim it makes:
 6. **The claim's type fixes the method**, per [fact-check](../fact-check/SKILL.md): go to the source, the thing the claim is about. Run the program for what it does. Read the source code for what the code says or contains, and quote the lines. Read the original document for what it says, and quote the passage. A summary, a comment, a document about the code or memory is a lead, never the evidence. Only its two Confirmed statuses count as confirmed here; Likely, Unverified and Not run are unsettled. An atom is refuted on the same basis: a run whose output contradicts it, or two independent authoritative sources against it. Weaker evidence against it leaves it unsettled. Look an answer up before asking a person for it.
 7. **State the expected answer before checking.** Each atom carries the answer its author expects, so the check tests a prediction. Design the check to find the truth, not to reach that answer or to defeat it.
 8. **Work one atom at a time, in dependency order.** Among atoms that are ready, check first the one whose result, either way, would fix the most verdicts above it, then the cheapest.
-9. **The author's judgement never settles an atom.** A run or a source does; when the claim is load-bearing, a fresh agent carries out the check.
+9. **The author's judgement never settles an atom.** A run or a source does; when a decision that is hard to undo depends on the claim, a fresh agent carries out the check.
 10. **Attach the evidence**: the command and its real output, the quoted lines, or the links.
 
 ## Carry verdicts up
