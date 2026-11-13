@@ -10,9 +10,14 @@ metadata:
 
 # atomic-decomposition
 
-Divide a claim until one check can settle each piece, true or false, then settle the pieces. The method favours neither verdict: a check counts only if it could come out either way. A plan is the claim "this works", a decision is the claim "this option is right", and a review finding is the claim "this code is wrong".
+Divide a claim until one check can settle each piece, true or false, then settle the pieces. The method favours neither verdict: a check counts only if it could come out either way.
 
 Use it when a claim is too large or too vague to check in one step and a wrong answer is costly. Skip it when one check already settles the claim.
+
+The method works only on claims, so restate anything else as the claim it makes:
+- A plan claims that following its steps reaches the goal.
+- A decision claims that the chosen option beats the others.
+- A review finding claims that the code has a specific defect.
 
 ## Build the tree
 
