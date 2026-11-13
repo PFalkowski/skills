@@ -1,6 +1,6 @@
 ---
 name: atomic-decomposition
-description: 'Split a claim that other work depends on, too big or vague to check at once, into checkable atoms.'
+description: 'Split an important claim too big or vague to check at once into checkable atoms.'
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -12,7 +12,7 @@ metadata:
 
 Divide a claim until one check can settle each piece, true or false, then settle the pieces. The method favours neither verdict: a check counts only if it could come out either way.
 
-Use it when other work depends on a claim that is too large or too vague to check in one step. Skip it when one check already settles the claim.
+Use it when an important claim is too large or too vague to check in one step. Skip it when one check already settles the claim.
 
 The method works only on claims, so restate anything else as the claim it makes:
 - A plan claims that following its steps reaches the goal.
