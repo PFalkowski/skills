@@ -146,6 +146,7 @@ def main():
     parser.add_argument('--output', type=pathlib.Path, required=True)
     parser.add_argument('--repeats', type=int, default=2)
     parser.add_argument('--limit', type=int)
+    parser.add_argument('--no-think', action='store_true', help='disable thinking on models that think by default')
     args = parser.parse_args()
     validate_host(args.host)
     output = args.output.resolve()
@@ -187,6 +188,8 @@ def main():
                                        keep_alive=0, options=OPTIONS, format=dict(type='object',
                                        properties=dict(choice=dict(type='string', enum=ids)),
                                        required=['choice'], additionalProperties=False))
+                        if args.no_think:
+                            request['think'] = False
                         record(dict(type='request', case=case['id'], variant=variant, repeat=repeat,
                                     request=request, request_hash=digest(request)))
                         started = time.monotonic()
