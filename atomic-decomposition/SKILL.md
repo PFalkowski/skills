@@ -28,15 +28,21 @@ The method works only on claims, so restate anything else as the claim it makes:
    - *Needed* (the same parent): if this child were false, would the parent have to be false? If not, the child is too strong and its failure would wrongly refute the parent; weaken it to what the parent needs.
    - *Sufficient* (an `any` parent): if this branch alone held, could the parent still be false? If so, the branch is too weak and would wrongly confirm the parent; strengthen it.
    - *Every way* (an `any` parent): show that the branches cover every way it can hold (an enumeration, a type, the only code paths), or add a branch "it holds some other way". That branch stays unsettled until it can be checked.
-4. **Stop at atoms.** An atom is a claim that one method settles in one step another person can repeat, where that step could come out either way: one run, one quoted `path:line`, the sources `fact-check` requires, or one answer from the person who owns the decision. Keep splitting while a piece needs two methods or two steps. A piece that can be neither split nor checked is still an atom: keep it and mark it unsettled.
+4. **Stop at atoms.** An atom is a claim that one method settles in one step another person can repeat, where that step could come out either way: one run, one quoted `path:line`, one quoted passage of the original document, the sources `fact-check` requires for a fact with no single source, or one answer from the person who owns the decision. Keep splitting while a piece needs two methods or two steps. A piece that can be neither split nor checked is still an atom: keep it and mark it unsettled.
+5. **Write each atom as one plain sentence.** These rules follow ASD-STE100 Simplified Technical English.
+   - One statement per sentence. An "and", "or" or "because" shows the atom can still be split.
+   - One name per thing and one meaning per word, across the whole tree.
+   - Active voice with a named actor: "the library retries the request", not "the request is retried".
+   - Present tense and exact values with units. No "should", "properly" or "fast".
+   - Then check that the rewritten atom says exactly what the original said.
 
 ## Settle the atoms
 
-5. **The claim's type fixes the method**, per [fact-check](../fact-check/SKILL.md): run what is executable, quote the code for what the code says, cite primary sources for what a document says. Only its two Confirmed statuses count as confirmed here; Likely, Unverified and Not run are unsettled. An atom is refuted on the same basis: a run whose output contradicts it, or two independent authoritative sources against it. Weaker evidence against it leaves it unsettled. Look an answer up before asking a person for it.
-6. **State the expected answer before checking.** Each atom carries the answer its author expects, so the check tests a prediction. Design the check to find the truth, not to reach that answer or to defeat it.
-7. **Work one atom at a time, in dependency order.** Among atoms that are ready, check first the one whose result, either way, would fix the most verdicts above it, then the cheapest.
-8. **The author's judgement never settles an atom.** A run or a source does; when the claim is costly to get wrong, a fresh agent carries out the check.
-9. **Attach the evidence**: the command and its real output, the quoted lines, or the links.
+6. **The claim's type fixes the method**, per [fact-check](../fact-check/SKILL.md): go to the source, the thing the claim is about. Run the program for what it does. Read the source code for what the code says or contains, and quote the lines. Read the original document for what it says, and quote the passage. A summary, a comment, a document about the code or memory is a lead, never the evidence. Only its two Confirmed statuses count as confirmed here; Likely, Unverified and Not run are unsettled. An atom is refuted on the same basis: a run whose output contradicts it, or two independent authoritative sources against it. Weaker evidence against it leaves it unsettled. Look an answer up before asking a person for it.
+7. **State the expected answer before checking.** Each atom carries the answer its author expects, so the check tests a prediction. Design the check to find the truth, not to reach that answer or to defeat it.
+8. **Work one atom at a time, in dependency order.** Among atoms that are ready, check first the one whose result, either way, would fix the most verdicts above it, then the cheapest.
+9. **The author's judgement never settles an atom.** A run or a source does; when the claim is costly to get wrong, a fresh agent carries out the check.
+10. **Attach the evidence**: the command and its real output, the quoted lines, or the links.
 
 ## Carry verdicts up
 
@@ -54,7 +60,7 @@ What to do about a verdict (block, fix, ticket, ignore) is decided afterwards, b
 ## Example
 
 Root: "After removing `retry()`, every request that succeeded before still succeeds." It needs all of:
-- A1 "No caller outside `client.js` uses it": `git grep` shows none. Confirmed.
+- A1 "No file outside `client.js` calls `retry()`": `git grep` shows none. Confirmed.
 - A2 "The HTTP library itself retries each failure `retry()` retried": a script sends a POST, which `retry()` retries on a 503, to a local server that returns 503 once. The server sees one attempt. Refuted.
 - A3 "The tests still pass": not checked, because A2 refuted the root.
 
