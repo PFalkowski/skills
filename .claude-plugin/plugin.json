@@ -42,6 +42,7 @@
     "./statusline",
     "./systematic-debugging",
     "./triage",
+    "./unslop",
     "./walk-the-dog",
     "./whatever",
     "./whats-next",
