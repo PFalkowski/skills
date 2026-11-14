@@ -40,3 +40,26 @@ Keep a complete paired result matrix, environment/grader identities and evidence
 pointers. Inspect representative successes and failures before declaring graders
 validated. See [RUNNING.md](RUNNING.md) for the bundled text-runner boundary; tool
 outcomes need the existing harness's validated analysis or a separately tested adapter.
+
+## Skills that guide code writing
+
+Build cases from the repository's own history. A case is a fix commit, its parent,
+and the tests the fix added. The task given to the agent describes the problem as the
+issue or review did, never the fix. Validate every case before use: the reference fix
+must pass its tests, and the parent must fail them. A case that fails either check is
+dropped before freezing, not repaired after the run.
+
+Run each arm in a clean checkout of the parent, reset between trials, with the same
+tools, budget and permissions. When the agent finishes, copy in the hidden tests and
+grade four things: the tests the fix added now pass (fail-to-pass); the existing suite
+still passes; the build succeeds; and a diff check holds, for example only expected
+paths changed, no test was edited or deleted, no dependency was added, plus any
+property the skill claims. For the hidden-behaviour rung, the visible tests cover part
+of the documented behaviour, hidden checks cover the rest, and the task says so.
+
+An executable grader runs code the agent wrote, so it needs at least: a fresh temporary
+directory per trial; an environment scrubbed of keys, tokens and unneeded variables; a
+timeout that kills the whole process tree; and hidden tests kept where the agent cannot
+read or overwrite them. This hygiene keeps grades honest; it is not a security sandbox
+and does not stop a hostile program. Use a container or virtual machine when the code
+cannot be trusted.

@@ -27,6 +27,10 @@ Before the full run, copy two development cases into a scratch experiment with t
 same model, options and arms, run it, and read the raw outputs. A thinking model can
 spend the whole output budget on reasoning and return a cut or empty answer; fix the
 budget, model or parsing for both arms before freezing. The smoke run is not evidence.
+The runner and scorer mark an output cut off by the output or context budget invalid.
+They do not flag an empty output or one stopped by a filter; check the results for
+those yourself, and treat any as invalidating the run. An external harness must
+record cut-off, empty and blocked outputs as their own outcomes, apart from wrong ones.
 
 `<state>` is `~/.agent-state/<repo-slug>/benchmark-skill/` or another explicit directory
 outside the worktree. Use a fresh run and report filename. The inference run makes
