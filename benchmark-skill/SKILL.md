@@ -28,7 +28,7 @@ question this skill does not answer; use the description loop in Anthropic's
    in the report and limit the claim to that model.
 2. Before either run, freeze a primary outcome, practical difference margin, quality
    floor, critical regression gates, independent sampling units, trial count,
-   stopping rule, ceiling and floor rates, and the difficulty ladder. Read
+   stopping rule, ceiling rate (above twice the margin) and difficulty ladder. Read
    [METHOD.md](METHOD.md) for the decision contract and sources.
    Ask only for consequential missing requirements; do not invent what “better” means.
 3. Separate development cases from a held-out test suite. Sample representative tasks
@@ -53,16 +53,18 @@ guides production work, such as writing code, the test task is the real task: th
 agent produces the artifact and checks grade it. Multiple choice measures
 recognition, not production; use it only as a smoke test, never to decide.
 
-The scorer does not check three gates; you apply them by METHOD.md § Verdict
-precedence and § Ceiling and floor effects:
-- Sensitivity: run a no-instruction or weakened control on the same frozen suite; if
-  A does not beat it by more than the margin, the verdict is **INCONCLUSIVE**.
+The scorer does not check three gates. You apply them only when steps 1 to 4 of
+METHOD.md § Verdict precedence have not already decided the suite, and in its order,
+using § Ceiling and floor effects:
 - Ceiling: if arm A's success rate on the test clusters reaches the frozen ceiling
-  rate, unless a critical case regressed or the interval lies entirely below the
-  negative margin, give no verdict from that suite; leave it unedited and run the next
-  rung of the frozen ladder on new held-out cases.
-- Floor: if A's rate is at or below the margin, or every arm fails, check the graders
-  and answer keys first, then step down the same way.
+  rate before the rung cap, give no verdict from that suite, leave it unedited and run
+  the next rung of the frozen ladder on new held-out cases; on the last allowed suite
+  follow step 5.
+- Floor effect: if A's rate is at or below the margin, or every arm fails, check the
+  graders and answer keys first, then step down the same way.
+- Sensitivity: run a no-instruction or weakened control on the same frozen suite; if
+  A does not beat it by more than the margin, the verdict is **INCONCLUSIVE**,
+  "skill not visible" (step 7).
 
 For subjective outputs, read [JUDGING.md](JUDGING.md): calibrated blind comparisons,
 order reversal and disagreement handling are required before decisive use.

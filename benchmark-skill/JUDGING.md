@@ -50,22 +50,26 @@ the hidden tests call, because a correct fix that picks other names would otherw
 fail; when naming them would give the fix away, drop the case. It also states every
 rule the diff check applies.
 
-Validate every case before freezing, and drop rather than repair one that fails. With
-the reference fix applied, the build succeeds and both the added tests and the
-existing suite pass, in several runs so that a flaky test shows. On the parent, the
-added tests fail.
+Validate every case before freezing, and drop rather than repair one that fails. Use
+the same restore-then-copy procedure as grading, below. With the reference fix
+applied, the build succeeds and both the added tests and the existing suite pass, in
+each of three runs by default, so that a flaky test shows. On the parent, the added
+tests fail.
 
 Give each arm the parent's files without its later history, or the agent can read the
 fix with `git log` or `git show`. For example, unpack `git archive <parent>` into a
 fresh directory, and if the agent needs Git, make it a new repository holding that one
 commit. Reset between trials, with the same tools, budget and permissions per arm.
+In a public repository the fix may also be reachable over the network, so run without
+network access, or report possible contamination.
 
 When the agent finishes, restore every test file and test configuration from the
-parent, then copy in the hidden tests; do not rely on detecting tampering. Grade four
-things: the tests the fix added now pass (fail-to-pass); the existing suite still
-passes; the build succeeds; and a diff check holds. The diff check rejects changes to
-forbidden paths, such as tests, lockfiles, CI files and vendored code, plus any
-property the skill claims. It limits changes to named files only when the task names
+parent, which undoes any edit to existing tests, and delete test files the agent
+added; adding tests is not a failure unless the task forbids it. Then copy in the
+hidden tests; do not rely on detecting tampering. Grade four things: the tests the fix
+added now pass (fail-to-pass); the existing suite still passes; the build succeeds;
+and a diff check holds. The diff check rejects changes to lockfiles, CI files and
+vendored code, plus any property the skill claims. It limits changes to named files only when the task names
 them, since a correct fix may live in a caller or a shared helper. For the
 hidden-behaviour rung, the visible tests cover part of the documented behaviour,
 hidden checks cover the rest, and the task says so.

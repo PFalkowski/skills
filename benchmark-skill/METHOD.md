@@ -63,9 +63,10 @@ arm widens the interval, so more clusters may be needed.
 
 ## Verdict precedence
 
-Apply the first step that matches; exactly one does. The scorer applies steps 1 to 4
-and 8 to 10. The agent applies steps 5 to 7, checks empty and blocked outputs for
-step 1, and overrides the scorer's verdict when one of these matches.
+Apply the first step that matches; exactly one does. "Interval" means the paired
+interval above. The scorer applies steps 1 to 4 and 8 to 10. The agent applies steps
+5 to 7, checks empty and blocked outputs for step 1, and overrides the scorer's
+verdict when one of these matches.
 
 1. Missing/duplicate/extra trials, malformed grades, truncation, an empty or blocked
    output, environment drift or incomplete runs: **INVALID**.
@@ -75,19 +76,20 @@ step 1, and overrides the scorer's verdict when one of these matches.
 3. Without validated graders, frozen holdout, representative independent sampling
    from the suite's declared population, or the predeclared minimum cluster count:
    **INCONCLUSIVE**. Still report observed improvements/losses on the suite.
-4. CI entirely below `-m`: **REGRESSION**.
+4. Interval entirely below `-m`: **REGRESSION**.
 5. A ceiling or floor effect (§ Ceiling and floor effects) on a suite before the rung
    cap: no verdict; run the next rung. A floor effect on the last allowed suite:
-   **INCONCLUSIVE**, reason "floor". A ceiling on the last allowed suite goes on to
-   step 6; IMPROVEMENT is then out of reach, and the report names the ceiling.
+   **INCONCLUSIVE**, reason "floor effect". A ceiling on the last allowed suite goes on
+   to step 6, and the report names the ceiling; IMPROVEMENT is out of reach there
+   when A's rate is at or above `1-m`.
 6. An earlier suite of the ladder showed an observed paired effect below `-m`:
    **INCONCLUSIVE**, and the report states that loss.
 7. A does not beat the control by more than the margin (the sensitivity gate):
    **INCONCLUSIVE**, reason "skill not visible".
-8. CI entirely above `+m`: **IMPROVEMENT**, provided B meets the quality floor
+8. Interval entirely above `+m`: **IMPROVEMENT**, provided B meets the quality floor
    and passes every critical case.
-9. CI entirely inside `[-m,+m]`: **NO_MEANINGFUL_CHANGE**, provided B meets the floor
-   and passes every critical case.
+9. Interval entirely inside `[-m,+m]`: **NO_MEANINGFUL_CHANGE**, provided B meets the
+   quality floor and passes every critical case.
 10. Otherwise: **INCONCLUSIVE**, with the reason "ceiling" when the suite is at one.
 
 The quality floor is an additional observed acceptance gate, not a confidence bound
@@ -103,15 +105,19 @@ testing/multiplicity control was planned. Do not pool runs with different pins.
 
 A ceiling effect is a suite on which arm A passes so much that B has almost no room to
 do better. B can still lose clusters A passed, so such a suite can show a regression
-and, with enough clusters, bound a loss; it cannot show a gain. A floor effect is the
+and, with enough clusters, bound a loss, but it cannot show a gain larger than one
+minus A's rate. A floor effect is the
 mirror: A passes so little that B has almost no room to do worse, so a regression
 cannot show. Either one triggers a new suite, harder or easier, by the procedure
 below, without tuning to results already seen. The scorer does not apply these rules;
 the agent applies them to the scorer's report and the control run.
 
-**Detect.** Before the first run, freeze a ceiling rate and a floor rate. Both are
-compared with arm A's reliable-success rate: the share of `test` clusters in which
-every case and every trial passed for A (the scorer's `a_success_rate`).
+**Detect.** Before the first run, freeze a ceiling rate. The floor rate is `m`; it is
+not a free choice. Both are compared with arm A's reliable-success rate: the share of
+`test` clusters in which every case and every trial passed for A (the scorer's
+`a_success_rate`). The frozen ceiling rate must exceed `2m`; otherwise no rung can
+meet the calibration target below. With the default ceiling rate, that means `m`
+below one third.
 
 - Ceiling: A's rate at or above the ceiling rate. The default is the lower of 0.90
   and `1-m`. At or above `1-m`, IMPROVEMENT cannot be reached: B can win only
@@ -120,8 +126,8 @@ every case and every trial passed for A (the scorer's `a_success_rate`).
   higher one needs a stated reason.
 - Floor: A's rate at or below `m`, or every arm, the control included, failing every
   `test` case. At or below `m`, REGRESSION by the interval cannot be reached: B can
-  lose only clusters A passed, so the loss cannot exceed A's rate. The margin must be
-  below 0.5, so a suite cannot be at both.
+  lose only clusters A passed, so the loss cannot exceed A's rate. Since the ceiling
+  rate exceeds `2m`, a suite cannot be at both.
 - An A between the two that fails the sensitivity gate is not a floor effect. The
   verdict is INCONCLUSIVE with the reason "skill not visible", and the suite is not
   made easier: stepping down until the skill shows would tune the suite until the
@@ -152,7 +158,10 @@ where the skill calls for it:
 
 A rung's cases are a representative sample of its own population: drawn at random,
 with a recorded seed, from the pool its rule defines, or written to the rung's frozen
-specification by an author independent of the variants. A rung's verdict is a claim
+specification by an author independent of the variants. The pool excludes every case
+used in an earlier suite, `gate` cases included, since past real failures feed both
+the gate cases (§ Rewrites and compactions) and the first mechanism. A rung's verdict
+is a claim
 about that rung's population only, never about the first suite's. A hand-picked set
 is a curated challenge suite: it can supply `gate` cases but cannot carry a rung's
 verdict (§ Freeze before looking).
@@ -163,16 +172,22 @@ for example a fresh subagent given only the frozen plan. Run only the control an
 them; never run B there, and never use the A-against-B outcome of any suite. The
 target is A's development success rate below the ceiling rate by at least the margin
 and above the floor rate, with the control below A by more than the margin. When the
-target is missed, move to the next declared rung; do not invent one. Record every
-calibration attempt. Attempts do not use up a rung, because B never runs on them.
+target is missed, move to the next declared rung; do not invent one. When no remaining
+declared rung meets its target, stop and decide the last suite run by step 5 as if it
+were the last allowed suite. Record every calibration attempt. Attempts do not use up
+a rung, because B never runs on them.
 
 **Run each rung as a new experiment.** Never edit, regrade, trim or extend the
 saturated suite. Its cases and outputs become development evidence. The next rung's
 held-out cases are new, drawn or written by an author who has seen no output of the
 saturated suite and no output of B. Freeze and commit them before the run, record the
 run as a new one, and rerun the sensitivity gate on the new suite; an earlier gate
-result does not carry over. Stop at the first suite that steps 1 to 4 of § Verdict
-precedence decide, or that has neither a ceiling nor a floor effect.
+result does not carry over. Stop at the first suite that steps 2 to 4 of § Verdict
+precedence decide, or that has neither a ceiling nor a floor effect. An INVALID run
+does not end the ladder: fix the cause and rerun the same suite as a new run, which
+does not use up a rung. Once an earlier suite has shown an observed paired effect
+below `-m`, a later rung can return only REGRESSION or INCONCLUSIVE, so the agent may
+stop there and report INCONCLUSIVE with that loss instead of climbing on.
 
 **Multiple suites.** The ladder is a preregistered multi-stage procedure, the kind
 § Freeze before looking allows in place of a fixed sample. Each suite run is one more
@@ -186,7 +201,8 @@ headline verdict comes from the final suite through § Verdict precedence; its s
 keeps a loss seen on an earlier suite from being washed out by a later one. Report
 every earlier suite by rung number with its population, interval and what it shows
 for that population. An interval inside `[-m,+m]` on a ceiling suite does establish
-that B loses no more than `m` on that population; it cannot show a gain. On the last
+that B loses no more than `m` on that population; it cannot show a gain larger than
+one minus A's rate. On the last
 allowed suite, a ceiling therefore still permits NO_MEANINGFUL_CHANGE when the
 interval fits. Otherwise the verdict is **INCONCLUSIVE** with the reason "ceiling",
 the number of clusters only one arm passed and the interval half-width: no regression
@@ -196,7 +212,7 @@ was established at this difficulty, which is not equivalence.
 answer key or the grader first. Put the reference answer or fix through the grader and
 read the transcripts. A fault found there is a grader or key change, which voids every
 earlier score; fix it and run anew. Only a case whose key holds is truly hard. When
-the suite is at the floor rate, check the graders the same way, then take the declared
+the suite has a floor effect, check the graders the same way, then take the declared
 step down by the same procedure: calibrated on development cases with the control and
 A, with new held-out cases, counted against the same cap.
 
