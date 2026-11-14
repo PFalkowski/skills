@@ -1,0 +1,547 @@
+{
+  "version": 1,
+  "note": "Harness passes only id and text to the model under test. seeded and facts are grader-only.",
+  "passages": [
+    {
+      "id": "d01",
+      "split": "dev",
+      "kind": "readme",
+      "text": "## ⚡ Quick Start Guide\n\nKiln marks a pivotal moment for CI speed — it stores compiled outputs keyed by a hash of their inputs, so a build that has run once never compiles the same code twice. Additionally, it can enhance local builds when you point it at a shared bucket that the whole team reads from.\n\n- **Install:** Run `cargo install kiln-cache` in order to get the binary.\n- **Configure:** Set `KILN_BUCKET` to the bucket name, or leave it empty to use a local directory.\n- **Verify:** Run `kiln doctor` and look for 0 warnings before you wire it into CI.\n\nThe cache holds 50 GB by default and evicts the oldest entries first when it fills up. Version 0.9.3 adds support for remote signing keys, so a compromised runner cannot write poisoned entries. I hope this helps you get started quickly!\n",
+      "facts": [
+        "Kiln",
+        "kiln-cache",
+        "KILN_BUCKET",
+        "kiln doctor",
+        "50 GB",
+        "0.9.3"
+      ],
+      "seeded": [
+        1,
+        7,
+        16,
+        19,
+        20,
+        21,
+        24,
+        28
+      ]
+    },
+    {
+      "id": "d02",
+      "split": "dev",
+      "kind": "pr-description",
+      "text": "## Cache invalidation for the pricing service\n\nHonestly, this bug was hiding in plain sight. The pricing cache never expired entries for archived products, so the catalog served stale prices for up to 72 hours after a change.\n\nThe fix: entries now carry the catalog version, and a bump to `catalog_version` drops every stale entry. It's not just a bug fix, it's a guarantee we can now test. The version check is the load-bearing line in `price_cache.py`.\n\nHere's the part that worried me. The bump happens inside the same transaction as the price write, so readers never see a new price with an old version, even under concurrent writes.\n\nA small diff. A big change.\n\nI'll now describe the test plan. The suite in `tests/pricing` covers the new path, and I ran the replay of ticket PRC-88 against staging with no stale reads.\n",
+      "facts": [
+        "72 hours",
+        "catalog_version",
+        "price_cache.py",
+        "tests/pricing",
+        "PRC-88"
+      ],
+      "seeded": [
+        9,
+        13,
+        14,
+        15,
+        17,
+        23,
+        27
+      ]
+    },
+    {
+      "id": "d03",
+      "split": "dev",
+      "kind": "release-notes",
+      "text": "# Nimbus Notes 3.1\n\nGreat question from the forum last month about sync speed, and this release answers it. Despite the challenges of a full storage rewrite, the app continues to thrive. Nimbus Notes 3.1 serves as the base for real-time collaboration, fostering a stunning new editing experience.\n\n- Sync of a 10,000-note library now takes 9 seconds instead of more than a minute.\n- The **export** menu adds Markdown with front matter, so notes move cleanly into static site generators.\n- Attachments over 25 MB upload in the background and resume after a dropped connection.\n- Search now matches text inside attached PDFs.\n\nThanks to Ada Ferreira for the “offline first” design that made the new sync engine possible, and to everyone who sent crash reports during the beta. The future looks bright for Nimbus Notes.\n",
+      "facts": [
+        "Nimbus Notes 3.1",
+        "10,000-note",
+        "9 seconds",
+        "25 MB",
+        "Ada Ferreira"
+      ],
+      "seeded": [
+        3,
+        4,
+        6,
+        7,
+        8,
+        18,
+        22,
+        26,
+        30
+      ]
+    },
+    {
+      "id": "d04",
+      "split": "dev",
+      "kind": "status-report",
+      "text": "## Search team status, week 42\n\nIndustry reports suggest that search quality drives retention, and our numbers agree. Click-through on the first result rose from 31 percent to 38 percent after the ranking change shipped on October 6.\n\nThe ranker, the model and the scoring engine all now read features from one store, and the relevance system no longer needs a nightly rebuild. Coverage spans everything from typo handling to seasonal queries. The work was mentioned by Searchlight Weekly, Query Review, The Index Letter and DataDesk.\n\nThe new spelling corrector could potentially lift click-through further, but it might possibly hurt recall on product codes. While specific details are limited until the experiment ends, Mateo Quill expects results by October 20. The test covers speed, relevance, and cost.\n",
+      "facts": [
+        "31 percent",
+        "38 percent",
+        "October 6",
+        "Mateo Quill",
+        "October 20"
+      ],
+      "seeded": [
+        2,
+        5,
+        10,
+        11,
+        12,
+        25,
+        29
+      ]
+    },
+    {
+      "id": "t01",
+      "split": "test",
+      "kind": "readme",
+      "text": "## 🚀 Getting Started With Lumen Gateway\n\nLumen Gateway marks a pivotal moment for teams that route traffic between services — it replaces three separate proxies with one binary. Additionally, it is designed to enhance observability without extra agents running beside your services.\n\n### Key Features\n\n- **Routing:** Requests are matched against rules in `lumen.toml` in order to pick an upstream.\n- **Rate limits:** Each route can cap traffic, defaulting to 500 requests per second.\n- **Hot reload:** Config changes apply in under 2 seconds — no restart required.\n\nIn order to install it, run `brew install lumen-gateway` and then start the daemon with `lumen serve --port 8443`. The binary runs on Linux and macOS and needs no external database. The project is maintained by Imre Calloway and released under the Apache 2.0 license.\n",
+      "facts": [
+        "Lumen Gateway",
+        "lumen.toml",
+        "500 requests per second",
+        "2 seconds",
+        "lumen serve --port 8443",
+        "Imre Calloway"
+      ],
+      "seeded": [
+        1,
+        7,
+        16,
+        19,
+        20,
+        21,
+        28
+      ]
+    },
+    {
+      "id": "t02",
+      "split": "test",
+      "kind": "pr-description",
+      "text": "## Summary\n\nThis PR moves token refresh out of the request path and into a background task, ensuring that no user request waits on the identity provider. It's not just a performance fix, it's a change in who owns the session lifecycle.\n\nIt's worth noting that the refresh window is now 90 seconds before expiry instead of 10 seconds. The retry budget is the load-bearing piece here — if it is too small, sessions drop during provider outages.\n\nNot a refactor. A behavior change.\n\nI'll now walk through the test plan. Let me start with the integration suite, which passes locally with `make test-auth` and on CI run #4471. Next, I'll cover the one manual check — logging in on staging with the account `qa-ops-07` and waiting out a full refresh cycle.\n\nIt's a contract, not a cleanup.\n",
+      "facts": [
+        "90 seconds",
+        "10 seconds",
+        "make test-auth",
+        "#4471",
+        "qa-ops-07"
+      ],
+      "seeded": [
+        3,
+        9,
+        13,
+        14,
+        16,
+        23,
+        27
+      ]
+    },
+    {
+      "id": "t03",
+      "split": "test",
+      "kind": "blog-post",
+      "text": "# Why we rebuilt our search on Quillmark\n\nLast spring our team rewrote the search layer behind the Fernhollow docs site, and the response surprised us. The launch was covered by DevWire, The Stack Ledger, Byteline Weekly and the Cloud Native Digest. Experts believe this kind of groundbreaking approach will become the default for documentation sites.\n\nHonestly, the change was simpler than it sounds. Quillmark indexes 38,000 pages in 4 minutes on a single machine. The engine keeps the index in memory, the tool reloads it on every deploy, and the platform answers queries in about 12 ms at the 95th percentile. We wanted search that was fast, cheap, and boring, and the library gave us all three.\n\nThe migration took Wen Oduya and two other engineers six weeks. If you run a docs site with more than a few thousand pages, the trade is worth a look. The future looks bright for small, renowned tools like this one.\n",
+      "facts": [
+        "Quillmark",
+        "Fernhollow",
+        "38,000 pages",
+        "4 minutes",
+        "12 ms",
+        "Wen Oduya"
+      ],
+      "seeded": [
+        2,
+        4,
+        5,
+        10,
+        11,
+        15,
+        30
+      ]
+    },
+    {
+      "id": "t04",
+      "split": "test",
+      "kind": "release-notes",
+      "text": "# Harbor Queue 4.2 release notes\n\nHarbor Queue 4.2 is out. Despite the challenges of last quarter’s storage migration, the project continues to thrive, and this release serves as the foundation for the 5.0 line. It boasts a new **dead-letter** view and support for every workload from nightly batch jobs to real-time chat.\n\n## What changed\n\n- Consumers now acknowledge in batches of up to 256 messages.\n- The **admin** API returns “paused” as a queue state instead of an error.\n- `hq drain` waits for in-flight messages before exiting.\n\nIf you are upgrading from 4.1: back up the `queues.db` file first, because this release migrates to schema version 17 and the migration cannot be reversed.\n\nThanks to Rasmus Ekholt for the batching work, which started as a weekend experiment. Let me know if anything breaks after the upgrade!\n",
+      "facts": [
+        "Harbor Queue 4.2",
+        "256 messages",
+        "queues.db",
+        "schema version 17",
+        "Rasmus Ekholt",
+        "hq drain"
+      ],
+      "seeded": [
+        6,
+        8,
+        12,
+        17,
+        18,
+        22,
+        24
+      ]
+    },
+    {
+      "id": "t05",
+      "split": "test",
+      "kind": "status-report",
+      "text": "## Billing platform status, week 19\n\nGreat question from last week's review about the invoice backlog, so here is where things stand. While specific details are limited until finance closes the month, the backlog fell from 1,140 invoices to 312 and is still dropping by roughly a hundred a day.\n\nThis is not just a cleanup effort; it is setting the stage for the move to usage-based pricing. The reconciliation job is the load-bearing part of that plan. This matters. If it slips, the pricing launch on 2026-07-01 slips with it, and sales has already promised that date to two large accounts.\n\nThe new retry logic could potentially reduce failed charges further, though it might be argued that the gain is small compared with fixing the card update flow. Juno Abara owns the rollout, and the next checkpoint is Thursday's review with finance.\n",
+      "facts": [
+        "1,140 invoices",
+        "312",
+        "2026-07-01",
+        "Juno Abara",
+        "week 19"
+      ],
+      "seeded": [
+        1,
+        9,
+        13,
+        14,
+        25,
+        26,
+        29
+      ]
+    },
+    {
+      "id": "t06",
+      "split": "test",
+      "kind": "docs-page",
+      "text": "## Configuring Retention Policies\n\nTidewater stores every write in an append-only log, reflecting a design that favors durability over raw speed. This page delves into how retention policies decide how long that log is kept and when old segments are compacted.\n\nTo set a policy, add a `retention` block to `tidewater.yaml`. The `max_age` field is crucial — segments older than this value are deleted at the next compaction pass, which runs every 6 hours by default. In order to keep data for 30 days, set `max_age: 30d`.\n\nYou can also cap a topic by size with `max_bytes`, which defaults to 50 GiB per partition. When you set both limits: the first one reached wins. A policy should be predictable, auditable, and cheap to evaluate, so avoid mixing size and age limits on the same topic unless you need both.\n",
+      "facts": [
+        "Tidewater",
+        "tidewater.yaml",
+        "6 hours",
+        "max_age: 30d",
+        "50 GiB"
+      ],
+      "seeded": [
+        3,
+        7,
+        10,
+        16,
+        17,
+        20,
+        28
+      ]
+    },
+    {
+      "id": "t07",
+      "split": "test",
+      "kind": "readme",
+      "text": "# Marigold\n\nMarigold is a stunning, accessible component kit for internal dashboards. ✨ The library serves as a drop-in layer over plain HTML, and the toolkit ships 42 components. The package stands as the default UI layer for three product teams, and it has been in production since early 2024.\n\n## Why use it\n\n- **Theming:** One CSS file, `marigold.css`, controls every color token.\n- **Accessibility:** Every component passes the checks in our **WCAG** test suite.\n- **Size:** The full bundle is 31 KB gzipped. 🎯\n\nSmall. Fast. Yours.\n\nThe framework requires Node 20 or later and has no runtime dependencies. Install it with `npm install @corvane/marigold`, import the stylesheet once, and use the components like any other HTML element.\n",
+      "facts": [
+        "Marigold",
+        "42 components",
+        "marigold.css",
+        "31 KB",
+        "Node 20",
+        "@corvane/marigold"
+      ],
+      "seeded": [
+        4,
+        8,
+        11,
+        18,
+        19,
+        21,
+        23
+      ]
+    },
+    {
+      "id": "t08",
+      "split": "test",
+      "kind": "pr-description",
+      "text": "### Fix duplicate webhook deliveries\n\nSome critics argue that at-least-once delivery is fine as long as receivers are idempotent. Frankly, our receivers are not, and customers noticed. Ticket SUP-3318 reports the same “order.paid” event arriving four times within a minute.\n\nThis change stores a delivery key in the shared cache for 24 hours and skips any event whose key is already present. It covers every event type, from billing updates to profile photo changes. The extra lookup could potentially add latency, but in load tests p99 went from 41 ms to 43 ms.\n\nLet me walk you through the risky part. If the cache is unavailable, we fall back to sending, which may possibly reintroduce duplicates during an outage. I think that is the right default, but I’d like a second opinion.\n\nI hope this helps reviewers get oriented. Let me know if you want the load test notebook.\n",
+      "facts": [
+        "SUP-3318",
+        "order.paid",
+        "24 hours",
+        "41 ms",
+        "43 ms"
+      ],
+      "seeded": [
+        5,
+        12,
+        15,
+        22,
+        24,
+        27,
+        29
+      ]
+    },
+    {
+      "id": "t09",
+      "split": "test",
+      "kind": "blog-post",
+      "text": "# What a year of on-call taught us\n\nOur on-call rotation turned three this year, and it has left an indelible mark on how the Pebblestack team ships. When we wrote about it in 2025, the post was picked up by Byteline Weekly, The Stack Ledger, Ops Monthly and the Platform Podcast.\n\nDespite these challenges, the rotation continues to thrive. Alerts dropped from 23 pages per week to six after we deleted the ones nobody acted on. It isn't only an alerting story, it's a story about ownership. Each service now has one named owner, listed in `OWNERS.yaml`.\n\nThat file is the load-bearing artifact.\n\nNot glamorous. Necessary.\n\nSelin Marsh, who designed the rotation, put it simply when she said a page should mean a person can act. This is only the beginning, and the future looks bright.\n",
+      "facts": [
+        "Pebblestack",
+        "2025",
+        "23 pages per week",
+        "OWNERS.yaml",
+        "Selin Marsh"
+      ],
+      "seeded": [
+        1,
+        2,
+        6,
+        9,
+        13,
+        23,
+        30
+      ]
+    },
+    {
+      "id": "t10",
+      "split": "test",
+      "kind": "release-notes",
+      "text": "## Ferrule 1.8.0 🎉\n\nYou're absolutely right to expect faster builds, and this release delivers. Ferrule 1.8.0 rewrites the dependency resolver, showcasing how far incremental caching can go.\n\n- **Faster resolves:** Cold resolves on a 900-package workspace now take 7 seconds — down from 19.\n- **Lockfile v3:** The new format underscores our commitment to reproducible builds.\n- **Windows fixes:** Paths longer than 260 characters now work. ✅\n\nIt's worth noting that the new lockfile format is not readable by Ferrule 1.7 or earlier. Here's the part that trips people up — CI images pinned to 1.7 will fail on the first install after someone commits a new lockfile. Upgrade every image before you merge, then update local installs with `ferrule self-update`.\n",
+      "facts": [
+        "Ferrule 1.8.0",
+        "900-package",
+        "7 seconds",
+        "260 characters",
+        "ferrule self-update"
+      ],
+      "seeded": [
+        3,
+        7,
+        14,
+        16,
+        19,
+        21,
+        26
+      ]
+    },
+    {
+      "id": "t11",
+      "split": "test",
+      "kind": "status-report",
+      "text": "## Data platform status, sprint 31\n\nThe honest answer is that the warehouse migration is behind. Today 14 of 22 pipelines run on the new cluster, and the rest depend on the legacy `etl-core` scheduler. While exact details are limited for the last two, they look like the hardest ones.\n\nIn short: we underestimated the schema drift. Each pipeline needed new tests, new alerts, and new owners, and that took longer than the stunning progress of the first two sprints suggested. Two pipelines also turned out to share a staging table, which forced us to move them together.\n\nNext, I'll summarize the plan. In order to finish by 2026-09-15, Teodora Vash will pair with the analytics team on the four pipelines that feed the finance reports, and the rest move in the following sprint.\n",
+      "facts": [
+        "sprint 31",
+        "14 of 22 pipelines",
+        "etl-core",
+        "2026-09-15",
+        "Teodora Vash"
+      ],
+      "seeded": [
+        4,
+        10,
+        15,
+        17,
+        25,
+        27,
+        28
+      ]
+    },
+    {
+      "id": "t12",
+      "split": "test",
+      "kind": "docs-page",
+      "text": "## Authentication And API Keys\n\nIndustry reports suggest that most leaked credentials come from long-lived keys, so Brightline issues keys that expire after 90 days by default. The dashboard serves as the place to create them, and the console shows each key’s last use. The admin panel also lets you revoke a key instantly.\n\nBrightline supports every client, from shell scripts to mobile apps. Send the key in the `X-Brightline-Key` header on every request. Requests without it return HTTP 401, and requests with an expired key return the same status with an `expired_key` error code.\n\nKeys created before 2026-01-10 might potentially use the old “bl_live_” prefix. Those keys could possibly stop working when the legacy endpoint is retired, so rotate them early and update any scripts that check the prefix.\n",
+      "facts": [
+        "Brightline",
+        "90 days",
+        "X-Brightline-Key",
+        "HTTP 401",
+        "2026-01-10",
+        "bl_live_"
+      ],
+      "seeded": [
+        5,
+        8,
+        11,
+        12,
+        20,
+        22,
+        29
+      ]
+    },
+    {
+      "id": "t13",
+      "split": "test",
+      "kind": "pr-description",
+      "text": "## Add per-tenant connection pools\n\nDespite years of scaling challenges, the shared pool continues to thrive under normal load. It has also become the bottleneck, because one noisy tenant can exhaust all 200 connections and stall everyone else.\n\nThis PR gives each tenant its own pool, capped at **20 connections**, with a **global ceiling** of 400. The pool size is the load-bearing setting — set it too low and batch jobs queue for minutes. It is not just a config change, it is a new failure mode we have to watch.\n\nTested with the replay harness against last month's traffic sample for tenant `tn-sandbox-3`. Reviewers should check the metric names in `pool_metrics.go`, since dashboards depend on them.\n\nIt's an isolation boundary, not a tuning knob. I hope this helps with the review, and the future looks bright for multi-tenant reliability.\n",
+      "facts": [
+        "200 connections",
+        "20 connections",
+        "400",
+        "tn-sandbox-3",
+        "pool_metrics.go"
+      ],
+      "seeded": [
+        6,
+        9,
+        13,
+        16,
+        18,
+        24,
+        30
+      ]
+    },
+    {
+      "id": "t14",
+      "split": "test",
+      "kind": "blog-post",
+      "text": "# Notes from moving our CI to self-hosted runners\n\nGreat question, and one we heard a lot after our talk at Northgate DevDays. Why leave hosted CI at all? The talk was later written up by DevWire, Ops Monthly, The Stack Ledger and Byteline Weekly, so here is the longer answer.\n\nFrankly, it came down to cost. Our bill was $8,400 a month, and builds spent half their time waiting for a runner, reflecting how badly our usage had outgrown the plan. Twelve self-hosted runners now cost us about $2,100 a month.\n\nThe trap is maintenance. Someone has to patch the images, and that someone was Oskar Brenning for the first three months.\n\nThat part hurt.\n\nWhile specific details are limited on long-term costs, the first quarter came in under budget. Here's the part that matters most. Build times dropped by 40 percent.\n",
+      "facts": [
+        "Northgate DevDays",
+        "$8,400",
+        "$2,100",
+        "Oskar Brenning",
+        "40 percent"
+      ],
+      "seeded": [
+        2,
+        3,
+        14,
+        15,
+        23,
+        25,
+        26
+      ]
+    },
+    {
+      "id": "t15",
+      "split": "test",
+      "kind": "readme",
+      "text": "# Orrery\n\n## How It Works\n\nOrrery is a job scheduler nestled inside your existing database, and its design is a testament to how much a single table can do. Jobs live in the `orrery_jobs` table, and a worker claims them with row locks, so two workers never run the same job.\n\nIf you are coming from cron: instead of editing crontab files, you insert rows. Each row holds a schedule, a command and a timeout, which defaults to 300 seconds.\n\n- **Retries:** Failed jobs retry up to 5 times with exponential backoff.\n- **Visibility:** The `orrery status` command lists every job and its last result.\n\nLet me show the intricate part next. Workers poll every 2 seconds by default, and you can change that with `ORRERY_POLL_MS` if your jobs need faster pickup.\n",
+      "facts": [
+        "orrery_jobs",
+        "300 seconds",
+        "5 times",
+        "orrery status",
+        "2 seconds",
+        "ORRERY_POLL_MS"
+      ],
+      "seeded": [
+        1,
+        4,
+        7,
+        17,
+        19,
+        20,
+        27
+      ]
+    },
+    {
+      "id": "t16",
+      "split": "test",
+      "kind": "release-notes",
+      "text": "## Sable 2.0 📦\n\nExperts believe that log pipelines should be boring, and Sable 2.0 leans into that. The release boasts a rewritten parser and is faster, leaner, and easier to run than any version before it.\n\nThe agent now ships as a single static binary. The collector reads from files and sockets, the forwarder batches events every 500 ms, and the daemon restarts itself after a crash. Due to the fact that the config format changed, run `sable migrate-config` before upgrading. 🔧\n\nThe old “tail” input is gone; use “file” with `follow = true` instead. Memory use dropped from 180 MB to 64 MB on our reference host. In order to keep the upgrade simple, 1.x configs are still accepted with a warning until Sable 2.2.\n",
+      "facts": [
+        "Sable 2.0",
+        "500 ms",
+        "sable migrate-config",
+        "180 MB",
+        "64 MB",
+        "Sable 2.2"
+      ],
+      "seeded": [
+        5,
+        8,
+        10,
+        11,
+        21,
+        22,
+        28
+      ]
+    },
+    {
+      "id": "t17",
+      "split": "test",
+      "kind": "status-report",
+      "text": "## Mobile app status, March\n\nThe **checkout redesign** shipped to 10 percent of Android users on March 4. Despite early challenges with the payment SDK, adoption continues to thrive, and the change was mentioned in Appwatch, The Mobile Brief, Pocket Dev and Store Signals within a week.\n\nThe feature flag service is the load-bearing piece of this rollout. Every user, from first-time visitors to enterprise admins, sees the same flow.\n\nOn track.\n\nCrash-free sessions are at 99.2 percent, up from 98.7 last month. The new image cache could potentially cut cold start time, but we have not measured it yet. **Lena Toivo** is running the iOS rollout, which starts on March 18 if the Android numbers hold for another week.\n",
+      "facts": [
+        "10 percent",
+        "March 4",
+        "99.2 percent",
+        "Lena Toivo",
+        "March 18"
+      ],
+      "seeded": [
+        2,
+        6,
+        12,
+        13,
+        18,
+        23,
+        29
+      ]
+    },
+    {
+      "id": "t18",
+      "split": "test",
+      "kind": "docs-page",
+      "text": "## Webhook signatures\n\nEvery webhook request from Kestrel Pay carries a `Kestrel-Signature` header, ensuring that your endpoint can confirm the payload came from us. This matters. Without the check, anyone who learns your URL can forge events.\n\nThe signature is an HMAC-SHA256 of the raw body, keyed with your endpoint secret — the value that starts with `whsec_`. Compute it before parsing the JSON. Once parsed, whitespace changes and the digest no longer matches.\n\nWhen the check fails: return HTTP 400 and log the event ID. Reject any request whose timestamp is more than 5 minutes old, full stop.\n\nIt's a guarantee, not a convenience. Of course! You can test signatures locally with `kestrel listen --forward-to localhost:3000`. The best is yet to come, and future releases will add key rotation.\n",
+      "facts": [
+        "Kestrel-Signature",
+        "HMAC-SHA256",
+        "whsec_",
+        "HTTP 400",
+        "5 minutes",
+        "kestrel listen --forward-to localhost:3000"
+      ],
+      "seeded": [
+        3,
+        9,
+        14,
+        16,
+        17,
+        24,
+        30
+      ]
+    },
+    {
+      "id": "t19",
+      "split": "test",
+      "kind": "pr-description",
+      "text": "### Migrate session storage to Ledgerline\n\nThis PR is setting the stage for stateless deploys of the auth service. It moves session data out of process memory and into Ledgerline, so sessions survive deploys and restarts.\n\n- **Storage:** Sessions are written with a TTL of 12 hours.\n- **Reads:** The store answers in under 3 ms at p99.\n- **Cleanup:** Expired keys are swept every 10 minutes.\n\nThe service gets simpler, safer, and easier to scale. The backend now holds no state, the API layer can restart freely, and the server needs no sticky routing. While specific details are limited on peak load, staging handled the “holiday replay” test without errors.\n\nNext, I'll update the runbook in `docs/auth/sessions.md` once this merges, and then remove the old in-memory store in a follow-up PR.\n",
+      "facts": [
+        "Ledgerline",
+        "12 hours",
+        "3 ms",
+        "10 minutes",
+        "docs/auth/sessions.md"
+      ],
+      "seeded": [
+        1,
+        10,
+        11,
+        19,
+        22,
+        25,
+        27
+      ]
+    },
+    {
+      "id": "t20",
+      "split": "test",
+      "kind": "blog-post",
+      "text": "# Lessons From Running a Small Status Page Service\n\nYou're absolutely right if you suspect status pages are a solved problem. Some critics argue there is nothing left to build. Tallyhook has run on a breathtaking budget of $40 a month since 2023, and the interplay between cheap hosting and reliable alerts is where it gets interesting.\n\nDespite the challenges of a two-person team, the service continues to thrive. It now has 1,800 customers, from indie game studios to municipal water utilities. To be honest, most of them only ever see one page.\n\nThe crucial lesson was about email. Our provider throttled us during the largest incident of the year, so status updates arrived 25 minutes late. We now send through two providers and fail over automatically.\n\nNone of this is novel. It's the kind of work that doesn't make a launch post, and it keeps the lights on.\n",
+      "facts": [
+        "Tallyhook",
+        "$40 a month",
+        "2023",
+        "1,800 customers",
+        "25 minutes"
+      ],
+      "seeded": [
+        4,
+        5,
+        6,
+        7,
+        12,
+        15,
+        20,
+        26
+      ]
+    }
+  ]
+}
