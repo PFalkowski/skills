@@ -55,32 +55,40 @@ intervals when every observed difference is zero. Repetitions never inflate `n`.
 
 Choose margin `m > 0` from the smallest consequential quality change before the run.
 For illustration, `m=0.05` means five percentage points of cluster reliability; it
-is not a universal default worth accepting without thought. With zero discordant
-clusters, the bound has half-width `1-(alpha/4)^(1/n)`. At alpha .05, at least 86
-independent all-tied clusters are needed to fit within ±.05. This is a best-case
-precision calculation, not a general power analysis. Discordance can require more.
+is not a universal default worth accepting without thought. When no cluster is passed
+by only one arm, the bound has half-width `1-(alpha/4)^(1/n)`. At alpha .05, at least
+86 independent all-tied clusters are needed to fit within ±.05. This is a best-case
+precision calculation, not a general power analysis. Each cluster passed by only one
+arm widens the interval, so more clusters may be needed.
 
 ## Verdict precedence
 
-1. Missing/duplicate/extra trials, malformed grades, truncation, environment drift
-   or incomplete runs: **INVALID**.
+Apply the first step that matches; exactly one does. The scorer applies steps 1 to 4
+and 8 to 10. The agent applies steps 5 to 7, checks empty and blocked outputs for
+step 1, and overrides the scorer's verdict when one of these matches.
+
+1. Missing/duplicate/extra trials, malformed grades, truncation, an empty or blocked
+   output, environment drift or incomplete runs: **INVALID**.
 2. With validated graders, a critical test that passed all A trials fails any B
    trial: **REGRESSION**, an observed release-gate failure, not a population
    significance claim. An unvalidated grader cannot justify that verdict.
-3. Arm A at or above the frozen ceiling rate on the `test` split, and the CI not
-   entirely below `-m`: no verdict from this suite; run the next rung of the ladder
-   (§ Ceilings and floors). On the last allowed rung: **INCONCLUSIVE**, reason
-   "ceiling". The scorer does not apply this step; the agent does.
-4. Without validated graders, frozen holdout, representative independent sampling,
-   the predeclared minimum cluster count and a passed sensitivity gate (A beats the
-   control by more than the margin): **INCONCLUSIVE**. Still report observed
-   improvements/losses on the suite.
-5. CI entirely above `+m`: **IMPROVEMENT**, provided B meets the quality floor
+3. Without validated graders, frozen holdout, representative independent sampling
+   from the suite's declared population, or the predeclared minimum cluster count:
+   **INCONCLUSIVE**. Still report observed improvements/losses on the suite.
+4. CI entirely below `-m`: **REGRESSION**.
+5. A ceiling or floor effect (§ Ceiling and floor effects) on a suite before the rung
+   cap: no verdict; run the next rung. A floor effect on the last allowed suite:
+   **INCONCLUSIVE**, reason "floor". A ceiling on the last allowed suite goes on to
+   step 6; IMPROVEMENT is then out of reach, and the report names the ceiling.
+6. An earlier suite of the ladder showed an observed paired effect below `-m`:
+   **INCONCLUSIVE**, and the report states that loss.
+7. A does not beat the control by more than the margin (the sensitivity gate):
+   **INCONCLUSIVE**, reason "skill not visible".
+8. CI entirely above `+m`: **IMPROVEMENT**, provided B meets the quality floor
    and passes every critical case.
-6. CI entirely below `-m`: **REGRESSION**.
-7. CI entirely inside `[-m,+m]`: **NO_MEANINGFUL_CHANGE**, provided B meets the floor
+9. CI entirely inside `[-m,+m]`: **NO_MEANINGFUL_CHANGE**, provided B meets the floor
    and passes every critical case.
-8. Otherwise: **INCONCLUSIVE**.
+10. Otherwise: **INCONCLUSIVE**, with the reason "ceiling" when the suite is at one.
 
 The quality floor is an additional observed acceptance gate, not a confidence bound
 on absolute success probability. Two equally poor variants do not receive a promotion
@@ -91,30 +99,49 @@ requires a predeclared cost objective after quality non-inferiority is establish
 Use one primary endpoint. Treat subgroup breakdowns as descriptive unless simultaneous
 testing/multiplicity control was planned. Do not pool runs with different pins.
 
-## Ceilings and floors
+## Ceiling and floor effects
 
-A ceiling is a suite so easy that arm A passes nearly everything, so B has no room to
-differ. Two arms at full marks show the suite is too easy, not that B is as good as A.
-A floor is the reverse: every arm fails. Either way the suite must change, under the
-rules below, without being tuned to results already seen. The scorer does not apply
-these rules; the agent applies them to the scorer's report and the control run.
+A ceiling effect is a suite on which arm A passes so much that B has almost no room to
+do better. B can still lose clusters A passed, so such a suite can show a regression
+and, with enough clusters, bound a loss; it cannot show a gain. A floor effect is the
+mirror: A passes so little that B has almost no room to do worse, so a regression
+cannot show. Either one triggers a new suite, harder or easier, by the procedure
+below, without tuning to results already seen. The scorer does not apply these rules;
+the agent applies them to the scorer's report and the control run.
 
-**Detect.** Freeze a ceiling rate before the first run. The suite is at the ceiling
-when arm A's reliable-success rate on the `test` split is at or above it. The default
-is the lower of 0.90 and `1-m`. At or above `1-m`, IMPROVEMENT cannot be reached: B
-can win only clusters that A failed, so the paired effect cannot exceed one minus A's
-rate. At 0.90, at most one cluster in ten is left for B to win. A lower rate may be
-frozen; a higher one needs a stated reason. At every rung, report the cases every arm
-passes, the control included, as non-discriminating. They stay in the frozen suite and
-its estimate; dropping them after the run would be editing the suite.
+**Detect.** Before the first run, freeze a ceiling rate and a floor rate. Both are
+compared with arm A's reliable-success rate: the share of `test` clusters in which
+every case and every trial passed for A (the scorer's `a_success_rate`).
 
-**Declare the ladder.** Before the first run, write into the frozen plan the
-mechanisms that make a next suite harder and the order of use. Choose by mechanism,
-never by which cases B passed or failed. The default order, to be reordered before
-the first run where the skill calls for it:
+- Ceiling: A's rate at or above the ceiling rate. The default is the lower of 0.90
+  and `1-m`. At or above `1-m`, IMPROVEMENT cannot be reached: B can win only
+  clusters A failed, so the paired effect cannot exceed one minus A's rate. At 0.90,
+  at most one cluster in ten is left for B to win. A lower rate may be frozen; a
+  higher one needs a stated reason.
+- Floor: A's rate at or below `m`, or every arm, the control included, failing every
+  `test` case. At or below `m`, REGRESSION by the interval cannot be reached: B can
+  lose only clusters A passed, so the loss cannot exceed A's rate. The margin must be
+  below 0.5, so a suite cannot be at both.
+- An A between the two that fails the sensitivity gate is not a floor effect. The
+  verdict is INCONCLUSIVE with the reason "skill not visible", and the suite is not
+  made easier: stepping down until the skill shows would tune the suite until the
+  skill looks useful.
 
-1. Cases rebuilt from the skill's real past failures: corrections, review findings,
-   bug reports and the fixes that followed.
+At every suite, report the cases every arm passes, the control included, as
+non-discriminating. They stay in the frozen suite and its estimate; dropping them
+after the run would be editing the suite.
+
+**Declare the ladder and each rung's population.** Before the first run, the frozen
+plan lists the rungs in order. Each rung names its mechanism, or a fixed combination
+of mechanisms, and its target population as a rule, for example "fix commits in this
+repository from 2024 on that touch two or more source files". The plan also lists
+the steps down for a floor effect. Choose by mechanism, never by which cases B passed
+or failed. The default order of mechanisms, to be reordered before the first run
+where the skill calls for it:
+
+1. Cases rebuilt from the skill's real past failures: corrections, review findings
+   and bug reports recorded before this experiment began, and the fixes that
+   followed. B's failures in this experiment never qualify.
 2. For code, hidden behaviour: the visible tests cover part of the documented
    behaviour and hidden checks cover the rest. The task says the visible tests are
    incomplete, so the agent is not graded on a hidden reading.
@@ -123,41 +150,55 @@ the first run where the skill calls for it:
 5. Reliability across repeats: more trials per case, all of which must pass. The
    scorer already counts a cluster as passed only when every trial passes.
 
-A rung may combine mechanisms already used. Also declare how a suite would be made
-easier, for the floor case below.
+A rung's cases are a representative sample of its own population: drawn at random,
+with a recorded seed, from the pool its rule defines, or written to the rung's frozen
+specification by an author independent of the variants. A rung's verdict is a claim
+about that rung's population only, never about the first suite's. A hand-picked set
+is a curated challenge suite: it can supply `gate` cases but cannot carry a rung's
+verdict (§ Freeze before looking).
 
-**Calibrate on development cases, without B.** Write development cases for the next
-rung and run only the control and arm A on them. Never run B there, and never use
-the A-against-B outcome of any suite. The target is A's development success rate below
-the ceiling rate by at least the margin, and the control below A by more than the
-margin. When the target is missed, revise the development cases or move to the next
-mechanism. Record every calibration attempt; attempts do not use a rung, because B is
-never involved.
+**Calibrate on development cases, without B.** Development cases for the next rung
+come from its population and are written by an author who has seen no output of B,
+for example a fresh subagent given only the frozen plan. Run only the control and A on
+them; never run B there, and never use the A-against-B outcome of any suite. The
+target is A's development success rate below the ceiling rate by at least the margin
+and above the floor rate, with the control below A by more than the margin. When the
+target is missed, move to the next declared rung; do not invent one. Record every
+calibration attempt. Attempts do not use up a rung, because B never runs on them.
 
 **Run each rung as a new experiment.** Never edit, regrade, trim or extend the
 saturated suite. Its cases and outputs become development evidence. The next rung's
-held-out cases are new, written by an author who has seen no output of the saturated
-suite and no output of B. Freeze and commit them before the run, record the run as a
-new one, and rerun the sensitivity gate on the new suite; an earlier gate result does
-not carry over. Once a suite gives a verdict other than a ceiling, stop climbing.
+held-out cases are new, drawn or written by an author who has seen no output of the
+saturated suite and no output of B. Freeze and commit them before the run, record the
+run as a new one, and rerun the sensitivity gate on the new suite; an earlier gate
+result does not carry over. Stop at the first suite that steps 1 to 4 of § Verdict
+precedence decide, or that has neither a ceiling nor a floor effect.
+
+**Multiple suites.** The ladder is a preregistered multi-stage procedure, the kind
+§ Freeze before looking allows in place of a fixed sample. Each suite run is one more
+chance of a false REGRESSION: across `k` suites, the chance of at least one is at most
+about `k` times alpha, by the union bound. Report the number of suites run.
 
 **Cap the rungs.** The default cap is two rungs after the first suite, so three suites
 in all. Each rung costs a new held-out set and a full run, and climbing without a cap
 becomes a search for any difference, which is optional stopping by another name. The
-verdict applies only to the final suite; report earlier suites by rung number as
-development evidence. When the last allowed suite is still at the ceiling, the verdict
-is **INCONCLUSIVE** with the reason "ceiling", the count of discordant clusters and the
-interval half-width. That is a statement that no regression was seen at this
-difficulty, not of equivalence.
+headline verdict comes from the final suite through § Verdict precedence; its step 6
+keeps a loss seen on an earlier suite from being washed out by a later one. Report
+every earlier suite by rung number with its population, interval and what it shows
+for that population. An interval inside `[-m,+m]` on a ceiling suite does establish
+that B loses no more than `m` on that population; it cannot show a gain. On the last
+allowed suite, a ceiling therefore still permits NO_MEANINGFUL_CHANGE when the
+interval fits. Otherwise the verdict is **INCONCLUSIVE** with the reason "ceiling",
+the number of clusters only one arm passed and the interval half-width: no regression
+was established at this difficulty, which is not equivalence.
 
-**Floors.** When every arm, the control included, fails a case, suspect the answer key
-or the grader first. Put the reference answer or fix through the grader and read the
-transcripts. A fault found there is a grader or key change, which voids every earlier
-score; fix it and run anew. Only a case whose key holds is truly hard. When every arm
-fails the whole suite, or arm A passes too little for the sensitivity gate, check the
-graders the same way, then lower the difficulty by the same procedure: a declared
-step down, calibrated on development cases with the control and A, with new held-out
-cases, counted against the same cap.
+**Floor effects.** When every arm, the control included, fails a case, suspect the
+answer key or the grader first. Put the reference answer or fix through the grader and
+read the transcripts. A fault found there is a grader or key change, which voids every
+earlier score; fix it and run anew. Only a case whose key holds is truly hard. When
+the suite is at the floor rate, check the graders the same way, then take the declared
+step down by the same procedure: calibrated on development cases with the control and
+A, with new held-out cases, counted against the same cap.
 
 ## Rewrites and compactions
 
@@ -182,7 +223,8 @@ then tests the model, not the skill.
   know whether graders work.
 - [Anthropic: A statistical approach to model evaluations](https://www.anthropic.com/research/statistical-approach-to-model-evals)
   supports clustering standard errors on the unit of randomisation, paired
-  differences between two systems on the same questions, and checking power first.
+  differences between two systems on the same questions, and a power analysis to
+  judge whether an eval can detect the difference sought.
 - [Anthropic: Writing tools for agents](https://www.anthropic.com/engineering/writing-tools-for-agents)
   supports evaluation tasks built from realistic uses, each paired with a verifiable
   outcome, held-out test sets against overfitting, and reading raw transcripts.

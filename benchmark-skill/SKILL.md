@@ -28,8 +28,8 @@ question this skill does not answer; use the description loop in Anthropic's
    in the report and limit the claim to that model.
 2. Before either run, freeze a primary outcome, practical difference margin, quality
    floor, critical regression gates, independent sampling units, trial count,
-   stopping rule, ceiling rate and difficulty ladder. Read [METHOD.md](METHOD.md)
-   for the decision contract and sources.
+   stopping rule, ceiling and floor rates, and the difficulty ladder. Read
+   [METHOD.md](METHOD.md) for the decision contract and sources.
    Ask only for consequential missing requirements; do not invent what “better” means.
 3. Separate development cases from a held-out test suite. Sample representative tasks
    independently of the variants; add rare costly cases as explicit gates. Group
@@ -53,37 +53,34 @@ guides production work, such as writing code, the test task is the real task: th
 agent produces the artifact and checks grade it. Multiple choice measures
 recognition, not production; use it only as a smoke test, never to decide.
 
-Run a no-instruction or deliberately weakened control on the same frozen suite. This
-gate blocks: if A does not beat the control by more than the margin, the suite cannot
-see the skill, and the verdict is **INCONCLUSIVE**.
-
-A ceiling blocks a verdict, and the scorer does not check for one. If arm A passes at
-or above the frozen ceiling rate, the suite is too easy to show a difference: give no
-verdict from it, whatever the scorer returns, keep it unedited,
-and run the next rung of the frozen difficulty ladder on new held-out cases. Read
-METHOD.md § Ceilings and floors before the first run; it also covers cases every arm
-fails.
+The scorer does not check three gates; you apply them by METHOD.md § Verdict
+precedence and § Ceiling and floor effects:
+- Sensitivity: run a no-instruction or weakened control on the same frozen suite; if
+  A does not beat it by more than the margin, the verdict is **INCONCLUSIVE**.
+- Ceiling: if arm A's success rate on the test clusters reaches the frozen ceiling
+  rate, unless a critical case regressed or the interval lies entirely below the
+  negative margin, give no verdict from that suite; leave it unedited and run the next
+  rung of the frozen ladder on new held-out cases.
+- Floor: if A's rate is at or below the margin, or every arm fails, check the graders
+  and answer keys first, then step down the same way.
 
 For subjective outputs, read [JUDGING.md](JUDGING.md): calibrated blind comparisons,
 order reversal and disagreement handling are required before decisive use.
 
 ## Run and decide
 
-Read [RUNNING.md](RUNNING.md) for the self-contained local runner, experiment schema,
-trusted Python grader contract and external-harness record format. Pin source bytes,
-model digest, engine/template, decoding, tool/environment state, graders and fixtures.
-Pair A/B on each input and seed, counterbalance execution order and reset state.
-Measure output repeatability separately from quality; repeats are not independent tasks.
-Before the full run, run two development cases on both arms and read the raw outputs
-for truncation, an output budget spent on thinking, and parse failures.
+Read [RUNNING.md](RUNNING.md) for the runner, experiment schema, grader contract,
+external-harness format and the two-case smoke run required before the full run.
+Pin source bytes, model digest, engine/template, decoding, tool/environment state,
+graders and fixtures. Pair A/B on each input and seed, counterbalance execution order
+and reset state. Measure output repeatability separately from quality; repeats are
+not independent tasks.
 
 Keep raw requests, outputs, grades, errors and usage outside the worktree under
 `~/.agent-state/<repo-slug>/benchmark-skill/`. Infrastructure errors, missing results,
-truncation or pin drift invalidate the run; never retry only losing answers or silently
-exclude failures. Record an output cut off by a budget, and an empty or blocked output,
-as its own outcome, never as a wrong answer; any of them also invalidates the run.
-For an invalid run, fix the cause and use a fresh complete run. A change to any case,
-grader or prompt contract voids every earlier score, including the control's.
+truncated, empty or blocked outputs, or pin drift invalidate the run; never retry only
+losing answers or silently exclude failures. Fix the cause and make a fresh complete
+run. Any change to a case, grader or prompt contract voids every earlier score.
 
 The scorer returns **IMPROVEMENT**, **REGRESSION**, **NO_MEANINGFUL_CHANGE**,
 **INCONCLUSIVE** or **INVALID**. Introduced or shared critical failures block promotion.
@@ -95,5 +92,5 @@ Deliver the verdict, exact comparison scope/pins, paired effect and interval, sa
 and repeat counts, critical regressions, shared failures, reproducibility and cost,
 plus paths to the frozen experiment and evidence. List by ID the cases every arm
 passed, the control included (non-discriminating), the cases every arm failed
-(suspect the answer key), and the cases only one arm passed. State the ladder rung
-the verdict comes from and what was not measured.
+(suspect the answer key), and the cases only one arm passed. State the number of
+suites run, the rung and population the verdict covers, and what was not measured.
