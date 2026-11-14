@@ -69,8 +69,9 @@ added; adding tests is not a failure unless the task forbids it. Then copy in th
 hidden tests; do not rely on detecting tampering. Grade four things: the tests the fix
 added now pass (fail-to-pass); the existing suite still passes; the build succeeds;
 and a diff check holds. The diff check rejects changes to lockfiles, CI files and
-vendored code, plus any property the skill claims. It limits changes to named files only when the task names
-them, since a correct fix may live in a caller or a shared helper. For the
+vendored code, plus any property the skill claims. It limits changes to named files
+only when the task names them, since a correct fix may live in a caller or a shared
+helper. For the
 hidden-behaviour rung, the visible tests cover part of the documented behaviour,
 hidden checks cover the rest, and the task says so.
 

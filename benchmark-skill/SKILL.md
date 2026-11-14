@@ -53,15 +53,18 @@ guides production work, such as writing code, the test task is the real task: th
 agent produces the artifact and checks grade it. Multiple choice measures
 recognition, not production; use it only as a smoke test, never to decide.
 
-The scorer does not check three gates. You apply them only when steps 1 to 4 of
+The scorer does not check four gates. You apply them only when steps 1 to 4 of
 METHOD.md § Verdict precedence have not already decided the suite, and in its order,
 using § Ceiling and floor effects:
 - Ceiling: if arm A's success rate on the test clusters reaches the frozen ceiling
-  rate before the rung cap, give no verdict from that suite, leave it unedited and run
-  the next rung of the frozen ladder on new held-out cases; on the last allowed suite
-  follow step 5.
+  rate, give no verdict from that suite, leave it unedited and run the next rung of
+  the frozen ladder on new held-out cases; on the last allowed suite follow step 5.
 - Floor effect: if A's rate is at or below the margin, or every arm fails, check the
-  graders and answer keys first, then step down the same way.
+  graders and answer keys first, then step down the same way; on the last allowed
+  suite the verdict is **INCONCLUSIVE**, "floor effect" (step 5).
+- Earlier loss: if an earlier suite of the ladder showed an observed paired effect
+  below the negative margin, the verdict is **INCONCLUSIVE** and the report states
+  that loss (step 6).
 - Sensitivity: run a no-instruction or weakened control on the same frozen suite; if
   A does not beat it by more than the margin, the verdict is **INCONCLUSIVE**,
   "skill not visible" (step 7).

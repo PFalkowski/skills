@@ -77,8 +77,10 @@ verdict when one of these matches.
    from the suite's declared population, or the predeclared minimum cluster count:
    **INCONCLUSIVE**. Still report observed improvements/losses on the suite.
 4. Interval entirely below `-m`: **REGRESSION**.
-5. A ceiling or floor effect (§ Ceiling and floor effects) on a suite before the rung
-   cap: no verdict; run the next rung. A floor effect on the last allowed suite:
+5. A ceiling or floor effect (§ Ceiling and floor effects) on a suite that is not the
+   last allowed suite: no verdict; run the next rung. The last allowed suite is the
+   one run when the rung cap is reached, or when no remaining declared rung meets its
+   calibration target. A floor effect on the last allowed suite:
    **INCONCLUSIVE**, reason "floor effect". A ceiling on the last allowed suite goes on
    to step 6, and the report names the ceiling; IMPROVEMENT is out of reach there
    when A's rate is at or above `1-m`.
@@ -203,8 +205,9 @@ every earlier suite by rung number with its population, interval and what it sho
 for that population. An interval inside `[-m,+m]` on a ceiling suite does establish
 that B loses no more than `m` on that population; it cannot show a gain larger than
 one minus A's rate. On the last
-allowed suite, a ceiling therefore still permits NO_MEANINGFUL_CHANGE when the
-interval fits. Otherwise the verdict is **INCONCLUSIVE** with the reason "ceiling",
+allowed suite, a ceiling goes through steps 6 to 10 as usual: NO_MEANINGFUL_CHANGE
+when the interval fits, and IMPROVEMENT only when A's rate is below `1-m` and the
+interval lies above `+m`. When step 10 applies, the reason is "ceiling", stated with
 the number of clusters only one arm passed and the interval half-width: no regression
 was established at this difficulty, which is not equivalence.
 
