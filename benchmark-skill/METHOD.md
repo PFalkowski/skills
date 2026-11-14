@@ -19,7 +19,9 @@ Construct a coverage matrix for ordinary inputs, boundaries, refusals/permission
 adversarial inputs, known regressions and costly failures. Test the grader with bad,
 good and differently worded valid outputs. A no-instruction or weakened-prompt control
 should expose checks that pass without the intended behavior. These development
-controls do not become independent held-out observations.
+controls do not become independent held-out observations. For the sensitivity gate,
+score the control on the frozen suite as its own experiment, with the control as arm
+`a` and A as arm `b`: the observed paired effect `(w-l)/n` must exceed the margin.
 
 Keep purposively selected safety cases in the `gate` split: they can block promotion
 but are excluded from the representative `test` sample and its uncertainty estimate.
@@ -60,8 +62,9 @@ precision calculation, not a general power analysis. Discordance can require mor
 2. With validated graders, a critical test that passed all A trials fails any B
    trial: **REGRESSION**, an observed release-gate failure, not a population
    significance claim. An unvalidated grader cannot justify that verdict.
-3. Without validated graders, frozen holdout, representative independent sampling
-   and the predeclared minimum cluster count: **INCONCLUSIVE**. Still report observed
+3. Without validated graders, frozen holdout, representative independent sampling,
+   the predeclared minimum cluster count and a passed sensitivity gate (A beats the
+   control by more than the margin): **INCONCLUSIVE**. Still report observed
    improvements/losses on the suite.
 4. CI entirely above `+m`: **IMPROVEMENT**, provided B meets the quality floor
    and passes every critical case.
@@ -78,6 +81,18 @@ requires a predeclared cost objective after quality non-inferiority is establish
 
 Use one primary endpoint. Treat subgroup breakdowns as descriptive unless simultaneous
 testing/multiplicity control was planned. Do not pool runs with different pins.
+
+## Rewrites and compactions
+
+A rewrite or compaction of a skill must keep its behavior, so A is the current text
+and B the edit. Write and commit the cases before editing B, and pin A to that commit.
+Prefer an author who will not edit B: whoever knows the cases can shape B to pass them.
+
+One case per rule is necessary but not sufficient, because those cases come from the
+text and test what its author thinks the rules are. Add gate cases rebuilt from the
+skill's past real failures: corrections, review findings and bug reports. A useful
+weakened control is A with the rule under test removed; a case that still passes
+then tests the model, not the skill.
 
 ## Source basis
 
