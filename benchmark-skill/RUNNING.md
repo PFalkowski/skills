@@ -23,7 +23,7 @@ python <skill-dir>/scripts/run.py --config experiment.json --output <state>/run.
 python <skill-dir>/scripts/score.py <state>/run.jsonl <state>/report.json
 ```
 
-`<state>` is `~/.agent-state/<repo-slug>/compare-prompts/` or another explicit directory
+`<state>` is `~/.agent-state/<repo-slug>/benchmark-skill/` or another explicit directory
 outside the worktree. Use a fresh run and report filename. The inference run makes
 no silent retries. After an infrastructure failure, investigate and rerun the entire
 frozen experiment to a new file; do not select successful arms from different runs.

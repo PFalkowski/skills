@@ -1,0 +1,4 @@
+interface:
+  display_name: "Compare Prompts"
+  short_description: "Benchmark a skill or prompt against another with paired, evidence-based evaluations"
+  default_prompt: "Use $benchmark-skill to compare these two prompts or skills on a frozen test suite."

@@ -6,9 +6,9 @@
   },
   "skills": [
     "./auto-mode-setup",
+    "./benchmark-skill",
     "./clean-room",
     "./code-review-grill",
-    "./compare-prompts",
     "./context-reduction",
     "./dead-branch-guard",
     "./desloppify",

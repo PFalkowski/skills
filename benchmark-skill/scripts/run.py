@@ -218,7 +218,7 @@ def _grader(case: dict[str, Any], output: str, base: Path, allow_python: bool,
     digest = sha(script.read_bytes())
     if expected_script_hash is not None and digest != expected_script_hash:
         raise RunError("python grader changed during run")
-    with tempfile.TemporaryDirectory(prefix="compare-prompts-grader-") as grader_cwd:
+    with tempfile.TemporaryDirectory(prefix="benchmark-skill-grader-") as grader_cwd:
         proc = subprocess.run([sys.executable, str(script)],
                               input=json.dumps({"input": case["input"], "output": output}),
                               text=True, capture_output=True, timeout=30, shell=False, cwd=grader_cwd)
@@ -306,7 +306,7 @@ def run(config_path: Path, output_path: Path, allow_python: bool = False, valida
     output_path = output_path.resolve()
     tool_root = Path(__file__).resolve().parents[1]
     if output_path == tool_root or tool_root in output_path.parents:
-        raise RunError("output must be outside the compare-prompts skill folder")
+        raise RunError("output must be outside the benchmark-skill skill folder")
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         stream = output_path.open("x", encoding="utf-8", newline="\n")

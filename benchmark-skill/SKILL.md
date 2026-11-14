@@ -1,5 +1,5 @@
 ---
-name: compare-prompts
+name: benchmark-skill
 description: Compare two prompts or skills with paired evaluations and improvement or regression verdicts.
 license: MIT
 metadata:
@@ -8,7 +8,7 @@ metadata:
   source: https://github.com/PFalkowski/skills
 ---
 
-# Compare prompts
+# Benchmark skill
 
 Compare any two prompts or skills, A and B; neither needs to be a Git revision.
 Determine whether B improves the intended outcome, regresses, or is practically
@@ -51,7 +51,7 @@ Pair A/B on each input and seed, counterbalance execution order and reset state.
 Measure output repeatability separately from quality; repeats are not independent tasks.
 
 Keep raw requests, outputs, grades, errors and usage outside the worktree under
-`~/.agent-state/<repo-slug>/compare-prompts/`. Infrastructure errors, missing results,
+`~/.agent-state/<repo-slug>/benchmark-skill/`. Infrastructure errors, missing results,
 truncation or pin drift invalidate the run; never retry only losing answers or silently
 exclude failures. For an invalid run, fix the cause and use a fresh complete run.
 
