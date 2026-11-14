@@ -13,7 +13,8 @@ mode-specific references with an explicit when-to-read condition; do not load al
 references up front or move the whole workflow behind a mandatory extra read.
 Check both entrypoint and total instruction size so relocation is not reported
 as deletion. Character counts are portable; token counts require the target
-model's tokenizer. Before/after review must check behavior as well as size.
+model's tokenizer. Before/after review must check behavior as well as size; use
+[compare-prompts](compare-prompts/SKILL.md) for that comparison.
 
 ## Checking sibling-skill links
 

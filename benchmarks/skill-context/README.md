@@ -49,6 +49,11 @@ Choice recognition may be easier than producing an action without suggestions.
 Deterministic scoring is guaranteed by the harness; deterministic generation is measured,
 not guaranteed by a temperature setting. Two repeats are a smoke test, not a reliability bound.
 
+This runner can catch a rule that a shortened skill visibly dropped. It cannot show
+that a skill still guides real work, and a suite where both arms score full marks with
+no failing control decides nothing. To benchmark one skill before and after a rewrite,
+use [compare-prompts](../../compare-prompts/SKILL.md).
+
 Any fixture correction after inference must be documented and both arms rerun. Do not
 tune candidate skill wording to the answer key and call the result general equivalence.
 

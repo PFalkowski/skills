@@ -1,6 +1,6 @@
 ---
 name: compare-prompts
-description: Compare two prompts or skills with paired evaluations and improvement or regression verdicts.
+description: Benchmark a skill before and after a rewrite, or any two prompts, with paired evals and verdicts.
 license: MIT
 metadata:
   author: Piotr Falkowski
@@ -21,6 +21,8 @@ scores are not proof of equivalence. Keep local inference as the default.
    references, model, harness, tools and resource budget. Reuse the project's eval
    infrastructure when it already fits. The bundled runner handles single-turn text;
    tool-using skills need an isolated agent harness and verified end states.
+   Test the model that runs the skill in production; if a stand-in is used, name it
+   in the report and limit the claim to that model.
 2. Before either run, freeze a primary outcome, practical difference margin, quality
    floor, critical regression gates, independent sampling units, trial count and
    stopping rule. Read [METHOD.md](METHOD.md) for the decision contract and sources.
@@ -28,7 +30,8 @@ scores are not proof of equivalence. Keep local inference as the default.
 3. Separate development cases from a held-out test suite. Sample representative tasks
    independently of the variants; add rare costly cases as explicit gates. Group
    related examples by source/task family. Never tune against the final test results
-   and then report that same set as unseen evidence.
+   and then report that same set as unseen evidence. For a rewrite or compaction of
+   a skill, also read METHOD.md § Rewrites and compactions before writing cases.
 
 ## Grade what matters
 
@@ -37,8 +40,15 @@ artifacts and verified tool effects. Check process constraints separately. A mod
 claim that it performed an action is not evidence the action occurred.
 
 Validate graders on known good, bad and valid alternative outputs before testing.
-Include a deliberately weakened/no-instruction control to demonstrate sensitivity;
-do not let an easy multiple-choice suite stand in for real task performance.
+When the skill guides production work, such as writing code, the test task is the
+real task: the agent produces the artifact and checks grade it. Multiple choice
+measures recognition, not production; use it only as a smoke test, never to decide.
+
+Run a no-instruction or deliberately weakened control on the same frozen suite. This
+gate blocks: if A does not beat the control by more than the margin, the suite cannot
+see the skill, and the verdict is **INCONCLUSIVE**. Both arms at full marks without
+a failing control is a ceiling, not evidence of no regression.
+
 For subjective outputs, read [JUDGING.md](JUDGING.md): calibrated blind comparisons,
 order reversal and disagreement handling are required before decisive use.
 
@@ -49,6 +59,8 @@ trusted Python grader contract and external-harness record format. Pin source by
 model digest, engine/template, decoding, tool/environment state, graders and fixtures.
 Pair A/B on each input and seed, counterbalance execution order and reset state.
 Measure output repeatability separately from quality; repeats are not independent tasks.
+Before the full run, run two development cases on both arms and read the raw outputs
+for truncation, an output budget spent on thinking, and parse failures.
 
 Keep raw requests, outputs, grades, errors and usage outside the worktree under
 `~/.agent-state/<repo-slug>/compare-prompts/`. Infrastructure errors, missing results,

@@ -23,6 +23,11 @@ python <skill-dir>/scripts/run.py --config experiment.json --output <state>/run.
 python <skill-dir>/scripts/score.py <state>/run.jsonl <state>/report.json
 ```
 
+Before the full run, copy two development cases into a scratch experiment with the
+same model, options and arms, run it, and read the raw outputs. A thinking model can
+spend the whole output budget on reasoning and return a cut or empty answer; fix the
+budget, model or parsing for both arms before freezing. The smoke run is not evidence.
+
 `<state>` is `~/.agent-state/<repo-slug>/compare-prompts/` or another explicit directory
 outside the worktree. Use a fresh run and report filename. The inference run makes
 no silent retries. After an infrastructure failure, investigate and rerun the entire
