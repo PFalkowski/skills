@@ -1,0 +1,4 @@
+interface:
+  display_name: "Benchmark Skill"
+  short_description: "Benchmark two versions of a skill or prompt on frozen cases and return an evidence-based verdict"
+  default_prompt: "Use $benchmark-skill to benchmark these two versions of a skill or prompt on a frozen test suite."

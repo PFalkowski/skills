@@ -8,7 +8,7 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "compare_prompts_score", ROOT / "compare-prompts" / "scripts" / "score.py"
+    "benchmark_skill_score", ROOT / "benchmark-skill" / "scripts" / "score.py"
 )
 score = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(score)

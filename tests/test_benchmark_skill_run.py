@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-SCRIPT_DIR = Path(__file__).resolve().parents[1] / "compare-prompts" / "scripts"
+SCRIPT_DIR = Path(__file__).resolve().parents[1] / "benchmark-skill" / "scripts"
 sys.path.insert(0, str(SCRIPT_DIR))
 import run
 
