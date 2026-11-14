@@ -3,10 +3,10 @@ name: unslop
 description: 'Remove AI writing patterns from docs, READMEs, posts and other prose so it sounds human.'
 license: MIT
 metadata:
-  author: Lauren Tan
-  copyright: "© 2026 Lauren Tan"
-  source: https://github.com/poteto/noodle/blob/00ad13458e5aeed004396835d0844b620396d86c/.agents/skills/unslop/SKILL.md
-  modified-by: Piotr Falkowski
+  author: Lauren Tan (noodle), adapted by Piotr Falkowski
+  copyright: "© 2026 Lauren Tan; adaptation © 2026 Piotr Falkowski"
+  source: https://github.com/PFalkowski/skills
+  upstream: https://github.com/poteto/noodle/blob/00ad13458e5aeed004396835d0844b620396d86c/.agents/skills/unslop/SKILL.md
 ---
 
 # Unslop
@@ -29,7 +29,7 @@ Sterile, voiceless writing is as obvious as the patterns.
 - **Acknowledge complexity.** "Impressive but also kind of unsettling" beats "impressive."
 - **Use "I" when it fits.** First person isn't unprofessional.
 - **Let some mess in.** Perfect structure feels algorithmic.
-- **Be specific.** Name the concrete detail instead of a vague reaction like "this is concerning."
+- **Be specific.** Not "this is concerning" but "agents churning away at 3am is unsettling."
 
 ## Patterns to detect and fix
 
@@ -46,13 +46,13 @@ Sterile, voiceless writing is as obvious as the patterns.
 
 7. **AI vocabulary.** Additionally, crucial, delve, enduring, enhance, fostering, garner, interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract), testament, underscore, vibrant. Use plain words.
 8. **Copula avoidance.** "serves as", "stands as", "boasts", "features". Say "is" or "has".
-9. **Negative parallelisms.** "It's not just X, it's Y", and the trailing contrast "It's a topology, not a genre." State the point directly.
+9. **Negative parallelisms.** "It's not just X, it's Y", and the trailing contrast against an alternative nobody proposed: "It's a topology, not a genre." State the point directly. Keep a contrast that corrects a likely misreading: "Use rebase, not merge."
 10. **Rule of three.** Forcing ideas into groups of three. Use the natural number.
 11. **Synonym cycling.** Protagonist, main character, central figure and hero in one paragraph. Pick one name and repeat it.
 12. **False ranges.** "From X to Y" where X and Y are not on a meaningful scale. List the topics directly.
-13. **Stock metaphors.** "load-bearing", "earns its keep", "carries the argument". Say plainly what the thing does: "important", "the rest depends on it".
+13. **Stock metaphors.** "load-bearing", "earns its keep", "carries the argument", used figuratively. Say plainly what the thing does: "the rest depends on it", "important". Keep the literal sense, such as a load-bearing wall.
 14. **Salience flags and signposts.** "It's worth noting", "This matters.", "Here's the part that...", "The trap is...", "full stop". Delete the flag and state the point.
-15. **Honesty prefaces.** "The honest answer is", "honestly", "frankly". Delete them.
+15. **Honesty prefaces.** "The honest answer is", "honestly", "frankly". Outside quotations, delete them; the sentence stands without them.
 
 ### Style
 
@@ -63,14 +63,14 @@ Sterile, voiceless writing is as obvious as the patterns.
 20. **Title case headings.** Use sentence case.
 21. **Decorative emojis.** Remove them from headings and bullets.
 22. **Curly quotes.** Replace them with straight quotes.
-23. **Punchy fragments.** One-line paragraphs for effect, such as "Not a detail. A design decision." Join them into the sentence they belong to.
+23. **Punchy fragments.** Verbless one-line paragraphs for effect, such as "Not a detail. A design decision." Join them into the sentence they belong to. A short complete sentence, such as "Requires Python 3.10.", stays.
 
 ### Communication artifacts
 
 24. **Chatbot phrases.** "I hope this helps!", "Let me know if...", "Of course!", "Certainly!" Remove them.
 25. **Cutoff disclaimers.** "While specific details are limited..." Find sources or remove.
 26. **Sycophantic tone.** "Great question! You're absolutely right!" Respond directly.
-27. **Next-step narration.** "I'll now...", "Let me...", "Next, I'll...". Remove from finished text; state what was done or what is true.
+27. **Next-step narration.** "I'll now...", "Let me...", "Next, I'll...". Remove from finished text; state what was done or what is true. Keep a promised follow-up, stated as a plan: "The runbook update follows in a separate PR."
 
 ### Filler
 
