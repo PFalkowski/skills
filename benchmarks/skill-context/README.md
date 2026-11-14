@@ -60,6 +60,9 @@ From the repository root, with the model already installed and Ollama listening 
 python benchmarks/skill-context/benchmark.py --baseline 3d40574 --candidate 8cfe3ec --cases benchmarks/skill-context/cases.json --model qwen2.5-coder:7b --output "$env:TEMP/skill-context-run.jsonl" --repeats 2
 ```
 
+For a model that thinks by default, add `--no-think`: thinking spends the 64-token output
+budget before the answer, which truncates every response and invalidates the run.
+
 Use a new output filename for each experiment. The runner records failures as well as
 successes. Commit only a concise results report; local raw artifacts retain the evidence.
 

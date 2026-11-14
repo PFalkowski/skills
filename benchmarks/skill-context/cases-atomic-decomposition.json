@@ -1,0 +1,624 @@
+[
+  {
+    "id": "ad-all-refuted-stops",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "A root claim needs all of three atoms. The first atom is confirmed. A run refutes the second. The third has not been checked. What is the next action?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Check the third atom before giving the root any verdict."
+      },
+      {
+        "id": "B",
+        "text": "Mark the root refuted and report the third atom as not checked."
+      },
+      {
+        "id": "C",
+        "text": "Mark the root unsettled because one atom is unchecked."
+      },
+      {
+        "id": "D",
+        "text": "Split the root again so that it no longer needs the second atom."
+      }
+    ],
+    "expected": "B",
+    "assertion": "One refuted child fixes the verdict of a parent that needs all children; leftovers are not checked."
+  },
+  {
+    "id": "ad-any-refuted-unsettled",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "A parent is marked `any`. Its two branches cover every way it can hold. One branch is refuted. The other is unsettled and nothing more can be checked now. What is the verdict of the parent?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Unsettled."
+      },
+      {
+        "id": "B",
+        "text": "Refuted."
+      },
+      {
+        "id": "C",
+        "text": "Confirmed."
+      },
+      {
+        "id": "D",
+        "text": "Not checked."
+      }
+    ],
+    "expected": "A",
+    "assertion": "An any parent is refuted only when every branch is refuted."
+  },
+  {
+    "id": "ad-any-confirmed",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "A parent is marked `any`. A run refutes its first branch. A run confirms its second branch. What is the verdict of the parent?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Refuted, because a refuted child refutes its parent."
+      },
+      {
+        "id": "B",
+        "text": "Unsettled, because the branches disagree."
+      },
+      {
+        "id": "C",
+        "text": "Not checked."
+      },
+      {
+        "id": "D",
+        "text": "Confirmed, because one confirmed branch is enough."
+      }
+    ],
+    "expected": "D",
+    "assertion": "An any parent is confirmed by one confirmed branch."
+  },
+  {
+    "id": "ad-unsettled-keeps-checking",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "A parent needs all of three atoms. The first atom comes back unsettled. The other two have not been checked. What is the next action?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Mark the parent unsettled, stop, and report the other two as not checked."
+      },
+      {
+        "id": "B",
+        "text": "Mark the parent refuted."
+      },
+      {
+        "id": "C",
+        "text": "Keep checking the other two atoms, because one of them may refute the parent."
+      },
+      {
+        "id": "D",
+        "text": "Remove the unsettled atom from the tree and continue."
+      }
+    ],
+    "expected": "C",
+    "assertion": "An unsettled child fixes no verdict."
+  },
+  {
+    "id": "ad-split-enough",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "An agent split a claim into three children. A reviewer shows that all three children could hold while the parent is false. What should happen before any child is checked?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Check the three children and report the parent confirmed if they all hold."
+      },
+      {
+        "id": "B",
+        "text": "Add the missing child to the split."
+      },
+      {
+        "id": "C",
+        "text": "Mark the parent refuted."
+      },
+      {
+        "id": "D",
+        "text": "Mark the parent `any`."
+      }
+    ],
+    "expected": "B",
+    "assertion": "The Enough check: children must together imply the parent."
+  },
+  {
+    "id": "ad-split-needed",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "A parent needs all of its children. A reviewer shows that one child could be false while the parent still holds. What is the correct fix?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Weaken that child to what the parent needs."
+      },
+      {
+        "id": "B",
+        "text": "Keep the child as it is; a stricter child is safer."
+      },
+      {
+        "id": "C",
+        "text": "Strengthen that child."
+      },
+      {
+        "id": "D",
+        "text": "Mark that child not checked."
+      }
+    ],
+    "expected": "A",
+    "assertion": "The Needed check: a child stronger than needed would wrongly refute the parent."
+  },
+  {
+    "id": "ad-any-sufficient",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "Under an `any` parent, a reviewer shows that one branch could hold while the parent is still false. What is the correct fix?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Weaken that branch."
+      },
+      {
+        "id": "B",
+        "text": "Leave it; an `any` parent needs only one branch."
+      },
+      {
+        "id": "C",
+        "text": "Mark the parent refuted."
+      },
+      {
+        "id": "D",
+        "text": "Strengthen that branch."
+      }
+    ],
+    "expected": "D",
+    "assertion": "The Sufficient check: a weak branch would wrongly confirm an any parent."
+  },
+  {
+    "id": "ad-any-every-way",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "An `any` parent has two branches. Nobody can show that these are the only two ways the parent can hold. Both branches are then refuted. What is the verdict of the parent?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Refuted, because every listed branch is refuted."
+      },
+      {
+        "id": "B",
+        "text": "Confirmed."
+      },
+      {
+        "id": "C",
+        "text": "Unsettled: a branch \"it holds some other way\" must be added, and it stays unsettled."
+      },
+      {
+        "id": "D",
+        "text": "Not checked."
+      }
+    ],
+    "expected": "C",
+    "assertion": "The Every way check."
+  },
+  {
+    "id": "ad-unsplittable-kept",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "One piece of the tree can be neither split further nor checked by any available method. What happens to it?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Remove it from the tree."
+      },
+      {
+        "id": "B",
+        "text": "Keep it as an atom, mark it unsettled, and name what would settle it."
+      },
+      {
+        "id": "C",
+        "text": "Mark it refuted, because it cannot be shown true."
+      },
+      {
+        "id": "D",
+        "text": "Mark it confirmed, because nothing contradicts it."
+      }
+    ],
+    "expected": "B",
+    "assertion": "No claim is lost."
+  },
+  {
+    "id": "ad-single-source-against",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "An atom states a fact that has no single original source. One authoritative page contradicts it. No second source exists and no run can test it. What is the verdict of the atom?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Unsettled."
+      },
+      {
+        "id": "B",
+        "text": "Refuted."
+      },
+      {
+        "id": "C",
+        "text": "Confirmed."
+      },
+      {
+        "id": "D",
+        "text": "Not checked."
+      }
+    ],
+    "expected": "A",
+    "assertion": "Refutation needs a contradicting run or two independent authoritative sources."
+  },
+  {
+    "id": "ad-source-over-summary",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "An atom says: \"The file `config.yml` sets the timeout to 30 seconds.\" The project README states the same. How is the atom settled?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Cite the README."
+      },
+      {
+        "id": "B",
+        "text": "Ask the author of the atom."
+      },
+      {
+        "id": "C",
+        "text": "Mark it confirmed, because two places agree."
+      },
+      {
+        "id": "D",
+        "text": "Read `config.yml` and quote the line."
+      }
+    ],
+    "expected": "D",
+    "assertion": "Go to the source; a description of the source is a lead."
+  },
+  {
+    "id": "ad-runtime-needs-run",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "An atom says: \"The parser returns an empty list for empty input.\" A comment above the parser says so. How is the atom settled?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Quote the comment."
+      },
+      {
+        "id": "B",
+        "text": "Cite the project documentation."
+      },
+      {
+        "id": "C",
+        "text": "Run the parser with empty input and show the real output."
+      },
+      {
+        "id": "D",
+        "text": "Accept it, because the author of the parser wrote the comment."
+      }
+    ],
+    "expected": "C",
+    "assertion": "What a program does is settled by running it."
+  },
+  {
+    "id": "ad-no-rescue",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "The root claim is refuted. A narrower version of it would probably hold. What is reported?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "The root is replaced by the narrower claim and reported confirmed."
+      },
+      {
+        "id": "B",
+        "text": "The root is refuted; the narrower claim is proposed as a new root to decompose separately."
+      },
+      {
+        "id": "C",
+        "text": "The root is unsettled."
+      },
+      {
+        "id": "D",
+        "text": "The root is split again until it can be confirmed."
+      }
+    ],
+    "expected": "B",
+    "assertion": "A settled claim keeps its verdict."
+  },
+  {
+    "id": "ad-atom-wording",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "A draft atom reads: \"The cache should be fast and is properly invalidated.\" What must change before it is checked?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Rewrite it as separate one-statement atoms with a named actor and exact values."
+      },
+      {
+        "id": "B",
+        "text": "Nothing; check it as written."
+      },
+      {
+        "id": "C",
+        "text": "Add \"probably\" so that it is easier to confirm."
+      },
+      {
+        "id": "D",
+        "text": "Merge it with a sibling atom."
+      }
+    ],
+    "expected": "A",
+    "assertion": "Plain-sentence rules for atoms."
+  },
+  {
+    "id": "ad-plan-as-claim",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "The input is a plan: \"Move the import to batch inserts.\" What is the first step?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Split the plan into tasks and assign them."
+      },
+      {
+        "id": "B",
+        "text": "Mark the plan unsettled."
+      },
+      {
+        "id": "C",
+        "text": "Carry out the plan and see what happens."
+      },
+      {
+        "id": "D",
+        "text": "Restate the plan as the claim it makes: that following its steps reaches the goal."
+      }
+    ],
+    "expected": "D",
+    "assertion": "The method works only on claims."
+  },
+  {
+    "id": "ad-skip-rule",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "An important claim can be settled by one command that takes a few seconds. What should the agent do?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Build the full tree anyway, because the claim is important."
+      },
+      {
+        "id": "B",
+        "text": "Ask a fresh agent to split the claim."
+      },
+      {
+        "id": "C",
+        "text": "Skip the decomposition and run that one check."
+      },
+      {
+        "id": "D",
+        "text": "Mark the claim unsettled."
+      }
+    ],
+    "expected": "C",
+    "assertion": "Skip the method when one check already settles the claim."
+  },
+  {
+    "id": "ad-either-way",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "A proposed check for a piece would produce the same output whether the piece is true or false. Does this check make the piece an atom?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Yes. Any step another person can repeat is enough."
+      },
+      {
+        "id": "B",
+        "text": "No. The step must be able to come out either way."
+      },
+      {
+        "id": "C",
+        "text": "Yes, if the author expects it to pass."
+      },
+      {
+        "id": "D",
+        "text": "Yes, and the piece is marked confirmed."
+      }
+    ],
+    "expected": "B",
+    "assertion": "The method favours neither verdict."
+  },
+  {
+    "id": "ad-author-judgement",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "The author of an atom is certain it is true. No run and no source has been consulted. What is the status of the atom?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Not settled yet; a run or a source must settle it."
+      },
+      {
+        "id": "B",
+        "text": "Confirmed."
+      },
+      {
+        "id": "C",
+        "text": "Refuted."
+      },
+      {
+        "id": "D",
+        "text": "Not checked, and removed from the report."
+      }
+    ],
+    "expected": "A",
+    "assertion": "The author's judgement never settles an atom."
+  },
+  {
+    "id": "ad-ordering",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "Three atoms are ready and cost about the same to check. The result of atom X would fix the verdicts of four nodes above it. The result of atom Y would fix one. The result of atom Z would fix none yet. Which atom is checked first?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Atom Y."
+      },
+      {
+        "id": "B",
+        "text": "Atom Z."
+      },
+      {
+        "id": "C",
+        "text": "The atom its author is most sure of."
+      },
+      {
+        "id": "D",
+        "text": "Atom X."
+      }
+    ],
+    "expected": "D",
+    "assertion": "Order by how many verdicts a result would fix."
+  },
+  {
+    "id": "ad-report-whole-tree",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "The root ends unsettled. Two atoms were confirmed with evidence and one atom is unsettled. What does the report contain?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "Only the verdict of the root."
+      },
+      {
+        "id": "B",
+        "text": "Nothing until the root is settled."
+      },
+      {
+        "id": "C",
+        "text": "The whole tree: the confirmed atoms with their evidence, the unsettled atom with what would settle it, then the answer to the root."
+      },
+      {
+        "id": "D",
+        "text": "Only the unsettled atom."
+      }
+    ],
+    "expected": "C",
+    "assertion": "Lose nothing."
+  },
+  {
+    "id": "ad-expected-answer",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "Before the check for an atom is run, what must the atom already carry?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "A fallback claim to use if it fails."
+      },
+      {
+        "id": "B",
+        "text": "The answer its author expects."
+      },
+      {
+        "id": "C",
+        "text": "A severity level."
+      },
+      {
+        "id": "D",
+        "text": "Nothing."
+      }
+    ],
+    "expected": "B",
+    "assertion": "State the expected answer before checking."
+  },
+  {
+    "id": "ad-fresh-agent-split",
+    "kind": "behavior",
+    "skill": "atomic-decomposition",
+    "prompt": "A decision that is hard to undo depends on the claim. Who checks the split?",
+    "choices": [
+      {
+        "id": "A",
+        "text": "An agent that did not write the split."
+      },
+      {
+        "id": "B",
+        "text": "The agent that wrote the split."
+      },
+      {
+        "id": "C",
+        "text": "Nobody; the atoms are checked instead."
+      },
+      {
+        "id": "D",
+        "text": "The same agent, after a pause."
+      }
+    ],
+    "expected": "A",
+    "assertion": "An independent agent checks the split for hard-to-undo decisions."
+  },
+  {
+    "id": "ad-routing-decompose",
+    "kind": "routing",
+    "prompt": "A migration plan rests on the claim \"the new schema loses no data\". The claim is important and too broad to check in one step. Break it into pieces that can each be checked.",
+    "choices": [
+      {
+        "id": "A",
+        "text": "fact-check"
+      },
+      {
+        "id": "B",
+        "text": "atomic-decomposition"
+      },
+      {
+        "id": "C",
+        "text": "invert"
+      },
+      {
+        "id": "D",
+        "text": "none"
+      }
+    ],
+    "expected": "B",
+    "assertion": "The request matches the atomic-decomposition description and scope."
+  },
+  {
+    "id": "ad-routing-single-claim",
+    "kind": "routing",
+    "prompt": "Verify one disputed claim: the default connection timeout of the HTTP library is 30 seconds.",
+    "choices": [
+      {
+        "id": "A",
+        "text": "atomic-decomposition"
+      },
+      {
+        "id": "B",
+        "text": "invert"
+      },
+      {
+        "id": "C",
+        "text": "none"
+      },
+      {
+        "id": "D",
+        "text": "fact-check"
+      }
+    ],
+    "expected": "D",
+    "assertion": "The request matches the fact-check description and scope."
+  }
+]
