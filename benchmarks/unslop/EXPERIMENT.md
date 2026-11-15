@@ -2,8 +2,8 @@
 
 This plan was written and frozen before the compact version of `unslop/SKILL.md` existed.
 Its author did not see the compact version and did not edit the skill. It follows the
-decision contract of [compare-prompts](../../compare-prompts/SKILL.md) and its
-[METHOD.md](../../compare-prompts/METHOD.md). Change nothing in this folder after the
+decision contract of [compare-prompts](../../benchmark-skill/SKILL.md) and its
+[METHOD.md](../../benchmark-skill/METHOD.md). Change nothing in this folder after the
 compact version is written. A change after that point is a new experiment version with a
 new held-out set.
 
