@@ -5,7 +5,7 @@ does the skill's job: removing AI writing patterns from prose while keeping the 
 It compares two versions of the skill (arm A and arm B) and a no-skill control, on 20
 held-out passages, with a mechanical grader. The plan, thresholds and verdict rules are in
 [EXPERIMENT.md](EXPERIMENT.md); the method is
-[compare-prompts](../../compare-prompts/SKILL.md).
+[compare-prompts](../../benchmark-skill/SKILL.md).
 
 ## Files
 
