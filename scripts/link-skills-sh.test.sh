@@ -15,7 +15,7 @@ check() {
 links_to() { [ -L "$1" ] && [ "$(readlink "$1")" = "$2" ]; }
 has() { printf '%s' "$1" | grep -qE "$2"; }
 
-WORK=$(mktemp -d)
+WORK=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$WORK"' EXIT
 REPO="$WORK/repo"
 export HOME="$WORK/home"
@@ -28,6 +28,9 @@ ln -s "$REPO/gone" "$HOME/.claude/skills/gone"
 ln -s "$WORK/elsewhere" "$HOME/.claude/skills/foreign"
 ln -s "$WORK/old-alpha" "$HOME/.agents/skills/alpha"
 mkdir "$HOME/.claude/skills/beta"
+touch "$HOME/.agents/skills/gamma"
+mkdir "$REPO/gamma" && touch "$REPO/gamma/SKILL.md"
+ln -s "$WORK/elsewhere" "$HOME/.claude/workflows"
 
 out=$(bash "$REPO/link-skills.sh" 2>&1)
 code=$?
@@ -38,6 +41,8 @@ check "links a skill into ~/.agents/skills" links_to "$HOME/.agents/skills/beta"
 check "replaces a link with the wrong target" links_to "$HOME/.agents/skills/alpha" "$REPO/alpha"
 check "leaves a real directory in place" eval '[ -d "$HOME/.claude/skills/beta" ] && [ ! -L "$HOME/.claude/skills/beta" ]'
 check "warns about the real directory" has "$out" '^!  beta '
+check "calls a plain file not a link" has "$out" '^!  gamma .*is not a link'
+check "relinks a foreign workflows link" links_to "$HOME/.claude/workflows" "$REPO/workflows"
 check "skips a folder without SKILL.md" eval '[ ! -e "$HOME/.claude/skills/docs" ]'
 check "prunes a dangling link into the repo" eval '[ ! -L "$HOME/.claude/skills/gone" ]'
 check "keeps a dangling link pointing elsewhere" eval '[ -L "$HOME/.claude/skills/foreign" ]'
@@ -49,6 +54,29 @@ check "a second run changes nothing and prints nothing" [ -z "$again" ]
 
 git -C "$REPO" init -q -b main && git -C "$REPO" commit -q --allow-empty -m init && git -C "$REPO" switch -q -c topic
 check "warns when the checkout is off main" has "$(bash "$REPO/link-skills.sh" 2>&1)" "on branch 'topic'"
+
+git -C "$REPO" switch -q --detach
+check "warns on a detached HEAD" has "$(bash "$REPO/link-skills.sh" 2>&1)" 'detached HEAD'
+
+RACE="$WORK/race"
+mkdir -p "$RACE/repo"
+cp "$ROOT/link-skills.sh" "$RACE/repo/"
+for s in a b c d e f g h; do mkdir "$RACE/repo/$s" && touch "$RACE/repo/$s/SKILL.md"; done
+for i in 1 2 3 4 5; do
+  rm -rf "$RACE/home"
+  HOME="$RACE/home" bash "$RACE/repo/link-skills.sh" >/dev/null 2>&1 &
+  HOME="$RACE/home" bash "$RACE/repo/link-skills.sh" >/dev/null 2>&1
+  wait
+done
+check "concurrent runs never write links inside the repo" [ -z "$(find "$RACE/repo" -mindepth 2 -type l)" ]
+
+LOCKED="$WORK/locked"
+mkdir -p "$LOCKED/.claude/skills" "$LOCKED/.agents/skills"
+chmod a-w "$LOCKED/.agents/skills"
+HOME="$LOCKED" bash "$REPO/link-skills.sh" >/dev/null 2>&1
+code=$?
+chmod u+w "$LOCKED/.agents/skills"
+check "exits non-zero when a link cannot be made" [ "$code" -ne 0 ]
 
 echo "$((total - fail))/$total passed"
 [ "$fail" -eq 0 ]

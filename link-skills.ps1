@@ -27,7 +27,7 @@
     already there is left untouched.
 
     Junctions need no admin rights and no developer mode. macOS/Linux users:
-    see `ln -s` in README.md.
+    use link-skills.sh.
 
     It also offers to install templates/CLAUDE.md, the portable global
     instruction file, to -ClaudeMdPath. See -ClaudeMd below; left unset it

@@ -166,7 +166,7 @@ It also offers to install [templates/CLAUDE.md](templates/CLAUDE.md) to `~/.clau
 ./skills-main/link-skills.sh
 ```
 
-It does what the linking half of `link-skills.ps1` does, with symlinks: it links each skill into `~/.claude/skills` and `~/.agents/skills`, links `~/.claude/workflows`, prunes links to skills that are gone, and warns when the checkout is off the default branch. It prints only what it changed. A real directory where a link belongs is reported and left alone. It does not install `CLAUDE.md`.
+It is the linking half of `link-skills.ps1`, with symlinks: it links each skill into `~/.claude/skills` and `~/.agents/skills`, links `~/.claude/workflows`, prunes links to skills that are gone, and warns when the checkout is off the default branch or behind it. It prints only what it changed, and exits 1 when a link fails. Anything that is not a link where a link belongs is reported and left alone. It does not install `CLAUDE.md`.
 
 The matching `SessionStart` hook:
 
