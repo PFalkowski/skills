@@ -163,11 +163,16 @@ It also offers to install [templates/CLAUDE.md](templates/CLAUDE.md) to `~/.clau
 ### macOS / Linux
 
 ```bash
-for dest in ~/.claude/skills ~/.agents/skills; do
-  mkdir -p "$dest"
-  for d in */; do s=${d%/}; [ -f "$s/SKILL.md" ] && ln -sfn "$PWD/$s" "$dest/$s"; done
-done
-[ -e ~/.claude/workflows ] || ln -s "$PWD/workflows" ~/.claude/workflows
+./skills-main/link-skills.sh
+```
+
+It does what the linking half of `link-skills.ps1` does, with symlinks: it links each skill into `~/.claude/skills` and `~/.agents/skills`, links `~/.claude/workflows`, prunes links to skills that are gone, and warns when the checkout is off the default branch. It prints only what it changed. A real directory where a link belongs is reported and left alone. It does not install `CLAUDE.md`.
+
+The matching `SessionStart` hook:
+
+```json
+"hooks": { "SessionStart": [{ "hooks": [{ "type": "command", "timeout": 30,
+  "command": "git -C /path/to/skills-main pull --ff-only -q origin main && /path/to/skills-main/link-skills.sh" }] }] }
 ```
 
 Removing a junction/symlink doesn't delete the source — they're pointers, not copies.
@@ -178,7 +183,7 @@ Removing a junction/symlink doesn't delete the source — they're pointers, not 
 2. Keep `description` to one sentence identifying the task and when it applies: at most 120 characters, targeting 100. Omit workflow details, synonym lists, and the skill's own slash command. Descriptions contribute to discovery context; what is preloaded depends on the host and invocation policy. `bash scripts/check-descriptions.sh` enforces the cap, warns above the target, and rejects self-named commands. See [context guidance](CONTRIBUTING.md#keep-skill-context-small) for body edits.
 3. Split into reference files if SKILL.md would exceed ~100 lines.
 4. Add `"./<skill-name>"` to the `skills` array in `.claude-plugin/plugin.json`.
-5. Run `./link-skills.ps1` to link it into both local harness directories.
+5. Run `./link-skills.ps1` (or `./link-skills.sh` on macOS and Linux) to link it into both local harness directories.
 6. Commit + push.
 
 Moving, renaming, or archiving a skill can break other skills' links to it — see [CONTRIBUTING.md](CONTRIBUTING.md).
