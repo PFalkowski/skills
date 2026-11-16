@@ -102,7 +102,7 @@ export const meta = {
 //         startedAt: '07-20 09:30',                // the WATCHER's clock at dispatch (MM-DD HH:mm).
 //                                                  // The script has none — Date.now() throws in here.
 //                                                  // See § Stamped output.
-//         parallel: 1, maxWorkers: 3, reserve: 240000 }
+//         parallel: 1, maxWorkers: 3, reserve: 240000, local: <CLAUDE_LOCAL=1 in this session> }
 // Normalize args first: it can arrive as a JSON-encoded STRING rather than an object,
 // in which case `args.tickets` is undefined and the spread below throws before any
 // ranger runs. Parse defensively and fail loudly on a malformed brief — a patrol that
@@ -151,7 +151,7 @@ await parallel(Array.from({ length: poolSize }, (_, i) => i + 1).map(w => async 
             `what this repo's own house rules require (default to none). Nothing in commit ` +
             `messages, PR title, or PR description names the Watch, nights-watch, or "ranger", ` +
             `or otherwise reveals this was done by an automated process.`,
-          parallel: 1, reserve: A.reserve,
+          parallel: 1, reserve: A.reserve, local: A.local,
           chronicleDir: t.chronicleDir, libraryIndex: A.libraryIndex,
         })
         // The workhorse commits but NEVER pushes or opens a PR — that line is enforced by

@@ -610,6 +610,52 @@ console.log('\nan approved plan with a refuted claim does not forward optional f
     promptFor(r, 'plan:r2').includes('plan claim X') && !promptFor(r, 'plan:r2').includes('OPTIONAL-consider caching'))
 }
 
+console.log('\nan approved last round is not vetoed by a refuted claim, and claims must quote the saved plan:')
+{
+  const planWithPath = () => ({ approach: 'a', components: ['c'], failureModes: [{ failure: 'f', blockedBy: 'b' }],
+    alternativesRejected: [{ alternative: 'x', whyRejected: 'y' }], testStrategy: 't', planPath: 'docs/plan.md' })
+  const refutedClaim = { 'plan:': planWithPath,
+    'claims:plan': () => ({ claims: [{ claim: 'plan claim X', quote: 'X is so', whyLoadBearing: 'w', blastRadius: 'total' }] }),
+    'quotes:plan': () => ({ missing: [] }),
+    'refute:': prompt => prompt.includes('plan claim X') ? { status: 'refuted', evidence: 'no' } : undefined }
+  const r = await runWorkhorse({ args: baseArgs({ maxPlanRounds: 1 }), agentFn: overriding(refutedClaim) })
+  await t('approved, 0 must-fix, 1 refuted claim on the last round still reaches slicing',
+    () => r.stoppedAt === undefined && r.calls.some(c => c.opts.label === 'slice'))
+  await t('...and the refuted claim is recorded as deferred', () => r.deferred.some(d => /refuted/.test(d.what) && /plan claim X/.test(d.detail.join())))
+  const two = await runWorkhorse({ args: baseArgs({ maxPlanRounds: 2 }), agentFn: overriding(refutedClaim) })
+  await t('on an earlier round the refuted claim goes back to the planner, who may rebut it',
+    () => /plan:r2/.test(two.calls.map(c => c.opts.label).join()) && /does not make a claim/.test(promptFor(two, 'plan:r2')))
+  const gone = await runWorkhorse({ args: baseArgs({ maxPlanRounds: 1 }), agentFn: overriding({ ...refutedClaim,
+    'quotes:plan': () => ({ missing: ['X is so'] }) }) })
+  await t('a claim whose quote is not in the saved file is dropped before any refuter runs',
+    () => !gone.calls.some(c => c.opts.label.startsWith('refute:') && c.prompt.includes('plan claim X')))
+  const unquoted = await runWorkhorse({ args: baseArgs({ maxPlanRounds: 1 }), agentFn: overriding({ ...refutedClaim,
+    'claims:plan': () => ({ claims: [{ claim: 'plan claim X', whyLoadBearing: 'w', blastRadius: 'total' }] }) }) })
+  await t('claims returned without quotes are named as unadjudicated and block the merge',
+    () => unquoted.mergeBlockedBy.some(b => /plan: 1 claim\(s\) had no quote/.test(b)))
+  await t('the extractor is pointed at the saved file', () => promptFor(r, 'claims:plan').includes('docs/plan.md'))
+}
+
+console.log('\nspec skill and chronicle:')
+{
+  const r = await runWorkhorse({ args: baseArgs({ startedAt: '07-20 09:30' }), agentFn: mkAgent() })
+  await t('the spec phase does not call the missing to-spec skill', () => !promptFor(r, 'spec').includes('to-spec') && promptFor(r, 'spec').includes('to-prd'))
+  await t('every chronicle rule opens a section for this dispatch',
+    () => r.calls.filter(c => c.prompt.includes('Keep a chronicle')).every(c => c.prompt.includes('## Dispatch 07-20 09:30')))
+}
+
+console.log('\na local-model session never fans agents out:')
+{
+  let dispatched = 0, refusal = null
+  try { await runWorkhorse({ args: baseArgs({ local: true }), agentFn: async (p, o) => { dispatched++; return mkAgent()(p, o) } }) } catch (e) { refusal = e }
+  await t('args.local refuses before any agent runs', () => refusal && /local-model session/.test(refusal.message) && dispatched === 0)
+  process.env.CLAUDE_LOCAL = '1'
+  refusal = null
+  try { await runWorkhorse({ args: baseArgs(), agentFn: mkAgent() }) } catch (e) { refusal = e }
+  delete process.env.CLAUDE_LOCAL
+  await t('CLAUDE_LOCAL=1 refuses too', () => refusal && /local-model session/.test(refusal.message))
+}
+
 console.log('\nmergeBlockedBy tells the truth about the document phase:')
 {
   const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({ document: () => null }) })
