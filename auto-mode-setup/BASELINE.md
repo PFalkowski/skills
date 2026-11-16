@@ -45,6 +45,10 @@ Bash(git push --prune:*)
 Bash(git push * --prune)
 Bash(git push * --prune *)
 Bash(git push * +*)
+Bash(git push --receive-pack*)
+Bash(git push * --receive-pack*)
+Bash(git push --exec*)
+Bash(git push * --exec*)
 Bash(git reset --hard:*)
 Bash(git clean -fdx:*)
 Bash(git filter-branch:*)
@@ -57,6 +61,12 @@ Bash(git worktree remove -f:*)
 Bash(git worktree remove * -f)
 Bash(git worktree remove * -f *)
 ```
+
+`--receive-pack` and `--exec` (the same option) name a program for git to run on the push, so the
+`git push` grant would otherwise run any program with no prompt. The rules end in a bare `*`, with
+no space, so they also match the `--receive-pack=prog` spelling, and each has a leading and a
+non-leading form. The gap: git accepts any unique abbreviation of a long option (`--receive`,
+`--ex`), and no finite rule set spells them all out. That gap is accepted, like the bundled-flag one.
 
 Force-push and `reset --hard` are the two that actually destroy unattended work. `--force-with-lease`
 is deliberately absent from the deny list — it is the safe form, and denying it pushes people toward
