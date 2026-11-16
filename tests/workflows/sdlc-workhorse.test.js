@@ -629,6 +629,10 @@ console.log('\nan approved last round is not vetoed by a refuted claim, and clai
     'quotes:plan': () => ({ missing: ['X is so'] }) }) })
   await t('a claim whose quote is not in the saved file is dropped before any refuter runs',
     () => !gone.calls.some(c => c.opts.label.startsWith('refute:') && c.prompt.includes('plan claim X')))
+  const unquoted = await runWorkhorse({ args: baseArgs({ maxPlanRounds: 1 }), agentFn: overriding({ ...refutedClaim,
+    'claims:plan': () => ({ claims: [{ claim: 'plan claim X', whyLoadBearing: 'w', blastRadius: 'total' }] }) }) })
+  await t('claims returned without quotes are named as unadjudicated and block the merge',
+    () => unquoted.mergeBlockedBy.some(b => /plan: 1 claim\(s\) had no quote/.test(b)))
   await t('the extractor is pointed at the saved file', () => promptFor(r, 'claims:plan').includes('docs/plan.md'))
 }
 

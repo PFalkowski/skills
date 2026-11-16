@@ -33,6 +33,7 @@ Everything not in this table is unchanged: the Oath, the fact-check discipline a
 
 ```
 Workflow({ name: 'sdlc-workhorse', args: { goal: '<the gated brief>', parallel: 1,
+  local: <true when CLAUDE_LOCAL=1 in this session>,
   startedAt: '<Get-Date -Format "MM-dd HH:mm">',   // stamps the run's CLI output; WATCH.md § Stamped output
            libraryIndex: '.nights-watch/library/INDEX.md' } })
 ```

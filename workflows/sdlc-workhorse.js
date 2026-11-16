@@ -539,8 +539,10 @@ async function adjudicateClaims(artifactName, artifactText, phaseName, artifactP
   )
   if (!extracted) return { held: [], rejected: [], extracted: 0, notRun: true }
   let claims = extracted.claims || []
+  let unquoted = 0
   if (artifactPath && claims.length) {
     const quoted = claims.filter(c => c.quote && c.quote.trim())
+    unquoted = claims.length - quoted.length
     const found = quoted.length ? await agent(
       `Check these quotes against the file ${artifactPath}. Return in "missing" every quote that does not appear in the ` +
       `file word for word.\n\n${quoted.map((c, i) => `${i + 1}. ${JSON.stringify(c.quote)}`).join('\n')}\n\n${READ_ONLY_RULE}`,
@@ -548,12 +550,13 @@ async function adjudicateClaims(artifactName, artifactText, phaseName, artifactP
     ) : { missing: [] }
     const gone = new Set(found ? found.missing : [])
     const kept = claims.filter(c => c.quote && c.quote.trim() && !gone.has(c.quote))
-    if (kept.length < claims.length) {
-      say(`${artifactName}: ${claims.length - kept.length} extracted claim(s) dropped, their quote is not in ${artifactPath}`)
+    if (kept.length < quoted.length) {
+      say(`${artifactName}: ${quoted.length - kept.length} extracted claim(s) dropped, their quote is not in ${artifactPath}`)
     }
+    if (unquoted) say(`${artifactName}: ${unquoted} extracted claim(s) came back without a quote and were not adjudicated`)
     claims = kept
   }
-  if (!claims.length) return { held: [], rejected: [], extracted: 0 }
+  if (!claims.length) return { held: [], rejected: [], extracted: 0, unquoted }
   // Most blast radius first, then cap. Sorting before slicing is the whole point: an arbitrary
   // five of fifteen would be worse than no cap, because it spends the budget on whatever the
   // extractor happened to list first.
@@ -577,6 +580,7 @@ async function adjudicateClaims(artifactName, artifactText, phaseName, artifactP
     // unproven assertions into the premise, which is the exact failure this gate exists to prevent.
     rejected: checked.filter(c => !c.proven),
     extracted: claims.length,
+    unquoted,
     unexamined: dropped.length,
   }
 }
@@ -595,8 +599,9 @@ const premiseBlock = (held) => held.length
 
 // A premise gate: adjudicate, log, and hand back the held set.
 async function premiseGate(artifactName, artifactText, phaseName, unchecked = record.unchecked, artifactPath = null) {
-  const { held, rejected, extracted, unexamined, notRun } = await adjudicateClaims(artifactName, artifactText, phaseName, artifactPath)
+  const { held, rejected, extracted, unexamined, notRun, unquoted } = await adjudicateClaims(artifactName, artifactText, phaseName, artifactPath)
   if (notRun) unchecked.push(`${artifactName}: claim extraction did not run, so its premise was never checked`)
+  if (unquoted) unchecked.push(`${artifactName}: ${unquoted} claim(s) had no quote and were not adjudicated`)
   note(phaseName, `${extracted} load-bearing claim(s): ${held.length} held, ${rejected.length} refuted` +
     (unexamined ? `, ${unexamined} unexamined (over maxClaimsPerGate)` : ''))
   if (rejected.length) {
