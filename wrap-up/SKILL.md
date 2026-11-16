@@ -34,6 +34,7 @@ Classify each as **work** (commit → push → PR), **junk** (delete), or **park
 Run only after shipping leaves nothing outstanding in scope.
 
 - Remove clean session worktrees only after their branch is pushed/merged: `git worktree remove <path>`, then `git worktree prune`. Dirty trees return to ship; never force. Include empty leftover directories under the worktrees root.
+- Removing a clean, merged worktree is routine and never waits for the human, even when its submodules were initialized. Git refuses a plain removal then, and `--force` is denied, so: confirm `git -C <wt> status --porcelain --ignore-submodules=all` is empty; delete the worktree's private submodule clones at `$(git rev-parse --git-common-dir)/worktrees/<name>/modules`; replace each initialized submodule folder in the worktree with an empty folder; then run a plain `git worktree remove` and delete the branch. A dirty or unmerged worktree still escalates.
 - First inspect `git status --short --ignored`. Copy out unique logs/evidence/experiment output the session relied on and verify counts before removal; otherwise retain the tree.
 - Delete landed local branches with `git branch -d`, never `-D`. Unmerged-branch deletion requires the user's explicit decision.
 - Run `git fetch --prune` for stale remote-tracking refs.

@@ -65,7 +65,7 @@ Proactively dispatch [triage](../triage/SKILL.md) for board grooming, [wrap-up](
 
 Groom when board state would change dispatch, not on a schedule. Filing, `nights-watch` and `nightshift` share [READINESS.md](../triage/READINESS.md).
 
-The mandate still bounds what the maintenance may do. The manager grants the yeses these skills would otherwise hold for a human, but only the reversible ones — filing, committing, pushing, removing a merged worktree. Deleting an unmerged branch, a stash, or untracked work is Rule 4's line and escalates like anything else.
+The mandate still bounds what the maintenance may do. The manager grants the yeses these skills would otherwise hold for a human, but only the reversible ones — filing, committing, pushing, removing a clean, merged worktree, even one whose submodules were initialized (the [`wrap-up`](../wrap-up/SKILL.md) sweep steps work without `--force`). Deleting an unmerged branch, a stash, or untracked work is Rule 4's line and escalates like anything else.
 
 ## Channels through which asks arrive
 
