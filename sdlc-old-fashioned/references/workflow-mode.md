@@ -19,6 +19,7 @@ Workflow({
     backlogPath: '<state>/backlog.md',     // the conductor's backlog stays the live source of truth
     chronicleDir: '<state>/chronicles',
     startedAt: '<MM-dd HH:mm>',            // stamps every log line with the run
+    // local: true in a local-model session (CLAUDE_LOCAL=1): the workflow refuses to start, it fans agents out in parallel
     // optional, defaults shown
     parallel: 1,                           // only 1 is supported; a higher value throws until each slice gets its own worktree
     maxSlices: 12,

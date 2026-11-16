@@ -49,6 +49,11 @@ if ((cfg.parallel ?? 1) > 1) {
   throw new Error('sdlc-workhorse: parallel > 1 is not supported yet. Each builder call got its own worktree, so GREEN never saw the RED test and the reviewers read a tree without the slice. Run with parallel: 1 (the default).')
 }
 
+const localSession = cfg.local === true || (typeof process !== 'undefined' && process.env && process.env.CLAUDE_LOCAL === '1')
+if (localSession) {
+  throw new Error('sdlc-workhorse: refusing to start in a local-model session (CLAUDE_LOCAL=1 or args.local). Each local GPU answers one request at a time and this workflow fans agents out in parallel. Run the lifecycle phase by phase instead.')
+}
+
 const backlogPath = cfg.backlogPath || '$HOME/.agent-state/<repo dir name>/sdlc-workhorse/backlog.md'
 const chronicleDir = cfg.chronicleDir || '$HOME/.agent-state/<repo dir name>/sdlc-workhorse/chronicles'
 const libraryIndex = cfg.libraryIndex || null          // nights-watch Library, if the repo keeps one
@@ -129,7 +134,9 @@ const chronicle = (name) => `${chronicleDir}/${name}.md`
 const CHRONICLE_RULE = (path) =>
   `Keep a chronicle at ${path} (absolute-safe path, outside any worktree you create): append a field note THE MOMENT ` +
   `you learn something — a convention discovered, a trap hit, a command that finally worked, an assumption that proved ` +
-  `false — not at the end. It must survive you crashing.`
+  `false — not at the end. It must survive you crashing. Earlier dispatches of this run may already have written to ` +
+  `this file: never edit or repeat their entries. Add your notes under a heading "## Dispatch ${startedAt || '<output of date -Is>'}", ` +
+  `creating it first if the file does not have it.`
 const LIBRARY_RULE = libraryIndex
   ? `Before working, read the Library index at ${libraryIndex} and open ONLY the entries relevant to this task. Recall stays lean.`
   : ''
@@ -217,6 +224,7 @@ const CLAIM_LIST = {
         required: ['claim', 'whyLoadBearing', 'blastRadius'],
         properties: {
           claim: { type: 'string' },
+          quote: { type: 'string', description: 'The words of the saved artifact that make this claim, copied exactly. Required when a saved file is named.' },
           whyLoadBearing: { type: 'string' },
           // Ranks the fan-out when there are more claims than budget. 'total' = the artifact is
           // void if this is false; 'major' = a section has to be redesigned; 'moderate' = a
@@ -227,6 +235,12 @@ const CLAIM_LIST = {
       },
     },
   },
+}
+
+const QUOTE_CHECK = {
+  type: 'object',
+  required: ['missing'],
+  properties: { missing: { type: 'array', items: { type: 'string' }, description: 'Quotes not found in the file, copied as given.' } },
 }
 
 const REFUTE_SCHEMA = {
@@ -512,15 +526,33 @@ async function proven(claim, whyLoadBearing, phaseName, context, memoKey = Strin
 // the next phase re-read the raw artifact and inherited every unexamined
 // assertion in it — including the ones no refuter had looked at. A gate that
 // only subtracts cannot tell the phase after it what is left standing.
-async function adjudicateClaims(artifactName, artifactText, phaseName) {
+async function adjudicateClaims(artifactName, artifactText, phaseName, artifactPath = null) {
+  const source = artifactPath
+    ? `Read the saved ${artifactName} at ${artifactPath}. It is the only source: a claim the file does not make is not a claim. ` +
+      `Give each claim a "quote": the file's own words that make it, copied exactly.`
+    : `<${artifactName}>\n${artifactText}\n</${artifactName}>`
   const extracted = await agent(
     `Extract ONLY the load-bearing claims from this ${artifactName} — the facts it leans on, where it collapses if the ` +
-    `claim is false. Ignore stylistic assertions and hedged asides.\n\n<${artifactName}>\n${artifactText}\n</${artifactName}>\n\n` +
+    `claim is false. Ignore stylistic assertions and hedged asides.\n\n${source}\n\n` +
     READ_ONLY_RULE,
     { label: `claims:${artifactName}`, phase: phaseName, model: tiers.verify, schema: CLAIM_LIST }
   )
   if (!extracted) return { held: [], rejected: [], extracted: 0, notRun: true }
-  const claims = extracted.claims || []
+  let claims = extracted.claims || []
+  if (artifactPath && claims.length) {
+    const quoted = claims.filter(c => c.quote && c.quote.trim())
+    const found = quoted.length ? await agent(
+      `Check these quotes against the file ${artifactPath}. Return in "missing" every quote that does not appear in the ` +
+      `file word for word.\n\n${quoted.map((c, i) => `${i + 1}. ${JSON.stringify(c.quote)}`).join('\n')}\n\n${READ_ONLY_RULE}`,
+      { label: `quotes:${artifactName}`, phase: phaseName, model: tiers.verify, schema: QUOTE_CHECK }
+    ) : { missing: [] }
+    const gone = new Set(found ? found.missing : [])
+    const kept = claims.filter(c => c.quote && c.quote.trim() && !gone.has(c.quote))
+    if (kept.length < claims.length) {
+      say(`${artifactName}: ${claims.length - kept.length} extracted claim(s) dropped, their quote is not in ${artifactPath}`)
+    }
+    claims = kept
+  }
   if (!claims.length) return { held: [], rejected: [], extracted: 0 }
   // Most blast radius first, then cap. Sorting before slicing is the whole point: an arbitrary
   // five of fifteen would be worse than no cap, because it spends the budget on whatever the
@@ -562,8 +594,8 @@ const premiseBlock = (held) => held.length
     `below as established fact. Prove what you need with the "fact-check" skill before leaning on it.`
 
 // A premise gate: adjudicate, log, and hand back the held set.
-async function premiseGate(artifactName, artifactText, phaseName, unchecked = record.unchecked) {
-  const { held, rejected, extracted, unexamined, notRun } = await adjudicateClaims(artifactName, artifactText, phaseName)
+async function premiseGate(artifactName, artifactText, phaseName, unchecked = record.unchecked, artifactPath = null) {
+  const { held, rejected, extracted, unexamined, notRun } = await adjudicateClaims(artifactName, artifactText, phaseName, artifactPath)
   if (notRun) unchecked.push(`${artifactName}: claim extraction did not run, so its premise was never checked`)
   note(phaseName, `${extracted} load-bearing claim(s): ${held.length} held, ${rejected.length} refuted` +
     (unexamined ? `, ${unexamined} unexamined (over maxClaimsPerGate)` : ''))
@@ -654,7 +686,7 @@ phase('Spec')
 const spec = await agent(
   `Write the spec for this work. No code, no design — what and why only.\n\nGOAL: ${cfg.goal}\n\n${pitfallRule}\n\n` +
   `Problem, goal, scope, NON-GOALS, and observable success criteria. Save it in the repo and report the path.\n` +
-  `Use the "to-spec" skill if it is available.\n\n${FACT_CHECK_RULE}\n\n${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('spec'))}`,
+  `Follow the format of the "to-prd" skill (problem, goal, scope, non-goals, success criteria), but save the spec in the repo instead of publishing it to the issue tracker.\n\n${FACT_CHECK_RULE}\n\n${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('spec'))}`,
   { label: 'spec', phase: 'Spec', model: tiers.spec, schema: SPEC_SCHEMA }
 )
 if (!spec) throw new Error('sdlc-workhorse: spec agent returned nothing.')
@@ -753,7 +785,7 @@ for (let round = 1; round <= maxPlanRounds; round++) {
       `Use the "grill-with-docs" skill if available.\n\n${NO_HUMAN_RULE}\n\n${OUTWARD_RULE}\n${CHRONICLE_RULE(chronicle('plan-review'))}`,
       { label: `plan-review:r${round}`, phase: 'Plan review', model: tiers.planReview, schema: PLAN_REVIEW_SCHEMA }
     ),
-    () => premiseGate('plan', planText, 'Plan review', planUnchecked),
+    () => premiseGate('plan', planText, 'Plan review', planUnchecked, plan.planPath || null),
   ])
   planReview = review
   if (!refuted) planUnchecked.push(`plan round ${round}: claim adjudication did not run`)
@@ -763,11 +795,17 @@ for (let round = 1; round <= maxPlanRounds; round++) {
   const fixes = mustFix.length || (review && review.verdict === 'approved') ? mustFix : ((review && review.findings) || [])
   note('Plan review', `round ${round}: verdict=${review ? review.verdict : 'none'}, ${mustFix.length} must-fix, ${bad.length} refuted claim(s)`)
 
-  if (review && review.verdict === 'approved' && !mustFix.length && !bad.length) break
+  const approvedClean = review && review.verdict === 'approved' && !mustFix.length
+  if (approvedClean && !bad.length) break
+  if (approvedClean && round === maxPlanRounds) {
+    record.deferred.push({ what: 'plan approved on the last round with claims refuted', detail: bad.map(c => `${c.claim} — ${c.why}`) })
+    say(`Plan approved with 0 must-fix on the last round; ${bad.length} refuted claim(s) are recorded, not a veto.`)
+    break
+  }
 
   planFeedback =
     (fixes.length ? `${mustFix.length ? 'Must-fix findings' : 'Findings'}:\n${fixes.map(f => `- [${f.category}] ${f.concern}`).join('\n')}\n` : '') +
-    (bad.length ? `\nClaims this plan leans on that could NOT be proven (treat as false):\n${bad.map(c => `- ${c.claim}\n    why it failed: ${c.why}`).join('\n')}\n` : '')
+    (bad.length ? `\nClaims extracted from your saved plan that could NOT be proven. If the saved plan does not make a claim, keep that part as it is and say so in your chronicle; otherwise fix the plan:\n${bad.map(c => `- ${c.claim}\n    why it failed: ${c.why}`).join('\n')}\n` : '')
   if (!planFeedback) planFeedback = `The review returned "${review ? review.verdict : 'nothing'}" without naming a fix. Re-check the design against the spec.\n`
 
   if (review && review.verdict === 'reopens-requirements') {
