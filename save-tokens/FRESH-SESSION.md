@@ -16,8 +16,8 @@ A fresh session:
 
    A launcher run from inside a session must not hand the new session the parent's markers, or the
    new session stops saving its transcript.
-2. Show the note and the command, with one line saying why: "This needs little of our context, so
-   it starts fresh."
+2. Show the note and the command, with one line saying why: the reason the session starts fresh (for example "This needs you at its
+   keyboard.").
 3. Run the command yourself, without asking, and do not start the request here. It opens a new terminal
    window in `<dir>` running interactive `claude` with the note as its first prompt, so the user
    types nothing else. Never clear or compact on the user's behalf.
