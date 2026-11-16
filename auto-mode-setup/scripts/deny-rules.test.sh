@@ -68,6 +68,10 @@ required_rules=(
   'Bash(git push * --prune)'
   'Bash(git push * --prune *)'
   'Bash(git push * +*)'
+  'Bash(git push --rece*)'
+  'Bash(git push * --rece*)'
+  'Bash(git push --e*)'
+  'Bash(git push * --e*)'
 )
 missing=()
 for rule in "${required_rules[@]}"; do
@@ -236,6 +240,14 @@ check deny "git push --prune origin"
 check deny "git push origin --prune"
 check deny "git push --prune origin main"
 check deny "git push origin --all --prune"
+check deny "git push --receive-pack=true origin main"
+check deny "git push origin main --receive-pack=true"
+check deny "git push origin --receive-pack true main"
+check deny "git push --exec=true origin main"
+check deny "git push origin main --exec=true"
+check deny "git push --receive=true origin main"
+check deny "git push origin main --ex=true"
+check deny "git push --e true origin main"
 check allow "git push origin main"
 
 # The documented gap itself: the colon delete-refspec is not blocked in either position. These

@@ -45,6 +45,10 @@ Bash(git push --prune:*)
 Bash(git push * --prune)
 Bash(git push * --prune *)
 Bash(git push * +*)
+Bash(git push --rece*)
+Bash(git push * --rece*)
+Bash(git push --e*)
+Bash(git push * --e*)
 Bash(git reset --hard:*)
 Bash(git clean -fdx:*)
 Bash(git filter-branch:*)
@@ -57,6 +61,13 @@ Bash(git worktree remove -f:*)
 Bash(git worktree remove * -f)
 Bash(git worktree remove * -f *)
 ```
+
+`--receive-pack` and `--exec` (the same option) name a program for git to run on the push, so the
+`git push` grant would otherwise run any program with no prompt. Git accepts any unique
+abbreviation of a long option, so the rules use the shortest unique prefixes: `--rece` (`--rec` is
+ambiguous in git) and `--e`. `git push -h` lists no other long option starting with either. Each
+rule ends in a bare `*`, with no space, so it also matches the `--receive-pack=prog` spelling, and
+each has a leading and a non-leading form.
 
 Force-push and `reset --hard` are the two that actually destroy unattended work. `--force-with-lease`
 is deliberately absent from the deny list — it is the safe form, and denying it pushes people toward
@@ -311,7 +322,8 @@ reading arbitrary paths; they are frequent in any .NET tree and prompted every t
 **`Bash(git push:*)` is a deliberate, accepted risk, not an oversight — the repository owner was
 shown the gap below in full and chose to keep the grant anyway.** The deny-list pairs above are a
 real, measured improvement: every **unbundled** destructive spelling — `--force`, `-f`, `--mirror`,
-`--prune`, and the `+` force-refspec — in both leading and trailing position, is genuinely blocked.
+`--prune`, the `+` force-refspec, and the program-running `--receive-pack` (`--exec`) and their
+abbreviations — in both leading and trailing position, is genuinely blocked.
 `Bash(git push:*)` does not undo any of that, because deny beats allow. Deleting named remote refs,
 tags included, is allowed on purpose.
 
