@@ -23,6 +23,7 @@ EOF
 - `passphrase`: `null` for an unprotected palace, `{"env": "<variable name>"}`, or `{"file": "<key file path>"}`. The variable or file must already hold a non-empty passphrase. One trailing newline in a key file is ignored.
 - `kinds`: a list of strings. `moments`: a list drawn from `on-request`, `after-decision`, `end-of-task`.
 - Optional: `"remote": "<url>"` (folder backend only) and `"private": true` when the user confirmed the remote is private.
+- With a remote, this machine records its URL. Every later command refuses the palace while its `.git/config` names another origin, or names one when this machine recorded none.
 - Result: `{palace, default}`, and `warning` when the push did not happen (an unconfirmed remote, or a push that failed) or a protected palace sits in a git repository that does not ignore it. The new palace becomes this machine's default.
 - A remote that cannot be reached, or is not empty, refuses the setup, and nothing is written.
 - An unprotected palace inside a git repository that does not ignore it is refused, unless it is set up with a remote, which gives it a repository of its own: ignore the folder there, choose another folder, or turn on protection.
@@ -40,6 +41,7 @@ EOF
 - When `<dir>` is absent or empty, `join` clones `remote` into it. When `<dir>` already holds a palace, `remote` may be left out and nothing in the folder changes.
 - `passphrase` has the same shape as in `setup`, and is `null` for an unprotected palace. A protected palace is checked against it. A passphrase given for a palace whose settings say it is not protected is refused, and `join` never clears this machine's record that a palace is protected.
 - On a folder that already holds a palace, `join` records its passphrase source again, which is the fix when this machine's record has none.
+- For a folder this machine did not know, `join` records the palace's remote URL: the one it cloned from, or the origin the folder's `.git/config` names. For a known folder it keeps the recorded URL, and refuses when the folder's origin differs from it.
 - Result: `{joined, default}`. A folder this machine did not know becomes the default; a known one keeps the current default.
 
 ## remote
@@ -54,6 +56,7 @@ EOF
 
 - Pass `"private": true` only after the visibility check and the user's confirmation in [SKILL.md](SKILL.md). A protected palace pushes without it.
 - Result: `{remote, synced}`, and `warning` when the push did not happen. The remote must be empty, or hold this palace's own history.
+- `remote` records the URL on this machine. It is the one command that runs on a palace whose origin is not the recorded one; `status`, `join` and the others refuse it.
 - The URL is at most 2,048 characters with no control characters. A URL with a password, a token, a query, a fragment or a `::` form is refused.
 - Commits carry the author `memory-palace` and the current time, whatever the `GIT_AUTHOR_*` and `GIT_COMMITTER_*` variables say. Git never prompts on the terminal.
 - The palace's `.git/config` may hold only the keys that `git init`, `git clone` and `git remote add` write; any other key, `include.*` among them, is refused. On systems other than Windows, `.git` and `.git/config` must be owned by the user.

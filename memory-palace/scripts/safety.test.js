@@ -24,6 +24,7 @@ function sandbox(t, backend = 'folder', online = false) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'mp-safety-')));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const env = envFor(root);
+  const machineFile = path.join(env.XDG_CONFIG_HOME, 'memory-palace', 'config.json');
   const git = (args) => execFileSync('git', args, { env, timeout: 10000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   const remoteOf = new Map();
   const urlOf = new Map();
@@ -47,6 +48,9 @@ function sandbox(t, backend = 'folder', online = false) {
         envs.set(to, { ...env, GIT_CONFIG_GLOBAL: config });
         remoteOf.set(to, remote);
         urlOf.set(to, urlOf.get(from));
+        const record = JSON.parse(fs.readFileSync(machineFile, 'utf8'));
+        record.palaces[to] = record.palaces[from];
+        fs.writeFileSync(machineFile, JSON.stringify(record));
       }
       return to;
     },
@@ -732,6 +736,7 @@ test('hand clone tracking pending.<seed> is refused and loses no page', async (t
   withPalace(dir, (p) => p.save(memory('b')));
   const clone = path.join(root, 'hand-clone');
   git(['clone', '-q', '--branch', 'main', path.join(root, 'palace.remote.git'), clone]);
+  ok(await cli(env, ['join', '--palace', clone], { passphrase: null }));
   const livePage = pagePath(clone, pageId(seed, 0));
   assert.ok(fs.existsSync(livePage), 'the earlier save\'s text page is not live');
   const marker = `pending.${seed}`;

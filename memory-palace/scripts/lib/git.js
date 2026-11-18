@@ -57,7 +57,7 @@ function checkOwner(file) {
   }
 }
 
-function online(env, palace) {
+function online(env, palace, recorded) {
   const dir = path.join(palace, '.git');
   if (!fs.statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return false;
   checkOwner(dir);
@@ -67,7 +67,11 @@ function online(env, palace) {
   if (foreign) {
     throw new PalaceError(`${path.join(dir, 'config')} sets ${JSON.stringify(foreign[0])}, which memory-palace did not write. Remove it, then retry. Nothing was changed.`);
   }
-  if (entries.some(([key, value]) => key === 'remote.origin.url' && carriesSecret(value))) throw new PalaceError(SECRET_URL);
+  const origins = entries.filter(([key]) => key === 'remote.origin.url').map(([, value]) => value);
+  if (origins.some(carriesSecret)) throw new PalaceError(SECRET_URL);
+  if (recorded !== undefined && JSON.stringify(origins) !== JSON.stringify(recorded === null ? [] : [recorded])) {
+    throw new PalaceError(`the remote of ${palace} is not the one this machine recorded. It may have been changed outside memory-palace. If you set it, run remote with {"url": "<its URL>"} to set and record it again. Nothing was changed.`);
+  }
   return true;
 }
 

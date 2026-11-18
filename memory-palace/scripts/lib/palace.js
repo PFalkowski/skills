@@ -189,11 +189,12 @@ function optionalKey(input) {
 }
 
 function status(ctx) {
-  const dir = ctx.palace ? path.resolve(ctx.palace) : readMachine(ctx.env).default;
+  const machine = readMachine(ctx.env);
+  const dir = ctx.palace ? path.resolve(ctx.palace) : machine.default;
   if (!dir) return { palace: null };
   const settings = readSettings(dir);
   const { backend, kinds, moments, privateRemote } = settings;
-  const online = backend === 'folder' && git.online(ctx.env, dir);
+  const online = backend === 'folder' && git.online(ctx.env, dir, machine.palaces[fs.realpathSync(dir)]?.origin ?? null);
   return { palace: dir, backend, protected: settings.protected, online, remote: online ? git.originUrl(ctx.env, dir) : null, privateRemote, kinds, moments };
 }
 
@@ -256,12 +257,20 @@ function realTarget(dir) {
   return path.join(fs.realpathSync(parent), path.basename(dir));
 }
 
+const writeMachine = (env, machine) => writeReplacing(machineFile(env), `${JSON.stringify(machine, null, 2)}\n`);
+
 function register(env, palace, entry, makeDefault) {
   const machine = readMachine(env);
   if (makeDefault || !Object.hasOwn(machine.palaces, palace)) machine.default = palace;
   machine.palaces[palace] = entry;
-  writeReplacing(machineFile(env), `${JSON.stringify(machine, null, 2)}\n`);
+  writeMachine(env, machine);
   return machine.default;
+}
+
+function recordOrigin(env, palace, origin) {
+  const machine = readMachine(env);
+  machine.palaces[palace] = { ...machine.palaces[palace], origin };
+  writeMachine(env, machine);
 }
 
 function buildBeside(dir, build) {
@@ -307,7 +316,7 @@ function setup(target, options, ctx) {
     git.setOrigin(ctx.env, temp, options.remote);
     git.commit(ctx.env, temp);
   });
-  register(ctx.env, palace, { passphrase: options.passphrase, protected: Boolean(protection) }, true);
+  register(ctx.env, palace, { passphrase: options.passphrase, protected: Boolean(protection), origin: options.remote ?? null }, true);
   const result = { palace, default: palace, ...(warning && { warning }) };
   if (options.remote === undefined) return result;
   try {
@@ -319,26 +328,30 @@ function setup(target, options, ctx) {
   return result;
 }
 
-function checkJoined(dir, palace, passphrase, ctx) {
+function checkJoined(dir, palace, passphrase, ctx, recorded) {
   const settings = readSettings(dir);
   checkPin(settings, readMachine(ctx.env).palaces[palace], palace);
   if (!settings.protected && passphrase !== null) {
     throw new PalaceError(`settings mismatch: a passphrase was given, but the palace.json of ${palace} says it is not protected. Its settings may have been altered. Nothing was written.`);
   }
-  if (settings.backend === 'folder' && git.online(ctx.env, dir)) {
+  const online = settings.backend === 'folder' && git.online(ctx.env, dir, recorded);
+  if (online) {
     const foreign = git.foreignPaths(ctx.env, dir, 'HEAD');
     if (foreign.length > 0) throw git.foreignError(foreign, 'Nothing was written. Remove them from the remote and from this folder, then join again.');
   }
   if (settings.protected) unlockKeys(settings, { passphrase }, ctx.env, palace);
+  return online ? git.originUrl(ctx.env, dir) : null;
 }
 
 function join(target, options, ctx) {
   const dir = path.resolve(target);
   checkSource(options.passphrase);
   let palace;
+  let origin;
   if (fs.existsSync(path.join(dir, 'palace.json'))) {
     palace = fs.realpathSync(dir);
-    checkJoined(dir, palace, options.passphrase, ctx);
+    const known = readMachine(ctx.env).palaces[palace];
+    origin = checkJoined(dir, palace, options.passphrase, ctx, known && (known.origin ?? null));
   } else {
     checkUrl(options.remote, 'folder');
     const real = realTarget(dir);
@@ -346,10 +359,10 @@ function join(target, options, ctx) {
     palace = buildBeside(dir, (temp) => {
       git.clone(ctx.env, options.remote, temp, gitTimeout(ctx, true));
       if (!fs.existsSync(path.join(temp, 'palace.json'))) throw new PalaceError('the remote holds no palace: its main branch has no palace.json. Nothing was written.');
-      checkJoined(temp, real, options.passphrase, ctx);
+      origin = checkJoined(temp, real, options.passphrase, ctx);
     });
   }
-  const entry = { passphrase: options.passphrase, protected: readSettings(palace).protected };
+  const entry = { passphrase: options.passphrase, protected: readSettings(palace).protected, origin };
   return { joined: palace, default: register(ctx.env, palace, entry, false) };
 }
 
@@ -442,7 +455,7 @@ function open(ctx) {
     let result;
     const warnings = [];
     try {
-      const online = settings.backend === 'folder' && git.online(env, dir) ? dir : null;
+      const online = settings.backend === 'folder' && git.online(env, dir, command === 'remote' ? undefined : entry?.origin ?? null) ? dir : null;
       if (online) git.clearStaleLocks(online);
       store.checkLock();
       store.repair((bytes) => codec.decode(META, bytes), () => online && git.commit(env, online), () => online && git.refuseForeignHead(env, online));
@@ -535,6 +548,7 @@ function open(ctx) {
         git.checkRemote(env, existing, input.url, gitTimeout(ctx, true));
         if (!existing) git.init(env, dir);
         git.setOrigin(env, dir, input.url);
+        recordOrigin(env, palace, input.url);
         const pulled = pull(store, dir, false, true);
         if (pulled && input.private === true) throw new PalaceError(pulled);
         if (input.private === true) {

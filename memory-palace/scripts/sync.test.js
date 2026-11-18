@@ -925,7 +925,84 @@ test('a planted .git whose config sets core.sshCommand is refused by name', asyn
   assert.match(failed(await cli(env, ['recall'], { place: memory.place }), 'recall'), FOREIGN_KEY('core.sshCommand'));
 });
 
-test('a .git or .git/config not owned by the current user is refused', { skip: !process.getuid || process.getuid() === 0 }, async (t) => {
+const NOT_RECORDED = /the remote of .* is not the one this machine recorded/;
+
+test('a planted .git whose origin has a hook is refused and the hook never runs', async (t) => {
+  let marker;
+  let planted;
+  const { env, dir, memory } = await plantedGit(t, (box) => {
+    marker = box.at('hook-ran');
+    planted = box.bare('planted.git');
+    script(path.join(planted, 'hooks', 'pre-receive'), `touch '${marker}'`);
+    return `[remote "origin"]\n\turl = ${planted}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n`;
+  });
+  const before = hashes(dir);
+  for (const [args, input] of [[['save'], memoryOf(tag())], [['recall'], { place: memory.place }], [['status']]]) {
+    const result = await cli(env, args, input);
+    assert.match(failed(result, args[0]), NOT_RECORDED, args[0]);
+    assert.ok(!output(result).includes(planted), `${args[0]}: the planted URL was echoed`);
+  }
+  assert.ok(!fs.existsSync(marker), 'the planted hook ran');
+  assert.deepStrictEqual(hashes(dir), before);
+});
+
+test('join of a known folder keeps the recorded origin and refuses a planted one', async (t) => {
+  let marker;
+  let planted;
+  const { env, dir } = await plantedGit(t, (box) => {
+    marker = box.at('hook-ran');
+    planted = box.bare('planted.git');
+    script(path.join(planted, 'hooks', 'pre-receive'), `touch '${marker}'`);
+    return `[remote "origin"]\n\turl = ${planted}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n`;
+  });
+  git(env, ['-C', dir, 'add', '-f', '--', 'palace.json', 'meta', 'pages', '.gitignore']);
+  git(env, ['-C', dir, 'commit', '-q', '-m', 'planted']);
+  const record = readFile(machineFile(env));
+  for (const [args, input] of [[['join', '--palace', dir], { passphrase: { env: VAR } }], [['save'], memoryOf(tag())]]) {
+    const result = await cli(env, args, input);
+    assert.match(failed(result, args[0]), NOT_RECORDED, args[0]);
+    assert.ok(!output(result).includes(planted), `${args[0]}: the planted URL was echoed`);
+  }
+  assert.strictEqual(readFile(machineFile(env)), record);
+  assert.ok(!fs.existsSync(marker), 'the planted hook ran');
+});
+
+test('an origin changed by hand is refused and nothing is pushed there',async (t) => {
+  const box = sandbox(t);
+  const { env } = box;
+  const { dir, remote } = onlinePalace(box, { settings: PROTECTED });
+  const other = box.bare('other.git');
+  for (const change of [['config', 'remote.origin.url', other], ['config', '--add', 'remote.origin.url', other]]) {
+    git(env, ['-C', dir, 'config', 'remote.origin.url', remote]);
+    git(env, ['-C', dir, ...change]);
+    assert.match(failed(await cli(env, ['save', '--palace', dir], memoryOf(tag())), change.join(' ')), NOT_RECORDED);
+    assert.strictEqual(refs(env, other), '');
+  }
+});
+
+test('remote with the recorded URL is the way out of a changed origin', async (t) => {
+  const box = sandbox(t);
+  const { env } = box;
+  const { dir, remote } = onlinePalace(box);
+  git(env, ['-C', dir, 'config', 'remote.origin.url', box.bare('other.git')]);
+  ok(await cli(env, ['remote', '--palace', dir], { url: remote, private: true }));
+  assert.strictEqual(JSON.parse(readFile(machineFile(env))).palaces[dir].origin, remote);
+  assert.strictEqual(ok(await cli(env, ['save', '--palace', dir], memoryOf(tag()))).synced, true);
+  assert.strictEqual(mainOf(env, remote), headOf(env, dir));
+});
+
+test('a palace whose machine record was lost is refused until joined again', async (t) => {
+  const box = sandbox(t);
+  const { env } = box;
+  const { dir, remote } = onlinePalace(box);
+  fs.rmSync(machineFile(env));
+  assert.match(failed(await cli(env, ['save', '--palace', dir], memoryOf(tag())), 'save'), NOT_RECORDED);
+  ok(await cli(env, ['join', '--palace', dir], { passphrase: null }));
+  assert.strictEqual(ok(await cli(env, ['save', '--palace', dir], memoryOf(tag()))).synced, true);
+  assert.strictEqual(mainOf(env, remote), headOf(env, dir));
+});
+
+test('a .git or .git/config not owned by the current user is refused',{ skip: !process.getuid || process.getuid() === 0 }, async (t) => {
   const { env, dir, memory } = await plantedGit(t, () => '');
   const config = path.join(dir, '.git', 'config');
   fs.rmSync(config);

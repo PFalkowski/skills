@@ -20,9 +20,11 @@ Two kinds of file fail that test here:
 
 - **The palace.** It is the user's data. Deleting it loses the memories.
 - **The machine record.** It names the palace folders on this machine, where the passphrase
-  comes from (an environment variable name or a key-file path), and whether each palace was set
-  up as protected. Deleting it loses the way back to the palace. It also loses the check that
-  stops a palace whose synced settings were changed to "unprotected" from being written in clear.
+  comes from (an environment variable name or a key-file path), whether each palace was set
+  up as protected, and the remote URL the skill set for it. Deleting it loses the way back to the
+  palace. It also loses the check that stops a palace whose synced settings were changed to
+  "unprotected" from being written in clear, and the check that stops git from pushing to a
+  remote someone changed in the palace folder.
 
 ## Decision
 
@@ -35,7 +37,7 @@ Two kinds of file fail that test here:
   derivation parameters and salt, the passphrase check, kinds, moments, the confirmed-private
   remote URL) live inside the palace folder. Settings that differ per machine live in the
   machine record. The remote URL lives in the palace's own git configuration, which is never
-  committed.
+  committed, and the machine record holds a copy that the configuration must match.
 - `memory-palace` keeps no operational state of its own. While a command runs, a folder-backend
   palace also holds its lock file, and during a write a pending marker; a SQLite palace holds
   SQLite's journal. These are part of the store's format, like a database journal, not run

@@ -106,6 +106,7 @@ Match the error's opening words below. On any error this list does not name, sto
 
 - **"<palace>/.git/config sets ..., which memory-palace did not write"**: show the message. The user removes that key (`git -C <palace> config --unset <key>`) and, if they need it, sets it in their global git configuration as above. Then retry.
 - **"... is not owned by the current user"**: show the message; the user fixes the owner. Do not retry until they have.
+- **"the remote of <palace> is not the one this machine recorded"**: show the message. If the user did not change the remote, treat the palace folder as tampered with and do not run `remote` until they have looked. If they did, run `remote` with its URL.
 - **"the remote URL carries a password or token"**: at `setup` or `remote`, ask for a URL without it. On an existing palace, ask the user to run `git -C <palace> remote set-url origin <URL without the secret>`; never print the current URL.
 - **"saved in the palace files, but <step> failed"**: the change is kept and the next command finishes it. Tell the user. Do not save again.
 - **"the remote holds files memory-palace did not write"**: on a read, say the answer comes from the local copy. Otherwise do not save or sync until the user removes those files where the message says.
@@ -128,6 +129,7 @@ Tell the user this when they choose protection, and whenever they ask.
 - Whatever the agent saves or recalls passes through the conversation. The harness keeps it in clear in its session transcripts, and the shell command line holds the input while a command runs.
 - Crash dumps, swap and hibernation can hold decrypted memories, the key and the passphrase.
 - A lost passphrase loses the palace. `forget` does not erase earlier versions from git history or backups.
+- A remote given as a local path runs that repository's own hooks when the skill pushes to it. Use a local-path remote only if you control it.
 - Someone who controls the remote or a backup can roll the whole palace back to an older valid state. That brings back forgotten memories and undoes corrections, and the skill cannot detect it.
 - The lock cannot fully guard against two machines writing through a synced or network folder, or someone deleting the lock file. Each can corrupt the palace and lose memories. Write from one machine at a time.
 - The recorded moments apply only in sessions where this skill is loaded.
