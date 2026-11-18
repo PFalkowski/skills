@@ -38,205 +38,113 @@ as blocked, and print what `git check-ignore -v <folder>/` says
 - **A promise that needs a proof**: build the strongest bounded check, state its bound, and record
   the proof as an open item.
 
-## 4. Show it able to fail, without touching other work
+## 4. Show it able to fail, in a scratch copy
 
-A broken variant is a scratch change to the real code. The working tree holds it only while one
-command runs: that command takes the backup, puts the variant in, runs the check, puts the
-originals back and proves it. Nothing else in this step writes to the tree. Never use `git stash`,
-`git checkout -- <file>` or `git reset` here: the stash is shared with other sessions, and checkout
-and reset destroy uncommitted work.
+A broken variant is a scratch change to the real code, such as a removed check or a reordered
+step. Make it and run it in a scratch copy of the code. No command in this step writes to the
+working tree, so uncommitted work is never at risk. Never edit the working tree to show a check
+failing, and never use `git stash`, `git checkout -- <file>` or `git reset` here.
 
-Each attempt gets its own run folder under
-`~/.agent-state/<repo-slug>/formal-check/<check-name>/`. Run folders are evidence and are never
-deleted. Where the repo sets `AGENTS_STATE`, that folder replaces `~/.agent-state/<repo-slug>`
-([agent-state](../docs/agent-state.md)); write it as an absolute path. The blocks below are bash.
-Shell variables do not last from one command to the next, so every block starts from a literal
-path printed by an earlier one.
+The blocks below are bash. Shell variables do not last from one command to the next, so each
+later block starts from the two literal paths the first one prints.
 
-A run folder holds `tree` (the top folder of the worktree it belongs to), `files` (the files the
-variant changes, one path per line, relative to that folder), `variant/` and `orig/` (the changed
-and the original copies), and the markers `applied` (written just before the first swap) and
-`restored`.
-
-**4.1. Guard, then make the run folder.** Run from the top folder of the target repo. A run of any
-formal-check check that was applied and never restored blocks a new run in the same tree.
+**4.1. Make the scratch copy.** Run from inside the target repo.
 
 ```bash
-F=~/.agent-state/<repo-slug>/formal-check
-S="$F/<check-name>"
-top=$(git rev-parse --show-toplevel)
-blocked=0
-for d in "$F"/*/run.*; do
-  [ -f "$d/applied" ] && [ ! -f "$d/restored" ] || continue
-  t=$(cat "$d/tree")
-  if [ "$t" = "$top" ]; then
-    echo "REFUSED: run $d of tree $t was applied and not restored; recover it with step 4.6"
-    blocked=1
-  elif [ -d "$t" ]; then
-    echo "REPORT ONLY: run $d of tree $t was applied and not restored; it belongs to that tree, so leave it to work done there"
-  else
-    echo "ABANDONED: run $d of tree $t was applied and not restored, and that tree no longer exists"
-  fi
+top=$(git rev-parse --show-toplevel) && scratch=$(mktemp -d) &&
+  git -C "$top" checkout-index -a --prefix="$scratch/" &&
+  echo "top folder: $top" && echo "scratch copy: $scratch"
+```
+
+The copy holds every tracked file as the index has it. It is a plain folder in the system temp
+folder, with no `.git` folder in it. It stays there after this step: remove it when you no longer
+need it.
+
+**4.2. Copy in what the index does not hold.** Changes that are not staged, and files git does not
+track, are not in the copy. Copy the covered files, the check's own files and, for a model check,
+the model and its config from the working tree into the copy. `git status --porcelain` lists every
+file that differs from the index: copy each one the check reads.
+
+```bash
+top=<the top folder printed in 4.1>
+scratch=<the scratch copy printed in 4.1>
+if cd "$top" && [ -d "$scratch" ]; then
+  for f in <each file, as a path relative to the top folder>; do
+    mkdir -p "$scratch/$(dirname "$f")" && cp "$f" "$scratch/$f" || echo "NOT COPIED: $f"
+  done
+else
+  echo "NOT STARTED: the top folder or the scratch copy is missing"
+  false
+fi
+```
+
+**4.3. Run the check in the copy, unchanged.**
+
+```bash
+scratch=<the scratch copy printed in 4.1>
+( cd "$scratch" && <the check's command> )
+echo "CHECK EXIT STATUS: $?"
+```
+
+It must pass. A pass also shows that the check runs in the copy. If it fails, run the check in the
+working tree:
+
+- It fails there too: stop. That failure is a finding on the real code (step 5), and the check has
+  now been seen to fail.
+- It passes there: the copy lacks something the check needs, usually installed dependencies or
+  build outputs that git ignores. Set them up in the copy the way the repo's own instructions say,
+  then run this block again. If the check cannot be made to pass in a copy, stop and report that
+  it was not shown able to fail.
+
+**4.4. Put the variant in the copy.** Edit the files under the scratch copy, by their full paths
+there, never the files in the working tree. For a model check, change the code in the copy, then
+rewrite the model's actions in the copy from that changed code, each citing path:line. Then print
+the variant:
+
+```bash
+top=<the top folder printed in 4.1>
+scratch=<the scratch copy printed in 4.1>
+sleep 1
+for f in <each file the variant changes, as a path relative to the top folder>; do
+  touch "$scratch/$f"
+  diff -u "$top/$f" "$scratch/$f"
 done
-if [ "$blocked" = 0 ] && [ -n "$top" ]; then
-  mkdir -p "$S" && run=$(mktemp -d "$S/run.XXXXXX") && printf '%s\n' "$top" > "$run/tree" && echo "run folder: $run"
-else
-  false
-fi
 ```
 
-On a REFUSED line, or outside a git repository, the command exits 1 and creates nothing. A REPORT
-ONLY or ABANDONED line does not block; put it in the handoff.
+What it prints is the variant, and it goes in the handoff. `diff` exits 1 for a file that differs,
+which is expected here. A file that prints nothing is the same in both places: the variant is not
+in the copy. The block also waits a second and then gives each changed file a new modification
+time. Without that, a tool that judges by time can run the check on what it built from the
+unchanged file: Python kept its bytecode when a variant of the same size was written in the same
+second as the copy.
 
-**4.2. Prepare the variant outside the tree.** Copy each file the variant changes into the run
-folder, then edit the copies under `variant/` there, never the files in the tree. For a model
-check, these files are the model and its config, together with every code file the broken model is
-rewritten from; rewrite the model's actions from the changed code, each citing path:line. The block
-runs once per run folder: a second run would reset the edited copies, so it refuses.
-
-```bash
-run=<the run folder printed in 4.1>
-if [ -e "$run/files" ]; then
-  echo "NOT STARTED: $run already lists its files; edit the copies under $run/variant, or start again from 4.1"
-  false
-elif cd "$(cat "$run/tree")"; then
-  for f in <each file the variant changes, as a path relative to the top folder>; do
-    mkdir -p "$run/variant/$(dirname "$f")" && cp "$f" "$run/variant/$f" && printf '%s\n' "$f" >> "$run/files"
-  done
-else
-  false
-fi
-```
-
-**4.3. Run the check once on the unchanged code.** It must pass. If it fails, stop: that failure is
-a finding on the real code (step 5), and the check has now been seen to fail.
-
-**4.4. Back up, swap in, run, restore and prove, in one command.** Put the check's command where
-the block says. The block sets no `set -e`, so a failing check never skips the restore. It does
-not start on a run folder that was used before, that lists no files, or whose variant copies all
-equal the tree files, or while another run that was applied in this tree is not restored. After
-the swap it compares each tree file with its variant copy; on any mismatch it skips the check and
-still restores. The restore puts an original back only where the file still holds the variant, so
-it never overwrites a file that changed in the meantime.
-
-```bash
-run=<the run folder printed in 4.1>
-ok=0
-if [ -e "$run/applied" ] || [ ! -s "$run/files" ]; then
-  echo "NOT STARTED: $run was used before or lists no files; start again from 4.1"
-elif cd "$(cat "$run/tree")"; then
-  ok=1
-  for d in "$(dirname "$(dirname "$run")")"/*/run.*; do
-    [ -f "$d/applied" ] && [ ! -f "$d/restored" ] && [ "$(cat "$d/tree")" = "$(cat "$run/tree")" ] || continue
-    echo "NOT STARTED: run $d was applied in this tree and not restored; recover it with step 4.6"
-    ok=0
-  done
-fi
-if [ "$ok" = 1 ]; then
-  changed=0
-  while IFS= read -r f; do
-    mkdir -p "$run/orig/$(dirname "$f")" && cp "$f" "$run/orig/$f" && [ -f "$run/variant/$f" ] ||
-      { echo "NO BACKUP: $f; nothing in the tree was changed"; ok=0; }
-    cmp -s "$run/variant/$f" "$f" || changed=1
-  done < "$run/files"
-  if [ "$ok" = 1 ] && [ "$changed" = 0 ]; then
-    echo "NOT STARTED: every copy under $run/variant equals its tree file; edit the copies first"
-    ok=0
-  fi
-fi
-if [ "$ok" = 1 ]; then
-  touch "$run/applied"
-  sleep 1
-  while IFS= read -r f; do cp "$run/variant/$f" "$f"; done < "$run/files"
-  while IFS= read -r f; do
-    cmp -s "$run/variant/$f" "$f" || { echo "NOT SWAPPED: $f does not match its variant copy; the check was skipped"; ok=0; }
-  done < "$run/files"
-  if [ "$ok" = 1 ]; then
-    ( <the check's command> )
-    echo "CHECK EXIT STATUS: $?"
-  fi
-  sleep 1
-  back=1
-  while IFS= read -r f; do
-    if cmp -s "$run/variant/$f" "$f"; then cp "$run/orig/$f" "$f"; fi
-    cmp -s "$run/orig/$f" "$f" || { echo "NOT RESTORED: $f in tree $PWD does not hold its original; see step 4.6"; back=0; ok=0; }
-  done < "$run/files"
-  [ "$back" = 1 ] && touch "$run/restored" && echo "RESTORED: every file in $run/files matches its copy in $run/orig"
-fi
-[ "$ok" = 1 ]
-```
-
-The block waits one second before the swap and one before the restore, and the restore uses plain
-`cp`, never `cp -p`. So the variant gets a modification time in a later second than anything built
-from the original, and each restored file gets one in a later second than the variant. Both traps
-were seen: with `cp -p`, `make` kept an output it built from the variant; with a restore in the
-same second as the swap, Python kept the bytecode it compiled from the variant. Plain `cp` onto
-an existing file keeps that file's mode. The per-file `cmp` is the proof that the tree is back:
-`git status` and `git diff` do not show an untracked file left in its broken state. If the command
-is cut short, nothing restores the tree on the spot: the next 4.1 or 4.4 in that tree refuses, and
-4.6 recovers it.
-
-**4.5. Read the result.** The check must have failed in 4.4: for TLC, exit 12 and the line naming
-the invariant ([TLC.md](TLC.md)); for an every-input check, a failing property. If it passed, the
-check cannot see the break: fix the check, not the variant.
-
-**4.6. Recover a run.** Only after a REFUSED line, a NOT STARTED line that names an unrestored
-run, a NOT RESTORED line, or a 4.4 command that was cut short. The block changes into the tree the
-run names and puts back each file that still holds the variant. It is safe to run even while that
-run's 4.4 command is still going, because both restores leave a file alone unless it still holds
-the variant. A check that was running at the time then proves nothing: start that run again from
-4.1.
-
-```bash
-run=<the run folder to recover>
-ok=0
-if cd "$(cat "$run/tree")"; then
-  ok=1
-  while IFS= read -r f; do
-    if cmp -s "$run/orig/$f" "$f"; then
-      echo "ALREADY ORIGINAL: $f"
-    elif cmp -s "$run/variant/$f" "$f"; then
-      cp "$run/orig/$f" "$f" && cmp -s "$run/orig/$f" "$f" && echo "RESTORED: $f" ||
-        { echo "NOT RESTORED: $f in tree $PWD"; ok=0; }
-    else
-      echo "CHANGED SINCE: $f in tree $PWD matches neither its original nor the variant; left as it is"
-      ok=0
-    fi
-  done < "$run/files"
-fi
-[ "$ok" = 1 ] && touch "$run/restored" && echo "RUN RESTORED: $run"
-```
-
-A CHANGED SINCE file was edited after the variant went in, so copying the original back
-would lose that edit. `diff -u "$run/orig/<f>" "$run/variant/<f>"` shows exactly what the variant
-changed: take that change out of the file by hand, then mark the run with
-`touch "$run/restored"`, using the literal run folder.
+**4.5. Run the check in the copy again,** with the block from 4.3. It must fail: for TLC, exit 12
+and the line naming the invariant ([TLC.md](TLC.md)); for an every-input check, a failing property.
+If it passes, the check cannot see the break: fix the check, not the variant.
 
 **What step 4 does not handle:**
 
-- a shell that is not bash;
-- a variant that adds, deletes or renames a file, changes its mode, or edits a symbolic link: it
-  edits regular files that already exist;
-- another process that edits the same files while 4.4 runs, or two 4.4 commands started at once in
-  one tree;
-- derived files: the restore gives every listed file a later modification time, so tools that
-  judge by time rebuild; a tool that caches by other means is for the check's command to clear.
+- a check that needs git history: the copy has no `.git` folder;
+- submodules, and files git ignores such as installed dependencies: the copy holds them only if
+  you put them there;
+- a check that cannot run outside the working tree: it is reported as not shown able to fail.
 
 Commands: [git-rev-parse](https://git-scm.com/docs/git-rev-parse) (`--show-toplevel`),
+[git-checkout-index](https://git-scm.com/docs/git-checkout-index) (`-a` writes every file in the
+index, `--prefix` writes them under another folder),
+[git-status](https://git-scm.com/docs/git-status) (`--porcelain`),
 [mktemp](https://www.gnu.org/software/coreutils/manual/html_node/mktemp-invocation.html), the
 POSIX utilities [mkdir](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/mkdir.html),
-[cat](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/cat.html),
-[dirname](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/dirname.html) (trailing
-slashes are ignored),
+[dirname](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/dirname.html),
+[cp](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/cp.html),
+[diff](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/diff.html) (exit 1 when the
+files differ), [sleep](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/sleep.html),
 [touch](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/touch.html),
-[cp](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/cp.html) (an existing target is
-opened and truncated, so its mode stays),
-[cmp](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/cmp.html) (exit 0 when
-identical, `-s` prints nothing),
-[diff](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/diff.html),
-[read](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/read.html) (`-r` keeps
-backslashes) and [sleep](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/sleep.html);
-and the `for`, `while`, `if` and `( )` forms of the
+[echo](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/echo.html),
+[cd](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/cd.html),
+[test](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/test.html) (written `[ ]`) and
+[false](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/false.html); and the `for`,
+`if` and `( )` forms of the
 [POSIX shell language](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/V3_chap02.html).
 
 ## 5. Run the check on the real code
@@ -286,8 +194,7 @@ skill: fix it.
 ## 9. Hand off
 
 Report what was checked, which tool and why, the bounds, the findings in plain words, the command,
-what it does not cover, and any library added. Name the state root the run folders are under, and
-list every REFUSED, REPORT ONLY, ABANDONED, NOT RESTORED and CHANGED SINCE line from step 4, and
-every NOT STARTED line that names another run. CREATE does not edit the target repo's continuous
-integration (CI). A check that needs a new toolchain, such as TLC, is reported with its command
-and "not in CI".
+what it does not cover, and any library added. For step 4, give the scratch copy's path, the
+variant as `diff` printed it, and the check's result before and after the variant. CREATE does not
+edit the target repo's continuous integration (CI). A check that needs a new toolchain, such as
+TLC, is reported with its command and "not in CI".

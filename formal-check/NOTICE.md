@@ -21,10 +21,9 @@ and
   the proof as an open item.
 - The project skill has a fixed location, and records its sync commit on a line of its own that
   MAINTAIN can find.
-- Showing a check able to fail puts the broken variant in the tree only while one command runs,
-  which backs up, swaps in, runs the check, restores and proves each file with `cmp`, keeping its
-  evidence in a run folder outside the tree; a run cut short blocks the next one until a recover
-  step puts it right.
+- Showing a check able to fail happens in a scratch copy of the code: the tracked files are
+  exported to a temp folder, the broken variant is made and run there, and the working tree is
+  only read.
 
 ## Upstream licence
 

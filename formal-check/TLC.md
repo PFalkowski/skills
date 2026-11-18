@@ -54,7 +54,7 @@ echo "TLC EXIT STATUS: $status"
 ```
 
 The block ends with TLC's own exit status, so it can stand as the check's command in CREATE step
-4.4. `(exit "$status")` leaves only a subshell, so pasting the block into a terminal does not
+4. `(exit "$status")` leaves only a subshell, so pasting the block into a terminal does not
 close it ([POSIX shell language](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/V3_chap02.html),
 `exit`). If `mktemp` fails, nothing is copied and the status line shows `mktemp`'s status.
 

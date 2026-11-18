@@ -63,8 +63,8 @@ product code unless asked. Never weaken a property or a model to make it pass.
    Change a property only for a promise that changed on purpose, and record the old wording, the
    new wording and the evidence. Keep the bounds, or say which one was reduced and why.
 6. **Rerun.**
-   - On a pass, show the updated check can still fail: repeat CREATE step 4 with its own new run
-     folder, breaking the new code the way the property guards against.
+   - On a pass, show the updated check can still fail: repeat CREATE step 4 in a new scratch
+     copy, breaking the new code the way the property guards against.
    - On a failure, replay the counterexample against the code, step by step. A step the code
      cannot take means the verification is wrong: fix it and say what was wrong. Otherwise it is a
      bug: name the commit that introduced it, tell the steps in the code's words, and state the

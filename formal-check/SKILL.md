@@ -20,7 +20,7 @@ scope: every order of steps in a small model, or every input up to a bound.
   in one plain sentence each. This is not the manager's ledger tag of the same name.
 - **Check**: the one command that tests a promise.
 - **Broken variant**: a scratch change to the real code that breaks the promise, such as a removed
-  check or a reordered step.
+  check or a reordered step. It is made in a scratch copy, never in the working tree.
 - **Project skill**: the skill CREATE leaves in the target repo, so the next agent can run the
   check and keep it true.
 - **Coverage record**: the files and functions a check covers.
@@ -81,9 +81,9 @@ code under them. A real check cites path:line on every action.
 
 Inside the target repo, formal-check writes the project skill, the check's own files (a model sits
 in the project skill's folder; an every-input harness sits with the repo's tests), and any
-test-only dependency, named in the handoff. Outside it, it writes two things and nothing else:
-able-to-fail run folders under `~/.agent-state/<repo-slug>/formal-check/<check-name>/`, and TLC
-work folders in the system temp folder ([TLC.md](TLC.md) says what they hold).
+test-only dependency, named in the handoff. Outside it, it writes two things and nothing else,
+both in the system temp folder: scratch copies of the code, where a check is shown able to fail
+([CREATE.md](CREATE.md) step 4), and TLC work folders ([TLC.md](TLC.md) says what they hold).
 
 ## Attribution
 
