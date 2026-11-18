@@ -18,6 +18,7 @@
     "./fact-check",
     "./fix-pr",
     "./fix-windows-terminal-rendering",
+    "./formal-check",
     "./go-go-go",
     "./handoff",
     "./housekeeping",
