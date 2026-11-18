@@ -16,6 +16,7 @@ const LOCK_WAIT_MS = 60000;
 const TREE = { m: 128, L: 32 };
 const TREE_MOST = 1024;
 const MOST_KINDS = 32;
+const MOST_URL = 2048;
 const MOMENTS = ['on-request', 'after-decision', 'end-of-task'];
 const GITIGNORE = 'lock\n*.tmp\npending.*\n';
 const WRITES = new Set(['save', 'forget', 'sync', 'remote', 'check']);
@@ -139,6 +140,7 @@ function readSettings(dir) {
 
 const isIntIn = (n, least, most) => Number.isInteger(n) && n >= least && n <= most;
 const plainKind = (kind) => typeof kind === 'string' && kind.length > 0 && kind.length <= LIMITS.kind && !CONTROL.test(kind);
+const plainUrl = (url) => typeof url === 'string' && url.length <= MOST_URL && !CONTROL.test(url);
 
 function badLists({ kinds, moments }) {
   if (!Array.isArray(kinds) || kinds.length > MOST_KINDS || !kinds.every(plainKind)) {
@@ -162,6 +164,9 @@ function parseSettings(text, file) {
   }
   const bad = badLists(settings);
   if (bad) throw new PalaceError(`${file}: ${bad}. Nothing was changed.`);
+  if (settings.privateRemote !== null && !plainUrl(settings.privateRemote)) {
+    throw new PalaceError(`${file} has a privateRemote that is neither null nor a URL of at most ${MOST_URL} characters with no control characters. Nothing was changed.`);
+  }
   if (settings.protected && !validKdf(settings.kdf)) {
     throw new PalaceError(`${file} has scrypt parameters outside N 2^14 to 2^20, r 8, p 1. Nothing was changed.`);
   }
@@ -188,7 +193,7 @@ function status(ctx) {
   if (!dir) return { palace: null };
   const settings = readSettings(dir);
   const { backend, kinds, moments, privateRemote } = settings;
-  const online = backend === 'folder' && git.online(dir);
+  const online = backend === 'folder' && git.online(ctx.env, dir);
   return { palace: dir, backend, protected: settings.protected, online, remote: online ? git.originUrl(ctx.env, dir) : null, privateRemote, kinds, moments };
 }
 
@@ -202,6 +207,7 @@ function checkUrl(url, backend) {
     throw new PalaceError('a SQLite palace cannot have a git remote: git would keep a full copy of the database for every save. Use the folder backend for a palace with a remote. Nothing was written.');
   }
   if (typeof url !== 'string' || url === '') throw new PalaceError('the remote URL must be a non-empty string. Nothing was written.');
+  if (!plainUrl(url)) throw new PalaceError(`the remote URL must be at most ${MOST_URL} characters with no control characters. Nothing was written.`);
   if (git.carriesSecret(url)) throw new PalaceError('the remote URL carries a password or token. Use a credential helper or ssh. Nothing was written.');
 }
 
@@ -319,7 +325,7 @@ function checkJoined(dir, palace, passphrase, ctx) {
   if (!settings.protected && passphrase !== null) {
     throw new PalaceError(`settings mismatch: a passphrase was given, but the palace.json of ${palace} says it is not protected. Its settings may have been altered. Nothing was written.`);
   }
-  if (settings.backend === 'folder' && git.online(dir)) {
+  if (settings.backend === 'folder' && git.online(ctx.env, dir)) {
     const foreign = git.foreignPaths(ctx.env, dir, 'HEAD');
     if (foreign.length > 0) throw git.foreignError(foreign, 'Nothing was written. Remove them from the remote and from this folder, then join again.');
   }
@@ -400,7 +406,6 @@ function open(ctx) {
   checkPin(settings, entry, palace);
   const keys = settings.protected ? unlockKeys(settings, entry, env, palace) : null;
   const codec = codecFor(keys);
-  const repo = () => (settings.backend === 'folder' && git.online(dir) ? dir : null);
 
   function checkPulled(text) {
     const pulled = parseSettings(text, "the remote's palace.json");
@@ -436,7 +441,7 @@ function open(ctx) {
     let result;
     const warnings = [];
     try {
-      const online = repo();
+      const online = settings.backend === 'folder' && git.online(env, dir) ? dir : null;
       if (online) git.clearStaleLocks(online);
       store.checkLock();
       store.repair((bytes) => codec.decode(META, bytes), () => online && git.commit(env, online), () => online && git.refuseForeignHead(env, online));
@@ -458,8 +463,9 @@ function open(ctx) {
   }
 
   function unsynced(online) {
-    const why = online && git.originUrl(env, online) !== null ? pushed(online, false) : undefined;
-    return why === undefined ? { synced: Boolean(online), warnings: [] } : { synced: false, warnings: [notSynced(why)] };
+    if (!online || git.originUrl(env, online) === null) return { synced: false, warnings: [] };
+    const why = pushed(online, false);
+    return why === undefined ? { synced: true, warnings: [] } : { synced: false, warnings: [notSynced(why)] };
   }
 
   const shown = ([key, { title, summary, kind, saved }]) => ({ place: showPlace(key), title, summary, kind, saved });
@@ -524,8 +530,7 @@ function open(ctx) {
     },
     setRemote(input) {
       checkUrl(input.url, settings.backend);
-      return operate('remote', ({ store }) => {
-        const existing = repo();
+      return operate('remote', ({ store, online: existing }) => {
         git.checkRemote(env, existing, input.url, gitTimeout(ctx, true));
         if (!existing) git.init(env, dir);
         git.setOrigin(env, dir, input.url);

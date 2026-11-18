@@ -5,18 +5,23 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { PalaceError } = require('./errors.js');
 
-const LOCATION_VARIABLES = [
+const DROPPED_VARIABLES = [
   'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_CONFIG', 'GIT_CONFIG_PARAMETERS', 'GIT_CONFIG_COUNT', 'GIT_OBJECT_DIRECTORY',
   'GIT_DIR', 'GIT_WORK_TREE', 'GIT_IMPLICIT_WORK_TREE', 'GIT_GRAFT_FILE', 'GIT_INDEX_FILE', 'GIT_NO_REPLACE_OBJECTS',
-  'GIT_REPLACE_REF_BASE', 'GIT_PREFIX', 'GIT_SHALLOW_FILE', 'GIT_COMMON_DIR',
+  'GIT_REPLACE_REF_BASE', 'GIT_PREFIX', 'GIT_SHALLOW_FILE', 'GIT_COMMON_DIR', 'GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_AUTHOR_DATE',
+  'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL', 'GIT_COMMITTER_DATE',
 ];
 const OWNED = ['palace.json', 'meta', path.join('pages', '00', '0'), 'palace.db', '.gitignore'];
 const OWNED_PATHS = ['palace.json', 'meta', 'pages', '.gitignore'];
 const OWNED_FILE = /^(palace\.json|meta|\.gitignore|pages\/[0-9a-f]{2}\/[0-9a-f]{32})$/;
 const CONFINED = [
   '-c', 'core.hooksPath=/dev/null', '-c', 'core.excludesFile=/dev/null', '-c', 'commit.gpgsign=false', '-c', 'maintenance.auto=false',
-  '-c', 'gc.autoDetach=false', '-c', 'user.name=memory-palace', '-c', 'user.email=memory-palace@localhost',
+  '-c', 'gc.autoDetach=false', '-c', 'user.name=memory-palace', '-c', 'user.email=memory-palace@localhost', '-c', 'core.fsmonitor=false',
 ];
+const WRITTEN_KEYS = new Set([
+  'core.repositoryformatversion', 'core.filemode', 'core.bare', 'core.logallrefupdates', 'core.symlinks', 'core.ignorecase', 'core.precomposeunicode',
+  'extensions.objectformat', 'extensions.refstorage', 'remote.origin.url', 'remote.origin.fetch', 'branch.main.remote', 'branch.main.merge',
+]);
 const LOCAL_TIMEOUT_MS = 120000;
 const STALE_LOCK_MS = 10000;
 
@@ -25,13 +30,13 @@ const DIVERGED = 'this palace and its remote have both changed since they last m
 
 function scrubbed(env) {
   const clean = { ...env };
-  for (const name of LOCATION_VARIABLES) delete clean[name];
+  for (const name of DROPPED_VARIABLES) delete clean[name];
   return clean;
 }
 
 function git(env, args, { timeoutMs, repo } = {}) {
-  const confined = repo && { GIT_DIR: path.join(repo, '.git'), GIT_WORK_TREE: repo, GIT_TERMINAL_PROMPT: '0' };
-  const result = spawnSync('git', args, { env: { ...scrubbed(env), ...confined }, cwd: repo, encoding: 'utf8', timeout: timeoutMs, stdio: ['ignore', 'pipe', 'pipe'] });
+  const confined = repo && { GIT_DIR: path.join(repo, '.git'), GIT_WORK_TREE: repo };
+  const result = spawnSync('git', args, { env: { ...scrubbed(env), GIT_TERMINAL_PROMPT: '0', ...confined }, cwd: repo, encoding: 'utf8', timeout: timeoutMs, stdio: ['ignore', 'pipe', 'pipe'] });
   if (result.error?.code === 'ETIMEDOUT') throw new PalaceError(`git ${args.find((arg) => !arg.startsWith('-') && !arg.includes('='))} timed out after ${timeoutMs / 1000} s`);
   if (result.error) throw result.error;
   return result;
@@ -43,7 +48,25 @@ function run(env, repo, args, { timeoutMs = LOCAL_TIMEOUT_MS, allow = [0] } = {}
   return result;
 }
 
-const online = (palace) => fs.statSync(path.join(palace, '.git'), { throwIfNoEntry: false })?.isDirectory() ?? false;
+function checkOwner(file) {
+  const owner = fs.statSync(file, { throwIfNoEntry: false })?.uid;
+  if (process.getuid && owner !== undefined && owner !== process.getuid()) {
+    throw new PalaceError(`${file} is not owned by the current user, so memory-palace will not run git on it. Nothing was changed.`);
+  }
+}
+
+function online(env, palace) {
+  const dir = path.join(palace, '.git');
+  if (!fs.statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return false;
+  checkOwner(dir);
+  checkOwner(path.join(dir, 'config'));
+  const keys = run(env, palace, ['config', '--local', '--list', '-z']).stdout.split('\0').map((entry) => entry.split('\n')[0]);
+  const foreign = keys.find((key) => key && !WRITTEN_KEYS.has(key));
+  if (foreign) {
+    throw new PalaceError(`${path.join(dir, 'config')} sets ${JSON.stringify(foreign)}, which memory-palace did not write. Remove it, then retry. Nothing was changed.`);
+  }
+  return true;
+}
 
 const init = (env, dir) => run(env, undefined, ['init', '-q', '-b', 'main', dir]);
 
@@ -163,13 +186,14 @@ function gc(env, palace) {
 }
 
 function carriesSecret(url) {
+  if (url.includes('::')) return true;
   let parsed;
   try {
     parsed = new URL(url);
   } catch {
     return false;
   }
-  return parsed.password !== '' || (/^https?:$/.test(parsed.protocol) && parsed.username !== '');
+  return parsed.password !== '' || parsed.search !== '' || parsed.hash !== '' || (/^https?:$/.test(parsed.protocol) && parsed.username !== '');
 }
 
 function hasGitAbove(dir) {

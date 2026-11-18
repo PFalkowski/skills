@@ -26,10 +26,13 @@ function sandbox(t, backend = 'folder', online = false) {
   const git = (args) => execFileSync('git', args, { env, timeout: 10000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   const remoteOf = new Map();
   const urlOf = new Map();
+  const envs = new Map();
+  const envOf = (dir) => envs.get(dir) ?? env;
   let copies = 0;
   return {
     root,
     env,
+    envOf,
     backend,
     git,
     copy: (from) => {
@@ -38,8 +41,9 @@ function sandbox(t, backend = 'folder', online = false) {
       if (online) {
         const remote = `${to}.remote.git`;
         fs.cpSync(remoteOf.get(from), remote, { recursive: true });
-        if (remoteOf.get(from) !== urlOf.get(from)) git(['-C', to, 'config', '--remove-section', `url.${remoteOf.get(from)}`]);
-        git(['-C', to, 'config', `url.${remote}.insteadOf`, urlOf.get(from)]);
+        const config = `${to}.gitconfig`;
+        fs.writeFileSync(config, `[url "${remote}"]\n\tinsteadOf = ${urlOf.get(from)}\n`);
+        envs.set(to, { ...env, GIT_CONFIG_GLOBAL: config });
         remoteOf.set(to, remote);
         urlOf.set(to, urlOf.get(from));
       }
@@ -47,7 +51,7 @@ function sandbox(t, backend = 'folder', online = false) {
     },
     afterNext: online && ((dir, at) => {
       assert.strictEqual(git(['-C', dir, 'status', '--porcelain']), '', `${at}: the work tree is not clean after the next operation`);
-      const palace = open({ env, palace: dir, lockWaitMs: 200 });
+      const palace = open({ env: envOf(dir), palace: dir, lockWaitMs: 200 });
       try {
         palace.sync();
       } finally {
@@ -55,7 +59,7 @@ function sandbox(t, backend = 'folder', online = false) {
       }
     }),
     withPalace: (dir, fn, wrapStore) => {
-      const palace = open({ env, palace: dir, lockWaitMs: 200, wrapStore });
+      const palace = open({ env: envOf(dir), palace: dir, lockWaitMs: 200, wrapStore });
       try {
         return fn(palace);
       } finally {
@@ -250,19 +254,19 @@ function counting() {
 }
 
 async function killLoop(box, { base, op, input, before, after, forgotten }) {
-  const { env, copy, withPalace } = box;
+  const { envOf, copy, withPalace } = box;
   let kills = 0;
   for (let k = 1; k <= KILL_CAP; k++) {
     const at = `${op} killed before mutation ${k}`;
     const work = copy(base);
-    const run = await support(env, { palace: work, lockWaitMs: 200, killAt: k, ops: [{ op, input }] }).done;
+    const run = await support(envOf(work), { palace: work, lockWaitMs: 200, killAt: k, ops: [{ op, input }] }).done;
     if (run.signal !== 'SIGKILL') {
       assert.strictEqual(run.code, 0, `${at}: ${run.stderr}`);
       assert.ok(kills > 0, `${op}: no kill point was reached`);
       return kills;
     }
     kills++;
-    if (box.backend === 'folder') ok(await cli(env, ['unlock', '--palace', work]));
+    if (box.backend === 'folder') ok(await cli(envOf(work), ['unlock', '--palace', work]));
 
     const reopened = copy(work);
     const set = placesOf(withPalace(reopened, (p) => p.browse({}).memories));
@@ -333,10 +337,11 @@ test('H1 sqlite', (t) => killedSaveAndForget(sandbox(t, 'sqlite')));
 test('H1 online', (t) => killedSaveAndForget(sandbox(t, 'folder', true)));
 
 test('gc failure is a warning', async (t) => {
-  const { env, git, setUp } = sandbox(t, 'folder', true);
+  const { root, env, git, setUp } = sandbox(t, 'folder', true);
   const dir = setUp();
-  git(['-C', dir, 'config', 'gc.auto', 'abc']);
-  const saved = await cli(env, ['save', '--palace', dir], memory('a'));
+  const config = path.join(root, 'gc-gitconfig');
+  fs.writeFileSync(config, '[gc]\n\tauto = abc\n');
+  const saved = await cli({ ...env, GIT_CONFIG_GLOBAL: config }, ['save', '--palace', dir], memory('a'));
   ok(saved);
   assert.match(`${saved.stdout}${saved.stderr}`, /gc\.auto/);
   assert.strictEqual(git(['-C', dir, 'show', 'HEAD:meta']), fs.readFileSync(path.join(dir, 'meta'), 'utf8'));
@@ -396,6 +401,10 @@ test('palace.json of a bad shape is refused by name and never echoed', async (t)
     [{ kinds: Array.from({ length: 33 }, (_, i) => `k${i}`) }, /kinds/],
     [{ moments: [hostile] }, /moments/],
     [{ moments: 'on-request' }, /moments/],
+    [{ privateRemote: 42 }, /privateRemote/],
+    [{ privateRemote: undefined }, /privateRemote/],
+    [{ privateRemote: `ssh://example.invalid/x.git\n${hostile}` }, /privateRemote/],
+    [{ privateRemote: `ssh://example.invalid/${'x'.repeat(2048)}` }, /privateRemote/],
   ];
   for (const [change, field] of cases) {
     const what = JSON.stringify(change).slice(0, 60);

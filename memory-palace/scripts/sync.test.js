@@ -778,6 +778,10 @@ test('credentials in URL refused', async (t) => {
     ['https://MKPLtok1@example.invalid/x.git', 'MKPLtok1'],
     ['https://u:MKPLpw2@example.invalid/x.git', 'MKPLpw2'],
     ['ssh://git:MKPLpw3@example.invalid/x.git', 'MKPLpw3'],
+    ['https://example.invalid/x.git?access_token=MKPLtok4', 'MKPLtok4'],
+    ['https://example.invalid/x.git#MKPLtok5', 'MKPLtok5'],
+    ['https::https://u:MKPLtok6@example.invalid/x.git', 'MKPLtok6'],
+    ['ext::MKPLcmd7 %S', 'MKPLcmd7'],
   ];
   for (const [url] of secrets) assert.strictEqual(carriesSecret(url), true, url);
   for (const url of ['ssh://git@example.invalid/x.git', 'git@example.invalid:x.git', '/srv/palace.git', 'palace.git', 'https://example.invalid/x.git']) {
@@ -882,4 +886,119 @@ test('B: the full matrix', (t) => {
   const box = sandbox(t);
   const problems = ['folder', 'sqlite'].flatMap((backend) => [true, false].flatMap((protection) => cell(box, backend, protection)));
   assert.deepStrictEqual(problems, []);
+});
+
+async function plantedGit(t, config) {
+  const box = sandbox(t);
+  const { env } = box;
+  const dir = box.at('palace');
+  const memory = memoryOf(tag());
+  ok(await cli(env, ['setup', '--palace', dir], PROTECTED));
+  ok(await cli(env, ['save'], memory));
+  git(env, ['init', '-q', '-b', 'main', dir]);
+  fs.appendFileSync(path.join(dir, '.git', 'config'), config(box));
+  return { box, env, dir, memory };
+}
+
+const FOREIGN_KEY = (key) => new RegExp(`"${key.replace('.', '\\.')}", which memory-palace did not write`, 'i');
+
+test('a planted .git whose config sets core.fsmonitor is refused by name and runs nothing', async (t) => {
+  let marker;
+  const { env, memory } = await plantedGit(t, (box) => {
+    marker = box.at('fsmonitor-ran');
+    return `[core]\n\tfsmonitor = "touch '${marker}'; false"\n`;
+  });
+  for (const [args, input] of [[['recall'], { place: memory.place }], [['status']]]) {
+    const result = await cli(env, args, input);
+    assert.match(failed(result, args[0]), FOREIGN_KEY('core.fsmonitor'), args[0]);
+    assert.ok(!output(result).includes('touch'), `${args[0]}: the value was echoed`);
+  }
+  assert.ok(!fs.existsSync(marker), 'the fsmonitor command ran');
+});
+
+test('a planted .git whose config sets core.sshCommand is refused by name', async (t) => {
+  const { env, memory } = await plantedGit(t, () => '[core]\n\tsshCommand = false\n');
+  assert.match(failed(await cli(env, ['recall'], { place: memory.place }), 'recall'), FOREIGN_KEY('core.sshCommand'));
+});
+
+test('a .git or .git/config not owned by the current user is refused', { skip: !process.getuid || process.getuid() === 0 }, async (t) => {
+  const { env, dir, memory } = await plantedGit(t, () => '');
+  const config = path.join(dir, '.git', 'config');
+  fs.rmSync(config);
+  fs.symlinkSync('/etc/passwd', config);
+  assert.match(failed(await cli(env, ['recall'], { place: memory.place }), 'config'), /\.git[/\\]config is not owned by the current user/);
+  fs.rmSync(path.join(dir, '.git'), { recursive: true });
+  fs.symlinkSync('/', path.join(dir, '.git'));
+  assert.match(failed(await cli(env, ['recall'], { place: memory.place }), '.git'), /\.git is not owned by the current user/);
+});
+
+test('palaces made by setup, join and remote pass the configuration check', async (t) => {
+  const box = sandbox(t);
+  const { env } = box;
+  const { dir, remote } = onlinePalace(box);
+  const joined = box.at('joined');
+  join(joined, { remote, passphrase: null }, { env });
+  const later = box.at('later');
+  setup(later, SETTINGS, { env });
+  ok(await cli(env, ['remote', '--palace', later], { url: box.bare('later-remote.git'), private: true }));
+  for (const palace of [dir, joined, later]) assert.strictEqual(ok(await cli(env, ['status', '--palace', palace])).online, true, palace);
+});
+
+test('inherited author and committer variables do not reach the commits', async (t) => {
+  const box = sandbox(t);
+  const env = { ...box.env };
+  for (const role of ['AUTHOR', 'COMMITTER']) {
+    Object.assign(env, { [`GIT_${role}_NAME`]: 'MKPLname', [`GIT_${role}_EMAIL`]: 'MKPLmail@example.invalid', [`GIT_${role}_DATE`]: '2001-01-01T00:00:00Z' });
+  }
+  const remote = box.bare('remote.git');
+  ok(await cli(env, ['setup', '--palace', box.at('palace')], { ...SETTINGS, remote, private: true }));
+  ok(await cli(env, ['save'], memoryOf(tag())));
+  const log = git(box.env, ['--git-dir', remote, 'log', '--format=%an <%ae> %ad|%cn <%ce> %cd', '--date=format:%Y', 'main']).trim().split('\n');
+  const year = String(new Date().getFullYear());
+  for (const line of log) assert.strictEqual(line, `memory-palace <memory-palace@localhost> ${year}|memory-palace <memory-palace@localhost> ${year}`);
+});
+
+test('every git call runs with terminal prompts off', async (t) => {
+  const box = sandbox(t);
+  const bin = box.at('bin');
+  const calls = box.at('git-calls');
+  fs.mkdirSync(bin);
+  const real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  script(path.join(bin, 'git'), [
+    'sub=; skip=',
+    'for a in "$@"; do if [ -n "$skip" ]; then skip=; elif [ "$a" = -c ] || [ "$a" = -C ]; then skip=1; elif [ -z "$sub" ]; then sub=$a; fi; done',
+    `echo "$sub \${GIT_TERMINAL_PROMPT-unset}" >> '${calls}'`,
+    `exec '${real}' "$@"`,
+  ].join('\n'));
+  const env = { ...box.env, PATH: `${bin}${path.delimiter}${box.env.PATH}` };
+  const remote = box.bare('remote.git');
+  ok(await cli(env, ['setup', '--palace', box.at('palace')], { ...SETTINGS, remote, private: true }));
+  ok(await cli(env, ['join', '--palace', box.at('joined')], { remote, passphrase: null }));
+  ok(await cli(env, ['save', '--palace', box.at('joined')], memoryOf(tag())));
+  const lines = readFile(calls).trim().split('\n');
+  for (const sub of ['init', 'clone', 'ls-remote', 'push']) assert.ok(lines.some((line) => line.startsWith(`${sub} `)), `no ${sub} call was logged`);
+  assert.deepStrictEqual(lines.filter((line) => !line.endsWith(' 0')), []);
+});
+
+test('a palace with a .git and no origin reports synced false', async (t) => {
+  const box = sandbox(t);
+  const { env } = box;
+  const dir = box.at('palace');
+  ok(await cli(env, ['setup', '--palace', dir], SETTINGS));
+  git(env, ['init', '-q', '-b', 'main', dir]);
+  assert.strictEqual(ok(await cli(env, ['save'], memoryOf(tag()))).synced, false);
+});
+
+test('setup and remote refuse a URL too long or holding a control character', async (t) => {
+  const box = sandbox(t);
+  const { env } = box;
+  const { dir } = onlinePalace(box);
+  const target = box.at('new');
+  for (const url of [`${box.bare('remote.git')}\nMKPLctl8`, `ssh://example.invalid/${'x'.repeat(2048)}`]) {
+    for (const [args, input] of [[['setup', '--palace', target], { ...SETTINGS, remote: url, private: true }], [['remote', '--palace', dir], { url, private: true }]]) {
+      assert.match(failed(await cli(env, args, input), args[0]), /the remote URL must be at most 2048 characters with no control characters/);
+      assert.ok(!fs.existsSync(target), `${args[0]}: ${target} exists`);
+    }
+  }
+  ok(await cli(env, ['status', '--palace', dir]));
 });
