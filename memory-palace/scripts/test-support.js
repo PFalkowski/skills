@@ -44,8 +44,11 @@ function envFor(root) {
     HOME: path.join(root, 'home'),
     XDG_CONFIG_HOME: path.join(root, 'home', '.config'),
     TMPDIR: path.join(root, 'tmp'),
+    GIT_CONFIG_GLOBAL: path.join(root, 'gitconfig'),
+    GIT_CONFIG_NOSYSTEM: '1',
   };
   for (const dir of [env.XDG_CONFIG_HOME, env.TMPDIR]) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(env.GIT_CONFIG_GLOBAL, '');
   return env;
 }
 
@@ -132,7 +135,7 @@ function runSpec(spec) {
     lock.release();
     return { held: true };
   }
-  const palace = open({ env: process.env, palace: spec.palace, lockWaitMs: spec.lockWaitMs, wrapStore: faultyStore(spec) });
+  const palace = open({ env: process.env, palace: spec.palace, lockWaitMs: spec.lockWaitMs, gitTimeoutMs: spec.gitTimeoutMs, wrapStore: faultyStore(spec) });
   try {
     const results = [];
     for (let round = 0; round < (spec.repeat || 1); round++) {

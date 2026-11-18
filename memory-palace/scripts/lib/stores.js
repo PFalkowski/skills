@@ -81,7 +81,7 @@ function folderStore(dir) {
       }
       writing = null;
     },
-    repair: (decodeMeta) => {
+    repair: (decodeMeta, recordLanded) => {
       const markers = fs
         .readdirSync(dir)
         .filter((name) => name.startsWith(MARKER))
@@ -89,8 +89,12 @@ function folderStore(dir) {
         .sort((a, b) => a.age - b.age);
       for (const { seed } of markers) {
         const meta = decodeMeta(getMeta());
-        if (meta.seed === seed) meta.free.forEach((id) => removeIfPresent(pageFile(id)));
-        else dropUncommitted(seed);
+        if (meta.seed === seed) {
+          meta.free.forEach((id) => removeIfPresent(pageFile(id)));
+          recordLanded();
+        } else {
+          dropUncommitted(seed);
+        }
         fs.unlinkSync(markerFile(seed));
       }
     },

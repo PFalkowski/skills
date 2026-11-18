@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { execFileSync } = require('node:child_process');
 const { setup, open } = require('./lib/palace.js');
 const { acquire } = require('./lib/lock.js');
 const { cli, support, envFor, waitFor, hashes, scan } = require('./test-support.js');
@@ -18,20 +19,41 @@ const pageId = (seed, n) => crypto.createHash('sha256').update(`${seed}:${n}`).d
 const pagePath = (dir, id) => path.join(dir, 'pages', id.slice(0, 2), id);
 const sameSet = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 
-function sandbox(t, backend = 'folder') {
+function sandbox(t, backend = 'folder', online = false) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'mp-safety-')));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const env = envFor(root);
+  const git = (args) => execFileSync('git', args, { env, timeout: 10000, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const remoteOf = new Map();
+  const urlOf = new Map();
   let copies = 0;
   return {
     root,
     env,
     backend,
+    git,
     copy: (from) => {
       const to = path.join(root, `copy-${copies++}`);
       fs.cpSync(from, to, { recursive: true });
+      if (online) {
+        const remote = `${to}.remote.git`;
+        fs.cpSync(remoteOf.get(from), remote, { recursive: true });
+        if (remoteOf.get(from) !== urlOf.get(from)) git(['-C', to, 'config', '--remove-section', `url.${remoteOf.get(from)}`]);
+        git(['-C', to, 'config', `url.${remote}.insteadOf`, urlOf.get(from)]);
+        remoteOf.set(to, remote);
+        urlOf.set(to, urlOf.get(from));
+      }
       return to;
     },
+    afterNext: online && ((dir, at) => {
+      assert.strictEqual(git(['-C', dir, 'status', '--porcelain']), '', `${at}: the work tree is not clean after the next operation`);
+      const palace = open({ env, palace: dir, lockWaitMs: 200 });
+      try {
+        palace.sync();
+      } finally {
+        palace.close();
+      }
+    }),
     withPalace: (dir, fn, wrapStore) => {
       const palace = open({ env, palace: dir, lockWaitMs: 200, wrapStore });
       try {
@@ -46,6 +68,13 @@ function sandbox(t, backend = 'folder') {
       const palace = open({ env, palace: dir, lockWaitMs: 200 });
       try {
         for (const m of memories) palace.save(m);
+        if (online) {
+          const remote = path.join(root, `${name}.remote.git`);
+          git(['init', '-q', '--bare', '-b', 'main', remote]);
+          palace.setRemote({ url: remote, private: true });
+          remoteOf.set(dir, remote);
+          urlOf.set(dir, remote);
+        }
       } finally {
         palace.close();
       }
@@ -226,6 +255,7 @@ async function killLoop(box, { base, op, input, before, after, forgotten }) {
     const rerun = copy(work);
     const { counts, wrap } = counting();
     withPalace(rerun, (p) => p[op](input), wrap);
+    if (box.afterNext) box.afterNext(rerun, at);
     const h = Math.max(checked.height, withPalace(rerun, (p) => p.check()).height);
     const [reads, writes] = op === 'save' ? [h, 2 * h + 2] : [2 * h, 2 * h];
     assert.ok(counts.gets <= reads, `${at}: next ${op} read ${counts.gets} pages, bound ${reads}`);
@@ -280,6 +310,20 @@ async function killedSaveAndForget(box) {
 test('H1/H6 folder', (t) => killedSaveAndForget(sandbox(t)));
 
 test('H1 sqlite', (t) => killedSaveAndForget(sandbox(t, 'sqlite')));
+
+test('H1 online', (t) => killedSaveAndForget(sandbox(t, 'folder', true)));
+
+test('gc failure is a warning', async (t) => {
+  const { env, git, setUp } = sandbox(t, 'folder', true);
+  const dir = setUp();
+  git(['-C', dir, 'config', 'gc.auto', 'abc']);
+  const saved = await cli(env, ['save', '--palace', dir], memory('a'));
+  ok(saved);
+  assert.match(`${saved.stdout}${saved.stderr}`, /gc\.auto/);
+  assert.strictEqual(git(['-C', dir, 'show', 'HEAD:meta']), fs.readFileSync(path.join(dir, 'meta'), 'utf8'));
+  assert.strictEqual(git(['-C', dir, 'status', '--porcelain']), '');
+  assert.deepStrictEqual(fs.readdirSync(dir).filter((name) => name.startsWith('pending.')), []);
+});
 
 async function twoWriters(t, backend) {
   const { env, setUp } = sandbox(t, backend);

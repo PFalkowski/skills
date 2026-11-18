@@ -6,9 +6,9 @@ const palace = require('./lib/palace.js');
 
 class UsageError extends PalaceError {}
 
-const USAGE = 'usage: palace.js <status|setup|save|recall|browse|list|forget|check|unlock> [--palace <dir>]; places, titles, summaries and texts go on standard input as one JSON object';
+const USAGE = 'usage: palace.js <status|setup|join|save|recall|browse|list|forget|sync|remote|check|unlock> [--palace <dir>]; places, titles, summaries and texts go on standard input as one JSON object';
 const SECRET_OPTION = /^--(passphrase|password)(=|$)/;
-const TAKES_INPUT = new Set(['setup', 'save', 'recall', 'browse', 'list', 'forget']);
+const TAKES_INPUT = new Set(['setup', 'join', 'save', 'recall', 'browse', 'list', 'forget', 'remote']);
 
 function inOpenPalace(operation) {
   return (input, ctx) => {
@@ -24,8 +24,10 @@ function inOpenPalace(operation) {
 const COMMANDS = {
   status: (input, ctx) => palace.status(ctx),
   setup: (input, ctx) => palace.setup(ctx.palace, input, ctx),
+  join: (input, ctx) => palace.join(ctx.palace, input, ctx),
   unlock: (input, ctx) => palace.unlock(ctx),
-  ...Object.fromEntries(['save', 'recall', 'browse', 'list', 'forget', 'check'].map((name) => [name, inOpenPalace(name)])),
+  ...Object.fromEntries(['save', 'recall', 'browse', 'list', 'forget', 'sync', 'check'].map((name) => [name, inOpenPalace(name)])),
+  remote: inOpenPalace('setRemote'),
 };
 
 function parseArgs([command, ...options]) {
@@ -35,7 +37,7 @@ function parseArgs([command, ...options]) {
   if (!Object.hasOwn(COMMANDS, command)) throw new UsageError(USAGE);
   if (options.length === 2 && options[0] === '--palace') return { command, palace: options[1] };
   if (options.length > 0) throw new UsageError(USAGE);
-  if (command === 'setup') throw new UsageError('setup needs --palace <dir>');
+  if (command === 'setup' || command === 'join') throw new UsageError(`${command} needs --palace <dir>`);
   return { command };
 }
 

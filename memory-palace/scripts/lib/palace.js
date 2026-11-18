@@ -9,14 +9,16 @@ const { createTree } = require('./tree.js');
 const { folderStore, sqliteStore, requireSqlite, pageId } = require('./stores.js');
 const lock = require('./lock.js');
 const seal = require('./seal.js');
-const { enclosingRepo } = require('./git.js');
+const git = require('./git.js');
 
 const FORMAT = 1;
 const LOCK_WAIT_MS = 60000;
 const TREE = { m: 128, L: 32 };
 const MOMENTS = ['on-request', 'after-decision', 'end-of-task'];
 const GITIGNORE = 'lock\n*.tmp\npending.*\n';
-const WRITES = new Set(['save', 'forget', 'check']);
+const WRITES = new Set(['save', 'forget', 'sync', 'remote', 'check']);
+const SHORT_GIT_MS = 20000;
+const LONG_GIT_MS = 120000;
 const META = 'meta';
 const DEFAULT_N = 2 ** 17;
 const STORES = { folder: folderStore, sqlite: sqliteStore };
@@ -144,12 +146,21 @@ function status(ctx) {
   if (!dir) return { palace: null };
   const settings = readSettings(dir);
   const { backend, kinds, moments, privateRemote } = settings;
-  return { palace: dir, backend, protected: settings.protected, online: false, remote: null, privateRemote, kinds, moments };
+  const online = backend === 'folder' && git.online(dir);
+  return { palace: dir, backend, protected: settings.protected, online, remote: online ? git.originUrl(ctx.env, dir) : null, privateRemote, kinds, moments };
 }
 
 function checkSource(source) {
   const valid = source === null || (Object.keys(source ?? {}).length === 1 && (typeof source.env === 'string' || typeof source.file === 'string'));
   if (!valid) throw new PalaceError('passphrase must be null, {"env": "<variable name>"} or {"file": "<key file path>"}. Nothing was written.');
+}
+
+function checkUrl(url, backend) {
+  if (backend === 'sqlite') {
+    throw new PalaceError('a SQLite palace cannot have a git remote: git would keep a full copy of the database for every save. Use the folder backend for a palace with a remote. Nothing was written.');
+  }
+  if (typeof url !== 'string' || url === '') throw new PalaceError('the remote URL must be a non-empty string. Nothing was written.');
+  if (git.carriesSecret(url)) throw new PalaceError('the remote URL carries a password or token. Use a credential helper or ssh. Nothing was written.');
 }
 
 function protect(options, env, palace) {
@@ -162,7 +173,7 @@ function protect(options, env, palace) {
 }
 
 function checkRepo(target, protection, env) {
-  const repo = enclosingRepo(target, env);
+  const repo = git.enclosingRepo(target, env);
   if (!repo || repo.allIgnored) return undefined;
   if (!protection) {
     throw new PalaceError(`${target} is inside the git repository ${repo.top} and is not ignored there, so that repository's commits would take this unprotected palace's memories in clear. Ignore the folder in ${repo.top}, choose a folder outside it, or turn on protection. Nothing was written.`);
@@ -170,11 +181,18 @@ function checkRepo(target, protection, env) {
   return `${target} is inside the git repository ${repo.top} and is not ignored there, so that repository's commits would take this palace's sealed files.`;
 }
 
-function checkSetup(dir, real, options, env) {
+const gitTimeout = (ctx, long) => ctx.gitTimeoutMs ?? (long ? LONG_GIT_MS : SHORT_GIT_MS);
+
+function checkEmpty(dir) {
+  if (fs.existsSync(dir) && fs.readdirSync(dir).length > 0) throw new PalaceError(`${dir} is not empty. Nothing was written.`);
+}
+
+function checkSetup(dir, real, options, ctx) {
   checkSource(options.passphrase);
   if (options.passphrase?.file !== undefined) keyFileOutside(options.passphrase.file, real);
-  if (fs.existsSync(dir) && fs.readdirSync(dir).length > 0) throw new PalaceError(`${dir} is not empty. Nothing was written.`);
+  checkEmpty(dir);
   if (!Object.hasOwn(STORES, options.backend)) throw new PalaceError('backend must be "folder" or "sqlite". Nothing was written.');
+  if (options.remote !== undefined) checkUrl(options.remote, options.backend);
   if (options.backend === 'sqlite') requireSqlite();
   const lists = [['kinds', options.kinds], ['moments', options.moments]];
   for (const [field, list] of lists) {
@@ -182,8 +200,10 @@ function checkSetup(dir, real, options, env) {
   }
   const unknown = options.moments.find((moment) => !MOMENTS.includes(moment));
   if (unknown) throw new PalaceError(`moment ${unknown} is not one of ${MOMENTS.join(', ')}. Nothing was written.`);
-  const protection = options.passphrase === null ? null : protect(options, env, real);
-  return { protection, warning: checkRepo(real, protection, env) };
+  const protection = options.passphrase === null ? null : protect(options, ctx.env, real);
+  if (options.remote === undefined) return { protection, warning: checkRepo(real, protection, ctx.env) };
+  git.checkRemote(ctx.env, null, options.remote, gitTimeout(ctx, true));
+  return { protection };
 }
 
 function realTarget(dir) {
@@ -193,18 +213,38 @@ function realTarget(dir) {
   return path.join(fs.realpathSync(parent), path.basename(dir));
 }
 
+function register(env, palace, entry, makeDefault) {
+  const machine = readMachine(env);
+  if (makeDefault || !Object.hasOwn(machine.palaces, palace)) machine.default = palace;
+  machine.palaces[palace] = entry;
+  writeReplacing(machineFile(env), `${JSON.stringify(machine, null, 2)}\n`);
+  return machine.default;
+}
+
+function buildBeside(dir, build) {
+  const temp = path.join(path.dirname(dir), `.${path.basename(dir)}.setup-${randomHex(8)}`);
+  try {
+    build(temp);
+    fs.renameSync(temp, dir);
+  } catch (err) {
+    fs.rmSync(temp, { recursive: true, force: true });
+    throw err;
+  }
+  return fs.realpathSync(dir);
+}
+
+const writeSettings = (dir, settings) => writeReplacing(path.join(dir, 'palace.json'), `${JSON.stringify(settings, null, 2)}\n`);
+
 function setup(target, options, ctx) {
   const dir = path.resolve(target);
-  const { protection, warning } = checkSetup(dir, realTarget(dir), options, ctx.env);
+  const { protection, warning } = checkSetup(dir, realTarget(dir), options, ctx);
   const codec = codecFor(protection?.keys ?? null);
-  const temp = path.join(path.dirname(dir), `.${path.basename(dir)}.setup-${randomHex(8)}`);
-  fs.mkdirSync(temp);
-  try {
-    const settings = {
+  const palace = buildBeside(dir, (temp) => {
+    fs.mkdirSync(temp);
+    writeSettings(temp, {
       format: FORMAT, backend: options.backend, protected: Boolean(protection), kdf: protection?.kdf ?? null, check: protection?.check ?? null,
-      tree: TREE, kinds: options.kinds, moments: options.moments, privateRemote: null,
-    };
-    fs.writeFileSync(path.join(temp, 'palace.json'), `${JSON.stringify(settings, null, 2)}\n`);
+      tree: TREE, kinds: options.kinds, moments: options.moments, privateRemote: options.private === true ? options.remote : null,
+    });
     fs.writeFileSync(path.join(temp, '.gitignore'), GITIGNORE);
     const store = STORES[options.backend](temp);
     store.lock({ write: true, waitMs: LOCK_WAIT_MS, command: 'setup' });
@@ -219,17 +259,51 @@ function setup(target, options, ctx) {
       store.release();
       store.close();
     }
-    fs.renameSync(temp, dir);
+    if (options.remote === undefined) return;
+    git.init(ctx.env, temp);
+    git.setOrigin(ctx.env, temp, options.remote);
+    git.commit(ctx.env, temp);
+  });
+  register(ctx.env, palace, { passphrase: options.passphrase, protected: Boolean(protection) }, true);
+  const result = { palace, default: palace, ...(warning && { warning }) };
+  if (options.remote === undefined) return result;
+  try {
+    within({ ...ctx, palace }, (opened) => opened.sync());
   } catch (err) {
-    fs.rmSync(temp, { recursive: true, force: true });
-    throw err;
+    if (!(err instanceof PalaceError)) throw err;
+    return { ...result, warning: err.message };
   }
-  const palace = fs.realpathSync(dir);
-  const machine = readMachine(ctx.env);
-  machine.palaces[palace] = { passphrase: options.passphrase, protected: Boolean(protection) };
-  machine.default = palace;
-  writeReplacing(machineFile(ctx.env), `${JSON.stringify(machine, null, 2)}\n`);
-  return { palace, default: palace, ...(warning && { warning }) };
+  return result;
+}
+
+function checkJoined(dir, palace, passphrase, ctx) {
+  const settings = readSettings(dir);
+  if (settings.backend === 'folder' && git.online(dir)) {
+    const foreign = git.foreignPaths(ctx.env, dir, 'HEAD');
+    if (foreign.length > 0) throw git.foreignError(foreign, 'Nothing was written. Remove them from the remote and from this folder, then join again.');
+  }
+  if (settings.protected) unlockKeys(settings, { passphrase }, ctx.env, palace);
+}
+
+function join(target, options, ctx) {
+  const dir = path.resolve(target);
+  checkSource(options.passphrase);
+  let palace;
+  if (fs.existsSync(path.join(dir, 'palace.json'))) {
+    palace = fs.realpathSync(dir);
+    checkJoined(dir, palace, options.passphrase, ctx);
+  } else {
+    checkUrl(options.remote, 'folder');
+    const real = realTarget(dir);
+    checkEmpty(dir);
+    palace = buildBeside(dir, (temp) => {
+      git.clone(ctx.env, options.remote, temp, gitTimeout(ctx, true));
+      if (!fs.existsSync(path.join(temp, 'palace.json'))) throw new PalaceError('the remote holds no palace: its main branch has no palace.json. Nothing was written.');
+      checkJoined(temp, real, options.passphrase, ctx);
+    });
+  }
+  const entry = { passphrase: options.passphrase, protected: readSettings(palace).protected };
+  return { joined: palace, default: register(ctx.env, palace, entry, false) };
 }
 
 function unlock(ctx) {
@@ -238,7 +312,7 @@ function unlock(ctx) {
   return { removed: lock.remove(dir) };
 }
 
-function commit(store, tree, codec, change) {
+function commit(store, tree, codec, change, record) {
   const seed = randomHex(16);
   let next = 0;
   const write = (page) => {
@@ -253,6 +327,7 @@ function commit(store, tree, codec, change) {
     const free = [...flushed.freed, ...changed.freed];
     store.setMeta(codec.encode(META, { v: 1, root: flushed.root, seed, free }));
     for (const id of free) store.free(id);
+    record();
     store.end();
     return changed.result;
   } catch (err) {
@@ -261,29 +336,72 @@ function commit(store, tree, codec, change) {
   }
 }
 
-function open(ctx) {
-  const dir = locate(ctx);
-  const settings = readSettings(dir);
-  const palace = fs.realpathSync(dir);
-  const entry = readMachine(ctx.env).palaces[palace];
+function checkPin(settings, entry, palace) {
   if (entry?.protected && !settings.protected) {
     throw new PalaceError(`settings mismatch: this machine's record says ${palace} is protected, but its palace.json says it is not. Nothing was changed.`);
   }
-  const codec = codecFor(settings.protected ? unlockKeys(settings, entry, ctx.env, palace) : null);
+}
 
-  function operate(command, work) {
+const notSynced = (why) => `${why} This change is saved locally, not yet synced.`;
+
+const unconfirmed = 'the push waits: this palace is not protected, and its remote is not confirmed private. Check that the remote repository is private, then run remote with {"url": "<its URL>", "private": true}.';
+
+function open(ctx) {
+  const { env } = ctx;
+  const dir = locate(ctx);
+  let settings = readSettings(dir);
+  const palace = fs.realpathSync(dir);
+  const entry = readMachine(env).palaces[palace];
+  checkPin(settings, entry, palace);
+  const codec = codecFor(settings.protected ? unlockKeys(settings, entry, env, palace) : null);
+  const repo = () => (settings.backend === 'folder' && git.online(dir) ? dir : null);
+
+  function pull(online, read, long) {
+    if (online === null || git.originUrl(env, online) === null) return undefined;
+    const { warning } = git.fetchAndForward(env, online, { timeoutMs: gitTimeout(ctx, long), read });
+    settings = readSettings(dir);
+    checkPin(settings, entry, palace);
+    return warning;
+  }
+
+  function pushed(online, long) {
+    if (!settings.protected && settings.privateRemote !== git.originUrl(env, online)) return unconfirmed;
+    try {
+      git.push(env, online, gitTimeout(ctx, long));
+      return undefined;
+    } catch (err) {
+      if (!(err instanceof PalaceError)) throw err;
+      return err.message;
+    }
+  }
+
+  function operate(command, work, { pulls = true } = {}) {
     const raw = STORES[settings.backend](dir);
     const store = ctx.wrapStore ? ctx.wrapStore(raw) : raw;
-    store.lock({ write: WRITES.has(command), waitMs: ctx.lockWaitMs ?? LOCK_WAIT_MS, command });
+    const write = WRITES.has(command);
+    store.lock({ write, waitMs: ctx.lockWaitMs ?? LOCK_WAIT_MS, command });
     try {
-      store.repair((bytes) => codec.decode(META, bytes));
+      const online = repo();
+      store.repair((bytes) => codec.decode(META, bytes), () => online && git.commit(env, online));
+      const pulled = pulls ? pull(online, !write, command === 'sync') : undefined;
       const meta = codec.decode(META, store.getMeta());
       const read = (id) => codec.decode(id, store.get(id));
-      return work({ store, read, tree: createTree({ get: read }, settings.tree, meta.root) });
+      const record = () => online && git.commit(env, online);
+      const result = work({ store, read, tree: createTree({ get: read }, settings.tree, meta.root), record, pulled, online });
+      const warnings = [pulled, ...(result.warnings ?? [])];
+      if (write && online && command !== 'sync') warnings.push(git.gc(env, online));
+      const { warnings: _, ...answer } = result;
+      const warning = warnings.filter(Boolean).join(' ');
+      return warning ? { ...answer, warning } : answer;
     } finally {
       store.release();
       store.close();
     }
+  }
+
+  function unsynced(online) {
+    const why = online && git.originUrl(env, online) !== null ? pushed(online, false) : undefined;
+    return why === undefined ? { synced: Boolean(online), warnings: [] } : { synced: false, warnings: [notSynced(why)] };
   }
 
   const shown = ([key, { title, summary, kind, saved }]) => ({ place: showPlace(key), title, summary, kind, saved });
@@ -293,14 +411,15 @@ function open(ctx) {
       requireStrings(memory, ['place', 'title', 'summary', 'text', 'kind']);
       checkLimits(memory);
       const key = parsePlace(memory.place);
-      return operate('save', ({ store, tree }) =>
-        commit(store, tree, codec, (write) => {
+      return operate('save', ({ store, tree, record, online }) => {
+        const result = commit(store, tree, codec, (write) => {
           const text = write({ t: 'x', text: memory.text });
           const { title, summary, kind } = memory;
           const old = tree.put(key, { title, summary, kind, saved: new Date().toISOString(), text });
-          return { result: { saved: showPlace(key), replaced: Boolean(old), synced: false }, freed: old ? [old.text] : [] };
-        }),
-      );
+          return { result: { saved: showPlace(key), replaced: Boolean(old) }, freed: old ? [old.text] : [] };
+        }, record);
+        return { ...result, ...unsynced(online) };
+      });
     },
     recall(input) {
       requireStrings(input, ['place']);
@@ -324,14 +443,44 @@ function open(ctx) {
     forget(input) {
       requireStrings(input, ['place']);
       const key = parsePlace(input.place);
-      return operate('forget', ({ store, tree }) => {
+      return operate('forget', ({ store, tree, record, online }) => {
         const old = tree.get(key);
         if (!old) return { forgot: showPlace(key), found: false };
-        return commit(store, tree, codec, () => {
+        const result = commit(store, tree, codec, () => {
           tree.del(key);
           return { result: { forgot: showPlace(key), found: true }, freed: [old.text] };
-        });
+        }, record);
+        if (!online) return result;
+        const { warnings } = unsynced(online);
+        return { ...result, note: 'git history still holds earlier versions of this palace.', warnings };
       });
+    },
+    sync() {
+      return operate('sync', ({ pulled, online }) => {
+        if (online === null || git.originUrl(env, online) === null) throw new PalaceError('this palace has no remote. Add one with remote. Nothing was changed.');
+        if (pulled) throw new PalaceError(pulled);
+        const why = pushed(online, true);
+        if (why) throw new PalaceError(why);
+        return { synced: true };
+      });
+    },
+    setRemote(input) {
+      checkUrl(input.url, settings.backend);
+      return operate('remote', () => {
+        const existing = repo();
+        git.checkRemote(env, existing, input.url, gitTimeout(ctx, true));
+        if (!existing) git.init(env, dir);
+        git.setOrigin(env, dir, input.url);
+        const pulled = pull(dir, false, true);
+        if (pulled && input.private === true) throw new PalaceError(pulled);
+        if (input.private === true) {
+          settings = { ...settings, privateRemote: input.url };
+          writeSettings(dir, settings);
+        }
+        git.commit(env, dir);
+        const why = pushed(dir, true);
+        return { remote: input.url, synced: !why, warnings: [pulled, why && notSynced(why)] };
+      }, { pulls: false });
     },
     check() {
       return operate('check', ({ store, read, tree }) => {
@@ -352,4 +501,13 @@ function open(ctx) {
   };
 }
 
-module.exports = { status, setup, unlock, open };
+function within(ctx, work) {
+  const opened = open(ctx);
+  try {
+    return work(opened);
+  } finally {
+    opened.close();
+  }
+}
+
+module.exports = { status, setup, join, unlock, open };
