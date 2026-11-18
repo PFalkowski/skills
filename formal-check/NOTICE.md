@@ -21,8 +21,10 @@ and
   the proof as an open item.
 - The project skill has a fixed location, and records its sync commit on a line of its own that
   MAINTAIN can find.
-- Showing a check able to fail uses a new run folder per attempt, outside the tree, with
-  copy-and-restore steps that refuse to start while a run of the same tree is unrestored.
+- Showing a check able to fail puts the broken variant in the tree only while one command runs,
+  which backs up, swaps in, runs the check, restores and proves each file with `cmp`, keeping its
+  evidence in a run folder outside the tree; a run cut short blocks the next one until a recover
+  step puts it right.
 
 ## Upstream licence
 

@@ -32,8 +32,7 @@ product code unless asked. Never weaken a property or a model to make it pass.
    git grep -n -E '^Sync commit: ' -- .claude/skills .agents/skills
    ```
 
-   A folder that does not exist is not an error: `git grep` exits 0 when a line matches and 1 when
-   none does, with nothing printed (tested on git 2.56.0). Then look for checks by what they do: a
+   No output means no check was found this way. Then look for checks by what they do: a
    project skill that runs a model checker or a property test against named code. If none exists,
    stop and point to CREATE ([CREATE.md](CREATE.md)). For each check, collect the property, the
    covered code, the bounds and assumptions, the command and the sync commit

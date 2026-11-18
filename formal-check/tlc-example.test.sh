@@ -31,7 +31,7 @@ check() {
   fi
 }
 
-has() { printf '%s' "$1" | grep -qF -- "$2"; }
+has() { grep -qF -- "$2" <<< "$1"; }
 empty() { [ -z "$1" ]; }
 
 finish() {
@@ -107,7 +107,7 @@ tlc() {
   local run
   run=$(mktemp -d "$work/run.XXXXXX")
   cp "$DIR/$1.tla" "$DIR/$1.cfg" "$run/"
-  out=$(cd "$run" && java -Djava.io.tmpdir="$run" -cp "$work/tla2tools.jar" tlc2.TLC -workers 1 -metadir "$run/meta" -config "$1.cfg" "$1.tla" 2>&1)
+  out=$(cd "$run" && eval "${JAVA_LINE//<M>/$1}" 2>&1)
   status=$?
 }
 

@@ -79,10 +79,11 @@ code under them. A real check cites path:line on every action.
 
 ## State
 
-Inside the target repo, formal-check writes only the project skill and the check's own files.
-Outside it, it writes two things and nothing else: able-to-fail run folders under
-`~/.agent-state/<repo-slug>/formal-check/<check-name>/`, and TLC work folders in the system temp
-folder ([TLC.md](TLC.md) says what they hold).
+Inside the target repo, formal-check writes the project skill, the check's own files (a model sits
+in the project skill's folder; an every-input harness sits with the repo's tests), and any
+test-only dependency, named in the handoff. Outside it, it writes two things and nothing else:
+able-to-fail run folders under `~/.agent-state/<repo-slug>/formal-check/<check-name>/`, and TLC
+work folders in the system temp folder ([TLC.md](TLC.md) says what they hold).
 
 ## Attribution
 
