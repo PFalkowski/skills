@@ -63,4 +63,5 @@ Two kinds of file fail that test here:
   prefix, fails it.
 - A machine that loses its record still has the palace. The user names its folder and its remote
   URL once more through `join`, and the skill trusts that palace's settings again. Until then
-  the palace saves locally and does not sync.
+  an unprotected palace saves locally and does not sync, and a protected palace cannot be opened,
+  because the record also held where its passphrase comes from.
