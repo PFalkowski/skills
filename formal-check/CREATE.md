@@ -66,8 +66,8 @@ need it.
 track, are not in the copy. Copy the covered files, the check's own files and, for a model check,
 the model and its config from the working tree into the copy.
 `git status --porcelain --untracked-files=all` lists every file that differs from the index, one
-per line: copy each one the check reads. A file it shows as deleted is still in the copy: delete
-it there if the check would read it.
+per line: copy each one the check reads. A file it shows as deleted but not staged (` D`) is still
+in the copy: delete it there if the check would read it.
 
 ```bash
 top='<the top folder printed in 4.1>'
@@ -131,8 +131,9 @@ and the line naming the invariant ([TLC.md](TLC.md)); for an every-input check, 
 If it passes, first make sure the check read the copy. A check started in the copy can still load
 the working tree's code, through a package installed from the working tree, an environment
 variable such as `PYTHONPATH`, or an absolute path in its command. Have the check print the path
-of the code it loads; if that path is under the top folder, fix how the check is run and go back
-to 4.3. If it did read the copy, the check cannot see the break: fix the check, not the variant.
+of the code it loads; if that path is under the top folder, fix how the check is run and start
+again from 4.1 with a new copy. If it did read the copy, the check cannot see the break: fix the
+check, not the variant.
 
 **What step 4 does not handle:**
 
