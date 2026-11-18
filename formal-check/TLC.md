@@ -46,11 +46,17 @@ the module name and `<folder>` the folder that holds it.
 
 ```bash
 work=<the work folder printed above>
-run=$(mktemp -d "$work/run.XXXXXX")
-cp <folder>/<M>.tla <folder>/<M>.cfg "$run/" && cd "$run" &&
+run=$(mktemp -d "$work/run.XXXXXX") && cp <folder>/<M>.tla <folder>/<M>.cfg "$run/" && cd "$run" &&
 java -Djava.io.tmpdir="$run" -cp "$work/tla2tools.jar" tlc2.TLC -workers 1 -metadir "$run/meta" -config <M>.cfg <M>.tla
-echo "TLC EXIT STATUS: $?"
+status=$?
+echo "TLC EXIT STATUS: $status"
+(exit "$status")
 ```
+
+The block ends with TLC's own exit status, so it can stand as the check's command in CREATE step
+4.4. `(exit "$status")` leaves only a subshell, so pasting the block into a terminal does not
+close it ([POSIX shell language](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/V3_chap02.html),
+`exit`). If `mktemp` fails, nothing is copied and the status line shows `mktemp`'s status.
 
 `-metadir` keeps TLC's state files in the run folder: without it TLC
 writes them next to the spec, in a `states` folder (the `-metadir` usage text in
