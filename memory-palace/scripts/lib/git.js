@@ -18,6 +18,7 @@ const CONFINED = [
   '-c', 'gc.autoDetach=false', '-c', 'user.name=memory-palace', '-c', 'user.email=memory-palace@localhost',
 ];
 const LOCAL_TIMEOUT_MS = 120000;
+const STALE_LOCK_MS = 10000;
 
 const NOT_EMPTY = 'the remote is not empty. To open the palace it holds, use join. Otherwise create an empty repository (no README, license or .gitignore) and try again. Nothing was written.';
 const DIVERGED = 'this palace and its remote have both changed since they last matched. Nothing was changed. To keep working, join a fresh copy into a new folder (`join --palace <new folder>`). This folder is left as it is and keeps the memories that were not synced.';
@@ -76,6 +77,12 @@ function foreignError(paths, next) {
   return new PalaceError(`the remote holds files memory-palace did not write: ${paths[0]}${more}. ${next}`);
 }
 
+function refuseForeignHead(env, palace) {
+  if (revision(env, palace, 'HEAD') === null) return;
+  const foreign = foreignPaths(env, palace, 'HEAD');
+  if (foreign.length > 0) throw foreignError(foreign, 'Nothing was changed. Remove them from the remote and from this folder, then retry.');
+}
+
 function checkRemote(env, palace, url, timeoutMs) {
   const listed = run(env, undefined, ['ls-remote', '--', url, 'refs/heads/main'], { timeoutMs });
   if (listed.stdout.trim() === '') return;
@@ -88,7 +95,7 @@ function checkRemote(env, palace, url, timeoutMs) {
   if (head === null || !(isAncestor(env, palace, head, fetched) || isAncestor(env, palace, fetched, head))) throw new PalaceError(NOT_EMPTY);
 }
 
-function fetchAndForward(env, palace, { timeoutMs, read }) {
+function fetchAndForward(env, palace, { timeoutMs, read, checkLock }) {
   let warning;
   try {
     run(env, palace, ['fetch', '-q', '--prune', 'origin'], { timeoutMs });
@@ -100,6 +107,7 @@ function fetchAndForward(env, palace, { timeoutMs, read }) {
   const head = revision(env, palace, 'HEAD');
   if (upstream === null || upstream === head || isAncestor(env, palace, upstream, head)) return { warning };
   if (!isAncestor(env, palace, head, upstream)) throw new PalaceError(DIVERGED);
+  checkLock();
   const foreign = foreignPaths(env, palace, upstream);
   if (foreign.length === 0) {
     run(env, palace, ['merge', '-q', '--ff-only', upstream]);
@@ -112,6 +120,32 @@ function fetchAndForward(env, palace, { timeoutMs, read }) {
 function commit(env, palace) {
   run(env, palace, ['add', '-A', '--', ...OWNED_PATHS]);
   if (run(env, palace, ['diff', '--cached', '--quiet'], { allow: [0, 1] }).status === 1) run(env, palace, ['commit', '-q', '-m', 'memory-palace']);
+}
+
+function* gitLocks(dir) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory() && entry.name !== 'objects') yield* gitLocks(full);
+    else if (entry.isFile() && entry.name.endsWith('.lock')) yield full;
+  }
+}
+
+function clearStaleLocks(palace) {
+  for (const file of gitLocks(path.join(palace, '.git'))) {
+    const age = Date.now() - (fs.statSync(file, { throwIfNoEntry: false })?.mtimeMs ?? 0);
+    if (age < STALE_LOCK_MS) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, STALE_LOCK_MS - age);
+    fs.rmSync(file, { force: true });
+  }
+}
+
+function restore(env, palace) {
+  if (revision(env, palace, 'HEAD') === null) {
+    commit(env, palace);
+  } else if (run(env, palace, ['status', '--porcelain', '--', ...OWNED_PATHS]).stdout !== '') {
+    refuseForeignHead(env, palace);
+    run(env, palace, ['reset', '-q', '--hard', 'HEAD']);
+    run(env, palace, ['clean', '-q', '-fd', '--', 'pages']);
+  }
 }
 
 const push = (env, palace, timeoutMs) => run(env, palace, ['push', '-q', 'origin', 'HEAD:refs/heads/main'], { timeoutMs });
@@ -167,5 +201,6 @@ function enclosingRepo(target, env) {
 }
 
 module.exports = {
-  online, init, clone, originUrl, setOrigin, foreignPaths, foreignError, checkRemote, fetchAndForward, commit, push, gc, carriesSecret, enclosingRepo,
+  online, init, clone, originUrl, setOrigin, foreignPaths, foreignError, refuseForeignHead, checkRemote, fetchAndForward, clearStaleLocks, restore, commit, push, gc,
+  carriesSecret, enclosingRepo,
 };

@@ -9,6 +9,9 @@ const { PalaceError, parseJson } = require('./errors.js');
 const RETRY_MS = 10;
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const lockFile = (dir) => path.join(dir, 'lock');
+const EXIT_ON = { SIGINT: 130, SIGTERM: 143 };
+const LOCK_REMOVED = 'the lock was removed while this command ran (unlock, or the file was deleted). This command stopped before changing anything else. Retry.';
+const LOCK_LOST = 'the lock was removed while this command held it (unlock, or the file was deleted), so another command may have run at the same time. Run check.';
 
 function unlinkIfPresent(file) {
   try {
@@ -78,7 +81,25 @@ function acquire(dir, { waitMs, command }) {
     if (holder !== undefined || lastTry) throw busy(dir, holder);
     lastTry = true;
   }
-  return { release: () => unlinkIfPresent(file) };
+  const owned = () => readHolder(file)?.nonce === record.nonce;
+  const onSignal = (signal) => {
+    release();
+    process.exit(EXIT_ON[signal]);
+  };
+  function release() {
+    for (const signal of Object.keys(EXIT_ON)) process.removeListener(signal, onSignal);
+    if (!owned()) return LOCK_LOST;
+    unlinkIfPresent(file);
+    return undefined;
+  }
+  for (const signal of Object.keys(EXIT_ON)) process.once(signal, onSignal);
+  return {
+    owned,
+    check: () => {
+      if (!owned()) throw new PalaceError(LOCK_REMOVED);
+    },
+    release,
+  };
 }
 
 function remove(dir) {

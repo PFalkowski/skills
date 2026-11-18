@@ -53,6 +53,7 @@ function folderStore(dir) {
       held = null;
       return releasing?.release();
     },
+    checkLock: () => held.check(),
     get: (id) => read(pageFile(id), `page ${id}`),
     getMeta,
     begin: (seed) => {
@@ -65,6 +66,7 @@ function folderStore(dir) {
       fs.writeFileSync(pageFile(id), bytes);
     },
     setMeta: (bytes) => {
+      held.check();
       fs.writeFileSync(metaTmp, bytes);
       fs.renameSync(metaTmp, metaFile);
       landed = true;
@@ -75,18 +77,20 @@ function folderStore(dir) {
       writing = null;
     },
     abort: () => {
-      if (!landed) {
+      if (!landed && held.owned()) {
         dropUncommitted(writing);
         removeIfPresent(markerFile(writing));
       }
       writing = null;
+      return landed;
     },
-    repair: (decodeMeta, recordLanded) => {
+    repair: (decodeMeta, recordLanded = () => {}, beforeMarkers = () => {}) => {
       const markers = fs
         .readdirSync(dir)
         .filter((name) => name.startsWith(MARKER))
         .map((name) => ({ seed: name.slice(MARKER.length), age: fs.statSync(path.join(dir, name)).mtimeMs }))
         .sort((a, b) => a.age - b.age);
+      if (markers.length > 0) beforeMarkers();
       for (const { seed } of markers) {
         const meta = decodeMeta(getMeta());
         if (meta.seed === seed) {
@@ -162,6 +166,7 @@ function sqliteStore(dir) {
     release: () => {
       if (open) finish(writer ? 'ROLLBACK' : 'COMMIT');
     },
+    checkLock: () => {},
     get: (id) => page(row('SELECT data FROM pages WHERE id = ?', id), `page ${id}`),
     getMeta: () => page(row('SELECT data FROM meta WHERE one = 1'), 'the meta page'),
     begin: () => {

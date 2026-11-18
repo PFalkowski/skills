@@ -320,19 +320,23 @@ function commit(store, tree, codec, change, record) {
     store.put(id, codec.encode(id, page));
     return id;
   };
+  let step;
   store.begin(seed);
   try {
     const changed = change(write);
     const flushed = tree.flush(write);
     const free = [...flushed.freed, ...changed.freed];
     store.setMeta(codec.encode(META, { v: 1, root: flushed.root, seed, free }));
+    step = 'freeing the replaced pages';
     for (const id of free) store.free(id);
+    step = 'the git commit';
     record();
+    step = 'removing the pending marker';
     store.end();
     return changed.result;
   } catch (err) {
-    store.abort();
-    throw err;
+    if (!store.abort()) throw err;
+    throw new PalaceError(`saved in the palace files, but ${step} failed: ${err.message}. The next operation finishes it. Do not save again.`);
   }
 }
 
@@ -356,9 +360,9 @@ function open(ctx) {
   const codec = codecFor(settings.protected ? unlockKeys(settings, entry, env, palace) : null);
   const repo = () => (settings.backend === 'folder' && git.online(dir) ? dir : null);
 
-  function pull(online, read, long) {
+  function pull(store, online, read, long) {
     if (online === null || git.originUrl(env, online) === null) return undefined;
-    const { warning } = git.fetchAndForward(env, online, { timeoutMs: gitTimeout(ctx, long), read });
+    const { warning } = git.fetchAndForward(env, online, { timeoutMs: gitTimeout(ctx, long), read, checkLock: store.checkLock });
     settings = readSettings(dir);
     checkPin(settings, entry, palace);
     return warning;
@@ -380,23 +384,28 @@ function open(ctx) {
     const store = ctx.wrapStore ? ctx.wrapStore(raw) : raw;
     const write = WRITES.has(command);
     store.lock({ write, waitMs: ctx.lockWaitMs ?? LOCK_WAIT_MS, command });
+    let result;
+    const warnings = [];
     try {
       const online = repo();
-      store.repair((bytes) => codec.decode(META, bytes), () => online && git.commit(env, online));
-      const pulled = pulls ? pull(online, !write, command === 'sync') : undefined;
+      if (online) git.clearStaleLocks(online);
+      store.checkLock();
+      store.repair((bytes) => codec.decode(META, bytes), () => online && git.commit(env, online), () => online && git.refuseForeignHead(env, online));
+      if (online) git.restore(env, online);
+      const pulled = pulls ? pull(store, online, !write, command === 'sync') : undefined;
       const meta = codec.decode(META, store.getMeta());
       const read = (id) => codec.decode(id, store.get(id));
       const record = () => online && git.commit(env, online);
-      const result = work({ store, read, tree: createTree({ get: read }, settings.tree, meta.root), record, pulled, online });
-      const warnings = [pulled, ...(result.warnings ?? [])];
+      result = work({ store, read, tree: createTree({ get: read }, settings.tree, meta.root), record, pulled, online });
+      warnings.push(pulled, ...(result.warnings ?? []));
       if (write && online && command !== 'sync') warnings.push(git.gc(env, online));
-      const { warnings: _, ...answer } = result;
-      const warning = warnings.filter(Boolean).join(' ');
-      return warning ? { ...answer, warning } : answer;
     } finally {
-      store.release();
+      warnings.push(store.release());
       store.close();
     }
+    const { warnings: _, ...answer } = result;
+    const warning = warnings.filter(Boolean).join(' ');
+    return warning ? { ...answer, warning } : answer;
   }
 
   function unsynced(online) {
@@ -466,12 +475,12 @@ function open(ctx) {
     },
     setRemote(input) {
       checkUrl(input.url, settings.backend);
-      return operate('remote', () => {
+      return operate('remote', ({ store }) => {
         const existing = repo();
         git.checkRemote(env, existing, input.url, gitTimeout(ctx, true));
         if (!existing) git.init(env, dir);
         git.setOrigin(env, dir, input.url);
-        const pulled = pull(dir, false, true);
+        const pulled = pull(store, dir, false, true);
         if (pulled && input.private === true) throw new PalaceError(pulled);
         if (input.private === true) {
           settings = { ...settings, privateRemote: input.url };
@@ -491,6 +500,7 @@ function open(ctx) {
           live.add(text);
         }
         const unreachable = store.ids().filter((id) => !live.has(id));
+        store.checkLock();
         store.begin(randomHex(16));
         unreachable.forEach((id) => store.free(id));
         store.end();

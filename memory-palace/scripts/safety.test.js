@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 const { setup, open } = require('./lib/palace.js');
 const { acquire } = require('./lib/lock.js');
 const { cli, support, envFor, waitFor, hashes, scan } = require('./test-support.js');
@@ -510,4 +510,201 @@ test('unlock on SQLite prints null with a note', async (t) => {
   assert.strictEqual(result.removed, null);
   assert.match(result.note, /process/);
   assert.ok(!fs.existsSync(path.join(dir, 'lock')));
+});
+
+const LOCK_REMOVED = /lock was removed/;
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const backdate = (file, seconds) => {
+  const at = new Date(Date.now() - seconds * 1000);
+  fs.utimesSync(file, at, at);
+};
+const plant = (file, seconds) => {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, '');
+  backdate(file, seconds);
+};
+const markers = (dir) => fs.readdirSync(dir).filter((name) => name.startsWith('pending.'));
+
+test('release after unlock and a new acquire leaves the new lock and warns', async (t) => {
+  const { root, env, setUp } = sandbox(t);
+  const dir = setUp('palace', thirtyThree);
+  const { holder: reader, resume: resumeReader } = await pausedBrowse(t, env, dir, root, 'reader');
+  ok(await cli(env, ['unlock', '--palace', dir]));
+  const { holder: writer, resume: resumeWriter } = await pausedSave(t, env, dir, root, 'b');
+  const held = fs.readFileSync(path.join(dir, 'lock'), 'utf8');
+  assert.strictEqual(JSON.parse(held).pid, writer.child.pid);
+
+  resumeReader();
+  const [browsed] = ok(await reader.done);
+  assert.deepStrictEqual(placesOf(browsed.memories), placesOf(thirtyThree));
+  assert.ok(fs.existsSync(path.join(dir, 'lock')), 'the first command removed the second command\'s lock');
+  assert.strictEqual(fs.readFileSync(path.join(dir, 'lock'), 'utf8'), held, 'the second command\'s record changed');
+  assert.match(browsed.warning ?? '', LOCK_REMOVED);
+
+  resumeWriter();
+  ok(await writer.done);
+  assert.ok(!fs.existsSync(path.join(dir, 'lock')), 'the lock file remains');
+});
+
+test('release warning when the lock file vanished', (t) => {
+  const { setUp, withPalace } = sandbox(t);
+  const dir = setUp('palace', [memory('a')]);
+  const vanishing = (store) => ({ ...store, get: (id) => { fs.rmSync(path.join(dir, 'lock'), { force: true }); return store.get(id); } });
+  const browsed = withPalace(dir, (p) => p.browse({}), vanishing);
+  assert.deepStrictEqual(placesOf(browsed.memories), ['h/a']);
+  assert.match(browsed.warning ?? '', LOCK_REMOVED);
+});
+
+async function unlockDuringSave(t, put, stopsWith) {
+  const { root, env, setUp } = sandbox(t);
+  const earlier = [memory('old1'), memory('old2')];
+  const dir = setUp('palace', earlier);
+  const { holder, resume } = await paused(t, env, dir, root, 'a', { put }, { op: 'save', input: memory('a') });
+  ok(await cli(env, ['unlock', '--palace', dir]));
+  ok(await cli(env, ['save', '--palace', dir], memory('b')));
+
+  resume();
+  const stopped = await holder.done;
+  assert.strictEqual(stopped.code, 1, stopped.stdout);
+  assert.match(stopped.stderr, stopsWith);
+
+  assert.strictEqual(ok(await cli(env, ['check', '--palace', dir])).memories, 3);
+  const places = placesOf(ok(await cli(env, ['browse', '--palace', dir], {})).memories);
+  assert.deepStrictEqual(places, ['h/b', ...placesOf(earlier)].sort());
+  for (const place of places) assert.strictEqual(ok(await cli(env, ['recall', '--palace', dir], { place })).found, true, place);
+  assert.ok(!fs.existsSync(path.join(dir, 'lock')), 'the lock file remains');
+}
+
+test('unlock during a paused save stops it before the commit point', (t) => unlockDuringSave(t, 2, /the lock was removed while this command ran/));
+
+test('unlock during a save paused before its tree reads stops it on a missing page', (t) => unlockDuringSave(t, 1, /page [0-9a-f]{32} is missing/));
+
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  test(`${signal} mid-operation finishes and leaves no lock`, async (t) => {
+    const { root, env, setUp } = sandbox(t);
+    const dir = setUp('palace', [memory('old')]);
+    const { holder, resume } = await pausedSave(t, env, dir, root, 'signalled');
+    holder.child.kill(signal);
+    await delay(200);
+    resume();
+    const result = await holder.done;
+    assert.strictEqual(result.signal, null, `ended by ${result.signal}`);
+    ok(result);
+    assert.deepStrictEqual(placesOf(ok(await cli(env, ['browse', '--palace', dir], {})).memories), ['h/old', 'h/signalled']);
+    assert.ok(!fs.existsSync(path.join(dir, 'lock')), 'the lock file remains');
+  });
+}
+
+test('SIGINT while waiting for the lock ends the command and leaves the holder\'s lock', async (t) => {
+  const { root, env, setUp } = sandbox(t);
+  const dir = setUp('palace', [memory('old')]);
+  const { holder, resume } = await pausedSave(t, env, dir, root, 'held');
+  const held = fs.readFileSync(path.join(dir, 'lock'), 'utf8');
+  const waiter = support(env, { palace: dir, ops: [{ op: 'save', input: memory('waiter') }] });
+  t.after(() => waiter.child.kill('SIGKILL'));
+  await delay(500);
+  const { result, ms } = await timed((waiter.child.kill('SIGINT'), waiter.done));
+  assert.ok(ms < 1000, `the waiter ran ${ms} ms after SIGINT`);
+  assert.notStrictEqual(result.code, 0, result.stdout);
+  assert.strictEqual(fs.readFileSync(path.join(dir, 'lock'), 'utf8'), held, 'the waiter changed the holder record');
+
+  resume();
+  ok(await holder.done);
+});
+
+test('hand clone tracking pending.<seed> is refused and loses no page', async (t) => {
+  const { root, env, git, setUp, withPalace } = sandbox(t, 'folder', true);
+  const dir = setUp('palace', [memory('a')]);
+  const { seed } = JSON.parse(fs.readFileSync(path.join(dir, 'meta'), 'utf8'));
+  withPalace(dir, (p) => p.save(memory('b')));
+  const clone = path.join(root, 'hand-clone');
+  git(['clone', '-q', '--branch', 'main', path.join(root, 'palace.remote.git'), clone]);
+  const livePage = pagePath(clone, pageId(seed, 0));
+  assert.ok(fs.existsSync(livePage), 'the earlier save\'s text page is not live');
+  const marker = `pending.${seed}`;
+  fs.writeFileSync(path.join(clone, marker), '');
+  const commitAs = ['-c', 'user.name=hand', '-c', 'user.email=hand@localhost', 'commit', '-q', '-m', 'hand'];
+  git(['-C', clone, 'add', '-f', marker]);
+  git(['-C', clone, ...commitAs]);
+
+  const refused = await cli(env, ['browse', '--palace', clone], {});
+  assert.strictEqual(refused.code, 1, refused.stdout);
+  assert.match(refused.stderr, /did not write/);
+  assert.ok(refused.stderr.includes(marker), refused.stderr);
+  assert.ok(fs.existsSync(livePage), 'repair deleted a live page');
+
+  git(['-C', clone, 'rm', '-q', marker]);
+  git(['-C', clone, ...commitAs]);
+  assert.strictEqual(ok(await cli(env, ['check', '--palace', clone])).memories, 2);
+});
+
+test('half-applied pull', async (t) => {
+  const { root, env, git, setUp, withPalace } = sandbox(t, 'folder', true);
+  const dir = setUp('palace', [memory('a')]);
+  const head = () => git(['-C', dir, 'rev-parse', 'HEAD']).trim();
+  const oldHead = head();
+  withPalace(dir, (p) => ['b', 'c'].forEach((name) => p.save(memory(name))));
+  const newHead = head();
+
+  git(['-C', dir, 'reset', '-q', '--hard', oldHead]);
+  git(['-C', dir, 'update-ref', 'refs/remotes/origin/main', oldHead]);
+  const changes = git(['-C', dir, 'diff', '--no-renames', '--name-status', oldHead, newHead]).trim().split('\n').map((line) => line.split('\t'));
+  const added = changes.filter(([kind]) => kind === 'A').map(([, file]) => file).sort();
+  assert.ok(added.length >= 2 && changes.some(([kind]) => kind === 'D'), changes.join(' '));
+  for (const [kind, file] of changes) if (kind === 'D') fs.unlinkSync(path.join(dir, file));
+  for (const file of [...added.slice(0, -1), 'meta']) {
+    fs.mkdirSync(path.dirname(path.join(dir, file)), { recursive: true });
+    fs.writeFileSync(path.join(dir, file), git(['-C', dir, 'show', `${newHead}:${file}`]));
+  }
+  plant(path.join(dir, '.git', 'index.lock'), 11);
+  plant(path.join(dir, '.git', 'refs', 'remotes', 'origin', 'main.lock'), 11);
+
+  const remote = path.join(root, 'palace.remote.git');
+  fs.renameSync(remote, `${remote}.away`);
+  assert.deepStrictEqual(placesOf(ok(await cli(env, ['browse', '--palace', dir], {})).memories), ['h/a']);
+  assert.strictEqual(head(), oldHead);
+
+  fs.renameSync(`${remote}.away`, remote);
+  assert.deepStrictEqual(placesOf(ok(await cli(env, ['browse', '--palace', dir], {})).memories), ['h/a', 'h/b', 'h/c']);
+  assert.strictEqual(head(), newHead);
+  assert.strictEqual(git(['-C', dir, 'rev-parse', 'refs/remotes/origin/main']).trim(), newHead);
+});
+
+test('young git lock', (t) => {
+  const { setUp, withPalace } = sandbox(t, 'folder', true);
+  const dir = setUp('palace', [memory('a')]);
+  const indexLock = path.join(dir, '.git', 'index.lock');
+  plant(indexLock, 9.5);
+  const started = Date.now();
+  const browsed = withPalace(dir, (p) => p.browse({}));
+  const ms = Date.now() - started;
+  assert.ok(!fs.existsSync(indexLock), 'the git lock is still there');
+  assert.ok(ms >= 400 && ms < 3000, `the operation took ${ms} ms`);
+  assert.deepStrictEqual(placesOf(browsed.memories), ['h/a']);
+});
+
+test('unborn HEAD', async (t) => {
+  const { env, git, setUp } = sandbox(t);
+  const dir = setUp('palace', [memory('a'), memory('b')]);
+  git(['init', '-q', '-b', 'main', dir]);
+  assert.deepStrictEqual(placesOf(ok(await cli(env, ['browse', '--palace', dir], {})).memories), ['h/a', 'h/b']);
+  const commits = spawnSync('git', ['-C', dir, 'rev-list', '--count', 'HEAD'], { env, encoding: 'utf8', timeout: 10000 });
+  assert.strictEqual(commits.stdout.trim(), '1', commits.stderr);
+  assert.strictEqual(git(['-C', dir, 'show', 'HEAD:meta']), fs.readFileSync(path.join(dir, 'meta'), 'utf8'));
+  assert.strictEqual(git(['-C', dir, 'status', '--porcelain']), '');
+});
+
+test('commit-point failure', (t) => {
+  const { git, setUp, withPalace } = sandbox(t, 'folder', true);
+  const dir = setUp('palace', [memory('a')]);
+  const indexLock = path.join(dir, '.git', 'index.lock');
+  const lockingGit = (store) => ({ ...store, setMeta: (bytes) => { store.setMeta(bytes); fs.writeFileSync(indexLock, ''); } });
+  assert.throws(() => withPalace(dir, (p) => p.save(memory('b')), lockingGit), /saved in the palace files/);
+  assert.strictEqual(markers(dir).length, 1, 'the marker of the landed save is gone');
+
+  backdate(indexLock, 11);
+  assert.deepStrictEqual(placesOf(withPalace(dir, (p) => p.browse({})).memories), ['h/a', 'h/b']);
+  assert.deepStrictEqual(markers(dir), []);
+  assert.strictEqual(git(['-C', dir, 'show', 'HEAD:meta']), fs.readFileSync(path.join(dir, 'meta'), 'utf8'));
+  assert.strictEqual(git(['-C', dir, 'status', '--porcelain']), '');
 });
