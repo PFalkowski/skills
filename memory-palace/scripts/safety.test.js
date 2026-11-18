@@ -735,8 +735,9 @@ test('hand clone tracking pending.<seed> is refused and loses no page', async (t
   const { seed } = JSON.parse(fs.readFileSync(path.join(dir, 'meta'), 'utf8'));
   withPalace(dir, (p) => p.save(memory('b')));
   const clone = path.join(root, 'hand-clone');
-  git(['clone', '-q', '--branch', 'main', path.join(root, 'palace.remote.git'), clone]);
-  ok(await cli(env, ['join', '--palace', clone], { passphrase: null }));
+  const remote = path.join(root, 'palace.remote.git');
+  git(['clone', '-q', '--branch', 'main', remote, clone]);
+  ok(await cli(env, ['join', '--palace', clone], { passphrase: null, remote }));
   const livePage = pagePath(clone, pageId(seed, 0));
   assert.ok(fs.existsSync(livePage), 'the earlier save\'s text page is not live');
   const marker = `pending.${seed}`;

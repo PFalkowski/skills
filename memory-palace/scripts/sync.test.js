@@ -22,7 +22,10 @@ const FOREIGN = /the remote holds files memory-palace did not write/;
 const NOT_EMPTY = /the remote is not empty/;
 const UNREACHABLE = /does not appear to be a git repository/;
 const NOT_SYNCED = /saved locally, not yet synced/;
+const OWN_REPO = /has its own git repository\. Pass this palace's remote URL to join as "remote", or null if it has none/;
+const NO_REPO = /has no git repository, so join cannot attach a remote/;
 const SECRET = /password or token/;
+const FOREIGN_KEY = (key) => new RegExp(`"${key.replace('.', '\\.')}", which memory-palace did not write`, 'i');
 
 let tags = 0;
 const tag = () => `MKPL${String(++tags).padStart(4, '0')}q7Zx`;
@@ -43,17 +46,25 @@ const refs = (env, gitDir) => git(env, ['--git-dir', gitDir, 'for-each-ref', '--
 const remoteState = (env, bare) => ({ refs: refs(env, bare), objects: git(env, ['--git-dir', bare, 'cat-file', '--batch-all-objects', '--batch-check']) });
 const headOf = (env, dir) => git(env, ['-C', dir, 'rev-parse', 'HEAD']).trim();
 const mainOf = (env, bare) => git(env, ['--git-dir', bare, 'rev-parse', 'refs/heads/main']).trim();
-const originOf = (env, dir) => git(env, ['-C', dir, 'config', '--get', 'remote.origin.url']).trim();
+const recordedOf = (env, dir) => JSON.parse(readFile(machineFile(env))).palaces[dir]?.origin;
+const linkKeys = (env, dir) => git(env, ['-C', dir, 'config', '--local', '--name-only', '--list']).split('\n').filter((key) => /^(remote|branch)\./.test(key));
 const trackedOn = (env, bare) => git(env, ['--git-dir', bare, 'ls-tree', '-r', '--name-only', 'main']).split('\n').filter(Boolean);
 const readFile = (file) => fs.readFileSync(file, 'utf8');
 const machineFile = (env) => path.join(env.XDG_CONFIG_HOME, 'memory-palace', 'config.json');
 const output = (result) => `${result.stdout}${result.stderr}`;
 const workFiles = (dir) => Object.fromEntries(Object.entries(hashes(dir)).filter(([file]) => !file.startsWith(`.git${path.sep}`)));
-const palaceState = (env, dir) => ({ settings: readFile(path.join(dir, 'palace.json')), origin: originOf(env, dir), refs: refs(env, path.join(dir, '.git')) });
+const palaceState = (env, dir) => ({ settings: readFile(path.join(dir, 'palace.json')), origin: recordedOf(env, dir), refs: refs(env, path.join(dir, '.git')) });
 
 function script(file, body) {
   fs.writeFileSync(file, `#!/bin/sh\n${body}\n`, { mode: 0o755 });
   return file;
+}
+
+function hooked(box, name) {
+  const marker = box.at(`${name}-hook-ran`);
+  const url = box.bare(name);
+  script(path.join(url, 'hooks', 'pre-receive'), `touch '${marker}'`);
+  return { url, ran: () => fs.existsSync(marker) };
 }
 
 function sandbox(t) {
@@ -371,7 +382,7 @@ test('remote refuses a remote whose main tracks foreign files, before switching'
   const stderr = failed(await cli(box.env, ['remote', '--palace', dir], { url: foreign, private: true }), 'remote');
   assert.match(stderr, FOREIGN);
   assert.ok(stderr.includes('README.md'), stderr);
-  assert.strictEqual(originOf(box.env, dir), remote);
+  assert.strictEqual(recordedOf(box.env, dir), remote);
 });
 
 test('remote accepts a remote that is behind', async (t) => {
@@ -496,9 +507,45 @@ test('join --palace on a hand clone opens it', async (t) => {
   const hand = box.at('hand');
   git(b, ['clone', '-q', '--branch', 'main', remote, hand]);
   assert.ok(!fs.existsSync(path.join(hand, 'lock')));
-  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', hand], { passphrase: null })), { joined: hand, default: hand });
+  const refused = await cli(b, ['join', '--palace', hand], { passphrase: null });
+  assert.match(failed(refused, 'join without remote'), OWN_REPO);
+  assert.ok(!output(refused).includes(remote), output(refused));
+  assert.ok(!fs.existsSync(machineFile(b)), 'a machine record was written');
+
+  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', hand], { passphrase: null, remote })), { joined: hand, default: hand });
+  assert.deepStrictEqual(linkKeys(b, hand), []);
   assert.strictEqual(ok(await cli(b, ['recall'], { place: memory.place })).text, memory.text);
   assert.ok(!fs.existsSync(path.join(hand, 'lock')), 'the recall left its lock');
+  assert.strictEqual(ok(await cli(b, ['save'], memoryOf(tag()))).synced, true);
+  assert.strictEqual(mainOf(b, remote), headOf(b, hand));
+});
+
+test('join of an unknown folder with a .git must state its remote', async (t) => {
+  const box = sandbox(t);
+  const { dir, remote } = onlinePalace(box);
+  saveIn(box.env, dir, memoryOf(tag()));
+  const b = box.home('b');
+  const copies = ['missing', 'none', 'url'].map((name) => box.at(`b-${name}`));
+  for (const copy of copies) fs.cpSync(dir, copy, { recursive: true });
+  const [missing, none, url] = copies;
+  assert.match(failed(await cli(b, ['join', '--palace', missing], { passphrase: null }), 'no remote key'), OWN_REPO);
+  assert.ok(!fs.existsSync(machineFile(b)), 'a machine record was written');
+  ok(await cli(b, ['join', '--palace', none], { passphrase: null, remote: null }));
+  assert.strictEqual(ok(await cli(b, ['save', '--palace', none], memoryOf(tag()))).synced, false);
+  ok(await cli(b, ['join', '--palace', url], { passphrase: null, remote }));
+  assert.strictEqual(ok(await cli(b, ['save', '--palace', url], memoryOf(tag()))).synced, true);
+  assert.strictEqual(mainOf(b, remote), headOf(b, url));
+});
+
+test('join of an unknown offline folder refuses a remote URL', async (t) => {
+  const box = sandbox(t);
+  const dir = box.at('palace');
+  setup(dir, SETTINGS, { env: box.env });
+  const b = box.home('b');
+  assert.match(failed(await cli(b, ['join', '--palace', dir], { passphrase: null, remote: box.bare('remote.git') }), 'join with a URL'), NO_REPO);
+  assert.ok(!fs.existsSync(machineFile(b)), 'a machine record was written');
+  ok(await cli(b, ['join', '--palace', dir], { passphrase: null }));
+  ok(await cli(box.env, ['join', '--palace', dir], { passphrase: null }));
 });
 
 test('foreign paths: reads answer locally with a warning', async (t) => {
@@ -565,7 +612,7 @@ test('foreign paths: join refuses', async (t) => {
   const plain = box.at('plain');
   git(b, ['clone', '-q', '--branch', 'main', remote, plain]);
   const before = hashes(plain);
-  const refused = failed(await cli(b, ['join', '--palace', plain], { passphrase: null }), 'join of a plain clone');
+  const refused = failed(await cli(b, ['join', '--palace', plain], { passphrase: null, remote }), 'join of a plain clone');
   assert.match(refused, FOREIGN);
   assert.deepStrictEqual(hashes(plain), before);
   assert.ok(!fs.existsSync(machineFile(b)), 'a machine record was written');
@@ -712,7 +759,7 @@ test('insteadOf', async (t) => {
   const dir = box.at('palace');
   ok(await cli(env, ['setup', '--palace', dir], { ...SETTINGS, remote: url, private: true }));
   ok(await cli(env, ['save'], memoryOf(tag())));
-  assert.strictEqual(originOf(env, dir), url);
+  assert.strictEqual(ok(await cli(env, ['status'])).remote, url);
   assert.strictEqual(mainOf(env, remote), headOf(env, dir));
 });
 
@@ -764,14 +811,23 @@ test('timeout', async (t) => {
   }
 });
 
-test('an origin URL that carries a secret in the palace configuration is refused', async (t) => {
+test('an origin URL that carries a secret in the palace configuration or the machine record is refused', async (t) => {
   const box = sandbox(t);
   const { dir } = onlinePalace(box);
-  git(box.env, ['-C', dir, 'config', 'remote.origin.url', 'https://user:MKPLsecret0q7Zx@example.invalid/palace.git']);
-  for (const [command, input] of [['status'], ['browse', {}], ['save', memoryOf(tag())]]) {
-    const stderr = failed(await cli(box.env, [command, '--palace', dir], input), command);
-    assert.match(stderr, SECRET, command);
-    assert.ok(!stderr.includes('MKPLsecret0q7Zx'), `${command}: ${stderr}`);
+  const url = 'https://user:MKPLsecret0q7Zx@example.invalid/palace.git';
+  git(box.env, ['-C', dir, 'config', 'remote.origin.url', url]);
+  const record = JSON.parse(readFile(machineFile(box.env)));
+  for (const [where, message] of [['configuration', FOREIGN_KEY('remote.origin.url')], ['record', SECRET]]) {
+    if (where === 'record') {
+      git(box.env, ['-C', dir, 'config', '--remove-section', 'remote.origin']);
+      record.palaces[dir].origin = url;
+      fs.writeFileSync(machineFile(box.env), JSON.stringify(record));
+    }
+    for (const [command, input] of [['status'], ['browse', {}], ['save', memoryOf(tag())]]) {
+      const stderr = failed(await cli(box.env, [command, '--palace', dir], input), `${where} ${command}`);
+      assert.match(stderr, message, `${where} ${command}`);
+      assert.ok(!stderr.includes('MKPLsecret0q7Zx'), `${where} ${command}: ${stderr}`);
+    }
   }
 });
 
@@ -904,8 +960,6 @@ async function plantedGit(t, config) {
   return { box, env, dir, memory };
 }
 
-const FOREIGN_KEY = (key) => new RegExp(`"${key.replace('.', '\\.')}", which memory-palace did not write`, 'i');
-
 test('a planted .git whose config sets core.fsmonitor is refused by name and runs nothing', async (t) => {
   let marker;
   const { env, memory } = await plantedGit(t, (box) => {
@@ -925,79 +979,124 @@ test('a planted .git whose config sets core.sshCommand is refused by name', asyn
   assert.match(failed(await cli(env, ['recall'], { place: memory.place }), 'recall'), FOREIGN_KEY('core.sshCommand'));
 });
 
-const NOT_RECORDED = /the remote of .* is not the one this machine recorded/;
+const PLANTED_ORIGIN = (url) => `[remote "origin"]\n\turl = ${url}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n`;
 
-test('a planted .git whose origin has a hook is refused and the hook never runs', async (t) => {
-  let marker;
+test('a planted .git whose origin has a hook is refused by name and the hook never runs', async (t) => {
   let planted;
   const { env, dir, memory } = await plantedGit(t, (box) => {
-    marker = box.at('hook-ran');
-    planted = box.bare('planted.git');
-    script(path.join(planted, 'hooks', 'pre-receive'), `touch '${marker}'`);
-    return `[remote "origin"]\n\turl = ${planted}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n`;
+    planted = hooked(box, 'planted.git');
+    return PLANTED_ORIGIN(planted.url);
   });
   const before = hashes(dir);
-  for (const [args, input] of [[['save'], memoryOf(tag())], [['recall'], { place: memory.place }], [['status']]]) {
+  for (const [args, input] of [[['save'], memoryOf(tag())], [['recall'], { place: memory.place }], [['status']], [['remote'], { url: planted.url }]]) {
     const result = await cli(env, args, input);
-    assert.match(failed(result, args[0]), NOT_RECORDED, args[0]);
-    assert.ok(!output(result).includes(planted), `${args[0]}: the planted URL was echoed`);
+    assert.match(failed(result, args[0]), FOREIGN_KEY('remote.origin.url'), args[0]);
+    assert.ok(!output(result).includes(planted.url), `${args[0]}: the planted URL was echoed`);
   }
-  assert.ok(!fs.existsSync(marker), 'the planted hook ran');
+  assert.ok(!planted.ran(), 'the planted hook ran');
   assert.deepStrictEqual(hashes(dir), before);
 });
 
-test('join of a known folder keeps the recorded origin and refuses a planted one', async (t) => {
-  let marker;
+test('join of a known folder refuses a planted origin by name', async (t) => {
   let planted;
   const { env, dir } = await plantedGit(t, (box) => {
-    marker = box.at('hook-ran');
-    planted = box.bare('planted.git');
-    script(path.join(planted, 'hooks', 'pre-receive'), `touch '${marker}'`);
-    return `[remote "origin"]\n\turl = ${planted}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n`;
+    planted = hooked(box, 'planted.git');
+    return PLANTED_ORIGIN(planted.url);
   });
   git(env, ['-C', dir, 'add', '-f', '--', 'palace.json', 'meta', 'pages', '.gitignore']);
   git(env, ['-C', dir, 'commit', '-q', '-m', 'planted']);
   const record = readFile(machineFile(env));
-  for (const [args, input] of [[['join', '--palace', dir], { passphrase: { env: VAR } }], [['save'], memoryOf(tag())]]) {
+  for (const [args, input] of [[['join', '--palace', dir], { passphrase: { env: VAR }, remote: planted.url }], [['save'], memoryOf(tag())]]) {
     const result = await cli(env, args, input);
-    assert.match(failed(result, args[0]), NOT_RECORDED, args[0]);
-    assert.ok(!output(result).includes(planted), `${args[0]}: the planted URL was echoed`);
+    assert.match(failed(result, args[0]), FOREIGN_KEY('remote.origin.url'), args[0]);
+    assert.ok(!output(result).includes(planted.url), `${args[0]}: the planted URL was echoed`);
   }
   assert.strictEqual(readFile(machineFile(env)), record);
-  assert.ok(!fs.existsSync(marker), 'the planted hook ran');
+  assert.ok(!planted.ran(), 'the planted hook ran');
 });
 
-test('an origin changed by hand is refused and nothing is pushed there',async (t) => {
+test('N1: a second origin URL planted before the recorded one is refused by every command and never pushed to', async (t) => {
+  const box = sandbox(t);
+  const { env } = box;
+  const { dir, remote } = onlinePalace(box, { settings: PROTECTED, confirm: false });
+  const memory = memoryOf(tag());
+  saveIn(env, dir, memory);
+  const planted = hooked(box, 'planted.git');
+  git(env, ['-C', dir, 'config', '--replace-all', 'remote.origin.url', planted.url]);
+  git(env, ['-C', dir, 'config', '--add', 'remote.origin.url', remote]);
+  const commands = [
+    [['status']], [['recall'], { place: memory.place }], [['browse'], {}], [['list'], {}], [['save'], memoryOf(tag())], [['forget'], { place: memory.place }],
+    [['sync']], [['check']], [['remote'], { url: remote }], [['join'], { passphrase: { env: VAR }, remote }],
+  ];
+  for (const [args, input] of commands) {
+    const result = await cli(env, [...args, '--palace', dir], input);
+    assert.match(failed(result, args[0]), FOREIGN_KEY('remote.origin.url'), args[0]);
+    assert.ok(!output(result).includes(planted.url), `${args[0]}: the planted URL was echoed`);
+  }
+  assert.ok(!planted.ran(), 'the planted hook ran');
+  assert.strictEqual(refs(env, planted.url), '');
+});
+
+test('a remote, push URL or branch link set by hand is refused by name and nothing is pushed there', async (t) => {
   const box = sandbox(t);
   const { env } = box;
   const { dir, remote } = onlinePalace(box, { settings: PROTECTED });
   const other = box.bare('other.git');
-  for (const change of [['config', 'remote.origin.url', other], ['config', '--add', 'remote.origin.url', other]]) {
-    git(env, ['-C', dir, 'config', 'remote.origin.url', remote]);
-    git(env, ['-C', dir, ...change]);
-    assert.match(failed(await cli(env, ['save', '--palace', dir], memoryOf(tag())), change.join(' ')), NOT_RECORDED);
+  for (const [key, section] of [['remote.origin.url', 'remote.origin'], ['remote.origin.pushurl', 'remote.origin'], ['remote.mine.url', 'remote.mine'], ['branch.main.remote', 'branch.main']]) {
+    git(env, ['-C', dir, 'config', key, other]);
+    assert.match(failed(await cli(env, ['save', '--palace', dir], memoryOf(tag())), key), FOREIGN_KEY(key));
     assert.strictEqual(refs(env, other), '');
+    git(env, ['-C', dir, 'config', '--remove-section', section]);
   }
-});
-
-test('remote with the recorded URL is the way out of a changed origin', async (t) => {
-  const box = sandbox(t);
-  const { env } = box;
-  const { dir, remote } = onlinePalace(box);
-  git(env, ['-C', dir, 'config', 'remote.origin.url', box.bare('other.git')]);
-  ok(await cli(env, ['remote', '--palace', dir], { url: remote, private: true }));
-  assert.strictEqual(JSON.parse(readFile(machineFile(env))).palaces[dir].origin, remote);
   assert.strictEqual(ok(await cli(env, ['save', '--palace', dir], memoryOf(tag()))).synced, true);
   assert.strictEqual(mainOf(env, remote), headOf(env, dir));
 });
 
-test('a palace whose machine record was lost is refused until joined again', async (t) => {
+test('a push goes only to the recorded remote: legacy remote files are refused, allowed settings change nothing', async (t) => {
+  const box = sandbox(t);
+  const { env } = box;
+  const real = box.bare('remote.git');
+  const url = 'example.invalid:palace.git';
+  fs.writeFileSync(env.GIT_CONFIG_GLOBAL, `[url "${real}"]\n\tinsteadOf = ${url}\n`);
+  const dir = box.at('palace');
+  ok(await cli(env, ['setup', '--palace', dir], { ...SETTINGS, remote: url, private: true }));
+  const planted = hooked(box, 'planted.git');
+  for (const file of [path.join('remotes', url), path.join('branches', url), path.join('remotes', 'origin')]) {
+    const legacy = path.join(dir, '.git', file);
+    fs.mkdirSync(path.dirname(legacy), { recursive: true });
+    fs.writeFileSync(legacy, file.startsWith('remotes') ? `URL: ${planted.url}\nPush: refs/heads/main:refs/heads/main\n` : `${planted.url}\n`);
+    assert.match(failed(await cli(env, ['save'], memoryOf(tag())), file), /\.git[/\\](remotes|branches) holds files memory-palace did not write/);
+    fs.rmSync(path.dirname(legacy), { recursive: true });
+  }
+  assert.ok(!planted.ran(), 'the planted hook ran');
+  git(env, ['-C', dir, 'config', 'core.logallrefupdates', 'false']);
+  assert.strictEqual(ok(await cli(env, ['save'], memoryOf(tag()))).synced, true);
+  assert.strictEqual(mainOf(env, real), headOf(env, dir));
+  assert.strictEqual(refs(env, planted.url), '');
+});
+
+test('removing a key set by hand is the way out, and remote does not bypass it', async (t) => {
   const box = sandbox(t);
   const { env } = box;
   const { dir, remote } = onlinePalace(box);
+  git(env, ['-C', dir, 'config', 'remote.origin.url', box.bare('other.git')]);
+  assert.match(failed(await cli(env, ['remote', '--palace', dir], { url: remote, private: true }), 'remote'), FOREIGN_KEY('remote.origin.url'));
+  git(env, ['-C', dir, 'config', '--remove-section', 'remote.origin']);
+  assert.strictEqual(recordedOf(env, dir), remote);
+  assert.strictEqual(ok(await cli(env, ['save', '--palace', dir], memoryOf(tag()))).synced, true);
+  assert.strictEqual(mainOf(env, remote), headOf(env, dir));
+});
+
+test('a palace whose machine record was lost does not sync until joined with its remote', async (t) => {
+  const box = sandbox(t);
+  const { env } = box;
+  const { dir, remote } = onlinePalace(box);
+  const pushed = mainOf(env, remote);
   fs.rmSync(machineFile(env));
-  assert.match(failed(await cli(env, ['save', '--palace', dir], memoryOf(tag())), 'save'), NOT_RECORDED);
-  ok(await cli(env, ['join', '--palace', dir], { passphrase: null }));
+  assert.strictEqual(ok(await cli(env, ['save', '--palace', dir], memoryOf(tag()))).synced, false);
+  assert.strictEqual(mainOf(env, remote), pushed);
+  assert.match(failed(await cli(env, ['join', '--palace', dir], { passphrase: null }), 'join without remote'), OWN_REPO);
+  ok(await cli(env, ['join', '--palace', dir], { passphrase: null, remote }));
   assert.strictEqual(ok(await cli(env, ['save', '--palace', dir], memoryOf(tag()))).synced, true);
   assert.strictEqual(mainOf(env, remote), headOf(env, dir));
 });
@@ -1022,7 +1121,10 @@ test('palaces made by setup, join and remote pass the configuration check', asyn
   const later = box.at('later');
   setup(later, SETTINGS, { env });
   ok(await cli(env, ['remote', '--palace', later], { url: box.bare('later-remote.git'), private: true }));
-  for (const palace of [dir, joined, later]) assert.strictEqual(ok(await cli(env, ['status', '--palace', palace])).online, true, palace);
+  for (const palace of [dir, joined, later]) {
+    assert.strictEqual(ok(await cli(env, ['status', '--palace', palace])).online, true, palace);
+    assert.deepStrictEqual(linkKeys(env, palace), [], palace);
+  }
 });
 
 test('inherited author and committer variables do not reach the commits', async (t) => {

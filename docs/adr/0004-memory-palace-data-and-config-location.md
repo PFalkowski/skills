@@ -23,8 +23,8 @@ Two kinds of file fail that test here:
   comes from (an environment variable name or a key-file path), whether each palace was set
   up as protected, and the remote URL the skill set for it. Deleting it loses the way back to the
   palace. It also loses the check that stops a palace whose synced settings were changed to
-  "unprotected" from being written in clear, and the check that stops git from pushing to a
-  remote someone changed in the palace folder.
+  "unprotected" from being written in clear, and the only source git has for where to fetch from
+  and push to.
 
 ## Decision
 
@@ -36,8 +36,9 @@ Two kinds of file fail that test here:
 - Settings that every copy of a palace shares (format version, backend, protection, key
   derivation parameters and salt, the passphrase check, kinds, moments, the confirmed-private
   remote URL) live inside the palace folder. Settings that differ per machine live in the
-  machine record. The remote URL lives in the palace's own git configuration, which is never
-  committed, and the machine record holds a copy that the configuration must match.
+  machine record. The remote URL lives only in the machine record. Git is given it on the
+  command line for every fetch and push, and the palace's git configuration names no remote,
+  so someone who can write the palace folder cannot send a push elsewhere.
 - `memory-palace` keeps no operational state of its own. While a command runs, a folder-backend
   palace also holds its lock file, and during a write a pending marker; a SQLite palace holds
   SQLite's journal. These are part of the store's format, like a database journal, not run
@@ -60,5 +61,6 @@ Two kinds of file fail that test here:
 - `scripts/check-state-paths.sh` needs no change. It passes `~/.config/memory-palace/...`. A bare
   dot-folder name in a skill's markdown, such as a palace folder written without its `~/`
   prefix, fails it.
-- A machine that loses its record still has the palace. The user names its folder once more
-  through `join`, and the skill trusts that palace's settings again.
+- A machine that loses its record still has the palace. The user names its folder and its remote
+  URL once more through `join`, and the skill trusts that palace's settings again. Until then
+  the palace saves locally and does not sync.

@@ -93,7 +93,7 @@ Match the error's opening words below. On any error this list does not name, sto
 **The passphrase and the settings**
 
 - **"no passphrase: the environment variable ... is not set"** or **"no passphrase: the key file ... does not exist"**: ask the user to set the variable where the agent's shell starts (for example their shell profile), or to restore the key file, then retry. Never ask for the value or put it in a command.
-- **"no passphrase: ... records no passphrase source"**: ask the user where the passphrase comes from, then run `join --palace <dir>` with that source; it records the source again.
+- **"no passphrase: ... records no passphrase source"**: ask the user where the passphrase comes from, then run `join --palace <dir>` with that source; it records the source again. A folder this machine knows needs no `remote`; if `join` says the folder has its own git repository, follow that stop.
 - **"the key file ... is open to other users"**: ask the user to run `chmod 600` on it, then retry.
 - **"wrong passphrase"**, **"settings mismatch"**, **"the settings in ... were altered"**, or any other error that names a `palace.json`: stop and show the error. Someone who can write the folder or the remote may have altered the settings. Do not retry with other settings.
 
@@ -104,10 +104,10 @@ Match the error's opening words below. On any error this list does not name, sto
 
 **Git and the remote**
 
-- **"<palace>/.git/config sets ..., which memory-palace did not write"**: show the message. The user removes that key (`git -C <palace> config --unset <key>`) and, if they need it, sets it in their global git configuration as above. Then retry.
+- **"<palace>/.git/config sets ..., which memory-palace did not write"**: show the message. The user removes that key (`git -C <palace> config --unset <key>`) and, if they need it, sets it in their global git configuration as above. Then retry. A `remote.*` or `branch.*` key counts too: this machine keeps the remote URL, never the folder. If the user did not set it, treat the folder as tampered with. The same goes for **"<palace>/.git/remotes holds files"** (or `branches`): the user removes that folder.
+- **"<dir> has its own git repository"** at `join` (a folder this machine does not know): ask the user for the palace's remote URL and run `join` again with it as `remote`, or with `"remote": null` if the palace has none. Never print a URL from the folder. **"<dir> has no git repository, so join cannot attach a remote"**: `join` without `remote`, then run `remote`.
 - **"... is not owned by the current user"**: show the message; the user fixes the owner. Do not retry until they have.
-- **"the remote of <palace> is not the one this machine recorded"**: show the message. If the user did not change the remote, treat the palace folder as tampered with and do not run `remote` until they have looked. If they did, run `remote` with its URL.
-- **"the remote URL carries a password or token"**: at `setup` or `remote`, ask for a URL without it. On an existing palace, ask the user to run `git -C <palace> remote set-url origin <URL without the secret>`; never print the current URL.
+- **"the remote URL carries a password or token"**: at `setup`, `join` or `remote`, ask for a URL without it. On an existing palace the URL is in this machine's record: the user removes that palace's `origin` from `config.json` (see [REFERENCE.md](REFERENCE.md)), then you run `remote` with a URL without the secret. Never print the current URL.
 - **"saved in the palace files, but <step> failed"**: the change is kept and the next command finishes it. Tell the user. Do not save again.
 - **"the remote holds files memory-palace did not write"**: on a read, say the answer comes from the local copy. Otherwise do not save or sync until the user removes those files where the message says.
 - **"the remote is not empty"**: offer `join`, or a new empty repository.
@@ -116,7 +116,7 @@ Match the error's opening words below. On any error this list does not name, sto
 
 **Folders**
 
-- **"no palace at <dir>"** (`status` can print it when the default palace's folder moved): ask the user where the palace is now, then `join --palace <its folder>` with its passphrase source, or `null`. Never set up a new palace in its place.
+- **"no palace at <dir>"** (`status` can print it when the default palace's folder moved): ask the user where the palace is now, then `join --palace <its folder>` with its passphrase source, or `null`, and the palace's remote URL as `remote` (`null` if it has none; leave it out if the folder has no `.git`). Never set up a new palace in its place.
 - **A refused setup** (folder not empty, a URL with a secret, a remote that cannot be reached or is not empty, a SQLite palace with a remote, invalid kinds or moments, or an unprotected palace without a remote inside a git repository that does not ignore it): show the message and ask the user to choose again.
 - **A leftover `.<name>.setup-<hex>` folder** beside the palace is a killed `setup` or `join`. It is safe to delete, and after a killed `join` it can hold a full copy of the palace, in clear for an unprotected one, so tell the user to delete it.
 

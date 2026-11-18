@@ -194,8 +194,9 @@ function status(ctx) {
   if (!dir) return { palace: null };
   const settings = readSettings(dir);
   const { backend, kinds, moments, privateRemote } = settings;
-  const online = backend === 'folder' && git.online(ctx.env, dir, machine.palaces[fs.realpathSync(dir)]?.origin ?? null);
-  return { palace: dir, backend, protected: settings.protected, online, remote: online ? git.originUrl(ctx.env, dir) : null, privateRemote, kinds, moments };
+  const online = backend === 'folder' && git.online(ctx.env, dir);
+  const remote = online ? recordedOrigin(machine.palaces[fs.realpathSync(dir)]) : null;
+  return { palace: dir, backend, protected: settings.protected, online, remote, privateRemote, kinds, moments };
 }
 
 function checkSource(source) {
@@ -210,6 +211,12 @@ function checkUrl(url, backend) {
   if (typeof url !== 'string' || url === '') throw new PalaceError('the remote URL must be a non-empty string. Nothing was written.');
   if (!plainUrl(url)) throw new PalaceError(`the remote URL must be at most ${MOST_URL} characters with no control characters. Nothing was written.`);
   if (git.carriesSecret(url)) throw new PalaceError(git.SECRET_URL);
+}
+
+function recordedOrigin(entry) {
+  const origin = entry?.origin ?? null;
+  if (origin !== null) checkUrl(origin, 'folder');
+  return origin;
 }
 
 function protect(options, env, palace) {
@@ -313,7 +320,6 @@ function setup(target, options, ctx) {
     }
     if (options.remote === undefined) return;
     git.init(ctx.env, temp);
-    git.setOrigin(ctx.env, temp, options.remote);
     git.commit(ctx.env, temp);
   });
   register(ctx.env, palace, { passphrase: options.passphrase, protected: Boolean(protection), origin: options.remote ?? null }, true);
@@ -328,30 +334,37 @@ function setup(target, options, ctx) {
   return result;
 }
 
-function checkJoined(dir, palace, passphrase, ctx, recorded) {
+function checkJoined(dir, palace, passphrase, ctx, joinRemote) {
   const settings = readSettings(dir);
   checkPin(settings, readMachine(ctx.env).palaces[palace], palace);
   if (!settings.protected && passphrase !== null) {
     throw new PalaceError(`settings mismatch: a passphrase was given, but the palace.json of ${palace} says it is not protected. Its settings may have been altered. Nothing was written.`);
   }
-  const online = settings.backend === 'folder' && git.online(ctx.env, dir, recorded);
+  const online = settings.backend === 'folder' && git.online(ctx.env, dir, joinRemote);
   if (online) {
     const foreign = git.foreignPaths(ctx.env, dir, 'HEAD');
     if (foreign.length > 0) throw git.foreignError(foreign, 'Nothing was written. Remove them from the remote and from this folder, then join again.');
   }
   if (settings.protected) unlockKeys(settings, { passphrase }, ctx.env, palace);
-  return online ? git.originUrl(ctx.env, dir) : null;
+  return online;
 }
 
 function join(target, options, ctx) {
   const dir = path.resolve(target);
   checkSource(options.passphrase);
   let palace;
-  let origin;
+  let origin = options.remote ?? null;
   if (fs.existsSync(path.join(dir, 'palace.json'))) {
     palace = fs.realpathSync(dir);
     const known = readMachine(ctx.env).palaces[palace];
-    origin = checkJoined(dir, palace, options.passphrase, ctx, known && (known.origin ?? null));
+    if (known) origin = recordedOrigin(known);
+    else if (git.hasRepo(dir) && !Object.hasOwn(options, 'remote')) {
+      throw new PalaceError(`${dir} has its own git repository. Pass this palace's remote URL to join as "remote", or null if it has none. Nothing was written.`);
+    } else if (origin !== null && !git.hasRepo(dir)) {
+      throw new PalaceError(`${dir} has no git repository, so join cannot attach a remote. Join without "remote", then run the remote command. Nothing was written.`);
+    } else if (origin !== null) checkUrl(origin, 'folder');
+    const online = checkJoined(dir, palace, options.passphrase, ctx, known ? null : origin);
+    if (online && !known) git.unlink(ctx.env, dir);
   } else {
     checkUrl(options.remote, 'folder');
     const real = realTarget(dir);
@@ -359,7 +372,7 @@ function join(target, options, ctx) {
     palace = buildBeside(dir, (temp) => {
       git.clone(ctx.env, options.remote, temp, gitTimeout(ctx, true));
       if (!fs.existsSync(path.join(temp, 'palace.json'))) throw new PalaceError('the remote holds no palace: its main branch has no palace.json. Nothing was written.');
-      origin = checkJoined(temp, real, options.passphrase, ctx);
+      checkJoined(temp, real, options.passphrase, ctx);
     });
   }
   const entry = { passphrase: options.passphrase, protected: readSettings(palace).protected, origin };
@@ -417,6 +430,7 @@ function open(ctx) {
   let settings = readSettings(dir);
   const palace = fs.realpathSync(dir);
   const entry = readMachine(env).palaces[palace];
+  let origin = recordedOrigin(entry);
   checkPin(settings, entry, palace);
   const keys = settings.protected ? unlockKeys(settings, entry, env, palace) : null;
   const codec = codecFor(keys);
@@ -430,16 +444,16 @@ function open(ctx) {
   }
 
   function pull(store, online, read, long) {
-    if (online === null || git.originUrl(env, online) === null) return undefined;
-    const { warning } = git.fetchAndForward(env, online, { timeoutMs: gitTimeout(ctx, long), read, checkLock: store.checkLock, checkSettings: checkPulled });
+    if (online === null || origin === null) return undefined;
+    const { warning } = git.fetchAndForward(env, online, origin, { timeoutMs: gitTimeout(ctx, long), read, checkLock: store.checkLock, checkSettings: checkPulled });
     settings = readSettings(dir);
     return warning;
   }
 
   function pushed(online, long) {
-    if (!settings.protected && settings.privateRemote !== git.originUrl(env, online)) return unconfirmed;
+    if (!settings.protected && settings.privateRemote !== origin) return unconfirmed;
     try {
-      git.push(env, online, gitTimeout(ctx, long));
+      git.push(env, online, origin, gitTimeout(ctx, long));
       return undefined;
     } catch (err) {
       if (!(err instanceof PalaceError)) throw err;
@@ -455,7 +469,7 @@ function open(ctx) {
     let result;
     const warnings = [];
     try {
-      const online = settings.backend === 'folder' && git.online(env, dir, command === 'remote' ? undefined : entry?.origin ?? null) ? dir : null;
+      const online = settings.backend === 'folder' && git.online(env, dir) ? dir : null;
       if (online) git.clearStaleLocks(online);
       store.checkLock();
       store.repair((bytes) => codec.decode(META, bytes), () => online && git.commit(env, online), () => online && git.refuseForeignHead(env, online));
@@ -477,7 +491,7 @@ function open(ctx) {
   }
 
   function unsynced(online) {
-    if (!online || git.originUrl(env, online) === null) return { synced: false, warnings: [] };
+    if (!online || origin === null) return { synced: false, warnings: [] };
     const why = pushed(online, false);
     return why === undefined ? { synced: true, warnings: [] } : { synced: false, warnings: [notSynced(why)] };
   }
@@ -535,7 +549,7 @@ function open(ctx) {
     },
     sync() {
       return operate('sync', ({ pulled, online }) => {
-        if (online === null || git.originUrl(env, online) === null) throw new PalaceError('this palace has no remote. Add one with remote. Nothing was changed.');
+        if (online === null || origin === null) throw new PalaceError('this palace has no remote. Add one with remote. Nothing was changed.');
         if (pulled) throw new PalaceError(pulled);
         const why = pushed(online, true);
         if (why) throw new PalaceError(why);
@@ -547,8 +561,9 @@ function open(ctx) {
       return operate('remote', ({ store, online: existing }) => {
         git.checkRemote(env, existing, input.url, gitTimeout(ctx, true));
         if (!existing) git.init(env, dir);
-        git.setOrigin(env, dir, input.url);
+        else if (input.url !== origin) git.dropTracking(env, dir);
         recordOrigin(env, palace, input.url);
+        origin = input.url;
         const pulled = pull(store, dir, false, true);
         if (pulled && input.private === true) throw new PalaceError(pulled);
         if (input.private === true) {

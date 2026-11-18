@@ -21,8 +21,10 @@ const CONFINED = [
 ];
 const WRITTEN_KEYS = new Set([
   'core.repositoryformatversion', 'core.filemode', 'core.bare', 'core.logallrefupdates', 'core.symlinks', 'core.ignorecase', 'core.precomposeunicode',
-  'extensions.objectformat', 'extensions.refstorage', 'remote.origin.url', 'remote.origin.fetch', 'branch.main.remote', 'branch.main.merge',
+  'extensions.objectformat', 'extensions.refstorage',
 ]);
+const LINK = /^(remote|branch)\./;
+const TRACKING = 'refs/remotes/origin/main';
 const LOCAL_TIMEOUT_MS = 120000;
 const STALE_LOCK_MS = 10000;
 
@@ -57,27 +59,36 @@ function checkOwner(file) {
   }
 }
 
-function online(env, palace, recorded) {
+const configKeys = (env, palace) => run(env, palace, ['config', '--local', '--name-only', '--list', '-z']).stdout.split('\0').filter(Boolean);
+
+const hasRepo = (palace) => fs.statSync(path.join(palace, '.git'), { throwIfNoEntry: false })?.isDirectory() ?? false;
+
+function online(env, palace, joinRemote) {
   const dir = path.join(palace, '.git');
-  if (!fs.statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return false;
+  if (!hasRepo(palace)) return false;
   checkOwner(dir);
-  checkOwner(path.join(dir, 'config'));
-  const entries = run(env, palace, ['config', '--local', '--list', '-z']).stdout.split('\0').filter(Boolean).map((entry) => entry.split(/\n(.*)/s));
-  const foreign = entries.find(([key]) => !WRITTEN_KEYS.has(key));
-  if (foreign) {
-    throw new PalaceError(`${path.join(dir, 'config')} sets ${JSON.stringify(foreign[0])}, which memory-palace did not write. Remove it, then retry. Nothing was changed.`);
-  }
-  const origins = entries.filter(([key]) => key === 'remote.origin.url').map(([, value]) => value);
-  if (origins.some(carriesSecret)) throw new PalaceError(SECRET_URL);
-  if (recorded !== undefined && JSON.stringify(origins) !== JSON.stringify(recorded === null ? [] : [recorded])) {
-    throw new PalaceError(`the remote of ${palace} is not the one this machine recorded. It may have been changed outside memory-palace. If you set it, run remote with {"url": "<its URL>"} to set and record it again. Nothing was changed.`);
-  }
+  const config = path.join(dir, 'config');
+  checkOwner(config);
+  const legacy = ['remotes', 'branches'].map((name) => path.join(dir, name))
+    .find((file) => fs.statSync(file, { throwIfNoEntry: false })?.isDirectory() && fs.readdirSync(file).length > 0);
+  if (legacy) throw new PalaceError(`${legacy} holds files memory-palace did not write, and git reads remotes from them. Remove it, then retry. Nothing was changed.`);
+  const foreign = configKeys(env, palace).filter((key) => !WRITTEN_KEYS.has(key));
+  const other = foreign.find((key) => !joinRemote || !LINK.test(key));
+  if (other) throw new PalaceError(`${config} sets ${JSON.stringify(other)}, which memory-palace did not write. Remove it, then retry. Nothing was changed.`);
   return true;
+}
+
+function unlink(env, palace) {
+  const sections = new Set(configKeys(env, palace).filter((key) => LINK.test(key)).map((key) => key.slice(0, key.lastIndexOf('.'))));
+  for (const section of sections) run(env, palace, ['config', '--local', '--remove-section', section]);
 }
 
 const init = (env, dir) => run(env, undefined, ['init', '-q', '-b', 'main', dir]);
 
-const clone = (env, url, dir, timeoutMs) => run(env, undefined, ['clone', '-q', '--branch', 'main', '--', url, dir], { timeoutMs });
+function clone(env, url, dir, timeoutMs) {
+  run(env, undefined, ['clone', '-q', '--branch', 'main', '--', url, dir], { timeoutMs });
+  unlink(env, dir);
+}
 
 function revision(env, palace, rev) {
   const result = run(env, palace, ['rev-parse', '--verify', '-q', `${rev}^{commit}`], { allow: [0, 1] });
@@ -86,17 +97,7 @@ function revision(env, palace, rev) {
 
 const isAncestor = (env, palace, older, newer) => run(env, palace, ['merge-base', '--is-ancestor', older, newer], { allow: [0, 1] }).status === 0;
 
-function originUrl(env, palace) {
-  const result = run(env, palace, ['config', '--get', 'remote.origin.url'], { allow: [0, 1] });
-  return result.status === 0 ? result.stdout.trim() : null;
-}
-
-function setOrigin(env, palace, url) {
-  const current = originUrl(env, palace);
-  if (current === url) return;
-  if (current !== null) run(env, palace, ['remote', 'remove', 'origin']);
-  run(env, palace, ['remote', 'add', '--', 'origin', url]);
-}
+const dropTracking = (env, palace) => run(env, palace, ['update-ref', '-d', TRACKING]);
 
 function foreignPaths(env, palace, rev) {
   return run(env, palace, ['ls-tree', '-r', '--name-only', '-z', rev]).stdout.split('\0').filter((file) => file && !OWNED_FILE.test(file));
@@ -126,15 +127,15 @@ function checkRemote(env, palace, url, timeoutMs) {
   if (head === null || !(isAncestor(env, palace, head, fetched) || isAncestor(env, palace, fetched, head))) throw new PalaceError(NOT_EMPTY);
 }
 
-function fetchAndForward(env, palace, { timeoutMs, read, checkLock, checkSettings }) {
+function fetchAndForward(env, palace, url, { timeoutMs, read, checkLock, checkSettings }) {
   let warning;
   try {
-    run(env, palace, ['fetch', '-q', '--prune', 'origin'], { timeoutMs });
+    run(env, palace, ['fetch', '-q', '--prune', '--', url, '+refs/heads/*:refs/remotes/origin/*'], { timeoutMs });
   } catch (err) {
     if (!(err instanceof PalaceError)) throw err;
     warning = err.message;
   }
-  const upstream = revision(env, palace, 'refs/remotes/origin/main');
+  const upstream = revision(env, palace, TRACKING);
   const head = revision(env, palace, 'HEAD');
   if (upstream === null || upstream === head || isAncestor(env, palace, upstream, head)) return { warning };
   if (!isAncestor(env, palace, head, upstream)) throw new PalaceError(DIVERGED);
@@ -180,7 +181,7 @@ function restore(env, palace) {
   }
 }
 
-const push = (env, palace, timeoutMs) => run(env, palace, ['push', '-q', 'origin', 'HEAD:refs/heads/main'], { timeoutMs });
+const push = (env, palace, url, timeoutMs) => run(env, palace, ['push', '-q', '--', url, 'refs/heads/main:refs/heads/main'], { timeoutMs });
 
 function gc(env, palace) {
   try {
@@ -234,6 +235,6 @@ function enclosingRepo(target, env) {
 }
 
 module.exports = {
-  online, init, clone, originUrl, setOrigin, foreignPaths, foreignError, refuseForeignHead, checkRemote, fetchAndForward, clearStaleLocks, restore, commit, push, gc,
+  hasRepo, online, unlink, init, clone, dropTracking, foreignPaths, foreignError, refuseForeignHead, checkRemote, fetchAndForward, clearStaleLocks, restore, commit, push, gc,
   carriesSecret, SECRET_URL, enclosingRepo,
 };
