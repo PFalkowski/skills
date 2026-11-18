@@ -24,7 +24,7 @@ The lead appends this section, word for word, to every reviewer brief ([brief te
 - Run it with the commands in [formal-check's TLC.md](../formal-check/TLC.md), and with no others. TLC is the model checker for TLA+, a language for describing how a system moves from state to state.
 - Where the bad order can be forced on the real code, replay the trace as a deterministic test. That test is a snippet: it follows every snippet rule, and the finding is an ordinary `snippet` finding.
 - Where it cannot be forced, say why; "not attempted" is not a reason. Report the method as `model-checked`, label the finding "model-checked, not run on the code", and put the model, its config, the command, the output and the trace with its `path:line` citations in the finding detail, verbatim.
-- A trace step with no `path:line` keeps the claim under **Not run**.
+- A trace step with no `path:line` keeps the claim under **Not run**. So does a checker that could not be run.
 
 ## What it overrides, and only here
 
@@ -36,6 +36,7 @@ Inside a v2 review, and for this method only, a `model-checked` finding is not w
 - **Rerun before offering.** Write the model from the finding detail into a temp folder of your own and run the checker again. If the checker cannot run here, or the rerun does not give the same trace, the claim goes under **Not run**, never ❓.
 - **Read the model against the code.** Open each cited `path:line`. A step the code cannot take, or two code steps merged into one action, means the model is wrong: the claim goes under **Not run** with that reason.
 - At [Step 6](../code-review-grill/SKILL.md#step-6--consolidate-into-the-findings-table) a model-checked artifact that passed these checks counts as usable.
+- **Posting.** An inline comment keeps the base skill's four parts and its length ([comment body](../code-review-grill/REFERENCE.md#comment-body)). `Reproduce` holds the line that names the broken property and the trace as numbered steps, each with its `path:line`. The model, its config, the command and the full output go in the summary thread under the finding's ID.
 
 ## Downstream, unchanged
 
