@@ -22,8 +22,8 @@ and
 - The project skill has a fixed location, and records its sync commit on a line of its own that
   MAINTAIN can find.
 - Showing a check able to fail happens in a scratch copy of the code: the tracked files are
-  exported to a temp folder, the broken variant is made and run there, and the working tree is
-  only read.
+  exported to a temp folder, and the broken variant is made and run there, never in the working
+  tree.
 
 ## Upstream licence
 

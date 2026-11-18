@@ -41,12 +41,13 @@ as blocked, and print what `git check-ignore -v <folder>/` says
 ## 4. Show it able to fail, in a scratch copy
 
 A broken variant is a scratch change to the real code, such as a removed check or a reordered
-step. Make it and run it in a scratch copy of the code. No command in this step writes to the
+step. Make it and run it in a scratch copy of the code. No block in this step writes to the
 working tree, so uncommitted work is never at risk. Never edit the working tree to show a check
 failing, and never use `git stash`, `git checkout -- <file>` or `git reset` here.
 
 The blocks below are bash. Shell variables do not last from one command to the next, so each
-later block starts from the two literal paths the first one prints.
+later block starts from the two literal paths the first one prints, written inside single quotes
+so that a space in a path does no harm.
 
 **4.1. Make the scratch copy.** Run from inside the target repo.
 
@@ -56,18 +57,21 @@ top=$(git rev-parse --show-toplevel) && scratch=$(mktemp -d) &&
   echo "top folder: $top" && echo "scratch copy: $scratch"
 ```
 
-The copy holds every tracked file as the index has it. It is a plain folder in the system temp
+The copy holds every tracked file as the index has it, except a file marked skip-worktree. It is
+a plain folder in the system temp
 folder, with no `.git` folder in it. It stays there after this step: remove it when you no longer
 need it.
 
 **4.2. Copy in what the index does not hold.** Changes that are not staged, and files git does not
 track, are not in the copy. Copy the covered files, the check's own files and, for a model check,
-the model and its config from the working tree into the copy. `git status --porcelain` lists every
-file that differs from the index: copy each one the check reads.
+the model and its config from the working tree into the copy.
+`git status --porcelain --untracked-files=all` lists every file that differs from the index, one
+per line: copy each one the check reads. A file it shows as deleted is still in the copy: delete
+it there if the check would read it.
 
 ```bash
-top=<the top folder printed in 4.1>
-scratch=<the scratch copy printed in 4.1>
+top='<the top folder printed in 4.1>'
+scratch='<the scratch copy printed in 4.1>'
 if cd "$top" && [ -d "$scratch" ]; then
   for f in <each file, as a path relative to the top folder>; do
     mkdir -p "$scratch/$(dirname "$f")" && cp "$f" "$scratch/$f" || echo "NOT COPIED: $f"
@@ -78,22 +82,26 @@ else
 fi
 ```
 
+A NOT COPIED line names an entry that could not be copied: correct it and run the block again.
+NOT STARTED means a path from 4.1 was mistyped or is gone: start again from 4.1.
+
 **4.3. Run the check in the copy, unchanged.**
 
 ```bash
-scratch=<the scratch copy printed in 4.1>
+scratch='<the scratch copy printed in 4.1>'
 ( cd "$scratch" && <the check's command> )
 echo "CHECK EXIT STATUS: $?"
 ```
 
-It must pass. A pass also shows that the check runs in the copy. If it fails, run the check in the
-working tree:
+It must pass. If it fails, run the check in the working tree, as step 5 does:
 
 - It fails there too: stop. That failure is a finding on the real code (step 5), and the check has
   now been seen to fail.
 - It passes there: the copy lacks something the check needs, usually installed dependencies or
-  build outputs that git ignores. Set them up in the copy the way the repo's own instructions say,
-  then run this block again. If the check cannot be made to pass in a copy, stop and report that
+  build outputs that git ignores. Give the copy its own: install or build inside the copy, in an
+  environment that belongs to the copy, then run this block again. Never install from the copy
+  into an environment the working tree uses: that would point the working tree's environment at
+  the copy. If the check cannot be made to pass in a copy, stop and report that
   it was not shown able to fail.
 
 **4.4. Put the variant in the copy.** Edit the files under the scratch copy, by their full paths
@@ -102,11 +110,11 @@ rewrite the model's actions in the copy from that changed code, each citing path
 the variant:
 
 ```bash
-top=<the top folder printed in 4.1>
-scratch=<the scratch copy printed in 4.1>
+top='<the top folder printed in 4.1>'
+scratch='<the scratch copy printed in 4.1>'
 sleep 1
 for f in <each file the variant changes, as a path relative to the top folder>; do
-  touch "$scratch/$f"
+  touch -c "$scratch/$f"
   diff -u "$top/$f" "$scratch/$f"
 done
 ```
@@ -120,10 +128,15 @@ second as the copy.
 
 **4.5. Run the check in the copy again,** with the block from 4.3. It must fail: for TLC, exit 12
 and the line naming the invariant ([TLC.md](TLC.md)); for an every-input check, a failing property.
-If it passes, the check cannot see the break: fix the check, not the variant.
+If it passes, first make sure the check read the copy. A check started in the copy can still load
+the working tree's code, through a package installed from the working tree, an environment
+variable such as `PYTHONPATH`, or an absolute path in its command. Have the check print the path
+of the code it loads; if that path is under the top folder, fix how the check is run and go back
+to 4.3. If it did read the copy, the check cannot see the break: fix the check, not the variant.
 
 **What step 4 does not handle:**
 
+- a variant that adds, deletes or renames a file: it edits files that already exist;
 - a check that needs git history: the copy has no `.git` folder;
 - submodules, and files git ignores such as installed dependencies: the copy holds them only if
   you put them there;
@@ -131,15 +144,18 @@ If it passes, the check cannot see the break: fix the check, not the variant.
 
 Commands: [git-rev-parse](https://git-scm.com/docs/git-rev-parse) (`--show-toplevel`),
 [git-checkout-index](https://git-scm.com/docs/git-checkout-index) (`-a` writes every file in the
-index, `--prefix` writes them under another folder),
-[git-status](https://git-scm.com/docs/git-status) (`--porcelain`),
+index except those marked skip-worktree, `--prefix` writes them under another folder),
+[git-status](https://git-scm.com/docs/git-status) (`--porcelain`; `--untracked-files=all` lists
+each file in an untracked folder), [git](https://git-scm.com/docs/git) (`-C <path>` runs as if
+started in that folder),
 [mktemp](https://www.gnu.org/software/coreutils/manual/html_node/mktemp-invocation.html), the
 POSIX utilities [mkdir](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/mkdir.html),
 [dirname](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/dirname.html),
 [cp](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/cp.html),
 [diff](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/diff.html) (exit 1 when the
 files differ), [sleep](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/sleep.html),
-[touch](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/touch.html),
+[touch](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/touch.html) (`-c` does not
+create a missing file),
 [echo](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/echo.html),
 [cd](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/cd.html),
 [test](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/test.html) (written `[ ]`) and
