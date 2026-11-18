@@ -44,8 +44,10 @@ Two kinds of file fail that test here:
 ## Alternatives considered
 
 - **The machine record under `~/.agent-state/memory-palace/`, citing ADR-0002.** Rejected: that
-  root is for files that can be deleted with nothing lost. This record cannot be. It also carries
-  a security check that must not vanish when someone clears run state.
+  root holds a skill's run state. The convention keeps some files there whose loss costs
+  something ([docs/agent-state.md](../agent-state.md), and ADR-0002's per-machine `config.json`),
+  but losing them costs the skill work, while losing this record cuts the user off from their own
+  data. It also carries a security check that must not vanish when someone clears run state.
 - **An environment variable only.** Rejected: setup cannot set a variable for later sessions, so
   the user would have to edit a shell profile by hand.
 - **One fixed palace folder.** Rejected: the user chooses where the palace lives and how it is
