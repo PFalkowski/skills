@@ -44,6 +44,7 @@ jobs:
           for t in tests/workflows/*.test.js clean-room/*.test.mjs auto-mode-setup/scripts/*.test.mjs statusline/scripts/*.test.js worktree-guard/scripts/*.test.js merge-guard/scripts/*.test.js; do
             node --test "$t"
           done
+          bash formal-check/tlc-example.test.sh
       - name: dotnet format
         run: dotnet format whats-next --verify-no-changes
       - name: dotnet build
