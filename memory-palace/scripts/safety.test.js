@@ -708,3 +708,24 @@ test('commit-point failure', (t) => {
   assert.strictEqual(git(['-C', dir, 'show', 'HEAD:meta']), fs.readFileSync(path.join(dir, 'meta'), 'utf8'));
   assert.strictEqual(git(['-C', dir, 'status', '--porcelain']), '');
 });
+
+test('online check commits its removals', async (t) => {
+  const { env, git, setUp } = sandbox(t, 'folder', true);
+  const dir = setUp('palace', [memory('a')]);
+  const orphan = pagePath(dir, pageId('e'.repeat(32), 3));
+  const tracked = path.relative(dir, orphan);
+  fs.mkdirSync(path.dirname(orphan), { recursive: true });
+  fs.writeFileSync(orphan, 'orphan');
+  git(['-C', dir, 'add', '--', tracked]);
+  git(['-C', dir, '-c', 'user.name=hand', '-c', 'user.email=hand@localhost', 'commit', '-q', '-m', 'orphan']);
+  const inHead = () => git(['-C', dir, 'ls-tree', '-r', '--name-only', 'HEAD']).split('\n').includes(tracked);
+  assert.ok(inHead(), 'the orphan is not tracked');
+
+  assert.strictEqual(ok(await cli(env, ['check', '--palace', dir])).unreachableRemoved, 1);
+  assert.strictEqual(git(['-C', dir, 'status', '--porcelain']), '');
+  assert.ok(!inHead(), 'the removed page is still in HEAD');
+
+  ok(await cli(env, ['browse', '--palace', dir], {}));
+  assert.ok(!fs.existsSync(orphan), 'the next operation restored the removed page');
+  assert.strictEqual(ok(await cli(env, ['check', '--palace', dir])).unreachableRemoved, 0);
+});

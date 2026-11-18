@@ -492,7 +492,7 @@ function open(ctx) {
       }, { pulls: false });
     },
     check() {
-      return operate('check', ({ store, read, tree }) => {
+      return operate('check', ({ store, read, tree, record, online }) => {
         const stats = tree.check();
         const live = new Set(stats.ids);
         for (const [, { text }] of tree.range()) {
@@ -503,8 +503,10 @@ function open(ctx) {
         store.checkLock();
         store.begin(randomHex(16));
         unreachable.forEach((id) => store.free(id));
+        record();
         store.end();
-        return { memories: stats.count, height: stats.height, nodes: stats.nodes, unreachableRemoved: unreachable.length };
+        const { warnings } = unsynced(online);
+        return { memories: stats.count, height: stats.height, nodes: stats.nodes, unreachableRemoved: unreachable.length, warnings };
       });
     },
     close() {},
