@@ -49,14 +49,14 @@ and reset destroy uncommitted work.
 Each attempt gets its own run folder under
 `~/.agent-state/<repo-slug>/formal-check/<check-name>/`. Run folders are evidence and are never
 deleted. Where the repo sets `AGENTS_STATE`, that folder replaces `~/.agent-state/<repo-slug>`
-([agent-state](../docs/agent-state.md)). The blocks below are bash, and block 4.4 needs a bash
-that sets `BASHPID`. Shell variables do not last from one command to the next, so every block
-starts from a literal path printed by an earlier one.
+([agent-state](../docs/agent-state.md)); write it as an absolute path. The blocks below are bash.
+Shell variables do not last from one command to the next, so every block starts from a literal
+path printed by an earlier one.
 
 A run folder holds `tree` (the top folder of the worktree it belongs to), `files` (the files the
 variant changes, one path per line, relative to that folder), `variant/` and `orig/` (the changed
-and the original copies), and the markers `applied` (holding the process ID of the 4.4 command)
-and `restored`.
+and the original copies), and the markers `applied` (written just before the first swap) and
+`restored`.
 
 **4.1. Guard, then make the run folder.** Run from the top folder of the target repo. A run of any
 formal-check check that was applied and never restored blocks a new run in the same tree.
@@ -70,10 +70,10 @@ for d in "$F"/*/run.*; do
   [ -f "$d/applied" ] && [ ! -f "$d/restored" ] || continue
   t=$(cat "$d/tree")
   if [ "$t" = "$top" ]; then
-    echo "REFUSED: run $d of tree $t was applied and not restored; if its 4.4 command is still running, wait for it; otherwise recover it with step 4.6"
+    echo "REFUSED: run $d of tree $t was applied and not restored; recover it with step 4.6"
     blocked=1
   elif [ -d "$t" ]; then
-    echo "REPORT ONLY: run $d of tree $t was applied and not restored; it may still be running, so never recover it from here"
+    echo "REPORT ONLY: run $d of tree $t was applied and not restored; it belongs to that tree, so leave it to work done there"
   else
     echo "ABANDONED: run $d of tree $t was applied and not restored, and that tree no longer exists"
   fi
@@ -114,59 +114,56 @@ a finding on the real code (step 5), and the check has now been seen to fail.
 **4.4. Back up, swap in, run, restore and prove, in one command.** Put the check's command where
 the block says. The block sets no `set -e`, so a failing check never skips the restore. It does
 not start on a run folder that was used before, that lists no files, or whose variant copies all
-equal the tree files; on a shell that sets no `BASHPID`; or while another run that was applied in
-this tree is not restored. After the swap it compares each tree file with its variant copy; on any
-mismatch it skips the check, still restores, and ends non-zero.
+equal the tree files, or while another run that was applied in this tree is not restored. After
+the swap it compares each tree file with its variant copy; on any mismatch it skips the check and
+still restores. The restore puts an original back only where the file still holds the variant, so
+it never overwrites a file that changed in the meantime.
 
 ```bash
 run=<the run folder printed in 4.1>
-(
-  ok=0
-  if [ -e "$run/applied" ] || [ ! -s "$run/files" ]; then
-    echo "NOT STARTED: $run was used before or lists no files; start again from 4.1"
-  elif [ -z "$BASHPID" ]; then
-    echo "NOT STARTED: this shell sets no BASHPID; run the block with a bash that does"
-  elif cd "$(cat "$run/tree")"; then
-    ok=1
-    for d in "${run%/*/*}"/*/run.*; do
-      [ -f "$d/applied" ] && [ ! -f "$d/restored" ] && [ "$(cat "$d/tree")" = "$(cat "$run/tree")" ] || continue
-      echo "NOT STARTED: run $d was applied in this tree and not restored; if its 4.4 command is still running, wait for it; otherwise recover it with step 4.6"
-      ok=0
-    done
+ok=0
+if [ -e "$run/applied" ] || [ ! -s "$run/files" ]; then
+  echo "NOT STARTED: $run was used before or lists no files; start again from 4.1"
+elif cd "$(cat "$run/tree")"; then
+  ok=1
+  for d in "$(dirname "$(dirname "$run")")"/*/run.*; do
+    [ -f "$d/applied" ] && [ ! -f "$d/restored" ] && [ "$(cat "$d/tree")" = "$(cat "$run/tree")" ] || continue
+    echo "NOT STARTED: run $d was applied in this tree and not restored; recover it with step 4.6"
+    ok=0
+  done
+fi
+if [ "$ok" = 1 ]; then
+  changed=0
+  while IFS= read -r f; do
+    mkdir -p "$run/orig/$(dirname "$f")" && cp "$f" "$run/orig/$f" && [ -f "$run/variant/$f" ] ||
+      { echo "NO BACKUP: $f; nothing in the tree was changed"; ok=0; }
+    cmp -s "$run/variant/$f" "$f" || changed=1
+  done < "$run/files"
+  if [ "$ok" = 1 ] && [ "$changed" = 0 ]; then
+    echo "NOT STARTED: every copy under $run/variant equals its tree file; edit the copies first"
+    ok=0
   fi
+fi
+if [ "$ok" = 1 ]; then
+  touch "$run/applied"
+  sleep 1
+  while IFS= read -r f; do cp "$run/variant/$f" "$f"; done < "$run/files"
+  while IFS= read -r f; do
+    cmp -s "$run/variant/$f" "$f" || { echo "NOT SWAPPED: $f does not match its variant copy; the check was skipped"; ok=0; }
+  done < "$run/files"
   if [ "$ok" = 1 ]; then
-    changed=0
-    while IFS= read -r f; do
-      mkdir -p "$run/orig/$(dirname "$f")" && cp "$f" "$run/orig/$f" && [ -f "$run/variant/$f" ] ||
-        { echo "NO BACKUP: $f; nothing in the tree was changed"; ok=0; }
-      cmp -s "$run/variant/$f" "$f" || changed=1
-    done < "$run/files"
-    if [ "$ok" = 1 ] && [ "$changed" = 0 ]; then
-      echo "NOT STARTED: every copy under $run/variant equals its tree file; edit the copies first"
-      ok=0
-    fi
+    ( <the check's command> )
+    echo "CHECK EXIT STATUS: $?"
   fi
-  if [ "$ok" = 1 ]; then
-    echo "$BASHPID" > "$run/applied"
-    sleep 1
-    while IFS= read -r f; do cp "$run/variant/$f" "$f"; done < "$run/files"
-    while IFS= read -r f; do
-      cmp -s "$run/variant/$f" "$f" || { echo "NOT SWAPPED: $f does not match its variant copy; the check was skipped"; ok=0; }
-    done < "$run/files"
-    if [ "$ok" = 1 ]; then
-      ( <the check's command> )
-      echo "CHECK EXIT STATUS: $?"
-    fi
-    sleep 1
-    back=1
-    while IFS= read -r f; do
-      cp "$run/orig/$f" "$f"
-      cmp -s "$run/orig/$f" "$f" || { echo "NOT RESTORED: $f in tree $PWD"; back=0; ok=0; }
-    done < "$run/files"
-    [ "$back" = 1 ] && touch "$run/restored" && echo "RESTORED: every file in $run/files matches its copy in $run/orig"
-  fi
-  [ "$ok" = 1 ]
-)
+  sleep 1
+  back=1
+  while IFS= read -r f; do
+    if cmp -s "$run/variant/$f" "$f"; then cp "$run/orig/$f" "$f"; fi
+    cmp -s "$run/orig/$f" "$f" || { echo "NOT RESTORED: $f in tree $PWD does not hold its original; see step 4.6"; back=0; ok=0; }
+  done < "$run/files"
+  [ "$back" = 1 ] && touch "$run/restored" && echo "RESTORED: every file in $run/files matches its copy in $run/orig"
+fi
+[ "$ok" = 1 ]
 ```
 
 The block waits one second before the swap and one before the restore, and the restore uses plain
@@ -183,18 +180,17 @@ is cut short, nothing restores the tree on the spot: the next 4.1 or 4.4 in that
 the invariant ([TLC.md](TLC.md)); for an every-input check, a failing property. If it passed, the
 check cannot see the break: fix the check, not the variant.
 
-**4.6. Recover a run.** Only after a REFUSED line, a NOT RESTORED line, or a 4.4 command that was
-cut short. While the run's 4.4 command is still alive, the block prints STILL RUNNING and changes
-nothing; an empty or missing process ID counts as not running. Otherwise it changes into the tree
-the run names and puts back each file that still holds the variant.
+**4.6. Recover a run.** Only after a REFUSED line, a NOT STARTED line that names an unrestored
+run, a NOT RESTORED line, or a 4.4 command that was cut short. The block changes into the tree the
+run names and puts back each file that still holds the variant. It is safe to run even while that
+run's 4.4 command is still going, because both restores leave a file alone unless it still holds
+the variant. A check that was running at the time then proves nothing: start that run again from
+4.1.
 
 ```bash
 run=<the run folder to recover>
 ok=0
-pid=$(cat "$run/applied")
-if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
-  echo "STILL RUNNING: the 4.4 command of $run is process $pid; wait for it to end. Nothing was changed"
-elif cd "$(cat "$run/tree")"; then
+if cd "$(cat "$run/tree")"; then
   ok=1
   while IFS= read -r f; do
     if cmp -s "$run/orig/$f" "$f"; then
@@ -211,12 +207,6 @@ fi
 [ "$ok" = 1 ] && touch "$run/restored" && echo "RUN RESTORED: $run"
 ```
 
-STILL RUNNING means a process with the recorded ID exists. If the check will never end, stop the
-4.4 command and the check it started, then run this block again: stopping only the recorded process
-leaves the check running. If you know that command has ended, after a restart for example, and the
-block still says STILL RUNNING, another program now has that process ID: empty the `applied` file
-by hand (`: > "<run>/applied"`, with the literal run folder) and run this block again.
-
 A CHANGED SINCE file was edited after the variant went in, so copying the original back
 would lose that edit. `diff -u "$run/orig/<f>" "$run/variant/<f>"` shows exactly what the variant
 changed: take that change out of the file by hand, then mark the run with
@@ -224,10 +214,11 @@ changed: take that change out of the file by hand, then mark the run with
 
 **What step 4 does not handle:**
 
-- a shell that is not bash, or a bash that sets no `BASHPID`;
+- a shell that is not bash;
 - a variant that adds, deletes or renames a file, changes its mode, or edits a symbolic link: it
   edits regular files that already exist;
-- another process that edits the same files while 4.4 runs;
+- another process that edits the same files while 4.4 runs, or two 4.4 commands started at once in
+  one tree;
 - derived files: the restore gives every listed file a later modification time, so tools that
   judge by time rebuild; a tool that caches by other means is for the check's command to clear.
 
@@ -235,7 +226,8 @@ Commands: [git-rev-parse](https://git-scm.com/docs/git-rev-parse) (`--show-tople
 [mktemp](https://www.gnu.org/software/coreutils/manual/html_node/mktemp-invocation.html), the
 POSIX utilities [mkdir](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/mkdir.html),
 [cat](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/cat.html),
-[dirname](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/dirname.html),
+[dirname](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/dirname.html) (trailing
+slashes are ignored),
 [touch](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/touch.html),
 [cp](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/cp.html) (an existing target is
 opened and truncated, so its mode stays),
@@ -243,13 +235,9 @@ opened and truncated, so its mode stays),
 identical, `-s` prints nothing),
 [diff](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/diff.html),
 [read](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/read.html) (`-r` keeps
-backslashes), [sleep](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/sleep.html),
-and [kill](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/kill.html) (signal 0
-tests that a process exists without sending it a signal); the `for`, `while`, `if`, `( )` and `:`
-forms and the `${run%/*/*}` suffix removal of the
-[POSIX shell language](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/V3_chap02.html);
-and bash's `BASHPID`, the process ID of the current subshell
-([Bash variables](https://www.gnu.org/software/bash/manual/html_node/Bash-Variables.html)).
+backslashes) and [sleep](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/sleep.html);
+and the `for`, `while`, `if` and `( )` forms of the
+[POSIX shell language](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/V3_chap02.html).
 
 ## 5. Run the check on the real code
 
@@ -299,5 +287,7 @@ skill: fix it.
 
 Report what was checked, which tool and why, the bounds, the findings in plain words, the command,
 what it does not cover, and any library added. Name the state root the run folders are under, and
-list every REFUSED, REPORT ONLY, ABANDONED, NOT RESTORED and CHANGED SINCE line from step 4. CREATE does not edit the target repo's continuous integration (CI). A check that
-needs a new toolchain, such as TLC, is reported with its command and "not in CI".
+list every REFUSED, REPORT ONLY, ABANDONED, NOT RESTORED and CHANGED SINCE line from step 4, and
+every NOT STARTED line that names another run. CREATE does not edit the target repo's continuous
+integration (CI). A check that needs a new toolchain, such as TLC, is reported with its command
+and "not in CI".
