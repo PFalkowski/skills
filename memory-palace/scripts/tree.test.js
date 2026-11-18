@@ -234,3 +234,22 @@ test('A6: forgetting all 500 of one place', () => {
   assert.deepStrictEqual(out, []);
   assert.ok(reads <= height + 3, `browse read ${reads} nodes, height ${height}`);
 });
+
+const treeOf = (pages, shape = DEFAULTS) => createTree({ get: (id) => pages[id] }, shape, 'root');
+const INTEGRITY = /integrity check failed: /;
+
+test('tree: a node reached twice ends range and check with the integrity error', () => {
+  const pages = { root: { t: 'i', k: ['m'], c: ['x', 'x'] }, x: { t: 'l', k: ['n'], v: [1] } };
+  assert.throws(() => treeOf(pages).range(), INTEGRITY);
+  const loop = { root: { t: 'i', k: ['m'], c: ['leaf', 'root'] }, leaf: { t: 'l', k: ['a'], v: [1] } };
+  assert.throws(() => treeOf(loop, { m: 3, L: 2 }).check(), /node root is reached twice/);
+});
+
+test('tree: a chain deeper than any real tree ends every walk with the integrity error', () => {
+  const pages = { root: { t: 'i', k: ['b'], c: ['n0', 'leaf'] }, leaf: { t: 'l', k: [], v: [] } };
+  for (let i = 0; i < 64; i++) pages[`n${i}`] = { t: 'i', k: ['a'], c: [`n${i + 1}`, 'leaf'] };
+  pages.n64 = { t: 'l', k: [], v: [] };
+  for (const walk of [(t) => t.get(''), (t) => t.put('', 1), (t) => t.range('', 'a'), (t) => t.children('', 'a')]) {
+    assert.throws(() => walk(treeOf(pages, { m: 3, L: 2 })), /deeper than 54 levels/);
+  }
+});

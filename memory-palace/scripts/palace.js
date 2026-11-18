@@ -10,16 +10,7 @@ const USAGE = 'usage: palace.js <status|setup|join|save|recall|browse|list|forge
 const SECRET_OPTION = /^--(passphrase|password)(=|$)/;
 const TAKES_INPUT = new Set(['setup', 'join', 'save', 'recall', 'browse', 'list', 'forget', 'remote']);
 
-function inOpenPalace(operation) {
-  return (input, ctx) => {
-    const opened = palace.open(ctx);
-    try {
-      return opened[operation](input);
-    } finally {
-      opened.close();
-    }
-  };
-}
+const inOpenPalace = (operation) => (input, ctx) => palace.open(ctx)[operation](input);
 
 const COMMANDS = {
   status: (input, ctx) => palace.status(ctx),

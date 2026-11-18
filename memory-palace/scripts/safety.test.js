@@ -18,6 +18,7 @@ const memory = (name) => ({ place: `h/${name}`, title: `title ${name}`, summary:
 const pageId = (seed, n) => crypto.createHash('sha256').update(`${seed}:${n}`).digest('hex').slice(0, 32);
 const pagePath = (dir, id) => path.join(dir, 'pages', id.slice(0, 2), id);
 const sameSet = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+const markers = (dir) => fs.readdirSync(dir).filter((name) => name.startsWith('pending.'));
 
 function sandbox(t, backend = 'folder', online = false) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'mp-safety-')));
@@ -51,36 +52,20 @@ function sandbox(t, backend = 'folder', online = false) {
     },
     afterNext: online && ((dir, at) => {
       assert.strictEqual(git(['-C', dir, 'status', '--porcelain']), '', `${at}: the work tree is not clean after the next operation`);
-      const palace = open({ env: envOf(dir), palace: dir, lockWaitMs: 200 });
-      try {
-        palace.sync();
-      } finally {
-        palace.close();
-      }
+      open({ env: envOf(dir), palace: dir, lockWaitMs: 200 }).sync();
     }),
-    withPalace: (dir, fn, wrapStore) => {
-      const palace = open({ env: envOf(dir), palace: dir, lockWaitMs: 200, wrapStore });
-      try {
-        return fn(palace);
-      } finally {
-        palace.close();
-      }
-    },
+    withPalace: (dir, fn, wrapStore) => fn(open({ env: envOf(dir), palace: dir, lockWaitMs: 200, wrapStore })),
     setUp: (name = 'palace', memories = []) => {
       const dir = path.join(root, name);
       setup(dir, { ...SETTINGS, backend }, { env });
       const palace = open({ env, palace: dir, lockWaitMs: 200 });
-      try {
-        for (const m of memories) palace.save(m);
-        if (online) {
-          const remote = path.join(root, `${name}.remote.git`);
-          git(['init', '-q', '--bare', '-b', 'main', remote]);
-          palace.setRemote({ url: remote, private: true });
-          remoteOf.set(dir, remote);
-          urlOf.set(dir, remote);
-        }
-      } finally {
-        palace.close();
+      for (const m of memories) palace.save(m);
+      if (online) {
+        const remote = path.join(root, `${name}.remote.git`);
+        git(['init', '-q', '--bare', '-b', 'main', remote]);
+        palace.setRemote({ url: remote, private: true });
+        remoteOf.set(dir, remote);
+        urlOf.set(dir, remote);
       }
       return dir;
     },
@@ -206,8 +191,33 @@ test('markers: unknown seed', async (t) => {
   const marker = path.join(dir, `pending.${seed}`);
   fs.writeFileSync(marker, '');
   fs.writeFileSync(path.join(dir, 'meta.tmp'), 'unfinished');
+  const before = hashes(dir);
   assert.deepStrictEqual(placesOf(ok(await cli(env, ['browse', '--palace', dir], {})).memories), ['h/a']);
+  assert.deepStrictEqual(hashes(dir), before, 'a read changed the palace');
+  ok(await cli(env, ['save', '--palace', dir], memory('b')));
   for (const file of [...planted, marker, path.join(dir, 'meta.tmp')]) assert.ok(!fs.existsSync(file), `${file} still present`);
+});
+
+test('a read on a second copy deletes nothing of a save whose meta has not arrived', (t) => {
+  const { copy, setUp, withPalace } = sandbox(t);
+  const a = setUp('a', [memory('old')]);
+  const b = copy(a);
+  const early = (store) => ({
+    ...store,
+    setMeta: (bytes) => {
+      fs.cpSync(a, b, { recursive: true, filter: (file) => !['lock', 'meta'].includes(path.basename(file)) });
+      return store.setMeta(bytes);
+    },
+  });
+  withPalace(a, (p) => p.save(memory('new')), early);
+  assert.strictEqual(markers(b).length, 1, 'the model did not deliver the marker early');
+  const before = hashes(b);
+  assert.strictEqual(withPalace(b, (p) => p.recall({ place: 'h/old' })).text, 'text old');
+  assert.deepStrictEqual(withPalace(b, (p) => p.recall({ place: 'h/new' })), { found: false });
+  assert.deepStrictEqual(hashes(b), before, 'a read deleted files of the save in flight');
+  fs.copyFileSync(path.join(a, 'meta'), path.join(b, 'meta'));
+  assert.strictEqual(withPalace(b, (p) => p.recall({ place: 'h/new' })).text, 'text new');
+  assert.deepStrictEqual(withPalace(b, (p) => p.check()), { memories: 2, height: 1, nodes: 1, unreachableRemoved: 0 });
 });
 
 test('a failure after the folder commit point keeps the save and the next repair finishes it', async (t) => {
@@ -585,7 +595,6 @@ const plant = (file, seconds) => {
   fs.writeFileSync(file, '');
   backdate(file, seconds);
 };
-const markers = (dir) => fs.readdirSync(dir).filter((name) => name.startsWith('pending.'));
 
 test('release after unlock and a new acquire leaves the new lock and warns', async (t) => {
   const { root, env, setUp } = sandbox(t);
@@ -640,6 +649,48 @@ async function unlockDuringSave(t, put, stopsWith) {
 test('unlock during a paused save stops it before the commit point', (t) => unlockDuringSave(t, 2, /the lock was removed while this command ran/));
 
 test('unlock during a save paused before its tree reads stops it on a missing page', (t) => unlockDuringSave(t, 1, /page [0-9a-f]{32} is missing/));
+
+test('a save that lost its lock leaves its own files for the next write', async (t) => {
+  const { root, env, setUp } = sandbox(t);
+  const dir = setUp('palace', [memory('old')]);
+  const { holder, resume } = await paused(t, env, dir, root, 'a', { put: 2 }, { op: 'save', input: memory('a') });
+  ok(await cli(env, ['unlock', '--palace', dir]));
+  resume();
+  const stopped = await holder.done;
+  assert.strictEqual(stopped.code, 1, stopped.stdout);
+  assert.match(stopped.stderr, /the lock was removed while this command ran/);
+  assert.strictEqual(markers(dir).length, 1, 'the stopped save removed its own files after it lost the lock');
+  ok(await cli(env, ['save', '--palace', dir], memory('b')));
+  assert.deepStrictEqual(markers(dir), []);
+  assert.strictEqual(ok(await cli(env, ['check', '--palace', dir])).unreachableRemoved, 0);
+});
+
+async function lockTakenWhilePaused(t, op, at) {
+  const { root, env, setUp } = sandbox(t);
+  const dir = setUp('palace', [memory('old')]);
+  const { holder, resume } = await paused(t, env, dir, root, 'first', at, op);
+  ok(await cli(env, ['unlock', '--palace', dir]));
+  const { holder: second, resume: resumeSecond } = await paused(t, env, dir, root, 'second', { put: 2 }, { op: 'save', input: memory('second') });
+  const inFlight = { markers: markers(dir), pages: hashes(path.join(dir, 'pages')) };
+  assert.strictEqual(inFlight.markers.length, 1);
+
+  resume();
+  const stopped = await holder.done;
+  assert.strictEqual(stopped.code, 1, stopped.stdout);
+  assert.match(stopped.stderr, /the lock was removed while this command ran/);
+  assert.deepStrictEqual(markers(dir), inFlight.markers, 'the stopped command touched the new holder\'s marker');
+  assert.deepStrictEqual(hashes(path.join(dir, 'pages')), inFlight.pages, 'the stopped command touched the new holder\'s pages');
+
+  resumeSecond();
+  ok(await second.done);
+  assert.strictEqual(ok(await cli(env, ['check', '--palace', dir])).memories, 2);
+}
+
+test('a save whose lock was taken before its repair stops and deletes nothing of the new holder', (t) =>
+  lockTakenWhilePaused(t, { op: 'save', input: memory('first') }, { lock: 1 }));
+
+test('a check whose lock was taken before it removes pages stops and deletes nothing of the new holder', (t) =>
+  lockTakenWhilePaused(t, { op: 'check' }, { get: 2 }));
 
 for (const signal of ['SIGTERM', 'SIGINT']) {
   test(`${signal} mid-operation finishes and leaves no lock`, async (t) => {
@@ -698,6 +749,38 @@ test('hand clone tracking pending.<seed> is refused and loses no page', async (t
   git(['-C', clone, 'rm', '-q', marker]);
   git(['-C', clone, ...commitAs]);
   assert.strictEqual(ok(await cli(env, ['check', '--palace', clone])).memories, 2);
+});
+
+test('a command whose lock was taken before the fast-forward stops and leaves HEAD', async (t) => {
+  const { root, env, git, setUp } = sandbox(t, 'folder', true);
+  const dir = setUp('palace', [memory('a')]);
+  ok(await cli(env, ['save', '--palace', dir], memory('b')));
+  git(['-C', dir, 'reset', '-q', '--hard', 'HEAD~1']);
+  const head = git(['-C', dir, 'rev-parse', 'HEAD']);
+  const { holder, resume } = await paused(t, env, dir, root, 'reader', { repair: 1 }, { op: 'browse', input: {} });
+  ok(await cli(env, ['unlock', '--palace', dir]));
+  const other = acquire(dir, { waitMs: 200, command: 'save' });
+  t.after(() => other.release());
+  resume();
+  const stopped = await holder.done;
+  assert.strictEqual(stopped.code, 1, stopped.stdout);
+  assert.match(stopped.stderr, /the lock was removed while this command ran/);
+  assert.strictEqual(git(['-C', dir, 'rev-parse', 'HEAD']), head, 'the stopped command moved HEAD');
+});
+
+test('a dirty palace whose HEAD holds a foreign file is refused before the reset', async (t) => {
+  const { env, git, setUp } = sandbox(t, 'folder', true);
+  const dir = setUp('palace', [memory('a')]);
+  const notes = path.join(dir, 'notes.txt');
+  fs.writeFileSync(notes, 'committed\n');
+  git(['-C', dir, 'add', '-f', 'notes.txt']);
+  git(['-C', dir, '-c', 'user.name=hand', '-c', 'user.email=hand@localhost', 'commit', '-q', '-m', 'hand']);
+  fs.writeFileSync(notes, 'the user\'s edit\n');
+  fs.appendFileSync(path.join(dir, '.gitignore'), 'dirty\n');
+  const refused = await cli(env, ['browse', '--palace', dir], {});
+  assert.strictEqual(refused.code, 1, refused.stdout);
+  assert.match(refused.stderr, /did not write/);
+  assert.strictEqual(fs.readFileSync(notes, 'utf8'), 'the user\'s edit\n');
 });
 
 test('half-applied pull', async (t) => {

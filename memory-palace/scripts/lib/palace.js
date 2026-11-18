@@ -6,7 +6,7 @@ const crypto = require('node:crypto');
 const { PalaceError, parseJson } = require('./errors.js');
 const { LIMITS, CONTROL, parsePlace, showPlace, rangeOf, childPrefix, checkLimits } = require('./place.js');
 const { createTree } = require('./tree.js');
-const { folderStore, sqliteStore, requireSqlite, pageId } = require('./stores.js');
+const { folderStore, sqliteStore, requireSqlite, pageId, checkId } = require('./stores.js');
 const lock = require('./lock.js');
 const seal = require('./seal.js');
 const git = require('./git.js');
@@ -116,7 +116,7 @@ function unlockKeys(settings, entry, env, palace) {
 
 function readMachine(env) {
   const file = machineFile(env);
-  if (!fs.existsSync(file)) return { version: 1, default: null, palaces: {} };
+  if (!fs.existsSync(file)) return { default: null, palaces: {} };
   return parseJson(fs.readFileSync(file, 'utf8'), file);
 }
 
@@ -208,7 +208,7 @@ function checkUrl(url, backend) {
   }
   if (typeof url !== 'string' || url === '') throw new PalaceError('the remote URL must be a non-empty string. Nothing was written.');
   if (!plainUrl(url)) throw new PalaceError(`the remote URL must be at most ${MOST_URL} characters with no control characters. Nothing was written.`);
-  if (git.carriesSecret(url)) throw new PalaceError('the remote URL carries a password or token. Use a credential helper or ssh. Nothing was written.');
+  if (git.carriesSecret(url)) throw new PalaceError(git.SECRET_URL);
 }
 
 function protect(options, env, palace) {
@@ -296,7 +296,7 @@ function setup(target, options, ctx) {
       const root = pageId(seed, 0);
       store.begin(seed);
       store.put(root, codec.encode(root, { t: 'l', k: [], v: [] }));
-      store.setMeta(codec.encode(META, { v: 1, root, seed, free: [] }));
+      store.setMeta(codec.encode(META, { root, seed, free: [] }));
       store.end();
     } finally {
       store.release();
@@ -311,7 +311,7 @@ function setup(target, options, ctx) {
   const result = { palace, default: palace, ...(warning && { warning }) };
   if (options.remote === undefined) return result;
   try {
-    within({ ...ctx, palace }, (opened) => opened.sync());
+    open({ ...ctx, palace }).sync();
   } catch (err) {
     if (!(err instanceof PalaceError)) throw err;
     return { ...result, warning: err.message };
@@ -373,7 +373,8 @@ function commit(store, tree, codec, change, record) {
     const changed = change(write);
     const flushed = tree.flush(write);
     const free = [...flushed.freed, ...changed.freed];
-    store.setMeta(codec.encode(META, { v: 1, root: flushed.root, seed, free }));
+    free.forEach(checkId);
+    store.setMeta(codec.encode(META, { root: flushed.root, seed, free }));
     step = 'freeing the replaced pages';
     for (const id of free) store.free(id);
     step = 'the git commit';
@@ -563,17 +564,7 @@ function open(ctx) {
         return { memories: stats.count, height: stats.height, nodes: stats.nodes, unreachableRemoved: unreachable.length, warnings };
       });
     },
-    close() {},
   };
-}
-
-function within(ctx, work) {
-  const opened = open(ctx);
-  try {
-    return work(opened);
-  } finally {
-    opened.close();
-  }
 }
 
 module.exports = { status, setup, join, unlock, open };

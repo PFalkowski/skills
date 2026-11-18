@@ -84,14 +84,7 @@ function noTempSibling(dir) {
   assert.deepStrictEqual(fs.readdirSync(dir).filter((name) => name.includes('.setup-')), [], 'a temp sibling is left');
 }
 
-function within(env, dir, work, ctx = {}) {
-  const palace = open({ env, palace: dir, ...ctx });
-  try {
-    return work(palace);
-  } finally {
-    palace.close();
-  }
-}
+const within = (env, dir, work, ctx = {}) => work(open({ env, palace: dir, ...ctx }));
 
 const saveIn = (env, dir, ...memories) => within(env, dir, (palace) => memories.map((memory) => palace.save(memory)));
 
@@ -768,6 +761,17 @@ test('timeout', async (t) => {
     assert.ok(saved.ms < 2 * gitTimeoutMs + 2000, `the save took ${saved.ms} ms with a hanging fetch and push`);
   } finally {
     killListed(pids);
+  }
+});
+
+test('an origin URL that carries a secret in the palace configuration is refused', async (t) => {
+  const box = sandbox(t);
+  const { dir } = onlinePalace(box);
+  git(box.env, ['-C', dir, 'config', 'remote.origin.url', 'https://user:MKPLsecret0q7Zx@example.invalid/palace.git']);
+  for (const [command, input] of [['status'], ['browse', {}], ['save', memoryOf(tag())]]) {
+    const stderr = failed(await cli(box.env, [command, '--palace', dir], input), command);
+    assert.match(stderr, SECRET, command);
+    assert.ok(!stderr.includes('MKPLsecret0q7Zx'), `${command}: ${stderr}`);
   }
 });
 

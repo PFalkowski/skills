@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { PalaceError } = require('./errors.js');
+const { sleep } = require('./lock.js');
 
 const DROPPED_VARIABLES = [
   'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_CONFIG', 'GIT_CONFIG_PARAMETERS', 'GIT_CONFIG_COUNT', 'GIT_OBJECT_DIRECTORY',
@@ -26,6 +27,7 @@ const LOCAL_TIMEOUT_MS = 120000;
 const STALE_LOCK_MS = 10000;
 
 const NOT_EMPTY = 'the remote is not empty. To open the palace it holds, use join. Otherwise create an empty repository (no README, license or .gitignore) and try again. Nothing was written.';
+const SECRET_URL = 'the remote URL carries a password or token. Use a credential helper or ssh. Nothing was written.';
 const DIVERGED = 'this palace and its remote have both changed since they last matched. Nothing was changed. To keep working, join a fresh copy into a new folder (`join --palace <new folder>`). This folder is left as it is and keeps the memories that were not synced.';
 
 function scrubbed(env) {
@@ -60,11 +62,12 @@ function online(env, palace) {
   if (!fs.statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return false;
   checkOwner(dir);
   checkOwner(path.join(dir, 'config'));
-  const keys = run(env, palace, ['config', '--local', '--list', '-z']).stdout.split('\0').map((entry) => entry.split('\n')[0]);
-  const foreign = keys.find((key) => key && !WRITTEN_KEYS.has(key));
+  const entries = run(env, palace, ['config', '--local', '--list', '-z']).stdout.split('\0').filter(Boolean).map((entry) => entry.split(/\n(.*)/s));
+  const foreign = entries.find(([key]) => !WRITTEN_KEYS.has(key));
   if (foreign) {
-    throw new PalaceError(`${path.join(dir, 'config')} sets ${JSON.stringify(foreign)}, which memory-palace did not write. Remove it, then retry. Nothing was changed.`);
+    throw new PalaceError(`${path.join(dir, 'config')} sets ${JSON.stringify(foreign[0])}, which memory-palace did not write. Remove it, then retry. Nothing was changed.`);
   }
+  if (entries.some(([key, value]) => key === 'remote.origin.url' && carriesSecret(value))) throw new PalaceError(SECRET_URL);
   return true;
 }
 
@@ -158,7 +161,7 @@ function* gitLocks(dir) {
 function clearStaleLocks(palace) {
   for (const file of gitLocks(path.join(palace, '.git'))) {
     const age = Date.now() - (fs.statSync(file, { throwIfNoEntry: false })?.mtimeMs ?? 0);
-    if (age < STALE_LOCK_MS) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, STALE_LOCK_MS - age);
+    if (age < STALE_LOCK_MS) sleep(STALE_LOCK_MS - age);
     fs.rmSync(file, { force: true });
   }
 }
@@ -228,5 +231,5 @@ function enclosingRepo(target, env) {
 
 module.exports = {
   online, init, clone, originUrl, setOrigin, foreignPaths, foreignError, refuseForeignHead, checkRemote, fetchAndForward, clearStaleLocks, restore, commit, push, gc,
-  carriesSecret, enclosingRepo,
+  carriesSecret, SECRET_URL, enclosingRepo,
 };

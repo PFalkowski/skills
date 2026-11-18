@@ -5,12 +5,10 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const { open } = require('./lib/palace.js');
-const { acquire } = require('./lib/lock.js');
+const { acquire, sleep } = require('./lib/lock.js');
 
 const PALACE_CLI = path.join(__dirname, 'palace.js');
 const PAUSE_LIMIT_MS = 20000;
-
-const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
 function start(file, args, { env, input = '', timeoutMs = 30000 }) {
   const child = spawn(process.execPath, [file, ...args], { env, stdio: ['pipe', 'pipe', 'pipe'] });
@@ -105,7 +103,7 @@ function pauseUntil({ ready, resume }) {
 
 function faultyStore(spec) {
   let mutations = 0;
-  const calls = { put: 0, get: 0 };
+  const calls = { put: 0, get: 0, lock: 0, repair: 0 };
   const pauseAt = (name) => {
     if (spec.pause && ++calls[name] === spec.pause[name]) pauseUntil(spec.pause);
   };
@@ -123,6 +121,12 @@ function faultyStore(spec) {
       pauseAt('get');
       return store.get(id);
     };
+    for (const name of ['lock', 'repair']) {
+      wrapped[name] = (...args) => {
+        store[name](...args);
+        pauseAt(name);
+      };
+    }
     return wrapped;
   };
 }
@@ -136,15 +140,11 @@ function runSpec(spec) {
     return { held: true };
   }
   const palace = open({ env: process.env, palace: spec.palace, lockWaitMs: spec.lockWaitMs, gitTimeoutMs: spec.gitTimeoutMs, wrapStore: faultyStore(spec) });
-  try {
-    const results = [];
-    for (let round = 0; round < (spec.repeat || 1); round++) {
-      for (const { op, input } of spec.ops) results.push(palace[op](input));
-    }
-    return results;
-  } finally {
-    palace.close();
+  const results = [];
+  for (let round = 0; round < (spec.repeat || 1); round++) {
+    for (const { op, input } of spec.ops) results.push(palace[op](input));
   }
+  return results;
 }
 
 if (require.main === module) {

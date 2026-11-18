@@ -33,6 +33,19 @@ function createTree(pages, { m, L }, rootId) {
   const size = (node) => (node.t === 'l' ? node.k.length : node.c.length);
   const most = (node) => (node.t === 'l' ? L : m);
   const least = (node) => Math.ceil(most(node) / 2);
+  const tallest = 2 + Math.ceil(Math.log2(Number.MAX_SAFE_INTEGER / 2) / Math.log2(Math.ceil(m / 2)));
+
+  function walk() {
+    const seen = new Set();
+    return (ref, depth) => {
+      if (depth > tallest) throw new PalaceError(`integrity check failed: the tree is deeper than ${tallest} levels`);
+      if (isStored(ref)) {
+        if (seen.has(ref)) throw new PalaceError(`integrity check failed: node ${ref} is reached twice`);
+        seen.add(ref);
+      }
+      return ref;
+    };
+  }
 
   function load(ref) {
     if (!isStored(ref)) return ref;
@@ -59,12 +72,13 @@ function createTree(pages, { m, L }, rootId) {
   }
 
   function ownPath(key) {
-    root = own(root);
+    const reach = walk();
+    root = own(reach(root, 1));
     const path = [];
     let node = root;
     while (node.t === 'i') {
       const i = childIndex(node.k, key);
-      node.c[i] = own(node.c[i]);
+      node.c[i] = own(reach(node.c[i], path.length + 2));
       path.push([node, i]);
       node = node.c[i];
     }
@@ -85,8 +99,9 @@ function createTree(pages, { m, L }, rootId) {
   }
 
   function get(key) {
-    let node = load(root);
-    while (node.t === 'i') node = load(node.c[childIndex(node.k, key)]);
+    const reach = walk();
+    let node = load(reach(root, 1));
+    for (let depth = 2; node.t === 'i'; depth++) node = load(reach(node.c[childIndex(node.k, key)], depth));
     const j = lowerBound(node.k, key);
     return node.k[j] === key ? node.v[j] : undefined;
   }
@@ -129,30 +144,32 @@ function createTree(pages, { m, L }, rootId) {
 
   function range(lo = '', hi = null) {
     const found = [];
-    const visit = (ref) => {
-      const node = load(ref);
+    const reach = walk();
+    const visit = (ref, depth) => {
+      const node = load(reach(ref, depth));
       if (node.t === 'l') {
         for (let j = lowerBound(node.k, lo); j < node.k.length && (hi === null || node.k[j] < hi); j++) found.push([node.k[j], node.v[j]]);
         return;
       }
       const last = hi === null ? node.c.length - 1 : lowerBound(node.k, hi);
-      for (let i = childIndex(node.k, lo); i <= last; i++) visit(node.c[i]);
+      for (let i = childIndex(node.k, lo); i <= last; i++) visit(node.c[i], depth + 1);
     };
-    visit(root);
+    visit(root, 1);
     return found;
   }
 
   function first(lo, hi) {
-    const seek = (ref) => {
-      const node = load(ref);
+    const reach = walk();
+    const seek = (ref, depth) => {
+      const node = load(reach(ref, depth));
       if (node.t === 'l') return node.k[lowerBound(node.k, lo)];
       for (let i = childIndex(node.k, lo); i < node.c.length; i++) {
-        const key = seek(node.c[i]);
+        const key = seek(node.c[i], depth + 1);
         if (key !== undefined || (hi !== null && node.k[i] >= hi)) return key;
       }
       return undefined;
     };
-    const key = seek(root);
+    const key = seek(root, 1);
     return key !== undefined && (hi === null || key < hi) ? key : undefined;
   }
 
@@ -168,8 +185,9 @@ function createTree(pages, { m, L }, rootId) {
     const ids = [];
     const leafDepths = new Set();
     let count = 0;
-    const walk = (ref, lo, hi, depth) => {
-      const node = load(ref);
+    const reach = walk();
+    const visit = (ref, lo, hi, depth) => {
+      const node = load(reach(ref, depth));
       const fail = (what) => {
         throw new PalaceError(`integrity check failed: ${what} in node ${isStored(ref) ? ref : '(unsaved)'}`);
       };
@@ -186,9 +204,9 @@ function createTree(pages, { m, L }, rootId) {
         return;
       }
       if (node.c.length !== node.k.length + 1 || node.c.length < 2) fail('children and separators do not match');
-      node.c.forEach((child, i) => walk(child, i === 0 ? lo : node.k[i - 1], i === node.k.length ? hi : node.k[i], depth + 1));
+      node.c.forEach((child, i) => visit(child, i === 0 ? lo : node.k[i - 1], i === node.k.length ? hi : node.k[i], depth + 1));
     };
-    walk(root, null, null, 1);
+    visit(root, null, null, 1);
     if (leafDepths.size !== 1) throw new PalaceError('integrity check failed: leaves at different depths');
     return { height: [...leafDepths][0], nodes: ids.length, count, ids };
   }

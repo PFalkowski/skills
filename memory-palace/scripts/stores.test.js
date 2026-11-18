@@ -96,6 +96,20 @@ function pageStoreSuite(name, makeStore) {
       });
     });
 
+    await t.test('a page id that is not 32 lowercase hexadecimal characters is refused', (t) => {
+      const dir = tempDir(t, 'mp-store-');
+      session(dir, (store) => {
+        commit(store, SEEDS[0], ['only']);
+        const long = `../${'x'.repeat(100)}`;
+        for (const id of ['../outside', long, 'A'.repeat(32), [pageId(SEEDS[0], 0)]]) {
+          for (const call of [() => store.get(id), () => store.put(id, bytes('x')), () => store.free(id)]) {
+            assert.throws(call, (err) => /^page id ".{0,40}" is not valid: the palace is damaged or altered/.test(err.message) && !err.message.includes(long));
+          }
+        }
+        assert.deepStrictEqual(store.ids(), [pageId(SEEDS[0], 0)]);
+      });
+    });
+
     await t.test('ids lists stored pages', (t) => {
       const dir = tempDir(t, 'mp-store-');
       session(dir, (store) => {
@@ -230,4 +244,58 @@ test('I2: SQLite under --no-experimental-sqlite', async (t) => {
     assert.deepStrictEqual(hashes(dir), before.palace, `${command} changed the palace`);
     assert.deepStrictEqual(fs.readFileSync(machine), before.machine, `${command} changed the machine record`);
   }
+});
+
+function alteredPalace(t) {
+  const root = tempDir(t, 'mp-altered-');
+  const env = envFor(root);
+  const dir = path.join(root, 'palace');
+  const outside = path.join(root, 'outside.txt');
+  fs.writeFileSync(outside, JSON.stringify({ t: 'x', text: 'TOKEN-OUTSIDE-THE-PALACE' }));
+  const page = (id) => path.join(dir, 'pages', id.slice(0, 2), id);
+  const rootId = () => JSON.parse(fs.readFileSync(path.join(dir, 'meta'), 'utf8')).root;
+  const edit = (id, change) => fs.writeFileSync(page(id), JSON.stringify(change(JSON.parse(fs.readFileSync(page(id), 'utf8')))));
+  return { env, dir, outside, page, rootId, edit };
+}
+
+const MISC = { place: 'notes/misc', title: 't', summary: 's', text: 'inside', kind: 'note' };
+
+function refused(result, pattern) {
+  assert.strictEqual(result.code, 1, result.stdout);
+  assert.match(result.stderr, pattern);
+  assert.ok(!result.stderr.includes('TOKEN-OUTSIDE'), result.stderr);
+}
+
+test('a page id of ../ in a leaf is refused: recall reads nothing outside, a replacing save deletes nothing', async (t) => {
+  const { env, dir, outside, rootId, edit } = alteredPalace(t);
+  ok(await cli(env, ['setup', '--palace', dir], { ...SETTINGS, backend: 'folder' }));
+  ok(await cli(env, ['save'], MISC));
+  edit(rootId(), (leaf) => ({ ...leaf, v: [{ ...leaf.v[0], text: '../outside.txt' }] }));
+  refused(await cli(env, ['recall'], { place: MISC.place }), /page id "\.\.\/outside\.txt" is not valid: the palace is damaged or altered/);
+  const before = hashes(dir);
+  refused(await cli(env, ['save'], { ...MISC, text: 'replacing' }), /is not valid/);
+  assert.ok(fs.existsSync(outside), 'the replacing save deleted a file outside the palace');
+  assert.deepStrictEqual(hashes(dir), before, 'the refused save changed the palace');
+});
+
+test('a page replaced by a symbolic link is refused', async (t) => {
+  const { env, dir, outside, page, rootId } = alteredPalace(t);
+  ok(await cli(env, ['setup', '--palace', dir], { ...SETTINGS, backend: 'folder' }));
+  ok(await cli(env, ['save'], MISC));
+  const text = JSON.parse(fs.readFileSync(page(rootId()), 'utf8')).v[0].text;
+  fs.rmSync(page(text));
+  fs.symlinkSync(outside, page(text));
+  refused(await cli(env, ['recall'], { place: MISC.place }), new RegExp(`page ${text} is not a regular file: the palace is damaged or altered`));
+});
+
+test('a page that lists itself as a child ends with the integrity error and leaves no lock', async (t) => {
+  const { env, dir, rootId, edit } = alteredPalace(t);
+  ok(await cli(env, ['setup', '--palace', dir], { ...SETTINGS, backend: 'folder' }));
+  ok(await cli(env, ['save'], MISC));
+  const id = rootId();
+  edit(id, () => ({ t: 'i', k: ['x'], c: [id, id] }));
+  const started = Date.now();
+  refused(await cli(env, ['recall'], { place: MISC.place }), /integrity check failed/);
+  assert.ok(Date.now() - started < 1000, `took ${Date.now() - started} ms`);
+  assert.ok(!fs.existsSync(path.join(dir, 'lock')), 'the lock was left');
 });

@@ -9,17 +9,10 @@ const { PalaceError, parseJson } = require('./errors.js');
 const RETRY_MS = 10;
 const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 const lockFile = (dir) => path.join(dir, 'lock');
-const EXIT_ON = { SIGINT: 130, SIGTERM: 143 };
+const SIGNALS = ['SIGINT', 'SIGTERM'];
+const letTheCommandFinish = () => {};
 const LOCK_REMOVED = 'the lock was removed while this command ran (unlock, or the file was deleted). This command stopped before changing anything else. Retry.';
 const LOCK_LOST = 'the lock was removed while this command held it (unlock, or the file was deleted), so another command may have run at the same time. Run check.';
-
-function unlinkIfPresent(file) {
-  try {
-    fs.unlinkSync(file);
-  } catch (err) {
-    if (err.code !== 'ENOENT') throw err;
-  }
-}
 
 function create(file, record) {
   let fd;
@@ -75,28 +68,18 @@ function acquire(dir, { waitMs, command }) {
   const file = lockFile(dir);
   const record = { host: os.hostname(), pid: process.pid, command, started: new Date().toISOString(), nonce: crypto.randomBytes(16).toString('hex') };
   const deadline = Date.now() + waitMs;
-  let lastTry = false;
   while (!create(file, record)) {
-    if (Date.now() < deadline) {
-      sleep(RETRY_MS);
-      continue;
-    }
-    const holder = readHolder(file);
-    if (holder !== undefined || lastTry) throw busy(dir, holder);
-    lastTry = true;
+    if (Date.now() >= deadline) throw busy(dir, readHolder(file));
+    sleep(RETRY_MS);
   }
   const owned = () => readHolder(file)?.nonce === record.nonce;
-  const onSignal = (signal) => {
-    release();
-    process.exit(EXIT_ON[signal]);
-  };
   function release() {
-    for (const signal of Object.keys(EXIT_ON)) process.removeListener(signal, onSignal);
+    for (const signal of SIGNALS) process.removeListener(signal, letTheCommandFinish);
     if (!owned()) return LOCK_LOST;
-    unlinkIfPresent(file);
+    fs.rmSync(file, { force: true });
     return undefined;
   }
-  for (const signal of Object.keys(EXIT_ON)) process.once(signal, onSignal);
+  for (const signal of SIGNALS) process.once(signal, letTheCommandFinish);
   return {
     owned,
     check: () => {
@@ -109,10 +92,10 @@ function acquire(dir, { waitMs, command }) {
 function remove(dir) {
   const holder = readHolder(lockFile(dir));
   if (holder === undefined) return null;
-  unlinkIfPresent(lockFile(dir));
+  fs.rmSync(lockFile(dir), { force: true });
   if (!holder || !wellFormed(holder)) return 'unreadable';
   const { host, pid, command, started } = holder;
   return { host, pid, command, started };
 }
 
-module.exports = { acquire, remove };
+module.exports = { acquire, remove, sleep };

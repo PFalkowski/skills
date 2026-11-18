@@ -10,42 +10,41 @@ const MARKER = 'pending.';
 
 const pageId = (seed, n) => crypto.createHash('sha256').update(`${seed}:${n}`).digest('hex').slice(0, 32);
 
-function removeIfPresent(file) {
-  try {
-    fs.unlinkSync(file);
-  } catch (err) {
-    if (err.code !== 'ENOENT') throw err;
+function checkId(id) {
+  if (typeof id !== 'string' || !/^[0-9a-f]{32}$/.test(id)) {
+    throw new PalaceError(`page id ${JSON.stringify(String(id).slice(0, 40))} is not valid: the palace is damaged or altered.`);
   }
+  return id;
 }
 
 function folderStore(dir) {
   const pagesDir = path.join(dir, 'pages');
   const metaFile = path.join(dir, 'meta');
   const metaTmp = path.join(dir, 'meta.tmp');
-  const pageFile = (id) => path.join(pagesDir, id.slice(0, 2), id);
+  const pageFile = (id) => path.join(pagesDir, checkId(id).slice(0, 2), id);
   const markerFile = (seed) => path.join(dir, `${MARKER}${seed}`);
   let held = null;
+  let writer = false;
   let writing = null;
   let landed = false;
 
   function read(file, what) {
-    try {
-      return fs.readFileSync(file);
-    } catch (err) {
-      if (err.code === 'ENOENT') throw new PalaceError(`${what} is missing`);
-      throw err;
-    }
+    const stat = fs.lstatSync(file, { throwIfNoEntry: false });
+    if (!stat) throw new PalaceError(`${what} is missing`);
+    if (!stat.isFile()) throw new PalaceError(`${what} is not a regular file: the palace is damaged or altered.`);
+    return fs.readFileSync(file);
   }
 
   function dropUncommitted(seed) {
     for (let n = 0; fs.existsSync(pageFile(pageId(seed, n))); n++) fs.unlinkSync(pageFile(pageId(seed, n)));
-    removeIfPresent(metaTmp);
+    fs.rmSync(metaTmp, { force: true });
   }
 
   const getMeta = () => read(metaFile, 'the meta page');
 
   return {
-    lock: ({ waitMs, command }) => {
+    lock: ({ write, waitMs, command }) => {
+      writer = write;
       held = lock.acquire(dir, { waitMs, command });
     },
     release: () => {
@@ -71,7 +70,7 @@ function folderStore(dir) {
       fs.renameSync(metaTmp, metaFile);
       landed = true;
     },
-    free: (id) => removeIfPresent(pageFile(id)),
+    free: (id) => fs.rmSync(pageFile(id), { force: true }),
     end: () => {
       fs.unlinkSync(markerFile(writing));
       writing = null;
@@ -79,25 +78,23 @@ function folderStore(dir) {
     abort: () => {
       if (!landed && held.owned()) {
         dropUncommitted(writing);
-        removeIfPresent(markerFile(writing));
+        fs.rmSync(markerFile(writing), { force: true });
       }
       writing = null;
       return landed;
     },
     repair: (decodeMeta, recordLanded = () => {}, beforeMarkers = () => {}) => {
-      const markers = fs
-        .readdirSync(dir)
-        .filter((name) => name.startsWith(MARKER))
-        .map((name) => ({ seed: name.slice(MARKER.length), age: fs.statSync(path.join(dir, name)).mtimeMs }))
-        .sort((a, b) => a.age - b.age);
-      if (markers.length > 0) beforeMarkers();
-      for (const { seed } of markers) {
+      const seeds = fs.readdirSync(dir).filter((name) => name.startsWith(MARKER)).map((name) => name.slice(MARKER.length));
+      if (seeds.length > 0) beforeMarkers();
+      for (const seed of seeds) {
         const meta = decodeMeta(getMeta());
         if (meta.seed === seed) {
-          meta.free.forEach((id) => removeIfPresent(pageFile(id)));
+          meta.free.forEach((id) => fs.rmSync(pageFile(id), { force: true }));
           recordLanded();
-        } else {
+        } else if (writer) {
           dropUncommitted(seed);
+        } else {
+          continue;
         }
         fs.unlinkSync(markerFile(seed));
       }
@@ -167,14 +164,14 @@ function sqliteStore(dir) {
       if (open) finish(writer ? 'ROLLBACK' : 'COMMIT');
     },
     checkLock: () => {},
-    get: (id) => page(row('SELECT data FROM pages WHERE id = ?', id), `page ${id}`),
+    get: (id) => page(row('SELECT data FROM pages WHERE id = ?', checkId(id)), `page ${id}`),
     getMeta: () => page(row('SELECT data FROM meta WHERE one = 1'), 'the meta page'),
     begin: () => {
       if (!open) beginWrite();
     },
-    put: (id, bytes) => run('INSERT INTO pages (id, data) VALUES (?, ?)', id, bytes),
+    put: (id, bytes) => run('INSERT INTO pages (id, data) VALUES (?, ?)', checkId(id), bytes),
     setMeta: (bytes) => run('INSERT OR REPLACE INTO meta (one, data) VALUES (1, ?)', bytes),
-    free: (id) => run('DELETE FROM pages WHERE id = ?', id),
+    free: (id) => run('DELETE FROM pages WHERE id = ?', checkId(id)),
     end: () => finish('COMMIT'),
     abort: () => {
       if (open) finish('ROLLBACK');
@@ -199,4 +196,4 @@ function sqliteStore(dir) {
   );
 }
 
-module.exports = { folderStore, sqliteStore, requireSqlite, pageId };
+module.exports = { folderStore, sqliteStore, requireSqlite, pageId, checkId };
