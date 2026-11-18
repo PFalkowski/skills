@@ -40,6 +40,8 @@ template or test does.
    test is a run, so the finding is an ordinary `snippet` finding. Where it cannot be forced, the
    finding states why, carries the label "model-checked, not run on the code", and the lead reruns
    the checker before offering it. If the lead cannot rerun it, the claim stays under **Not run**.
+   Reviewers are told to apply [fact-check](../../fact-check/SKILL.md), which also withholds an
+   ordering claim that was not run, so inside a v2 review the exception covers that rule too.
 4. **A model-checked finding is at most Major (⚠️), whatever its kind.** The base bar makes a `data`
    or `rollback` finding a Blocker with any artifact ([REFERENCE.md](../../code-review-grill/REFERENCE.md),
    severity legend). The overlay overrides that for this one method, because the trace was never
