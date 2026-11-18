@@ -25,6 +25,7 @@
     "./invert",
     "./less-is-more",
     "./manager",
+    "./memory-palace",
     "./merge-guard",
     "./merge-stack",
     "./nights-watch",

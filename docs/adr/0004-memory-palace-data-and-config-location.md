@@ -34,8 +34,12 @@ Two kinds of file fail that test here:
 - Settings that every copy of a palace shares (format version, backend, protection, key
   derivation parameters and salt, the passphrase check, kinds, moments, the confirmed-private
   remote URL) live inside the palace folder. Settings that differ per machine live in the
-  machine record.
-- `memory-palace` keeps no operational state of its own.
+  machine record. The remote URL lives in the palace's own git configuration, which is never
+  committed.
+- `memory-palace` keeps no operational state of its own. While a command runs, a folder-backend
+  palace also holds its lock file, and during a write a pending marker; a SQLite palace holds
+  SQLite's journal. These are part of the store's format, like a database journal, not run
+  state, and git never tracks them.
 
 ## Alternatives considered
 
@@ -52,5 +56,5 @@ Two kinds of file fail that test here:
 - `scripts/check-state-paths.sh` needs no change. It passes `~/.config/memory-palace/...`. A bare
   dot-folder name in a skill's markdown, such as a palace folder written without its `~/`
   prefix, fails it.
-- A machine that loses its record still has the palace. The user names its folder once more,
-  and the skill trusts that palace's settings again.
+- A machine that loses its record still has the palace. The user names its folder once more
+  through `join`, and the skill trusts that palace's settings again.
