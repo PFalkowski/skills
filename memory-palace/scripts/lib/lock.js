@@ -56,9 +56,13 @@ function readHolder(file) {
   }
 }
 
+const COMMANDS = new Set(['setup', 'save', 'recall', 'browse', 'list', 'forget', 'sync', 'remote', 'check']);
+const wellFormed = ({ host, pid, command, started }) =>
+  Number.isInteger(pid) && COMMANDS.has(command) && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(started) && typeof host === 'string' && /^[\w.-]{1,64}$/.test(host);
+
 function busy(dir, holder) {
   const file = lockFile(dir);
-  const who = holder
+  const who = holder && wellFormed(holder)
     ? `is held by memory-palace ${holder.command} (pid ${holder.pid} on host ${holder.host}, since ${holder.started})`
     : 'exists but holds no readable record';
   return new PalaceError(
@@ -106,9 +110,9 @@ function remove(dir) {
   const holder = readHolder(lockFile(dir));
   if (holder === undefined) return null;
   unlinkIfPresent(lockFile(dir));
-  if (!holder) return 'unreadable';
-  const { nonce, ...shown } = holder;
-  return shown;
+  if (!holder || !wellFormed(holder)) return 'unreadable';
+  const { host, pid, command, started } = holder;
+  return { host, pid, command, started };
 }
 
 module.exports = { acquire, remove };

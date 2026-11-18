@@ -74,7 +74,8 @@ function foreignPaths(env, palace, rev) {
 
 function foreignError(paths, next) {
   const more = paths.length > 1 ? ` (and ${paths.length - 1} more)` : '';
-  return new PalaceError(`the remote holds files memory-palace did not write: ${paths[0]}${more}. ${next}`);
+  const first = paths[0].length > 80 ? `${paths[0].slice(0, 80)}...` : paths[0];
+  return new PalaceError(`the remote holds files memory-palace did not write: ${JSON.stringify(first)}${more}. ${next}`);
 }
 
 function refuseForeignHead(env, palace) {
@@ -95,7 +96,7 @@ function checkRemote(env, palace, url, timeoutMs) {
   if (head === null || !(isAncestor(env, palace, head, fetched) || isAncestor(env, palace, fetched, head))) throw new PalaceError(NOT_EMPTY);
 }
 
-function fetchAndForward(env, palace, { timeoutMs, read, checkLock }) {
+function fetchAndForward(env, palace, { timeoutMs, read, checkLock, checkSettings }) {
   let warning;
   try {
     run(env, palace, ['fetch', '-q', '--prune', 'origin'], { timeoutMs });
@@ -110,6 +111,7 @@ function fetchAndForward(env, palace, { timeoutMs, read, checkLock }) {
   checkLock();
   const foreign = foreignPaths(env, palace, upstream);
   if (foreign.length === 0) {
+    checkSettings(run(env, palace, ['cat-file', 'blob', `${upstream}:palace.json`]).stdout);
     run(env, palace, ['merge', '-q', '--ff-only', upstream]);
     return { warning };
   }

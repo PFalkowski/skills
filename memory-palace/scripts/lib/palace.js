@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { PalaceError, parseJson } = require('./errors.js');
-const { parsePlace, showPlace, rangeOf, childPrefix, checkLimits } = require('./place.js');
+const { LIMITS, CONTROL, parsePlace, showPlace, rangeOf, childPrefix, checkLimits } = require('./place.js');
 const { createTree } = require('./tree.js');
 const { folderStore, sqliteStore, requireSqlite, pageId } = require('./stores.js');
 const lock = require('./lock.js');
@@ -14,6 +14,8 @@ const git = require('./git.js');
 const FORMAT = 1;
 const LOCK_WAIT_MS = 60000;
 const TREE = { m: 128, L: 32 };
+const TREE_MOST = 1024;
+const MOST_KINDS = 32;
 const MOMENTS = ['on-request', 'after-decision', 'end-of-task'];
 const GITIGNORE = 'lock\n*.tmp\npending.*\n';
 const WRITES = new Set(['save', 'forget', 'sync', 'remote', 'check']);
@@ -67,6 +69,9 @@ function keyFileOutside(file, palace) {
   if (isInside(real, palace)) {
     throw new PalaceError(`the key file ${file} is inside the palace folder ${palace}. Keep it outside the palace. Nothing was changed.`);
   }
+  if (process.platform !== 'win32' && (fs.statSync(real).mode & 0o077) !== 0) {
+    throw new PalaceError(`the key file ${file} is open to other users, so they can read the passphrase. Run chmod 600 on it. Nothing was changed.`);
+  }
   return real;
 }
 
@@ -81,14 +86,30 @@ function readPassphrase(source, env, palace) {
   return text.replace(/\r?\n$/, '').normalize('NFC');
 }
 
+const same = (a, b) => a.length === b.length && crypto.timingSafeEqual(a, b);
+const sortedKeys = (key, value) => (value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.keys(value).sort().map((name) => [name, value[name]])) : value);
+
+function checkOf(keys, settings) {
+  const { check: _, ...bound } = settings;
+  return seal.checkValue(keys, JSON.stringify(bound, sortedKeys)).toString('hex');
+}
+
+const withCheck = (settings, keys) => (keys ? { ...settings, check: checkOf(keys, settings) } : settings);
+
+function checkBound(settings, keys, file) {
+  if (!same(Buffer.from(settings.check), Buffer.from(checkOf(keys, settings)))) {
+    throw new PalaceError(`the settings in ${file} were altered without the passphrase: they do not match its check value. Nothing was changed.`);
+  }
+}
+
 function unlockKeys(settings, entry, env, palace) {
   if (!entry?.passphrase) throw new PalaceError(`no passphrase: ${palace} is protected, and ${machineFile(env)} records no passphrase source for it.`);
   const keys = seal.deriveKeys(readPassphrase(entry.passphrase, env, palace), settings.kdf);
-  const expected = Buffer.from(settings.check, 'hex');
-  const actual = seal.checkValue(keys);
-  if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
+  const proof = seal.passphraseCheck(keys);
+  if (!same(Buffer.from(settings.check, 'hex').subarray(0, proof.length), proof)) {
     throw new PalaceError(`wrong passphrase: it does not open ${palace}. Nothing was changed.`);
   }
+  checkBound(settings, keys, path.join(palace, 'palace.json'));
   return keys;
 }
 
@@ -113,13 +134,34 @@ function locate(ctx) {
 function readSettings(dir) {
   const file = path.join(dir, 'palace.json');
   if (!fs.existsSync(file)) throw new PalaceError(`no palace at ${dir}: ${file} is missing`);
-  const settings = parseJson(fs.readFileSync(file, 'utf8'), file);
+  return parseSettings(fs.readFileSync(file, 'utf8'), file);
+}
+
+const isIntIn = (n, least, most) => Number.isInteger(n) && n >= least && n <= most;
+const plainKind = (kind) => typeof kind === 'string' && kind.length > 0 && kind.length <= LIMITS.kind && !CONTROL.test(kind);
+
+function badLists({ kinds, moments }) {
+  if (!Array.isArray(kinds) || kinds.length > MOST_KINDS || !kinds.every(plainKind)) {
+    return `kinds must be a list of at most ${MOST_KINDS} kinds, each 1 to ${LIMITS.kind} characters with no control characters`;
+  }
+  if (!Array.isArray(moments) || !moments.every((moment) => MOMENTS.includes(moment))) return `moments must be a list drawn from ${MOMENTS.join(', ')}`;
+  return undefined;
+}
+
+function parseSettings(text, file) {
+  const settings = parseJson(text, file);
   if (settings.format !== FORMAT) {
-    throw new PalaceError(`${file} has format ${settings.format}; this version reads format ${FORMAT} only. Nothing was changed.`);
+    const shown = isIntIn(settings.format, 0, 999) ? `format ${settings.format}` : 'an unknown format';
+    throw new PalaceError(`${file} has ${shown}; this version reads format ${FORMAT} only. Nothing was changed.`);
   }
   if (!Object.hasOwn(STORES, settings.backend)) {
-    throw new PalaceError(`${file} has backend ${settings.backend}; this version reads "folder" and "sqlite" only. Nothing was changed.`);
+    throw new PalaceError(`${file} has an unknown backend; this version reads "folder" and "sqlite" only. Nothing was changed.`);
   }
+  if (!isIntIn(settings.tree?.m, 3, TREE_MOST) || !isIntIn(settings.tree?.L, 1, TREE_MOST)) {
+    throw new PalaceError(`${file} has tree sizes outside m 3 to ${TREE_MOST} and L 1 to ${TREE_MOST}. Nothing was changed.`);
+  }
+  const bad = badLists(settings);
+  if (bad) throw new PalaceError(`${file}: ${bad}. Nothing was changed.`);
   if (settings.protected && !validKdf(settings.kdf)) {
     throw new PalaceError(`${file} has scrypt parameters outside N 2^14 to 2^20, r 8, p 1. Nothing was changed.`);
   }
@@ -168,8 +210,7 @@ function protect(options, env, palace) {
   if (!validKdf(kdf)) throw new PalaceError('kdf.N must be a power of two from 16384 (2^14) to 1048576 (2^20). Nothing was written.');
   const passphrase = readPassphrase(options.passphrase, env, palace);
   if (passphrase === '') throw new PalaceError('the passphrase is empty. Nothing was written.');
-  const keys = seal.deriveKeys(passphrase, kdf);
-  return { kdf, check: seal.checkValue(keys).toString('hex'), keys };
+  return { kdf, keys: seal.deriveKeys(passphrase, kdf) };
 }
 
 function checkRepo(target, protection, env) {
@@ -194,12 +235,8 @@ function checkSetup(dir, real, options, ctx) {
   if (!Object.hasOwn(STORES, options.backend)) throw new PalaceError('backend must be "folder" or "sqlite". Nothing was written.');
   if (options.remote !== undefined) checkUrl(options.remote, options.backend);
   if (options.backend === 'sqlite') requireSqlite();
-  const lists = [['kinds', options.kinds], ['moments', options.moments]];
-  for (const [field, list] of lists) {
-    if (!Array.isArray(list) || !list.every((item) => typeof item === 'string')) throw new PalaceError(`${field} must be a list of strings`);
-  }
-  const unknown = options.moments.find((moment) => !MOMENTS.includes(moment));
-  if (unknown) throw new PalaceError(`moment ${unknown} is not one of ${MOMENTS.join(', ')}. Nothing was written.`);
+  const bad = badLists(options);
+  if (bad) throw new PalaceError(`${bad}. Nothing was written.`);
   const protection = options.passphrase === null ? null : protect(options, ctx.env, real);
   if (options.remote === undefined) return { protection, warning: checkRepo(real, protection, ctx.env) };
   git.checkRemote(ctx.env, null, options.remote, gitTimeout(ctx, true));
@@ -241,10 +278,10 @@ function setup(target, options, ctx) {
   const codec = codecFor(protection?.keys ?? null);
   const palace = buildBeside(dir, (temp) => {
     fs.mkdirSync(temp);
-    writeSettings(temp, {
-      format: FORMAT, backend: options.backend, protected: Boolean(protection), kdf: protection?.kdf ?? null, check: protection?.check ?? null,
+    writeSettings(temp, withCheck({
+      format: FORMAT, backend: options.backend, protected: Boolean(protection), kdf: protection?.kdf ?? null, check: null,
       tree: TREE, kinds: options.kinds, moments: options.moments, privateRemote: options.private === true ? options.remote : null,
-    });
+    }, protection?.keys));
     fs.writeFileSync(path.join(temp, '.gitignore'), GITIGNORE);
     const store = STORES[options.backend](temp);
     store.lock({ write: true, waitMs: LOCK_WAIT_MS, command: 'setup' });
@@ -278,6 +315,10 @@ function setup(target, options, ctx) {
 
 function checkJoined(dir, palace, passphrase, ctx) {
   const settings = readSettings(dir);
+  checkPin(settings, readMachine(ctx.env).palaces[palace], palace);
+  if (!settings.protected && passphrase !== null) {
+    throw new PalaceError(`settings mismatch: a passphrase was given, but the palace.json of ${palace} says it is not protected. Its settings may have been altered. Nothing was written.`);
+  }
   if (settings.backend === 'folder' && git.online(dir)) {
     const foreign = git.foreignPaths(ctx.env, dir, 'HEAD');
     if (foreign.length > 0) throw git.foreignError(foreign, 'Nothing was written. Remove them from the remote and from this folder, then join again.');
@@ -357,14 +398,22 @@ function open(ctx) {
   const palace = fs.realpathSync(dir);
   const entry = readMachine(env).palaces[palace];
   checkPin(settings, entry, palace);
-  const codec = codecFor(settings.protected ? unlockKeys(settings, entry, env, palace) : null);
+  const keys = settings.protected ? unlockKeys(settings, entry, env, palace) : null;
+  const codec = codecFor(keys);
   const repo = () => (settings.backend === 'folder' && git.online(dir) ? dir : null);
+
+  function checkPulled(text) {
+    const pulled = parseSettings(text, "the remote's palace.json");
+    if (pulled.protected !== settings.protected) {
+      throw new PalaceError(`settings mismatch: the remote's palace.json turns protection ${pulled.protected ? 'on' : 'off'} for ${palace}. It may have been altered. Nothing was changed.`);
+    }
+    if (keys) checkBound(pulled, keys, "the remote's palace.json");
+  }
 
   function pull(store, online, read, long) {
     if (online === null || git.originUrl(env, online) === null) return undefined;
-    const { warning } = git.fetchAndForward(env, online, { timeoutMs: gitTimeout(ctx, long), read, checkLock: store.checkLock });
+    const { warning } = git.fetchAndForward(env, online, { timeoutMs: gitTimeout(ctx, long), read, checkLock: store.checkLock, checkSettings: checkPulled });
     settings = readSettings(dir);
-    checkPin(settings, entry, palace);
     return warning;
   }
 
@@ -483,7 +532,7 @@ function open(ctx) {
         const pulled = pull(store, dir, false, true);
         if (pulled && input.private === true) throw new PalaceError(pulled);
         if (input.private === true) {
-          settings = { ...settings, privateRemote: input.url };
+          settings = withCheck({ ...settings, privateRemote: input.url }, keys);
           writeSettings(dir, settings);
         }
         git.commit(env, dir);

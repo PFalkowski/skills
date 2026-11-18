@@ -12,7 +12,9 @@ function deriveKeys(passphrase, { N, r, p, salt }) {
   return { aead: bytes.subarray(0, 32), check: bytes.subarray(32) };
 }
 
-const checkValue = (keys) => crypto.createHmac('sha256', keys.check).update('memory-palace/1/check').digest();
+const mac = (keys, text) => crypto.createHmac('sha256', keys.check).update(text).digest();
+const passphraseCheck = (keys) => mac(keys, 'memory-palace/1/check');
+const checkValue = (keys, settings) => Buffer.concat([passphraseCheck(keys), mac(keys, `memory-palace/1/settings\n${settings}`)]);
 
 function seal(keys, aad, plain) {
   const nonce = crypto.randomBytes(NONCE_BYTES);
@@ -30,4 +32,4 @@ function open(keys, aad, sealed) {
   return Buffer.concat([decipher.update(sealed.subarray(HEADER_BYTES)), decipher.final()]);
 }
 
-module.exports = { deriveKeys, checkValue, seal, open };
+module.exports = { deriveKeys, passphraseCheck, checkValue, seal, open };

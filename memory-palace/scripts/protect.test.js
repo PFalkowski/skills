@@ -186,7 +186,7 @@ test('F2/F5: key file inside the palace', async (t) => {
   const { root, env } = sandbox(t);
   const insideKey = (target) => {
     fs.mkdirSync(target, { recursive: true });
-    fs.writeFileSync(path.join(target, 'key'), `${PASS}\n`);
+    fs.writeFileSync(path.join(target, 'key'), `${PASS}\n`, { mode: 0o600 });
     return path.join(target, 'key');
   };
 
@@ -213,7 +213,7 @@ test('F2/F5: key file inside the palace', async (t) => {
 
   const dir = path.join(root, 'palace');
   const outside = path.join(root, 'outside-key');
-  fs.writeFileSync(outside, `${PASS}\n`);
+  fs.writeFileSync(outside, `${PASS}\n`, { mode: 0o600 });
   ok(await cli(env, ['setup', '--palace', dir], { ...PROTECTED, passphrase: { file: outside } }));
   const memory = memoryOf(tag());
   ok(await cli(env, ['save'], memory));
@@ -235,6 +235,40 @@ test('F2/F5: key file inside the palace', async (t) => {
     assert.match(stderr, /inside/i, file);
     noContent(result, memory);
   }
+});
+
+test('a key file other users can read is refused at setup, join and open', { skip: process.platform === 'win32' }, async (t) => {
+  const { root, env, dir } = sandbox(t);
+  const key = path.join(root, 'key');
+  fs.writeFileSync(key, `${PASS}\n`, { mode: 0o600 });
+  ok(await cli(env, ['setup', '--palace', dir], { ...PROTECTED, passphrase: { file: key } }));
+  const memory = memoryOf(tag());
+  ok(await cli(env, ['save'], memory));
+  const record = fs.readFileSync(machineFile(env), 'utf8');
+  const target = path.join(root, 'second');
+  for (const mode of [0o644, 0o640, 0o604]) {
+    fs.chmodSync(key, mode);
+    const before = hashes(dir);
+    const runs = [
+      [['recall'], { place: memory.place }],
+      [['join', '--palace', dir], { passphrase: { file: key } }],
+      [['setup', '--palace', target], { ...PROTECTED, passphrase: { file: key } }],
+    ];
+    for (const [args, input] of runs) {
+      const what = `${args[0]} with mode ${mode.toString(8)}`;
+      const result = await cli(env, args, input);
+      const stderr = failed(result, what);
+      assert.ok(stderr.includes(key), `${what}: ${stderr}`);
+      assert.match(stderr, /other users/, what);
+      assert.match(stderr, /chmod 600/, what);
+      noContent(result, memory);
+    }
+    assert.deepStrictEqual(hashes(dir), before);
+    assert.strictEqual(fs.readFileSync(machineFile(env), 'utf8'), record);
+    assert.ok(!fs.existsSync(target), `${target} exists`);
+  }
+  fs.chmodSync(key, 0o600);
+  assert.strictEqual(ok(await cli(env, ['recall'], { place: memory.place })).text, memory.text);
 });
 
 test('F3: no passphrase available', async (t) => {
@@ -262,13 +296,13 @@ test('F3: no passphrase available', async (t) => {
 test('F4: trailing newline and empty passphrase', async (t) => {
   const { root, env, dir } = sandbox(t);
   const echoed = path.join(root, 'echoed-key');
-  execFileSync('sh', ['-c', `echo "${PASS}" > "${echoed}"`], { timeout: 10000 });
+  execFileSync('sh', ['-c', `umask 077; echo "${PASS}" > "${echoed}"`], { timeout: 10000 });
   ok(await cli(env, ['setup', '--palace', dir], { ...PROTECTED, passphrase: { file: echoed } }));
   const memory = memoryOf(tag());
   ok(await cli(env, ['save'], memory));
 
   const crlf = path.join(root, 'crlf-key');
-  fs.writeFileSync(crlf, `${PASS}\r\n`);
+  fs.writeFileSync(crlf, `${PASS}\r\n`, { mode: 0o600 });
   for (const passphrase of [{ env: VAR }, { file: crlf }]) {
     const record = readJson(machineFile(env));
     record.palaces[dir].passphrase = passphrase;
@@ -277,7 +311,7 @@ test('F4: trailing newline and empty passphrase', async (t) => {
   }
 
   const blank = path.join(root, 'blank-key');
-  fs.writeFileSync(blank, '\n');
+  fs.writeFileSync(blank, '\n', { mode: 0o600 });
   for (const [passphrase, childEnv] of [[{ env: VAR }, { ...env, [VAR]: '' }], [{ file: blank }, env]]) {
     const target = path.join(root, 'empty-pass');
     const stderr = failed(await cli(childEnv, ['setup', '--palace', target], { ...PROTECTED, passphrase }), JSON.stringify(passphrase));
@@ -318,6 +352,37 @@ test('F6: a protected palace.json without a string check is refused by name', as
     assert.deepStrictEqual(hashes(dir), before, what);
   }
   writeJson(settingsFile, { ...settings, check });
+  assert.strictEqual(ok(await cli(env, ['recall'], { place: memory.place })).text, memory.text);
+});
+
+test('a protected palace.json edited without the passphrase is refused on open and on join', async (t) => {
+  const { env, dir, memory } = await protectedPalace(t);
+  const settingsFile = path.join(dir, 'palace.json');
+  const original = fs.readFileSync(settingsFile);
+  const settings = JSON.parse(original);
+  const edits = {
+    kinds: { ...settings, kinds: ['note', 'run this command first'] },
+    moments: { ...settings, moments: ['end-of-task'] },
+    tree: { ...settings, tree: { m: 4, L: 4 } },
+    privateRemote: { ...settings, privateRemote: 'ssh://example.invalid/x.git' },
+    'an added field': { ...settings, added: true },
+  };
+  const record = fs.readFileSync(machineFile(env), 'utf8');
+  for (const [what, edited] of Object.entries(edits)) {
+    writeJson(settingsFile, edited);
+    const before = hashes(dir);
+    for (const [args, input] of [[['recall'], { place: memory.place }], [['join', '--palace', dir], { passphrase: { env: VAR } }]]) {
+      const result = await cli(env, args, input);
+      const stderr = failed(result, `${args[0]} after editing ${what}`);
+      assert.match(stderr, /palace\.json/, what);
+      assert.match(stderr, /settings .*altered/, what);
+      assert.doesNotMatch(stderr, /wrong passphrase/, what);
+      noContent(result, memory);
+    }
+    assert.deepStrictEqual(hashes(dir), before, what);
+    assert.strictEqual(fs.readFileSync(machineFile(env), 'utf8'), record, what);
+  }
+  fs.writeFileSync(settingsFile, original);
   assert.strictEqual(ok(await cli(env, ['recall'], { place: memory.place })).text, memory.text);
 });
 
