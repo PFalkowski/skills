@@ -10,6 +10,7 @@
     "./benchmark-skill",
     "./clean-room",
     "./code-review-grill",
+    "./code-review-grill-v2",
     "./context-reduction",
     "./dead-branch-guard",
     "./desloppify",
