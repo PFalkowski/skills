@@ -301,6 +301,38 @@ test('F6: protection pin', async (t) => {
   assert.deepStrictEqual(hashes(dir), before);
 });
 
+test('F6: a protected palace.json without a string check is refused by name', async (t) => {
+  const { env, dir, memory } = await protectedPalace(t);
+  const settingsFile = path.join(dir, 'palace.json');
+  const { check, ...settings } = readJson(settingsFile);
+  for (const broken of [settings, { ...settings, check: null }, { ...settings, check: 42 }]) {
+    writeJson(settingsFile, broken);
+    const before = hashes(dir);
+    const what = `check ${JSON.stringify(broken.check)}`;
+    const result = await cli(env, ['recall'], { place: memory.place });
+    const stderr = failed(result, what);
+    assert.match(stderr, /palace\.json/, what);
+    assert.match(stderr, /check/, what);
+    assert.doesNotMatch(stderr, /internal error/, what);
+    noContent(result, memory);
+    assert.deepStrictEqual(hashes(dir), before, what);
+  }
+  writeJson(settingsFile, { ...settings, check });
+  assert.strictEqual(ok(await cli(env, ['recall'], { place: memory.place })).text, memory.text);
+});
+
+test('setup under a missing parent folder names it and writes nothing', async (t) => {
+  const { root, env } = sandbox(t);
+  const parent = path.join(root, 'missing');
+  const before = hashes(root);
+  const stderr = failed(await cli(env, ['setup', '--palace', path.join(parent, 'palace')], SETTINGS), 'missing parent');
+  assert.ok(stderr.includes(parent), `${stderr} does not name ${parent}`);
+  assert.doesNotMatch(stderr, /internal error/);
+  assert.ok(!fs.existsSync(parent), `${parent} exists`);
+  assert.deepStrictEqual(hashes(root), before);
+  assert.ok(!fs.existsSync(machineFile(env)), 'a machine record was written');
+});
+
 test('KDF1: defaults and floor', async (t) => {
   const { env, dir, root } = sandbox(t);
   ok(await cli(env, ['setup', '--palace', dir], { ...SETTINGS, passphrase: { env: VAR } }));

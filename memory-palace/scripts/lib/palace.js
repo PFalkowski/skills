@@ -117,6 +117,9 @@ function readSettings(dir) {
   if (settings.protected && !validKdf(settings.kdf)) {
     throw new PalaceError(`${file} has scrypt parameters outside N 2^14 to 2^20, r 8, p 1. Nothing was changed.`);
   }
+  if (settings.protected && typeof settings.check !== 'string') {
+    throw new PalaceError(`${file} is marked protected but has no check value. Nothing was changed.`);
+  }
   return settings;
 }
 
@@ -179,7 +182,10 @@ function checkSetup(dir, real, options, env) {
 }
 
 function realTarget(dir) {
-  return fs.existsSync(dir) ? fs.realpathSync(dir) : path.join(fs.realpathSync(path.dirname(dir)), path.basename(dir));
+  if (fs.existsSync(dir)) return fs.realpathSync(dir);
+  const parent = path.dirname(dir);
+  if (!fs.existsSync(parent)) throw new PalaceError(`the parent folder ${parent} does not exist. Create it first. Nothing was written.`);
+  return path.join(fs.realpathSync(parent), path.basename(dir));
 }
 
 function setup(target, options, ctx) {
