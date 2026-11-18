@@ -102,17 +102,24 @@ function pauseUntil({ ready, resume }) {
 
 function faultyStore(spec) {
   let mutations = 0;
-  let puts = 0;
+  const calls = { put: 0, get: 0 };
+  const pauseAt = (name) => {
+    if (spec.pause && ++calls[name] === spec.pause[name]) pauseUntil(spec.pause);
+  };
   return (store) => {
     const wrapped = { ...store };
     for (const name of ['begin', 'put', 'setMeta', 'free', 'end']) {
       wrapped[name] = (...args) => {
         mutations++;
         if (mutations === spec.killAt) process.kill(process.pid, 'SIGKILL');
-        if (name === 'put' && spec.pause && ++puts === spec.pause.put) pauseUntil(spec.pause);
+        if (name === 'put') pauseAt('put');
         return store[name](...args);
       };
     }
+    wrapped.get = (id) => {
+      pauseAt('get');
+      return store.get(id);
+    };
     return wrapped;
   };
 }

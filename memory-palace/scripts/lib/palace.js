@@ -6,7 +6,7 @@ const crypto = require('node:crypto');
 const { PalaceError, parseJson } = require('./errors.js');
 const { parsePlace, showPlace, rangeOf, childPrefix, checkLimits } = require('./place.js');
 const { createTree } = require('./tree.js');
-const { folderStore, pageId } = require('./stores.js');
+const { folderStore, sqliteStore, requireSqlite, pageId } = require('./stores.js');
 const lock = require('./lock.js');
 const seal = require('./seal.js');
 const { enclosingRepo } = require('./git.js');
@@ -19,6 +19,7 @@ const GITIGNORE = 'lock\n*.tmp\npending.*\n';
 const WRITES = new Set(['save', 'forget', 'check']);
 const META = 'meta';
 const DEFAULT_N = 2 ** 17;
+const STORES = { folder: folderStore, sqlite: sqliteStore };
 
 const randomHex = (bytes) => crypto.randomBytes(bytes).toString('hex');
 
@@ -114,6 +115,9 @@ function readSettings(dir) {
   if (settings.format !== FORMAT) {
     throw new PalaceError(`${file} has format ${settings.format}; this version reads format ${FORMAT} only. Nothing was changed.`);
   }
+  if (!Object.hasOwn(STORES, settings.backend)) {
+    throw new PalaceError(`${file} has backend ${settings.backend}; this version reads "folder" and "sqlite" only. Nothing was changed.`);
+  }
   if (settings.protected && !validKdf(settings.kdf)) {
     throw new PalaceError(`${file} has scrypt parameters outside N 2^14 to 2^20, r 8, p 1. Nothing was changed.`);
   }
@@ -170,7 +174,8 @@ function checkSetup(dir, real, options, env) {
   checkSource(options.passphrase);
   if (options.passphrase?.file !== undefined) keyFileOutside(options.passphrase.file, real);
   if (fs.existsSync(dir) && fs.readdirSync(dir).length > 0) throw new PalaceError(`${dir} is not empty. Nothing was written.`);
-  if (options.backend !== 'folder') throw new PalaceError('backend must be "folder". Nothing was written.');
+  if (!Object.hasOwn(STORES, options.backend)) throw new PalaceError('backend must be "folder" or "sqlite". Nothing was written.');
+  if (options.backend === 'sqlite') requireSqlite();
   const lists = [['kinds', options.kinds], ['moments', options.moments]];
   for (const [field, list] of lists) {
     if (!Array.isArray(list) || !list.every((item) => typeof item === 'string')) throw new PalaceError(`${field} must be a list of strings`);
@@ -196,18 +201,24 @@ function setup(target, options, ctx) {
   fs.mkdirSync(temp);
   try {
     const settings = {
-      format: FORMAT, backend: 'folder', protected: Boolean(protection), kdf: protection?.kdf ?? null, check: protection?.check ?? null,
+      format: FORMAT, backend: options.backend, protected: Boolean(protection), kdf: protection?.kdf ?? null, check: protection?.check ?? null,
       tree: TREE, kinds: options.kinds, moments: options.moments, privateRemote: null,
     };
     fs.writeFileSync(path.join(temp, 'palace.json'), `${JSON.stringify(settings, null, 2)}\n`);
     fs.writeFileSync(path.join(temp, '.gitignore'), GITIGNORE);
-    const store = folderStore(temp);
-    const seed = randomHex(16);
-    const root = pageId(seed, 0);
-    store.begin(seed);
-    store.put(root, codec.encode(root, { t: 'l', k: [], v: [] }));
-    store.setMeta(codec.encode(META, { v: 1, root, seed, free: [] }));
-    store.end();
+    const store = STORES[options.backend](temp);
+    store.lock({ write: true, waitMs: LOCK_WAIT_MS, command: 'setup' });
+    try {
+      const seed = randomHex(16);
+      const root = pageId(seed, 0);
+      store.begin(seed);
+      store.put(root, codec.encode(root, { t: 'l', k: [], v: [] }));
+      store.setMeta(codec.encode(META, { v: 1, root, seed, free: [] }));
+      store.end();
+    } finally {
+      store.release();
+      store.close();
+    }
     fs.renameSync(temp, dir);
   } catch (err) {
     fs.rmSync(temp, { recursive: true, force: true });
@@ -223,7 +234,7 @@ function setup(target, options, ctx) {
 
 function unlock(ctx) {
   const dir = locate(ctx);
-  readSettings(dir);
+  if (readSettings(dir).backend === 'sqlite') return { removed: null, note: 'a SQLite palace has no lock file: its lock ends with the command that holds it, even when that process is killed.' };
   return { removed: lock.remove(dir) };
 }
 
@@ -236,21 +247,18 @@ function commit(store, tree, codec, change) {
     return id;
   };
   store.begin(seed);
-  let result;
-  let free;
   try {
     const changed = change(write);
     const flushed = tree.flush(write);
-    result = changed.result;
-    free = [...flushed.freed, ...changed.freed];
+    const free = [...flushed.freed, ...changed.freed];
     store.setMeta(codec.encode(META, { v: 1, root: flushed.root, seed, free }));
+    for (const id of free) store.free(id);
+    store.end();
+    return changed.result;
   } catch (err) {
     store.abort();
     throw err;
   }
-  for (const id of free) store.free(id);
-  store.end();
-  return result;
 }
 
 function open(ctx) {
@@ -264,7 +272,7 @@ function open(ctx) {
   const codec = codecFor(settings.protected ? unlockKeys(settings, entry, ctx.env, palace) : null);
 
   function operate(command, work) {
-    const raw = folderStore(dir);
+    const raw = STORES[settings.backend](dir);
     const store = ctx.wrapStore ? ctx.wrapStore(raw) : raw;
     store.lock({ write: WRITES.has(command), waitMs: ctx.lockWaitMs ?? LOCK_WAIT_MS, command });
     try {
@@ -334,7 +342,9 @@ function open(ctx) {
           live.add(text);
         }
         const unreachable = store.ids().filter((id) => !live.has(id));
+        store.begin(randomHex(16));
         unreachable.forEach((id) => store.free(id));
+        store.end();
         return { memories: stats.count, height: stats.height, nodes: stats.nodes, unreachableRemoved: unreachable.length };
       });
     },

@@ -10,7 +10,7 @@ const { setup, open } = require('./lib/palace.js');
 const { acquire } = require('./lib/lock.js');
 const { cli, support, envFor, waitFor, hashes, scan } = require('./test-support.js');
 
-const SETTINGS = { backend: 'folder', passphrase: null, kinds: ['note'], moments: ['on-request'] };
+const SETTINGS = { passphrase: null, kinds: ['note'], moments: ['on-request'] };
 const KILL_CAP = 40;
 const mark = (i) => `MKPLh6q7Zx${i}x`;
 const memory = (name) => ({ place: `h/${name}`, title: `title ${name}`, summary: `summary ${name}`, text: `text ${name}`, kind: 'note' });
@@ -18,7 +18,7 @@ const pageId = (seed, n) => crypto.createHash('sha256').update(`${seed}:${n}`).d
 const pagePath = (dir, id) => path.join(dir, 'pages', id.slice(0, 2), id);
 const sameSet = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 
-function sandbox(t) {
+function sandbox(t, backend = 'folder') {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'mp-safety-')));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const env = envFor(root);
@@ -26,6 +26,7 @@ function sandbox(t) {
   return {
     root,
     env,
+    backend,
     copy: (from) => {
       const to = path.join(root, `copy-${copies++}`);
       fs.cpSync(from, to, { recursive: true });
@@ -41,7 +42,7 @@ function sandbox(t) {
     },
     setUp: (name = 'palace', memories = []) => {
       const dir = path.join(root, name);
-      setup(dir, SETTINGS, { env });
+      setup(dir, { ...SETTINGS, backend }, { env });
       const palace = open({ env, palace: dir, lockWaitMs: 200 });
       try {
         for (const m of memories) palace.save(m);
@@ -157,6 +158,27 @@ test('markers: unknown seed', async (t) => {
   for (const file of [...planted, marker, path.join(dir, 'meta.tmp')]) assert.ok(!fs.existsSync(file), `${file} still present`);
 });
 
+test('a failure after the folder commit point keeps the save and the next repair finishes it', async (t) => {
+  for (const step of ['free', 'end']) {
+    await t.test(step, (t) => {
+      const { setUp, withPalace } = sandbox(t);
+      const dir = setUp(step, [memory('a')]);
+      const failing = (store) => ({ ...store, [step]: () => { throw new Error(`injected ${step} failure`); } });
+      const replacement = { ...memory('a'), title: 'replaced' };
+      assert.throws(() => withPalace(dir, (p) => p.save(replacement), failing), new RegExp(`injected ${step} failure`));
+      const meta = JSON.parse(fs.readFileSync(path.join(dir, 'meta'), 'utf8'));
+      const marker = path.join(dir, `pending.${meta.seed}`);
+      assert.ok(fs.existsSync(marker), 'the marker of the committed save is gone');
+      assert.ok(meta.free.length > 0, 'the replacing save freed nothing');
+      if (step === 'free') for (const id of meta.free) assert.ok(fs.existsSync(pagePath(dir, id)), `freed page ${id} removed before the failing free`);
+      assert.deepStrictEqual(withPalace(dir, (p) => p.recall({ place: replacement.place })).title, 'replaced');
+      assert.ok(!fs.existsSync(marker), 'the repair left the marker');
+      for (const id of meta.free) assert.ok(!fs.existsSync(pagePath(dir, id)), `freed page ${id} still present`);
+      assert.deepStrictEqual(withPalace(dir, (p) => p.check()), { memories: 1, height: 1, nodes: 1, unreachableRemoved: 0 });
+    });
+  }
+});
+
 test('check reports and removes unreachable pages', async (t) => {
   const { env, setUp } = sandbox(t);
   const dir = setUp('palace', [memory('a')]);
@@ -192,7 +214,7 @@ async function killLoop(box, { base, op, input, before, after, forgotten }) {
       return kills;
     }
     kills++;
-    ok(await cli(env, ['unlock', '--palace', work]));
+    if (box.backend === 'folder') ok(await cli(env, ['unlock', '--palace', work]));
 
     const reopened = copy(work);
     const set = placesOf(withPalace(reopened, (p) => p.browse({}).memories));
@@ -214,8 +236,7 @@ async function killLoop(box, { base, op, input, before, after, forgotten }) {
   assert.fail(`${op}: still killed after ${KILL_CAP} mutations`);
 }
 
-test('H1/H6 folder', async (t) => {
-  const box = sandbox(t);
+async function killedSaveAndForget(box) {
   const { copy, withPalace } = box;
   const marked = (i) => ({ ...memory(`m${String(i).padStart(2, '0')}`), title: `title ${mark(i)}`, text: `text ${mark(i)}` });
   const all = Array.from({ length: 33 }, (_, i) => marked(i));
@@ -254,10 +275,14 @@ test('H1/H6 folder', async (t) => {
     live = rest;
   }
   assert.fail('no forget merged the two leaves');
-});
+}
 
-test('H2 folder: two writers', async (t) => {
-  const { env, setUp } = sandbox(t);
+test('H1/H6 folder', (t) => killedSaveAndForget(sandbox(t)));
+
+test('H1 sqlite', (t) => killedSaveAndForget(sandbox(t, 'sqlite')));
+
+async function twoWriters(t, backend) {
+  const { env, setUp } = sandbox(t, backend);
   const dir = setUp();
   const startAt = Date.now() + 800;
   const batch = (who) => Array.from({ length: 50 }, (_, i) => ({ op: 'save', input: memory(`${who}${String(i).padStart(2, '0')}`) }));
@@ -266,7 +291,11 @@ test('H2 folder: two writers', async (t) => {
   for (const result of await Promise.all(writers.map((w) => w.done))) assert.strictEqual(ok(result).length, 50);
   assert.strictEqual(ok(await cli(env, ['browse', '--palace', dir], {})).memories.length, 100);
   assert.strictEqual(ok(await cli(env, ['check', '--palace', dir])).memories, 100);
-});
+}
+
+test('H2 folder: two writers', (t) => twoWriters(t, 'folder'));
+
+test('H2 sqlite: two writers', (t) => twoWriters(t, 'sqlite'));
 
 test('H3: unknown format', async (t) => {
   const { env, setUp } = sandbox(t);
@@ -283,14 +312,17 @@ test('H3: unknown format', async (t) => {
   }
 });
 
-async function pausedSave(t, env, dir, root, name) {
+async function paused(t, env, dir, root, name, at, op) {
   const ready = path.join(root, `${name}.ready`);
   const resume = path.join(root, `${name}.resume`);
-  const holder = support(env, { palace: dir, pause: { put: 1, ready, resume }, ops: [{ op: 'save', input: memory(name) }] });
+  const holder = support(env, { palace: dir, pause: { ...at, ready, resume }, ops: [op] });
   t.after(() => holder.child.kill('SIGKILL'));
   await waitFor(ready, holder.done);
   return { holder, resume: () => fs.writeFileSync(resume, '') };
 }
+
+const pausedSave = (t, env, dir, root, name) => paused(t, env, dir, root, name, { put: 1 }, { op: 'save', input: memory(name) });
+const pausedBrowse = (t, env, dir, root, name) => paused(t, env, dir, root, name, { get: 2 }, { op: 'browse', input: {} });
 
 test('H4 folder: killed writer, busy, unlock, save', async (t) => {
   const { root, env, setUp } = sandbox(t);
@@ -313,8 +345,8 @@ test('H4 folder: killed writer, busy, unlock, save', async (t) => {
   assert.ok(sameSet(set, ['h/next', 'h/old']) || sameSet(set, ['h/killed', 'h/next', 'h/old']), set.join(', '));
 });
 
-test('H5 folder: readers during writes', async (t) => {
-  const { env, setUp } = sandbox(t);
+async function readersDuringWrites(t, backend) {
+  const { env, setUp } = sandbox(t, backend);
   const dir = setUp();
   const places = Array.from({ length: 50 }, (_, i) => `h5/m${String(i).padStart(2, '0')}`);
   const startAt = Date.now() + 800;
@@ -332,7 +364,11 @@ test('H5 folder: readers during writes', async (t) => {
     const seen = placesOf(result.memories);
     assert.deepStrictEqual(seen, places.slice(0, seen.length), `browse ${i}`);
   }
-});
+}
+
+test('H5 folder: readers during writes', (t) => readersDuringWrites(t, 'folder'));
+
+test('H5 sqlite: readers during writes', (t) => readersDuringWrites(t, 'sqlite'));
 
 test('busy names a live holder', async (t) => {
   const { root, env, setUp } = sandbox(t);
@@ -349,4 +385,85 @@ test('busy names a live holder', async (t) => {
   resume();
   ok(await holder.done);
   assert.ok(!fs.existsSync(path.join(dir, 'lock')), 'the lock file remains');
+});
+
+test('sqlite: second writer fails busy after the wait', async (t) => {
+  const { root, env, setUp } = sandbox(t, 'sqlite');
+  const dir = setUp('palace', [memory('old')]);
+  const { holder, resume } = await pausedSave(t, env, dir, root, 'held');
+  const { result, ms } = await timed(support(env, { palace: dir, lockWaitMs: 300, ops: [{ op: 'save', input: memory('second') }] }).done);
+  assert.strictEqual(result.code, 1, result.stderr);
+  assert.match(result.stderr, /busy/);
+  assert.ok(result.stderr.includes(path.join(dir, 'palace.db')), result.stderr);
+  assert.doesNotMatch(result.stderr, /unlock/);
+  assert.ok(ms >= 300, `gave up after ${ms} ms`);
+  resume();
+  ok(await holder.done);
+  assert.deepStrictEqual(placesOf(ok(await cli(env, ['browse', '--palace', dir], {})).memories), ['h/held', 'h/old']);
+});
+
+test('H4 sqlite: killed writer, next save succeeds', async (t) => {
+  const { root, env, setUp } = sandbox(t, 'sqlite');
+  const dir = setUp('palace', [memory('old')]);
+  const { holder } = await pausedSave(t, env, dir, root, 'killed');
+  holder.child.kill('SIGKILL');
+  assert.strictEqual((await holder.done).signal, 'SIGKILL');
+
+  const { result, ms } = await timed(cli(env, ['save', '--palace', dir], memory('next')));
+  ok(result);
+  assert.doesNotMatch(result.stderr, /unlock/);
+  assert.ok(ms < 3000, `the next save took ${ms} ms`);
+  ok(await cli(env, ['check', '--palace', dir]));
+  const set = placesOf(ok(await cli(env, ['browse', '--palace', dir], {})).memories);
+  assert.ok(sameSet(set, ['h/next', 'h/old']) || sameSet(set, ['h/killed', 'h/next', 'h/old']), set.join(', '));
+});
+
+const thirtyThree = Array.from({ length: 33 }, (_, i) => memory(`s${String(i).padStart(2, '0')}`));
+
+test('sqlite: a reader sees one snapshot while a writer waits', async (t) => {
+  const { root, env, setUp, withPalace } = sandbox(t, 'sqlite');
+  const dir = setUp('palace', thirtyThree);
+  assert.strictEqual(withPalace(dir, (p) => p.check()).height, 2, 'the browse would read one node only');
+  const { holder: reader, resume } = await pausedBrowse(t, env, dir, root, 'reader');
+  const writer = support(env, { palace: dir, lockWaitMs: 20000, ops: [{ op: 'save', input: memory('new') }] });
+  t.after(() => writer.child.kill('SIGKILL'));
+  const ended = {};
+  reader.done.then(() => { ended.reader = process.hrtime.bigint(); });
+  writer.done.then(() => { ended.writer = process.hrtime.bigint(); });
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  assert.strictEqual(ended.writer, undefined, 'the writer committed while the reader was inside its transaction');
+  resume();
+  const [browsed, written] = await Promise.all([reader.done, writer.done]);
+  assert.deepStrictEqual(placesOf(ok(browsed)[0].memories), placesOf(thirtyThree));
+  ok(written);
+  assert.ok(ended.writer > ended.reader, 'the writer finished before the reader');
+  assert.strictEqual(ok(await cli(env, ['browse', '--palace', dir], {})).memories.length, 34);
+});
+
+test('sqlite: a busy commit is rolled back by abort', async (t) => {
+  const { root, env, setUp, withPalace } = sandbox(t, 'sqlite');
+  const dir = setUp('palace', thirtyThree);
+  const { holder: reader, resume } = await pausedBrowse(t, env, dir, root, 'reader');
+  const calls = [];
+  const watched = (store) => ({
+    ...store,
+    end: () => { calls.push('end'); return store.end(); },
+    abort: () => { calls.push('abort'); return store.abort(); },
+  });
+  assert.throws(() => withPalace(dir, (p) => p.save(memory('late')), watched), /busy/);
+  assert.deepStrictEqual(calls, ['end', 'abort']);
+  resume();
+  assert.deepStrictEqual(placesOf(ok(await reader.done)[0].memories), placesOf(thirtyThree));
+  assert.deepStrictEqual(placesOf(withPalace(dir, (p) => p.browse({}).memories)), placesOf(thirtyThree));
+  assert.deepStrictEqual(withPalace(dir, (p) => p.check()), { memories: 33, height: 2, nodes: 3, unreachableRemoved: 0 });
+});
+
+test('unlock on SQLite prints null with a note', async (t) => {
+  const { env, setUp } = sandbox(t, 'sqlite');
+  const dir = setUp('palace', [memory('a')]);
+  const result = ok(await cli(env, ['unlock', '--palace', dir]));
+  assert.deepStrictEqual(Object.keys(result), ['removed', 'note']);
+  assert.strictEqual(result.removed, null);
+  assert.match(result.note, /process/);
+  assert.ok(!fs.existsSync(path.join(dir, 'lock')));
 });

@@ -7,7 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
-const { cli, envFor, hashes, scan } = require('./test-support.js');
+const { cli, support, envFor, hashes, scan } = require('./test-support.js');
 
 const VAR = 'MP_TEST_PASSPHRASE';
 const PASS = 'MKPLpass-fake-passphrase-0000';
@@ -376,6 +376,67 @@ test('B2 folder offline', async (t) => {
   const { env, dir } = sandbox(t);
   const { live } = await fillPalace(env, dir, SETTINGS);
   for (const needle of live) assert.ok(scan([dir], [needle]).length > 0, `scan missed ${needle}`);
+});
+
+test('B1 sqlite offline', async (t) => {
+  const { env, dir } = sandbox(t);
+  const { all } = await fillPalace(env, dir, { ...PROTECTED, backend: 'sqlite' });
+  assert.deepStrictEqual(scan([dir, env.HOME, env.TMPDIR], [...all, PASS]), []);
+});
+
+test('B2 sqlite offline', async (t) => {
+  const { env, dir } = sandbox(t);
+  const { live } = await fillPalace(env, dir, { ...SETTINGS, backend: 'sqlite' });
+  for (const needle of live) assert.ok(scan([dir], [needle]).length > 0, `scan missed ${needle}`);
+});
+
+const KILL_CAP = 20;
+
+async function killedSaves(env, dir, backend, onKill) {
+  for (let k = 1; k <= KILL_CAP; k++) {
+    const memory = memoryOf(tag());
+    const run = await support(env, { palace: dir, killAt: k, ops: [{ op: 'save', input: memory }] }).done;
+    if (run.signal !== 'SIGKILL') {
+      assert.strictEqual(run.code, 0, `${backend} save at kill point ${k}: ${run.stderr}`);
+      assert.ok(k > 1, `${backend}: no kill point was reached`);
+      return;
+    }
+    onKill(k, memory);
+    if (backend === 'folder') ok(await cli(env, ['unlock', '--palace', dir]));
+  }
+  assert.fail(`${backend}: still killed after ${KILL_CAP} mutations`);
+}
+
+test('B1 at a kill point, both backends', async (t) => {
+  for (const backend of ['folder', 'sqlite']) {
+    await t.test(backend, async (t) => {
+      const { env, dir } = sandbox(t);
+      ok(await cli(env, ['setup', '--palace', dir], { ...PROTECTED, backend }));
+      const saved = memoryOf(tag());
+      ok(await cli(env, ['save'], saved));
+      const seen = new Set();
+      await killedSaves(env, dir, backend, (k, memory) => {
+        fs.readdirSync(dir).forEach((name) => seen.add(name.replace(/\.[0-9a-f]{32}$/, '.<seed>')));
+        const needles = [...needlesOf(saved), ...needlesOf(memory), PASS];
+        assert.deepStrictEqual(scan([dir, env.HOME, env.TMPDIR], needles), [], `${backend} killed before mutation ${k}`);
+      });
+      if (backend === 'folder') for (const name of ['lock', 'pending.<seed>']) assert.ok(seen.has(name), `no kill point left ${name}`);
+    });
+  }
+});
+
+test('B1 at a kill point: the scan finds markers when protection is off', async (t) => {
+  for (const backend of ['folder', 'sqlite']) {
+    await t.test(backend, async (t) => {
+      const { env, dir } = sandbox(t);
+      ok(await cli(env, ['setup', '--palace', dir], { ...SETTINGS, backend }));
+      const saved = memoryOf(tag());
+      ok(await cli(env, ['save'], saved));
+      const run = await support(env, { palace: dir, killAt: 2, ops: [{ op: 'save', input: memoryOf(tag()) }] }).done;
+      assert.strictEqual(run.signal, 'SIGKILL', run.stderr);
+      for (const needle of needlesOf(saved)) assert.ok(scan([dir], [needle]).length > 0, `${backend}: scan missed ${needle}`);
+    });
+  }
 });
 
 test('enclosing repo: unprotected setup refused', async (t) => {
