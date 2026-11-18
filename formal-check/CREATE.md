@@ -49,8 +49,9 @@ and reset destroy uncommitted work.
 Each attempt gets its own run folder under
 `~/.agent-state/<repo-slug>/formal-check/<check-name>/`. Run folders are evidence and are never
 deleted. Where the repo sets `AGENTS_STATE`, that folder replaces `~/.agent-state/<repo-slug>`
-([agent-state](../docs/agent-state.md)). The blocks below are bash. Shell variables do not last
-from one command to the next, so every block starts from a literal path printed by an earlier one.
+([agent-state](../docs/agent-state.md)). The blocks below are bash, and block 4.4 needs a bash
+that sets `BASHPID`. Shell variables do not last from one command to the next, so every block
+starts from a literal path printed by an earlier one.
 
 A run folder holds `tree` (the top folder of the worktree it belongs to), `files` (the files the
 variant changes, one path per line, relative to that folder), `variant/` and `orig/` (the changed
@@ -102,6 +103,8 @@ elif cd "$(cat "$run/tree")"; then
   for f in <each file the variant changes, as a path relative to the top folder>; do
     mkdir -p "$run/variant/$(dirname "$f")" && cp "$f" "$run/variant/$f" && printf '%s\n' "$f" >> "$run/files"
   done
+else
+  false
 fi
 ```
 
@@ -111,7 +114,8 @@ a finding on the real code (step 5), and the check has now been seen to fail.
 **4.4. Back up, swap in, run, restore and prove, in one command.** Put the check's command where
 the block says. The block sets no `set -e`, so a failing check never skips the restore. It does
 not start on a run folder that was used before, that lists no files, or whose variant copies all
-equal the tree files. After the swap it compares each tree file with its variant copy; on any
+equal the tree files; on a shell that sets no `BASHPID`; or while another run that was applied in
+this tree is not restored. After the swap it compares each tree file with its variant copy; on any
 mismatch it skips the check, still restores, and ends non-zero.
 
 ```bash
@@ -120,8 +124,17 @@ run=<the run folder printed in 4.1>
   ok=0
   if [ -e "$run/applied" ] || [ ! -s "$run/files" ]; then
     echo "NOT STARTED: $run was used before or lists no files; start again from 4.1"
+  elif [ -z "$BASHPID" ]; then
+    echo "NOT STARTED: this shell sets no BASHPID; run the block with a bash that does"
   elif cd "$(cat "$run/tree")"; then
     ok=1
+    for d in "${run%/*/*}"/*/run.*; do
+      [ -f "$d/applied" ] && [ ! -f "$d/restored" ] && [ "$(cat "$d/tree")" = "$(cat "$run/tree")" ] || continue
+      echo "NOT STARTED: run $d was applied in this tree and not restored; if its 4.4 command is still running, wait for it; otherwise recover it with step 4.6"
+      ok=0
+    done
+  fi
+  if [ "$ok" = 1 ]; then
     changed=0
     while IFS= read -r f; do
       mkdir -p "$run/orig/$(dirname "$f")" && cp "$f" "$run/orig/$f" && [ -f "$run/variant/$f" ] ||
@@ -163,8 +176,8 @@ were seen: with `cp -p`, `make` kept an output it built from the variant; with a
 same second as the swap, Python kept the bytecode it compiled from the variant. Plain `cp` onto
 an existing file keeps that file's mode. The per-file `cmp` is the proof that the tree is back:
 `git status` and `git diff` do not show an untracked file left in its broken state. If the command
-is cut short, nothing restores the tree on the spot: the next 4.1 in that tree refuses, and 4.6
-recovers it.
+is cut short, nothing restores the tree on the spot: the next 4.1 or 4.4 in that tree refuses, and
+4.6 recovers it.
 
 **4.5. Read the result.** The check must have failed in 4.4: for TLC, exit 12 and the line naming
 the invariant ([TLC.md](TLC.md)); for an every-input check, a failing property. If it passed, the
@@ -198,16 +211,20 @@ fi
 [ "$ok" = 1 ] && touch "$run/restored" && echo "RUN RESTORED: $run"
 ```
 
-If `ps -p <id>` shows a program that is not that 4.4 command, the process ID was reused: empty the
-`applied` file by hand (`: > "<run>/applied"`, with the literal run folder) and run this block
-again. A CHANGED SINCE file was edited after the variant went in, so copying the original back
+STILL RUNNING means a process with the recorded ID exists. If the check will never end, stop the
+4.4 command and the check it started, then run this block again: stopping only the recorded process
+leaves the check running. If you know that command has ended, after a restart for example, and the
+block still says STILL RUNNING, another program now has that process ID: empty the `applied` file
+by hand (`: > "<run>/applied"`, with the literal run folder) and run this block again.
+
+A CHANGED SINCE file was edited after the variant went in, so copying the original back
 would lose that edit. `diff -u "$run/orig/<f>" "$run/variant/<f>"` shows exactly what the variant
 changed: take that change out of the file by hand, then mark the run with
 `touch "$run/restored"`, using the literal run folder.
 
 **What step 4 does not handle:**
 
-- shells other than bash;
+- a shell that is not bash, or a bash that sets no `BASHPID`;
 - a variant that adds, deletes or renames a file, changes its mode, or edits a symbolic link: it
   edits regular files that already exist;
 - another process that edits the same files while 4.4 runs;
@@ -227,10 +244,9 @@ identical, `-s` prints nothing),
 [diff](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/diff.html),
 [read](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/read.html) (`-r` keeps
 backslashes), [sleep](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/sleep.html),
-[kill](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/kill.html) (signal 0 tests
-that a process exists without sending it a signal) and
-[ps](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/ps.html) (`-p` lists the given
-process IDs); the `for`, `while`, `if`, `( )` and `:` forms of the
+and [kill](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/kill.html) (signal 0
+tests that a process exists without sending it a signal); the `for`, `while`, `if`, `( )` and `:`
+forms and the `${run%/*/*}` suffix removal of the
 [POSIX shell language](https://pubs.opengroup.org/onlinepubs/9799919799/utilities/V3_chap02.html);
 and bash's `BASHPID`, the process ID of the current subshell
 ([Bash variables](https://www.gnu.org/software/bash/manual/html_node/Bash-Variables.html)).
