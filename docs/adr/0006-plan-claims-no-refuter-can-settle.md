@@ -1,4 +1,4 @@
-# ADR-0004: A plan claim no refuter can settle is decomposed, answered once, then blocked or tested
+# ADR-0006: A plan claim no refuter can settle is decomposed, answered once, then blocked or tested
 
 - **Status:** Accepted
 - **Date:** 2026-11-19
