@@ -33,7 +33,7 @@ Classify each as **work** (commit → push → PR), **junk** (delete), or **park
 
 Run only after shipping leaves nothing outstanding in scope.
 
-- Remove clean session worktrees only after their branch is pushed/merged: `git worktree remove <path>`, then `git worktree prune`. Dirty trees return to ship; never force. Include empty leftover directories under the worktrees root.
+- Remove clean session worktrees only after their branch is pushed/merged. From outside the tree (in an isolated session, after `ExitWorktree` `keep`), run `git -C <main checkout> worktree remove <path>`, then `git -C <main checkout> worktree prune`: removing the folder the shell stands in makes the next command fail. Start later work from the main checkout: create the new worktree there, then enter it. Dirty trees return to ship; never force. Include empty leftover directories under the worktrees root.
 - Removing a clean, merged worktree is routine and never waits for the human, even when its submodules were initialized. Git refuses a plain removal then, and `--force` is denied, so: confirm `git -C <wt> status --porcelain` and `git -C <wt> submodule foreach --quiet --recursive 'git stash list; git log --oneline --all --not --remotes'` both print nothing (the removal deletes submodule commits and stashes for good, so any output is a dirty worktree and escalates); delete the worktree's private submodule clones at `$(git -C <wt> rev-parse --path-format=absolute --git-dir)/modules` (git may name the admin folder differently from the worktree); replace each initialized submodule folder in the worktree with an empty folder; then run a plain `git worktree remove` and delete the branch. A dirty or unmerged worktree still escalates.
 - First inspect `git status --short --ignored`. Copy out unique logs/evidence/experiment output the session relied on and verify counts before removal; otherwise retain the tree.
 - Delete landed local branches with `git branch -d`, never `-D`. Unmerged-branch deletion requires the user's explicit decision.
@@ -63,3 +63,5 @@ A misfiring skill, correction, or user feedback is an open item for https://gith
 Review touched memory: leave confirmed entries; update/delete contradicted ones; record durable lessons absent from repo docs using house rules (one fact per entry, rationale, application, index). Memory holds standing knowledge, not the session narrative.
 
 If everything shipped, nothing needs sweeping, and the ledger is clear, report that in one line.
+
+When the next task is unrelated to this session's work, end with one line suggesting `/clear`, carrying the handoff block above into the new session if Account printed one, per [save-tokens](../save-tokens/SKILL.md). A suggestion only: the user may continue here.
