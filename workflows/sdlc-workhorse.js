@@ -322,6 +322,8 @@ const ANSWER_SCHEMA = {
   },
 }
 
+const ANSWER_FIELD = { answered: 'evidence', withdrawn: 'reason', 'settled-by-test': 'test' }
+
 const BASELINE_SCHEMA = {
   type: 'object',
   required: ['green', 'checks', 'pitfalls', 'missingGuardrails'],
@@ -537,12 +539,18 @@ const LENSES = [
 // the moment master does.
 const provenMemo = new Map()
 
-// A fallback check carries evidence the memoized verdict never saw, so it neither reads nor writes the memo.
-async function proven(claim, whyLoadBearing, phaseName, context, memoKey = String(claim).trim(), fallback = false) {
-  if (!fallback && provenMemo.has(memoKey)) return provenMemo.get(memoKey)
+const REFUTE_OPENING = `Try to REFUTE this claim. Default to "refuted" if you cannot establish it — an unprovable claim is false.`
+// The fallbacks settle a claim no first check could, so weaker evidence must leave it open, not refute it
+// (the atomic-decomposition skill). The memo holds only default-to-refuted verdicts, a different question.
+const EVEN_HANDED_OPENING = `Settle this claim either way on the same basis. Answer "refuted" or "confirmed" only on a run ` +
+  `with its actual output, a quoted source, or two independent authoritative sources; otherwise answer "unverifiable" ` +
+  `and say what would settle it.`
+
+async function proven(claim, whyLoadBearing, phaseName, context, { memoKey = String(claim).trim(), evenHanded = false } = {}) {
+  if (!evenHanded && provenMemo.has(memoKey)) return provenMemo.get(memoKey)
   const votes = await parallel(LENSES.map((lens, i) => () =>
     agent(
-      `Try to REFUTE this claim. Default to "refuted" if you cannot establish it — an unprovable claim is false.\n\n` +
+      `${evenHanded ? EVEN_HANDED_OPENING : REFUTE_OPENING}\n\n` +
       `Claim: ${claim}\nWhy it is load-bearing: ${whyLoadBearing}\n` +
       `${context ? `Context:\n${context}\n` : ''}\n` +
       `Your lens for this attempt: ${lens}\n\n` +
@@ -577,7 +585,7 @@ async function proven(claim, whyLoadBearing, phaseName, context, memoKey = Strin
        : valid.map(v => v.evidence).join(' | '),   // all-unverifiable: carry the reason and command onward
     votes: valid,
   }
-  if (!fallback && valid.length === votes.length) provenMemo.set(memoKey, verdict)
+  if (!evenHanded && valid.length === votes.length) provenMemo.set(memoKey, verdict)
   return verdict
 }
 
@@ -658,11 +666,12 @@ const claimEvidence = c => [`claim: ${c.claim}`, `status: ${statusOf(c)}`, ...vo
 const claimBlocker = c => ({ what: `plan claim ${statusOf(c)}: ${c.claim}`, claim: c.claim, detail: claimEvidence(c) })
 
 const MAX_ATOMS = 3
+const SPLITS = ['all', 'any']
 // Each parent must come before its children, so walking up from any node always reaches root.
-const wellFormed = nodes => nodes.length > 0 && nodes.every((n, i) => n.id !== 'root' &&
+const wellFormed = ({ split, nodes }) => SPLITS.includes(split) && nodes.length > 0 && nodes.every((n, i) => n.id !== 'root' &&
   nodes.findIndex(m => m.id === n.id) === i &&
   (n.parent === 'root' || nodes.slice(0, i).some(m => m.id === n.parent)) &&
-  (n.split || !nodes.some(m => m.parent === n.id)))
+  (SPLITS.includes(n.split) || !nodes.some(m => m.parent === n.id)))
 
 // One agent splits the claim and another checks the split, so no agent grades its own split. Atoms are
 // checked one after another because the atomic-decomposition skill orders them by what each verdict decides.
@@ -672,16 +681,16 @@ async function decompose(c, planText) {
     `tree (its steps 1, 2, 4 and 5) and order the atoms by its step 9. Do not check the split and do not settle any ` +
     `atom: other agents do both.\n\n${claimEvidence(c)}\nWhy it is load-bearing: ${c.whyLoadBearing}\n\n` +
     `<plan>\n${planText.slice(0, 4000)}\n</plan>\n\n${READ_ONLY_RULE}`,
-    { label: 'decompose', phase: 'Plan review', model: tiers.verify, schema: DECOMPOSE_SCHEMA }
+    { label: 'decompose', phase: 'Plan review', model: tiers.verify, effort: efforts.verify, schema: DECOMPOSE_SCHEMA }
   )
   if (!tree) return { status: 'unsettled', trail: ['the decomposer returned nothing'] }
-  if (!wellFormed(tree.nodes)) return { status: 'unsettled', trail: [`the decomposer returned a malformed tree: ${JSON.stringify(tree)}`] }
+  if (!wellFormed(tree)) return { status: 'unsettled', trail: [`the decomposer returned a malformed tree: ${JSON.stringify(tree)}`] }
   const splitCheck = await agent(
     `Check this split of a plan claim before any atom is checked. You did not write it. Apply the ` +
     `"atomic-decomposition" skill's step 3 to every parent: enough and needed under "all", sufficient and every way ` +
     `under "any". Return "confirmed" only if every parent passes.\n\nRoot claim: ${c.claim}\n\n` +
     `Tree:\n${JSON.stringify(tree, null, 2)}\n\n${READ_ONLY_RULE}`,
-    { label: 'split-check', phase: 'Plan review', model: tiers.verify, schema: REFUTE_SCHEMA }
+    { label: 'split-check', phase: 'Plan review', model: tiers.verify, effort: efforts.verify, schema: REFUTE_SCHEMA }
   )
   if (!splitCheck || splitCheck.status !== 'confirmed') {
     return { status: 'unsettled', trail: [`the split was not accepted: ${splitCheck ? splitCheck.evidence : 'the checker returned nothing'}`] }
@@ -710,7 +719,8 @@ async function decompose(c, planText) {
     }
     checked++
     const v = await proven(atom.text, c.whyLoadBearing, 'Plan review',
-      `Atom ${atom.id} of the plan claim: ${c.claim}\nSettle it with: ${atom.settle}\n\n${planText.slice(0, 4000)}`)
+      `Atom ${atom.id} of the plan claim: ${c.claim}\nSettle it with: ${atom.settle}\n\n${planText.slice(0, 4000)}`,
+      { evenHanded: true })
     verdicts.set(atom.id, verdictWord(v))
     trail.push(`atom ${atom.id} ${verdicts.get(atom.id)}: ${atom.text}`, ...voteLines(v).map(l => `  ${l}`))
     for (const id of lineage(atom.parent)) if (!decidedBy.has(id) && verdictOf(id) !== 'unsettled') decidedBy.set(id, atom.id)
@@ -718,7 +728,7 @@ async function decompose(c, planText) {
   return { status: verdictOf('root'), trail }
 }
 
-// One agent per run answers what the atoms left open; its answers are re-checked by fresh refuters, never trusted.
+// The agent that answers a claim never settles it: fresh refuters re-check every answer.
 async function answerRound(open, planText) {
   if (!open.length) return
   let answers = []
@@ -735,39 +745,49 @@ async function answerRound(open, planText) {
       `Do not redesign the plan and do not edit files. A claim you leave out stays unsettled and blocks the merge.\n\n` +
       `${open.map((c, i) => `C${i + 1} — ${claimEvidence(c)}`).join('\n\n')}\n\n<plan>\n${planText}\n</plan>\n\n` +
       `${FACT_CHECK_RULE}\n\n${READ_ONLY_RULE}`,
-      { label: 'answer', phase: 'Plan review', model: tiers.plan, schema: ANSWER_SCHEMA }
+      { label: 'answer', phase: 'Plan review', model: tiers.plan, effort: efforts.plan, schema: ANSWER_SCHEMA }
     )
     if (reply) answers = reply.answers
     else noAnswer = 'the answer agent returned nothing'
   } catch (e) {
     noAnswer = `the answer agent did not finish: ${e}`
   }
-  await parallel(open.map((c, i) => async () => {
+  const settled = await parallel(open.map((c, i) => async () => {
     const a = answers.find(x => x.id === `C${i + 1}`)
     if (!a) {
       c.trail.push(noAnswer)
       return
     }
+    if (!String(a[ANSWER_FIELD[a.action]] || '').trim()) {
+      c.trail.push(`the answer lacks the field its action needs: ${JSON.stringify(a)}`)
+      return
+    }
     if (a.action === 'withdrawn') {
       c.status = 'withdrawn'
-      planClaims.push({ claim: c.claim, outcome: 'withdrawn', reason: a.reason })
-      return
+      return { claim: c.claim, outcome: 'withdrawn', reason: a.reason }
     }
     if (a.action === 'settled-by-test') {
       c.status = 'settled-by-test'
-      const id = `T${planClaims.filter(p => p.test).length + 1}`
-      planClaims.push({ claim: c.claim, outcome: `to be settled by test ${id}`, id, test: a.test })
-      return
+      return { claim: c.claim, test: a.test }
     }
     const checked = a.claim || c.claim
     const v = await proven(checked, c.whyLoadBearing, 'Plan review',
       `The answer round added this evidence for a plan claim no refuter could settle:\n${a.evidence}\n` +
       `${a.claim ? `The plan rests on the original wording: ${c.claim}\nRefute this rewording if it claims less.\n` : ''}` +
-      `\n${planText.slice(0, 4000)}`, undefined, true)
+      `\n${planText.slice(0, 4000)}`, { evenHanded: true })
     c.status = verdictWord(v)
     c.trail.push(`answer: ${a.evidence}`, `re-check ${c.status}: ${checked}`, ...voteLines(v).map(l => `  ${l}`))
-    if (v.proven) planClaims.push({ claim: c.claim, outcome: 'confirmed after the answer round', checked, evidence: a.evidence })
+    if (v.proven) {
+      return { claim: checked, ...(a.claim && { replaces: c.claim }), outcome: 'confirmed after the answer round', evidence: a.evidence }
+    }
   }))
+  for (const p of settled.filter(Boolean)) {
+    if (p.test) {
+      p.id = `T${planClaims.filter(q => q.test).length + 1}`
+      p.outcome = `to be settled by test ${p.id}`
+    }
+    planClaims.push(p)
+  }
 }
 
 // The verified premise, rendered for the next phase. Only `held` claims appear:
@@ -947,11 +967,12 @@ const heldPremise = [...specPremise.held, ...grillPremise.held]
 let plan = null
 let planReview = null
 let planFeedback = ''
-const decompositions = new Map()  // a claim's decomposed verdict holds for the rest of the run under its text
+const decompositions = new Map()
 const planClaims = []
 const claimKey = c => String(c.claim).trim()
-// A cached confirmed or unsettled never overrides a fresh majority; a cached refuted always holds.
-const adopt = (c, d) => { if (d.status === 'refuted' || c.unverified) Object.assign(c, { status: d.status, trail: [...d.trail] }) }
+// An atom's refutation is a counterexample the whole-claim refuters never answered, so it outlives a fresh
+// majority that confirms; any other cached verdict only fills in where the fresh check settled nothing.
+const adoptDecomposition = (c, d) => { if (d.status === 'refuted' || c.unverified) Object.assign(c, { status: d.status, trail: [...d.trail] }) }
 let planUnchecked = []          // only the last round's plan is built on, so only its gaps count
 for (let round = 1; round <= maxPlanRounds; round++) {
   planUnchecked = []
@@ -984,22 +1005,26 @@ for (let round = 1; round <= maxPlanRounds; round++) {
   ])
   planReview = review
   if (!refuted) planUnchecked.push(`plan round ${round}: claim adjudication did not run`)
-  const claims = refuted ? [...refuted.held, ...refuted.rejected] : []
-  for (const c of claims) if (decompositions.has(claimKey(c))) adopt(c, await decompositions.get(claimKey(c)))
+  // The extractor's reply can carry any key, so the script's own verdict fields start empty.
+  const claims = refuted ? [...refuted.held, ...refuted.rejected].map(({ status, trail, ...c }) => c) : []
+  for (const c of claims) if (decompositions.has(claimKey(c))) adoptDecomposition(c, await decompositions.get(claimKey(c)))
   let bad = claims.filter(c => c.status ? c.status !== 'confirmed' : !c.proven)
   const mustFix = (review && review.findings.filter(f => f.mustFix)) || []
   const fixes = mustFix.length || (review && review.verdict === 'approved') ? mustFix : ((review && review.findings) || [])
-  note('Plan review', `round ${round}: verdict=${review ? review.verdict : 'none'}, ${mustFix.length} must-fix, ${bad.length} refuted claim(s)`)
+  const unsettledCount = bad.filter(c => statusOf(c) === 'unsettled').length
+  note('Plan review', `round ${round}: verdict=${review ? review.verdict : 'none'}, ${mustFix.length} must-fix, ` +
+    `${bad.length - unsettledCount} refuted and ${unsettledCount} unsettled claim(s)`)
 
   const approvedClean = review && review.verdict === 'approved' && !mustFix.length
   const refutedFirst = bad.filter(c => !c.status && !c.unverified)
   const fallback = bad.filter(c => c.status || c.unverified)
-  // A redesign round would re-extract and re-prove anyway, so the fallbacks run only where they decide the outcome.
+  // While a claim refuted at its first check sends the plan back, the fallbacks wait: the next design may
+  // drop the claims they would settle.
   if (approvedClean && fallback.length && (round === maxPlanRounds || !refutedFirst.length)) {
     await parallel(fallback.filter(c => !c.status).map(c => async () => {
       if (!decompositions.has(claimKey(c))) decompositions.set(claimKey(c), decompose(c, planText)
         .catch(e => ({ status: 'unsettled', trail: [`the decomposition did not finish: ${e}`] })))
-      adopt(c, await decompositions.get(claimKey(c)))
+      adoptDecomposition(c, await decompositions.get(claimKey(c)))
     }))
     if (round < maxPlanRounds && fallback.some(c => c.status === 'refuted')) {
       bad = bad.filter(c => c.status !== 'confirmed')
@@ -1061,7 +1086,8 @@ if (record.blockers.length) {
 const planClaimsNote = planClaims.length
   ? `PLAN CLAIMS SETTLED AFTER THE PLAN REVIEW — build on a confirmed claim; do NOT build on a withdrawn one; a claim ` +
     `to be settled by a test holds only once that test is green:\n` +
-    `${planClaims.map(p => `- ${p.outcome}: ${p.claim} — ${p.reason || p.evidence || p.test}`).join('\n')}\n\n`
+    `${planClaims.map(p => `- ${p.outcome}: ${p.claim}${p.replaces ? ` (replaces the plan's claim: ${p.replaces})` : ''} — ` +
+      `${p.reason || p.evidence || p.test}`).join('\n')}\n\n`
   : ''
 const plannedTests = planClaims.filter(p => p.test)
 
@@ -1226,7 +1252,7 @@ const buildStages = [
       proven(f.summary, f.failureScenario, 'Review',
         `Slice: ${slice.title}\nCriterion: ${slice.acceptanceCriterion}\nRule: ${f.rule || 'behaviour'}` +
         (isQualityFinding(f) ? `\n${QUALITY_REFUTE_RULE}` : ''),
-        `${slice.id}::${f.file || ''}::${f.summary}`)
+        { memoKey: `${slice.id}::${f.file || ''}::${f.summary}` })
         .then(v => ({ ...f, confirmed: v.proven, unverified: v.unverified, evidence: v.why }))
     ))
     const real = verified.filter(f => f && f.confirmed)
