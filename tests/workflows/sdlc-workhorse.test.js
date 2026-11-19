@@ -69,6 +69,9 @@ const mkAgent = ({ reviews = {}, reviewDies = [] } = {}) => async (prompt, opts)
     return { findings: reviews[concern] || [] }
   }
   if (L.startsWith('refute:')) return { status: 'confirmed', evidence: 'reproduced it' }
+  if (L === 'decompose') return { split: 'all', nodes: [{ id: 'A1', parent: 'root', text: 'the atom holds', settle: 'node atom.js' }] }
+  if (L === 'split-check') return { status: 'confirmed', evidence: 'enough and needed' }
+  if (L === 'answer') return { answers: [] }
   if (L === 'document') return { docsChanged: ['README.md'], adrsWritten: [], baselineStillGreen: true, baselineOutput: 'ok' }
   if (L === 'retro') return { lessons: [], reflection: 'r' }
   throw new Error(`unstubbed agent label: ${L}`)
@@ -695,6 +698,302 @@ console.log('stamped output — every line says which run it belongs to:')
   const r2 = await runWorkhorse({ args: baseArgs({ tiers: { plan: 'haiku' } }), agentFn: mkAgent() })
   await t('with NO stamp supplied, lines are unprefixed — never "[undefined]"',
     () => r2.logs.length > 0 && r2.logs.every(m => !m.startsWith('[')))
+}
+
+console.log('\nan unsettled plan claim carries its whole evidence into the blocker and the retro:')
+{
+  const claim = 'the queue drains before shutdown'
+  const pad = s => s + ' ' + 'x'.repeat(160)
+  const votes = {
+    'refute:1': { status: 'confirmed', evidence: pad('CONFIRMED-EVIDENCE drain() awaits every job') + ' END-CONFIRMED' },
+    'refute:2': { status: 'refuted', evidence: pad('REFUTED-EVIDENCE the signal handler exits first') + ' END-REFUTED' },
+    'refute:3': { status: 'unverifiable', evidence: pad('UNVERIFIABLE-EVIDENCE needs a live broker') + ' END-UNVERIFIABLE' },
+  }
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: overriding({
+    'claims:plan': () => ({ claims: [{ claim, whyLoadBearing: 'load-bearing', blastRadius: 'total' }] }),
+    'refute:': (p, o) => (p.includes(`Claim: ${claim}\n`) ? votes[o.label] : undefined),
+    'plan-review:': () => ({ verdict: 'revise', findings: [] }),
+  }) })
+  const blocker = (r.blockers || []).find(b => JSON.stringify(b).includes(claim)) || {}
+  const detail = JSON.stringify(blocker.detail || '')
+  const whole = s => s.includes('unsettled') && Object.values(votes).every(v => s.includes(v.status) && s.includes(v.evidence))
+  await t('the blocker detail names the claim status and every vote with its full evidence', () => whole(detail))
+  await t('...and the retrospective prompt carries it uncut by the 300-character limit',
+    () => whole(promptFor(r, 'retro')))
+}
+
+console.log('\nan unsettled plan claim on an approved last round blocks the merge; a refuted one is deferred:')
+{
+  const unsettled = 'the cache survives a restart'
+  const refutedClaim = 'the index is rebuilt on every write'
+  const claims = [unsettled, refutedClaim].map(claim => ({ claim, whyLoadBearing: 'load-bearing', blastRadius: 'total' }))
+  const vote = { 'refute:1': 'confirmed', 'refute:2': 'refuted', 'refute:3': 'unverifiable' }
+  const run = verdict => runWorkhorse({ args: baseArgs({ maxPlanRounds: 1 }), agentFn: overriding({
+    'claims:plan': () => ({ claims }),
+    'refute:': (p, o) => p.includes(`Claim: ${unsettled}\n`) ? { status: vote[o.label], evidence: 'split' }
+      : p.includes(`Claim: ${refutedClaim}\n`) ? { status: 'refuted', evidence: 'writes skip the index' } : undefined,
+    'split-check': () => ({ status: 'refuted', evidence: 'the atoms miss a restart mid-write' }),
+    'plan-review:': () => ({ verdict, findings: [] }),
+  }) })
+  const names = (list, claim) => (list || []).some(x => JSON.stringify(x).includes(claim))
+  const r = await run('approved')
+  await t('the run stops at the plan review and is not merge-ready',
+    () => r.stoppedAt === 'Plan review' && r.mergeReady === false)
+  await t('...mergeBlockedBy names the unsettled claim', () => names(r.mergeBlockedBy, unsettled))
+  await t('...and the refuted claim is deferred, the unsettled one is not',
+    () => names(r.deferred, refutedClaim) && !names(r.deferred, unsettled))
+  for (const verdict of ['revise', 'reopens-requirements']) {
+    const s = await run(verdict)
+    await t(`a ${verdict} stop on the last round names each bad claim in mergeBlockedBy`,
+      () => names(s.mergeBlockedBy, unsettled) && names(s.mergeBlockedBy, refutedClaim))
+  }
+}
+
+console.log('\nan unsettled plan claim whose atoms confirm it is built on, with no answer round:')
+{
+  const root = 'the retry loop is bounded'
+  const atoms = ['the loop counter starts at zero', 'the loop exits when the counter reaches the limit']
+  const r = await runWorkhorse({ args: baseArgs({ tiers: { verify: 'sonnet', plan: 'haiku' } }), agentFn: overriding({
+    'claims:plan': () => ({ claims: [{ claim: root, whyLoadBearing: 'load-bearing', blastRadius: 'total' }] }),
+    'refute:': p => p.includes(`Claim: ${root}\n`) ? { status: 'unverifiable', evidence: 'no runtime to try it' }
+      : atoms.some(a => p.includes(`Claim: ${a}\n`)) ? { status: 'confirmed', evidence: 'ran it' } : undefined,
+    'decompose': () => ({ split: 'all', nodes: atoms.map((text, i) =>
+      ({ id: `A${i + 1}`, parent: 'root', text, settle: `node a${i + 1}.js` })) }),
+  }) })
+  const labelled = l => r.calls.filter(c => c.opts.label === l)
+  const atomChecks = a => r.calls.map((c, i) => [c, i])
+    .filter(([c]) => c.opts.label.startsWith('refute:') && c.prompt.includes(`Claim: ${a}\n`)).map(([, i]) => i)
+  const named = list => (list || []).some(x => JSON.stringify(x).includes(root))
+  await t('one decomposer and one split checker run, both at tiers.verify',
+    () => ['decompose', 'split-check'].every(l => labelled(l).length === 1 && labelled(l)[0].opts.model === 'sonnet'))
+  await t('...each atom gets three refuters, all of the first atom\'s before any of the second\'s',
+    () => atoms.every(a => atomChecks(a).length === 3) && Math.max(...atomChecks(atoms[0])) < Math.min(...atomChecks(atoms[1])))
+  await t('...no answer agent runs', () => labelled('answer').length === 0)
+  await t('...the run reaches Slice', () => r.stoppedAt === undefined && labelled('slice').length === 1)
+  await t('...and the claim is in neither blockers nor deferred', () => !named(r.blockers) && !named(r.deferred))
+}
+
+console.log('\na plan claim refuted by an atom goes back on an earlier round and blocks on the last; cached verdicts hold:')
+{
+  const firstCheck = (text, round1, later) => {
+    let n = 0
+    return (p, o) => p.includes(`Claim: ${text}\n`) ? (++n <= 3 ? round1(o.label) : later) : undefined
+  }
+  const deadAfterOne = label => label === 'refute:1' ? { status: 'unverifiable', evidence: 'no broker here' } : null
+  const atomVote = (text, vote) => p => p.includes(`Claim: ${text}\n`) ? vote : undefined
+  const tree = atomsOf => p => {
+    const [, atoms] = Object.entries(atomsOf).find(([claim]) => p.includes(claim)) || []
+    return atoms && { split: 'all', nodes: atoms.map((text, i) => ({ id: `A${i + 1}`, parent: 'root', text, settle: `node a${i + 1}.js` })) }
+  }
+  const chain = (...fns) => async (p, o) => { for (const f of fns) { const v = await f(p, o); if (v !== undefined) return v } }
+  const named = (list, claim) => (list || []).some(x => JSON.stringify(x).includes(claim))
+  const labelled = (r, l) => r.calls.filter(c => c.opts.label === l)
+  const claimsOf = (...texts) => () => ({ claims: texts.map(claim => ({ claim, whyLoadBearing: 'load-bearing', blastRadius: 'total' })) })
+
+  const root = 'the lock is released on every error path'
+  const [a1, a2] = ['the finally block calls release()', 'release() is idempotent']
+  const atomEvidence = 'ATOM-EVIDENCE the early return at lock.js:42 skips the finally block'
+  const r = await runWorkhorse({ args: baseArgs({ maxPlanRounds: 2 }), agentFn: overriding({
+    'claims:plan': claimsOf(root),
+    'refute:': chain(firstCheck(root, deadAfterOne, { status: 'confirmed', evidence: 'fresh refuters ran it' }),
+      atomVote(a1, { status: 'refuted', evidence: atomEvidence }), atomVote(a2, { status: 'confirmed', evidence: 'ran it' })),
+    'decompose': tree({ [root]: [a1, a2] }),
+  }) })
+  const refuterFor = text => r.calls.filter(c => c.opts.label.startsWith('refute:') && c.prompt.includes(`Claim: ${text}\n`))
+  await t('an atom refuted under all sends the plan back with the atom evidence, with no answer round',
+    () => promptFor(r, 'plan:r2').includes(root) && promptFor(r, 'plan:r2').includes(atomEvidence) && !labelled(r, 'answer').length)
+  await t('...the atom after the refuted one gets no refuter', () => refuterFor(a1).length === 3 && !refuterFor(a2).length)
+  await t('...the claim is decomposed once in the run', () => labelled(r, 'decompose').length === 1)
+  await t('...and when round 2\'s fresh refuters confirm it, the cached refuted still blocks it on the last round',
+    () => (r.blockers || []).some(b => b.claim === root && /refuted/.test(b.what) && JSON.stringify(b.detail).includes(atomEvidence)) &&
+      !named(r.deferred, root) && r.stoppedAt === 'Plan review' && r.mergeReady === false && !labelled(r, 'slice').length)
+
+  const A = 'the cache is warmed before traffic arrives'
+  const B = 'the worker restarts within one second'
+  const [aAtom, bAtom] = ['the warm-up job runs at boot', 'the supervisor polls every 100 ms']
+  const aRefuted = { status: 'refuted', evidence: 'A-ROUND2-EVIDENCE traffic is admitted before warm-up ends' }
+  const cached = (rounds, aAtomVote) => runWorkhorse({ args: baseArgs({ maxPlanRounds: rounds }), agentFn: overriding({
+    'claims:plan': claimsOf(A, B),
+    'refute:': chain(firstCheck(A, deadAfterOne, aRefuted),
+      atomVote(B, { status: 'unverifiable', evidence: 'no supervisor here' }),
+      atomVote(aAtom, aAtomVote), atomVote(bAtom, { status: 'refuted', evidence: 'the supervisor polls every 5 s' })),
+    'decompose': tree({ [A]: [aAtom], [B]: [bAtom] }),
+  }) })
+  const c11 = await cached(3, { status: 'confirmed', evidence: 'ran it' })
+  await t('a cached confirmed does not clear a claim refuted at its first check: plan:r3 carries it',
+    () => promptFor(c11, 'plan:r3').includes(A) && promptFor(c11, 'plan:r3').includes(aRefuted.evidence))
+  const c12 = await cached(2, { status: 'unverifiable', evidence: 'needs a boot' })
+  await t('a cached unsettled does not relabel a claim refuted at its first check: it is deferred, with no answer round',
+    () => named(c12.deferred, A) && !labelled(c12, 'answer').length && named(c12.blockers, B))
+}
+
+console.log('\natoms are checked in order up to a cap of 3, and a failed decomposition leaves the claim unsettled:')
+{
+  const root = 'the migration is reversible'
+  const run = overrides => runWorkhorse({ args: baseArgs({ maxPlanRounds: 1 }), agentFn: overriding({
+    'claims:plan': () => ({ claims: [{ claim: root, whyLoadBearing: 'load-bearing', blastRadius: 'total' }] }),
+    'refute:': p => p.includes(`Claim: ${root}\n`) ? { status: 'unverifiable', evidence: 'no database here' }
+      : { status: 'confirmed', evidence: 'ran it' },
+    ...overrides,
+  }) })
+  const atomChecks = (r, text) => r.calls.map((c, i) => [c, i])
+    .filter(([c]) => c.opts.label.startsWith('refute:') && c.prompt.includes(`Claim: ${text}\n`)).map(([, i]) => i)
+  const atomRefuters = r => r.calls.filter(c => c.opts.label.startsWith('refute:') && !c.prompt.includes(`Claim: ${root}\n`))
+  const unsettledBlocker = r => (r.blockers || []).find(b => b.claim === root && /unsettled/.test(b.what))
+  const atom = (id, parent, text) => ({ id, parent, text, settle: `node ${id}.js` })
+
+  const four = ['the down step drops the new column', 'the down step restores the old index',
+    'no row is written between up and down', 'the down step runs in one transaction']
+  const cap = await run({ 'decompose': () => ({ split: 'all', nodes: four.map((text, i) => atom(`A${i + 1}`, 'root', text)) }) })
+  await t('atoms are checked one at a time in list order, three refuters each',
+    () => four.slice(0, 3).every(a => atomChecks(cap, a).length === 3) &&
+      Math.max(...atomChecks(cap, four[0])) < Math.min(...atomChecks(cap, four[1])) &&
+      Math.max(...atomChecks(cap, four[1])) < Math.min(...atomChecks(cap, four[2])))
+  await t('...at most 3 are checked: the fourth gets no refuter and the log names it not checked',
+    () => !atomChecks(cap, four[3]).length && cap.logs.some(m => m.includes('A4') && /not checked/.test(m)))
+  await t('...so the claim is not confirmed by three of four atoms: it blocks as unsettled',
+    () => !!unsettledBlocker(cap) && cap.stoppedAt === 'Plan review' && !cap.calls.some(c => c.opts.label === 'slice'))
+
+  const [b1, b2, cText] = ['the backup is taken first', 'the down step is generated', 'the schema diff is empty after down']
+  const nested = await run({ 'decompose': () => ({ split: 'all', nodes: [
+    { id: 'B', parent: 'root', text: 'the old state can be restored', split: 'any' },
+    atom('B1', 'B', b1), atom('B2', 'B', b2), atom('C', 'root', cText)] }) })
+  await t('checking stops under a fixed parent: B2 gets no refuter and the log names B1 as the atom that decided it',
+    () => !atomChecks(nested, b2).length && atomChecks(nested, cText).length === 3 &&
+      nested.logs.some(m => m.includes('B2') && /not checked/.test(m) && m.includes('B1')))
+  await t('...and the nested verdicts carry up to a confirmed root: the run reaches Slice',
+    () => nested.stoppedAt === undefined && nested.calls.some(c => c.opts.label === 'slice'))
+
+  const malformed = {
+    'a parent listed after its child': [atom('A1', 'B', 'x holds'), { id: 'B', parent: 'root', text: 'b', split: 'all' }],
+    'a parent cycle with an atom below it': [{ id: 'X', parent: 'Y', text: 'x', split: 'all' },
+      { id: 'Y', parent: 'X', text: 'y', split: 'all' }, atom('A1', 'X', 'x holds')],
+    'a repeated id': [atom('A1', 'root', 'x holds'), atom('A1', 'root', 'y holds')],
+    'an id of root': [atom('root', 'root', 'x holds')],
+    'a parent with no split': [{ id: 'B', parent: 'root', text: 'b' }, atom('A1', 'B', 'x holds')],
+    'no nodes': [],
+  }
+  const failures = {
+    'the split checker rejects the split': { 'split-check': () => ({ status: 'refuted', evidence: 'SPLIT-EVIDENCE the atoms miss a partial write' }) },
+    'the decomposer returns null': { 'decompose': () => null },
+    'the split checker returns null': { 'split-check': () => null },
+    'the decomposer throws': { 'decompose': () => { throw new Error('subagent stalled') } },
+    'the split checker throws': { 'split-check': () => { throw new Error('subagent stalled') } },
+    ...Object.fromEntries(Object.entries(malformed).map(([k, nodes]) => [`the tree has ${k}`, { 'decompose': () => ({ split: 'all', nodes }) }])),
+  }
+  for (const [name, overrides] of Object.entries(failures)) {
+    const r = await run(overrides)
+    await t(`${name}: no atom refuter runs and the claim blocks as unsettled`,
+      () => !atomRefuters(r).length && !!unsettledBlocker(r) && r.stoppedAt === 'Plan review')
+  }
+  const rejected = await run(failures['the split checker rejects the split'])
+  await t('a rejected split puts the checker\'s evidence in the blocker',
+    () => JSON.stringify(unsettledBlocker(rejected) || {}).includes('SPLIT-EVIDENCE'))
+  for (const name of ['the decomposer throws', 'the split checker throws']) {
+    const r = await run(failures[name])
+    await t(`when ${name}, the blocker says the decomposition did not finish`,
+      () => JSON.stringify(unsettledBlocker(r) || {}).includes('did not finish'))
+  }
+}
+
+console.log('\none answer round per run settles what the atoms left open, and every outcome reaches the builders:')
+{
+  const [X, W, O, R, N] = ['the scheduler skips a paused job', 'the export streams rows in order',
+    'the importer rejects a duplicate key', 'the webhook retries on a 503', 'the audit log is append-only']
+  const ADDED = 'ADDED-EVIDENCE tick() returns early when job.paused is set'
+  const R_ADDED = 'R-ADDED-EVIDENCE the client retries every 5xx'
+  const REASON = 'WITHDRAWN-REASON the plan no longer needs ordered rows'
+  // The answer prompt names each open claim on one line with its id (such as C1).
+  const idOf = (p, claim) => ((p.split('\n').find(l => l.includes(claim)) || '').match(/\b[A-Z]+\d+\b/) || [])[0]
+  const run = (texts, answer, rounds = 3) => runWorkhorse({
+    args: baseArgs({ maxPlanRounds: rounds, tiers: { verify: 'sonnet', plan: 'haiku' } }), agentFn: overriding({
+      'claims:plan': () => ({ claims: texts.map(claim => ({ claim, whyLoadBearing: 'load-bearing', blastRadius: 'total' })) }),
+      'refute:': p => p.includes(ADDED) ? { status: 'confirmed', evidence: 'ran it with the added evidence' }
+        : p.includes(R_ADDED) ? { status: 'refuted', evidence: 'RECHECK-REFUTED the client gives up after one 503' }
+        : texts.some(c => p.includes(`Claim: ${c}\n`)) ? { status: 'unverifiable', evidence: 'no runtime here' } : undefined,
+      'split-check': () => ({ status: 'refuted', evidence: 'the atoms miss a case' }),
+      'answer': answer,
+    }) })
+  const labelled = (r, l) => r.calls.filter(c => c.opts.label === l)
+  const refutersFor = (r, text) => r.calls.filter(c => c.opts.label.startsWith('refute:') && c.prompt.includes(`Claim: ${text}\n`))
+  const named = (list, claim) => (list || []).some(x => JSON.stringify(x).includes(claim))
+  const blockerFor = (r, claim) => (r.blockers || []).find(b => b.claim === claim)
+  const oneAnswerAtPlanTier = r => labelled(r, 'answer').length === 1 && labelled(r, 'answer')[0].opts.model === 'opus'
+
+  const a = await run([X, W], p => ({ answers: [
+    { id: idOf(p, X), action: 'answered', evidence: ADDED },
+    { id: idOf(p, W), action: 'withdrawn', reason: REASON }] }))
+  await t('exactly one answer agent runs, at tiers.plan (floored to opus) rather than tiers.verify', () => oneAnswerAtPlanTier(a))
+  await t('...an answered claim with unchanged text gets three fresh refuters carrying the added evidence',
+    () => refutersFor(a, X).length === 6 && refutersFor(a, X).filter(c => c.prompt.includes(ADDED)).length === 3)
+  await t('...and clears when they confirm: the run reaches Slice and no blocker or deferral names it',
+    () => a.stoppedAt === undefined && labelled(a, 'slice').length === 1 &&
+      !named(a.blockers, X) && !named(a.mergeBlockedBy, X) && !named(a.deferred, X))
+  await t('...a withdrawn claim gets no refuter after its first check and is reported as withdrawn, with its reason',
+    () => refutersFor(a, W).length === 3 && !named(a.blockers, W) && (a.planClaims || []).some(p =>
+      JSON.stringify(p).includes(W) && /withdrawn/.test(JSON.stringify(p)) && JSON.stringify(p).includes(REASON)))
+  await t('...the slicer, red, green and document prompts carry each outcome',
+    () => ['slice', 'red:s1', 'green:s1', 'document'].every(l => {
+      const p = promptFor(a, l)
+      return p.includes(X) && p.includes(W) && p.includes(REASON) && /withdrawn/i.test(p)
+    }))
+  await t('...and no VERIFIED PREMISE block holds these claims', () => a.calls.every(c => {
+    const at = c.prompt.indexOf('VERIFIED PREMISE')
+    if (at < 0) return true
+    const end = c.prompt.indexOf('\n\n', at)
+    const block = c.prompt.slice(at, end < 0 ? undefined : end)
+    return !block.includes(X) && !block.includes(W)
+  }))
+
+  const b = await run([O, R], p => ({ answers: [{ id: idOf(p, R), action: 'answered', evidence: R_ADDED }] }))
+  await t('an omitted claim and one refuted on its re-check each land in the blocker, after one answer round and no second plan round',
+    () => oneAnswerAtPlanTier(b) && !labelled(b, 'plan:r2').length &&
+      refutersFor(b, R).filter(c => c.prompt.includes(R_ADDED)).length === 3 &&
+      !!blockerFor(b, O) && JSON.stringify((blockerFor(b, R) || {}).detail || '').includes('RECHECK-REFUTED') &&
+      b.stoppedAt === 'Plan review' && b.mergeReady === false)
+  for (const [how, answer] of [['returns null', () => null], ['throws', () => { throw new Error('subagent stalled') }]]) {
+    const r = await run([N], answer, 1)
+    await t(`when the answer agent ${how}, its claim lands in the blocker and the run stops at the plan review`,
+      () => oneAnswerAtPlanTier(r) && !!blockerFor(r, N) && r.stoppedAt === 'Plan review' && r.mergeReady === false)
+  }
+}
+
+console.log('\na claim settled by test X goes to the build as its first test, and stays a blocker until that test is green:')
+{
+  const U = 'the rate limiter refills tokens at the boundary'
+  const TEST_X = 'tests/limiter.test.js: refills exactly at the window boundary'
+  const GHOST = 'tests/ghost.test.js: a claim nobody gave the answer agent'
+  const idOf = (p, claim) => ((p.split('\n').find(l => l.includes(claim)) || '').match(/\b[A-Z]+\d+\b/) || [])[0]
+  const testIdOf = p => ((p.split('\n').find(l => l.includes(TEST_X)) || '').match(/\bT\d+\b/) || ['T1'])[0]
+  const run = ({ carried, maxSlices, greenS2 = true }) => runWorkhorse({
+    args: baseArgs({ maxPlanRounds: 1, ...(maxSlices ? { maxSlices } : {}) }), agentFn: overriding({
+      'claims:plan': () => ({ claims: [{ claim: U, whyLoadBearing: 'load-bearing', blastRadius: 'total' }] }),
+      'refute:': p => p.includes(`Claim: ${U}\n`) ? { status: 'unverifiable', evidence: 'no clock to try it' } : undefined,
+      'split-check': () => ({ status: 'refuted', evidence: 'the atoms miss the boundary tick' }),
+      'answer': p => ({ answers: [{ id: idOf(p, U), action: 'settled-by-test', test: TEST_X },
+        { id: 'C9', action: 'settled-by-test', test: GHOST }] }),
+      'slice': p => ({ slices: [{ id: 's1', title: 'S1', acceptanceCriterion: 'AC1', effort: 'low' },
+        { id: 's2', title: 'S2', acceptanceCriterion: 'AC2', effort: 'low', ...(carried ? { claimTest: testIdOf(p) } : {}) }] }),
+      'green:s2': () => greenS2 ? undefined : { passed: false, output: 'FAIL boundary', summary: 'not green' },
+    }) })
+  const reds = r => r.calls.filter(c => c.opts.label.startsWith('red:'))
+  const testEntry = r => (r.planClaims || []).find(p => JSON.stringify(p).includes(TEST_X)) || {}
+
+  const capped = await run({ carried: true, maxSlices: 1 })
+  await t('a still-unsettled claim marked settled by test X does not stop the run at the plan review',
+    () => capped.stoppedAt === undefined && capped.calls.some(c => c.opts.label === 'slice'))
+  await t('...its carrying slice moves to the front before the maxSlices cap: the first red: is red:s2, naming the claim and test X',
+    () => reds(capped).length === 1 && reds(capped)[0].opts.label === 'red:s2' &&
+      reds(capped)[0].prompt.includes(U) && reds(capped)[0].prompt.includes(TEST_X))
+  const red = await run({ carried: true, greenS2: false })
+  await t('a carrying slice that does not go green keeps mergeReady false, and planClaims says test X was not green',
+    () => red.mergeReady === false && testEntry(red).slice === 's2' && /not green/.test(JSON.stringify(testEntry(red))))
+  const orphan = await run({ carried: false })
+  await t('a test no slice carries is named, with its claim, in mergeBlockedBy',
+    () => orphan.mergeReady === false && (orphan.mergeBlockedBy || []).some(m => m.includes(U) && m.includes(TEST_X)))
+  await t('...and a mark on a claim the answer agent was not given is ignored',
+    () => [capped, red, orphan].every(r => !JSON.stringify(r.planClaims || []).includes(GHOST) &&
+      !JSON.stringify(r.mergeBlockedBy || []).includes(GHOST) && !reds(r).some(c => c.prompt.includes(GHOST))))
 }
 
 console.log(`\n${pass} passed, ${fail} failed`)

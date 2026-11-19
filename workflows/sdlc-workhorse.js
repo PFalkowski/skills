@@ -258,6 +258,51 @@ const REFUTE_SCHEMA = {
   },
 }
 
+const DECOMPOSE_SCHEMA = {
+  type: 'object',
+  required: ['split', 'nodes'],
+  properties: {
+    split: { type: 'string', enum: ['all', 'any'], description: 'The root claim\'s rule.' },
+    nodes: {
+      type: 'array',
+      minItems: 1,
+      items: {
+        type: 'object',
+        required: ['id', 'parent', 'text'],
+        properties: {
+          id: { type: 'string' },
+          parent: { type: 'string', description: '"root", or the id of a node listed EARLIER.' },
+          text: { type: 'string' },
+          split: { type: 'string', enum: ['all', 'any'], description: 'Required on a node with children.' },
+          settle: { type: 'string', description: 'On an atom (a node with no children): the one check that settles it.' },
+        },
+      },
+    },
+  },
+}
+
+const ANSWER_SCHEMA = {
+  type: 'object',
+  required: ['answers'],
+  properties: {
+    answers: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['id', 'action'],
+        properties: {
+          id: { type: 'string', description: 'The id the claim was given, such as C1.' },
+          action: { type: 'string', enum: ['answered', 'withdrawn', 'settled-by-test'] },
+          claim: { type: 'string', description: 'answered: a rewording, only if the plan rests on the new wording.' },
+          evidence: { type: 'string', description: 'answered: the evidence that settles the claim.' },
+          reason: { type: 'string', description: 'withdrawn: why the plan does not rest on the claim.' },
+          test: { type: 'string', description: 'settled-by-test: the test, path and name, whose pass settles the claim.' },
+        },
+      },
+    },
+  },
+}
+
 const BASELINE_SCHEMA = {
   type: 'object',
   required: ['green', 'checks', 'pitfalls', 'missingGuardrails'],
@@ -380,6 +425,7 @@ const SLICES_SCHEMA = {
           acceptanceCriterion: { type: 'string', description: 'The single observable behaviour this slice adds. One test can encode it.' },
           effort: { type: 'string', enum: ['low', 'medium', 'high'], description: 'Lowest effort that can actually do this slice.' },
           dependsOn: { type: 'array', items: { type: 'string' } },
+          claimTest: { type: 'string', description: 'The id (such as T1) of the planned test this slice writes, if any.' },
         },
       },
     },
@@ -472,8 +518,9 @@ const LENSES = [
 // the moment master does.
 const provenMemo = new Map()
 
-async function proven(claim, whyLoadBearing, phaseName, context, memoKey = String(claim).trim()) {
-  if (provenMemo.has(memoKey)) return provenMemo.get(memoKey)
+// A fallback check carries evidence the memoized verdict never saw, so it neither reads nor writes the memo.
+async function proven(claim, whyLoadBearing, phaseName, context, memoKey = String(claim).trim(), fallback = false) {
+  if (!fallback && provenMemo.has(memoKey)) return provenMemo.get(memoKey)
   const votes = await parallel(LENSES.map((lens, i) => () =>
     agent(
       `Try to REFUTE this claim. Default to "refuted" if you cannot establish it — an unprovable claim is false.\n\n` +
@@ -511,7 +558,7 @@ async function proven(claim, whyLoadBearing, phaseName, context, memoKey = Strin
        : valid.map(v => v.evidence).join(' | '),   // all-unverifiable: carry the reason and command onward
     votes: valid,
   }
-  if (valid.length === votes.length) provenMemo.set(memoKey, verdict)
+  if (!fallback && valid.length === votes.length) provenMemo.set(memoKey, verdict)
   return verdict
 }
 
@@ -585,6 +632,125 @@ async function adjudicateClaims(artifactName, artifactText, phaseName, artifactP
   }
 }
 
+const verdictWord = v => v.proven ? 'confirmed' : v.unverified ? 'unsettled' : 'refuted'
+const statusOf = c => c.status || (c.unverified ? 'unsettled' : 'refuted')
+const voteLines = c => c.votes ? c.votes.map(v => `vote ${v.status}: ${v.evidence}`) : [`why: ${c.why}`]
+const claimEvidence = c => [`claim: ${c.claim}`, `status: ${statusOf(c)}`, ...voteLines(c), ...(c.trail || [])].join('\n')
+const claimBlocker = c => ({ what: `plan claim ${statusOf(c)}: ${c.claim}`, claim: c.claim, detail: claimEvidence(c) })
+
+const MAX_ATOMS = 3
+// Each parent must come before its children, so walking up from any node always reaches root.
+const wellFormed = nodes => nodes.length > 0 && nodes.every((n, i) => n.id !== 'root' &&
+  nodes.findIndex(m => m.id === n.id) === i &&
+  (n.parent === 'root' || nodes.slice(0, i).some(m => m.id === n.parent)) &&
+  (n.split || !nodes.some(m => m.parent === n.id)))
+
+// One agent splits the claim and another checks the split, so no agent grades its own split. Atoms are
+// checked one after another because the atomic-decomposition skill orders them by what each verdict decides.
+async function decompose(c, planText) {
+  const tree = await agent(
+    `No refuter could settle this load-bearing plan claim whole. Use the "atomic-decomposition" skill to build its ` +
+    `tree (its steps 1, 2, 4 and 5) and order the atoms by its step 9. Do not check the split and do not settle any ` +
+    `atom: other agents do both.\n\n${claimEvidence(c)}\nWhy it is load-bearing: ${c.whyLoadBearing}\n\n` +
+    `<plan>\n${planText.slice(0, 4000)}\n</plan>\n\n${READ_ONLY_RULE}`,
+    { label: 'decompose', phase: 'Plan review', model: tiers.verify, schema: DECOMPOSE_SCHEMA }
+  )
+  if (!tree) return { status: 'unsettled', trail: ['the decomposer returned nothing'] }
+  if (!wellFormed(tree.nodes)) return { status: 'unsettled', trail: [`the decomposer returned a malformed tree: ${JSON.stringify(tree)}`] }
+  const splitCheck = await agent(
+    `Check this split of a plan claim before any atom is checked. You did not write it. Apply the ` +
+    `"atomic-decomposition" skill's step 3 to every parent: enough and needed under "all", sufficient and every way ` +
+    `under "any". Return "confirmed" only if every parent passes.\n\nRoot claim: ${c.claim}\n\n` +
+    `Tree:\n${JSON.stringify(tree, null, 2)}\n\n${READ_ONLY_RULE}`,
+    { label: 'split-check', phase: 'Plan review', model: tiers.verify, schema: REFUTE_SCHEMA }
+  )
+  if (!splitCheck || splitCheck.status !== 'confirmed') {
+    return { status: 'unsettled', trail: [`the split was not accepted: ${splitCheck ? splitCheck.evidence : 'the checker returned nothing'}`] }
+  }
+  const trail = []
+  const nodeOf = id => id === 'root' ? tree : tree.nodes.find(n => n.id === id)
+  const childrenOf = id => tree.nodes.filter(n => n.parent === id)
+  const verdicts = new Map()
+  const verdictOf = id => {
+    const children = childrenOf(id)
+    if (!children.length) return verdicts.get(id) || 'unsettled'
+    const vs = children.map(n => verdictOf(n.id))
+    const [decides, needsEvery] = nodeOf(id).split === 'all' ? ['refuted', 'confirmed'] : ['confirmed', 'refuted']
+    return vs.includes(decides) ? decides : vs.every(v => v === needsEvery) ? needsEvery : 'unsettled'
+  }
+  const lineage = id => id === 'root' ? ['root'] : [id, ...lineage(nodeOf(id).parent)]
+  const decidedBy = new Map()
+  let checked = 0
+  for (const atom of tree.nodes.filter(n => !childrenOf(n.id).length)) {
+    const fixed = lineage(atom.parent).find(id => verdictOf(id) !== 'unsettled')
+    if (fixed || checked === MAX_ATOMS) {
+      const why = fixed ? `${fixed} was decided by atom ${decidedBy.get(fixed)}` : `the cap of ${MAX_ATOMS} atoms was reached`
+      trail.push(`atom ${atom.id} not checked: ${why}`)
+      say(`Plan review: atom ${atom.id} of "${c.claim}" not checked: ${why}`)
+      continue
+    }
+    checked++
+    const v = await proven(atom.text, c.whyLoadBearing, 'Plan review',
+      `Atom ${atom.id} of the plan claim: ${c.claim}\nSettle it with: ${atom.settle}\n\n${planText.slice(0, 4000)}`)
+    verdicts.set(atom.id, verdictWord(v))
+    trail.push(`atom ${atom.id} ${verdicts.get(atom.id)}: ${atom.text}`, ...voteLines(v).map(l => `  ${l}`))
+    for (const id of lineage(atom.parent)) if (!decidedBy.has(id) && verdictOf(id) !== 'unsettled') decidedBy.set(id, atom.id)
+  }
+  return { status: verdictOf('root'), trail }
+}
+
+// One agent per run answers what the atoms left open; its answers are re-checked by fresh refuters, never trusted.
+async function answerRound(open, planText) {
+  if (!open.length) return
+  let answers = []
+  let noAnswer = 'the answer round gave no answer for it'
+  try {
+    const reply = await agent(
+      `The plan review approved this plan, but no refuter majority and no decomposition settled the load-bearing ` +
+      `claims below. Answer each claim once, by its id:\n` +
+      `- "answered": give the evidence that settles it (a run with its actual output, an exact path:line, or two ` +
+      `independent sources). Reword it in "claim" only if the plan rests on the new wording. Fresh refuters re-check it.\n` +
+      `- "withdrawn": the plan does not rest on it; give the reason.\n` +
+      `- "settled-by-test": only as the last resort, when nothing short of running the built code settles it; name ` +
+      `the test in "test". The build writes that test first, and the claim blocks the merge until it is green.\n` +
+      `Do not redesign the plan and do not edit files. A claim you leave out stays unsettled and blocks the merge.\n\n` +
+      `${open.map((c, i) => `C${i + 1} — ${claimEvidence(c)}`).join('\n\n')}\n\n<plan>\n${planText}\n</plan>\n\n` +
+      `${FACT_CHECK_RULE}\n\n${READ_ONLY_RULE}`,
+      { label: 'answer', phase: 'Plan review', model: tiers.plan, schema: ANSWER_SCHEMA }
+    )
+    if (reply) answers = reply.answers
+    else noAnswer = 'the answer agent returned nothing'
+  } catch (e) {
+    noAnswer = `the answer agent did not finish: ${e}`
+  }
+  await parallel(open.map((c, i) => async () => {
+    const a = answers.find(x => x.id === `C${i + 1}`)
+    if (!a) {
+      c.trail.push(noAnswer)
+      return
+    }
+    if (a.action === 'withdrawn') {
+      c.status = 'withdrawn'
+      planClaims.push({ claim: c.claim, outcome: 'withdrawn', reason: a.reason })
+      return
+    }
+    if (a.action === 'settled-by-test') {
+      c.status = 'settled-by-test'
+      const id = `T${planClaims.filter(p => p.test).length + 1}`
+      planClaims.push({ claim: c.claim, outcome: `to be settled by test ${id}`, id, test: a.test })
+      return
+    }
+    const checked = a.claim || c.claim
+    const v = await proven(checked, c.whyLoadBearing, 'Plan review',
+      `The answer round added this evidence for a plan claim no refuter could settle:\n${a.evidence}\n` +
+      `${a.claim ? `The plan rests on the original wording: ${c.claim}\nRefute this rewording if it claims less.\n` : ''}` +
+      `\n${planText.slice(0, 4000)}`, undefined, true)
+    c.status = verdictWord(v)
+    c.trail.push(`answer: ${a.evidence}`, `re-check ${c.status}: ${checked}`, ...voteLines(v).map(l => `  ${l}`))
+    if (v.proven) planClaims.push({ claim: c.claim, outcome: 'confirmed after the answer round', checked, evidence: a.evidence })
+  }))
+}
+
 // The verified premise, rendered for the next phase. Only `held` claims appear:
 // a phase downstream of a premise gate reads THIS, not the raw artifact, so an
 // assertion that failed refutation cannot be silently inherited by being left
@@ -629,7 +795,7 @@ async function runRetro(sliceCount) {
     `Close this run with a retrospective. Read the chronicles the agents left in ${chronicleDir}/ — they are the field ` +
     `notes of what actually happened, written as it happened.\n\n` +
     `WHAT HAPPENED:\n${record.phases.map(p => `- ${p.phase}: ${p.detail}`).join('\n')}\n\n` +
-    `${record.blockers.length ? `BLOCKERS:\n${record.blockers.map(b => `- ${b.what}: ${JSON.stringify(b.detail).slice(0, 300)}`).join('\n')}\n\n` : ''}` +
+    `${record.blockers.length ? `BLOCKERS:\n${record.blockers.map(b => `- ${b.what}: ${b.claim ? b.detail : JSON.stringify(b.detail).slice(0, 300)}`).join('\n')}\n\n` : ''}` +
     `${record.unchecked.length ? `GATES THAT DID NOT RUN:\n${record.unchecked.map(u => `- ${u}`).join('\n')}\n\n` : ''}` +
     `${record.deferred.length ? `DEFERRED:\n${record.deferred.map(d => `- ${d.what}: ${JSON.stringify(d.detail).slice(0, 300)}`).join('\n')}\n\n` : ''}` +
     `Turn the lens on the run itself: what slowed it down, what was ambiguous, what broke, what you would want to ` +
@@ -756,12 +922,17 @@ const heldPremise = [...specPremise.held, ...grillPremise.held]
 // separate agent() call: it structurally cannot inherit the planner's blind
 // spots, because it never saw the planner's reasoning — only the artifact.
 // The plan's load-bearing claims are refuted-tested; a refuted claim sends the
-// plan back regardless of what the reviewer thought of it.
+// plan back regardless of what the reviewer thought of it. A claim no refuter can settle is split into
+// atoms, gets one answer round, and otherwise lands in the blockers with its evidence or becomes a test.
 // ---------------------------------------------------------------------------
 let plan = null
 let planReview = null
 let planFeedback = ''
-let planHeld = []
+const decompositions = new Map()  // a claim's decomposed verdict holds for the rest of the run under its text
+const planClaims = []
+const claimKey = c => String(c.claim).trim()
+// A cached confirmed or unsettled never overrides a fresh majority; a cached refuted always holds.
+const adopt = (c, d) => { if (d.status === 'refuted' || c.unverified) Object.assign(c, { status: d.status, trail: [...d.trail] }) }
 let planUnchecked = []          // only the last round's plan is built on, so only its gaps count
 for (let round = 1; round <= maxPlanRounds; round++) {
   planUnchecked = []
@@ -794,13 +965,33 @@ for (let round = 1; round <= maxPlanRounds; round++) {
   ])
   planReview = review
   if (!refuted) planUnchecked.push(`plan round ${round}: claim adjudication did not run`)
-  planHeld = (refuted && refuted.held) || []
-  const bad = ((refuted && refuted.rejected) || []).filter(Boolean)
+  const claims = refuted ? [...refuted.held, ...refuted.rejected] : []
+  for (const c of claims) if (decompositions.has(claimKey(c))) adopt(c, await decompositions.get(claimKey(c)))
+  let bad = claims.filter(c => c.status ? c.status !== 'confirmed' : !c.proven)
   const mustFix = (review && review.findings.filter(f => f.mustFix)) || []
   const fixes = mustFix.length || (review && review.verdict === 'approved') ? mustFix : ((review && review.findings) || [])
   note('Plan review', `round ${round}: verdict=${review ? review.verdict : 'none'}, ${mustFix.length} must-fix, ${bad.length} refuted claim(s)`)
 
   const approvedClean = review && review.verdict === 'approved' && !mustFix.length
+  const refutedFirst = bad.filter(c => !c.status && !c.unverified)
+  const fallback = bad.filter(c => c.status || c.unverified)
+  // A redesign round would re-extract and re-prove anyway, so the fallbacks run only where they decide the outcome.
+  if (approvedClean && fallback.length && (round === maxPlanRounds || !refutedFirst.length)) {
+    await parallel(fallback.filter(c => !c.status).map(c => async () => {
+      if (!decompositions.has(claimKey(c))) decompositions.set(claimKey(c), decompose(c, planText)
+        .catch(e => ({ status: 'unsettled', trail: [`the decomposition did not finish: ${e}`] })))
+      adopt(c, await decompositions.get(claimKey(c)))
+    }))
+    if (round < maxPlanRounds && fallback.some(c => c.status === 'refuted')) {
+      bad = bad.filter(c => c.status !== 'confirmed')
+    } else {
+      await answerRound(fallback.filter(c => c.status === 'unsettled'), planText)
+      const open = fallback.filter(c => !['confirmed', 'withdrawn', 'settled-by-test'].includes(c.status))
+      record.blockers.push(...open.map(claimBlocker))
+      say(`${fallback.length - open.length} plan claim(s) settled by their atoms or the answer round; ${open.length} block the merge.`)
+      bad = refutedFirst
+    }
+  }
   if (approvedClean && !bad.length) break
   if (approvedClean && round === maxPlanRounds) {
     record.deferred.push({ what: 'plan approved on the last round with claims refuted', detail: bad.map(c => `${c.claim} — ${c.why}`) })
@@ -810,16 +1001,16 @@ for (let round = 1; round <= maxPlanRounds; round++) {
 
   planFeedback =
     (fixes.length ? `${mustFix.length ? 'Must-fix findings' : 'Findings'}:\n${fixes.map(f => `- [${f.category}] ${f.concern}`).join('\n')}\n` : '') +
-    (bad.length ? `\nClaims extracted from your saved plan that could NOT be proven. If the saved plan does not make a claim, keep that part as it is and say so in your chronicle; otherwise fix the plan:\n${bad.map(c => `- ${c.claim}\n    why it failed: ${c.why}`).join('\n')}\n` : '')
+    (bad.length ? `\nClaims extracted from your saved plan that could NOT be proven. If the saved plan does not make a claim, keep that part as it is and say so in your chronicle; otherwise fix the plan:\n${bad.map(claimEvidence).join('\n\n')}\n` : '')
   if (!planFeedback) planFeedback = `The review returned "${review ? review.verdict : 'nothing'}" without naming a fix. Re-check the design against the spec.\n`
 
   if (review && review.verdict === 'reopens-requirements') {
-    record.blockers.push({ what: 'plan review reopened a requirement', detail: planFeedback })
+    record.blockers.push(...bad.map(claimBlocker), { what: 'plan review reopened a requirement', detail: planFeedback })
     say('Plan review reopened a requirement — that is the process working. Deferring rather than looping the whole lifecycle.')
     break
   }
   if (round === maxPlanRounds) {
-    record.blockers.push({ what: `plan unapproved after ${maxPlanRounds} design rounds`, detail: planFeedback })
+    record.blockers.push(...bad.map(claimBlocker), { what: `plan unapproved after ${maxPlanRounds} design rounds`, detail: planFeedback })
     say(`Plan still unapproved after ${maxPlanRounds} rounds — proceeding would be building on a design nobody signed off.`)
   }
 }
@@ -840,11 +1031,20 @@ if (record.blockers.length) {
     retro,
     blockers: record.blockers,
     deferred: record.deferred,
+    planClaims,
     mergeReady: false,
     mergeBlockedBy: [...record.blockers.map(b => b.what), ...record.unchecked],
     reproduction: { goal: cfg.goal, tiers, backlogPath, chronicleDir, tokensSpent: budget.spent() },
   }
 }
+
+// The plan JSON the builders read still states these claims as written, so the outcome has to travel beside it.
+const planClaimsNote = planClaims.length
+  ? `PLAN CLAIMS SETTLED AFTER THE PLAN REVIEW — build on a confirmed claim; do NOT build on a withdrawn one; a claim ` +
+    `to be settled by a test holds only once that test is green:\n` +
+    `${planClaims.map(p => `- ${p.outcome}: ${p.claim} — ${p.reason || p.evidence || p.test}`).join('\n')}\n\n`
+  : ''
+const plannedTests = planClaims.filter(p => p.test)
 
 // ---------------------------------------------------------------------------
 // PHASE 6 — Slice into tracer bullets.
@@ -853,18 +1053,25 @@ phase('Slice')
 const sliced = await agent(
   `Break this approved plan into independently shippable vertical slices — tracer bullets, each one end-to-end and ` +
   `each with a single observable acceptance criterion that ONE test can encode.\n\n` +
-  `<plan>\n${JSON.stringify(plan, null, 2)}\n</plan>\n\nACCEPTANCE CRITERIA:\n${acceptance.map(a => `- ${a}`).join('\n')}\n\n` +
+  `<plan>\n${JSON.stringify(plan, null, 2)}\n</plan>\n\n${planClaimsNote}ACCEPTANCE CRITERIA:\n${acceptance.map(a => `- ${a}`).join('\n')}\n\n` +
   `Assign each slice the LOWEST effort that can actually do it: low for mechanical, medium default, high only for ` +
-  `genuine design risk. Record the slices in ${backlogPath} as the live source of truth.\n\n${OUTWARD_RULE}\n${CHRONICLE_RULE(chronicle('slice'))}`,
+  `genuine design risk. Record the slices in ${backlogPath} as the live source of truth.\n\n` +
+  `${plannedTests.length ? `Give each planned test (${plannedTests.map(p => p.id).join(', ')}) to the slice that writes it, ` +
+    `as its claimTest, and make that slice depend on no other.\n\n` : ''}${OUTWARD_RULE}\n${CHRONICLE_RULE(chronicle('slice'))}`,
   { label: 'slice', phase: 'Slice', model: tiers.slice, effort: 'medium', schema: SLICES_SCHEMA }
 )
 if (!sliced || !sliced.slices.length) throw new Error('sdlc-workhorse: slicing produced no slices.')
 
-let slices = sliced.slices
+const testOf = s => plannedTests.find(p => p.id === s.claimTest)
+// Built first so the cap cannot drop a slice the merge is waiting on.
+let slices = [...sliced.slices.filter(testOf), ...sliced.slices.filter(s => !testOf(s))]
 if (slices.length > maxSlices) {
   say(`${slices.length} slices produced, capping at ${maxSlices}. NOT worked this run: ${slices.slice(maxSlices).map(s => s.id).join(', ')} — left in ${backlogPath}.`)
   record.blockers.push({ what: `${slices.length - maxSlices} slice(s) left past the maxSlices cap`, detail: slices.slice(maxSlices).map(s => s.id) })
   slices = slices.slice(0, maxSlices)
+}
+for (const p of plannedTests) {
+  if (!slices.some(s => testOf(s) === p)) record.unchecked.push(`plan claim to be settled by test ${p.test}, which no slice carries: ${p.claim}`)
 }
 note('Slice', `${slices.length} tracer bullet(s): ${slices.map(s => `${s.id}[${s.effort}]`).join(', ')}`)
 
@@ -888,9 +1095,11 @@ const buildStages = [
       say(`slice ${slice.id}: not started — ${Math.round(budget.remaining() / 1000)}k left is under the ${Math.round(reserve / 1000)}k reserve.`)
       return { slice, skipped: 'budget' }
     }
+    const planned = testOf(slice)
     const red = await agent(
       `Slice "${slice.id}" — ${slice.title}\nACCEPTANCE CRITERION: ${slice.acceptanceCriterion}\n\n` +
-      `<plan>\n${JSON.stringify(plan, null, 2)}\n</plan>\n\n${pitfallRule}\n\n` +
+      `<plan>\n${JSON.stringify(plan, null, 2)}\n</plan>\n\n${planClaimsNote}${pitfallRule}\n\n` +
+      `${planned ? `Your test is ${planned.test}. Its pass settles the plan claim: ${planned.claim}\n\n` : ''}` +
       `Write EXACTLY ONE failing test that encodes the acceptance criterion. Write NO implementation — not a stub, not ` +
       `a signature. Run the test. Paste its ACTUAL output.\n\n` +
       `The test must fail because the BEHAVIOUR is absent, not because of an import error, a typo, or a missing ` +
@@ -926,7 +1135,7 @@ const buildStages = [
     const green = await agent(
       `Slice "${slice.id}" — make this failing test pass, then refactor.\n\n` +
       `Test: ${red.testPath}\nCommand: ${red.testCommand}\nIt currently fails:\n${red.output}\n\n` +
-      `<plan>\n${JSON.stringify(plan, null, 2)}\n</plan>\n\n${pitfallRule}\n\n` +
+      `<plan>\n${JSON.stringify(plan, null, 2)}\n</plan>\n\n${planClaimsNote}${pitfallRule}\n\n` +
       `Write the MINIMAL code that makes it pass (GREEN), run it, then refactor with the test staying green. Do not ` +
       `touch the test to make it pass. Do not implement anything the criterion did not ask for — out-of-scope work is ` +
       `filed to ${backlogPath}, never absorbed.\n\n` +
@@ -1026,6 +1235,9 @@ const failed = results.filter(r => r.skipped || !r.green || !r.green.passed)
 for (const f of failed) {
   record.blockers.push({ what: `slice ${f.slice.id} did not land`, detail: f.skipped || 'never went green' })
 }
+for (const r of results) {
+  if (testOf(r.slice)) Object.assign(testOf(r.slice), { slice: r.slice.id, result: done.includes(r) ? 'green' : 'not green' })
+}
 note('Build', `${done.length}/${slices.length} slice(s) green`)
 
 const verifiedFindings = done.flatMap(r => r.findings || [])
@@ -1045,7 +1257,7 @@ phase('Document')
 const docs = done.length ? await agent(
   `Document what actually shipped in this run. Docs ship in the SAME PR as the code — never "later".\n\n` +
   `GOAL: ${cfg.goal}\n\nSLICES LANDED:\n${done.map(r => `- ${r.slice.id}: ${r.slice.title} — ${r.green.summary}`).join('\n')}\n\n` +
-  `<plan>\n${JSON.stringify(plan, null, 2)}\n</plan>\n\n${pitfallRule}\n\n` +
+  `<plan>\n${JSON.stringify(plan, null, 2)}\n</plan>\n\n${planClaimsNote}${pitfallRule}\n\n` +
   `Update: user-facing docs / README usage where behaviour changed; an ADR for each load-bearing decision the plan ` +
   `made (including the alternatives it rejected and why); a changelog entry. Match the docs to the SHIPPED behaviour, ` +
   `not to the plan's intent — where they diverged, the code is the truth.\n\n` +
@@ -1115,6 +1327,7 @@ return {
   retro,
   blockers: record.blockers,
   deferred: record.deferred,
+  planClaims,
   // Everything a human (or the next run) needs to pick this up cold.
   reproduction: { goal: cfg.goal, tiers, backlogPath, chronicleDir, tokensSpent: budget.spent() },
 }
