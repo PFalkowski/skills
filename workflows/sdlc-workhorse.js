@@ -539,18 +539,17 @@ const LENSES = [
 // the moment master does.
 const provenMemo = new Map()
 
-const REFUTE_OPENING = `Try to REFUTE this claim. Default to "refuted" if you cannot establish it — an unprovable claim is false.`
-// The fallbacks settle a claim no first check could, so weaker evidence must leave it open, not refute it
-// (the atomic-decomposition skill). The memo holds only default-to-refuted verdicts, a different question.
+// Weaker evidence leaves a claim open rather than refuting it; the caller still holds only a confirmed majority.
 const EVEN_HANDED_OPENING = `Settle this claim either way on the same basis. Answer "refuted" or "confirmed" only on a run ` +
   `with its actual output, a quoted source, or two independent authoritative sources; otherwise answer "unverifiable" ` +
   `and say what would settle it.`
 
-async function proven(claim, whyLoadBearing, phaseName, context, { memoKey = String(claim).trim(), evenHanded = false } = {}) {
-  if (!evenHanded && provenMemo.has(memoKey)) return provenMemo.get(memoKey)
+// The fallbacks pass memo: false: they re-check a claim with evidence its first check did not have.
+async function proven(claim, whyLoadBearing, phaseName, context, { memoKey = String(claim).trim(), memo = true } = {}) {
+  if (memo && provenMemo.has(memoKey)) return provenMemo.get(memoKey)
   const votes = await parallel(LENSES.map((lens, i) => () =>
     agent(
-      `${evenHanded ? EVEN_HANDED_OPENING : REFUTE_OPENING}\n\n` +
+      `${EVEN_HANDED_OPENING}\n\n` +
       `Claim: ${claim}\nWhy it is load-bearing: ${whyLoadBearing}\n` +
       `${context ? `Context:\n${context}\n` : ''}\n` +
       `Your lens for this attempt: ${lens}\n\n` +
@@ -585,7 +584,7 @@ async function proven(claim, whyLoadBearing, phaseName, context, { memoKey = Str
        : valid.map(v => v.evidence).join(' | '),   // all-unverifiable: carry the reason and command onward
     votes: valid,
   }
-  if (!evenHanded && valid.length === votes.length) provenMemo.set(memoKey, verdict)
+  if (memo && valid.length === votes.length) provenMemo.set(memoKey, verdict)
   return verdict
 }
 
@@ -721,7 +720,7 @@ async function decompose(c, planText) {
     checked++
     const v = await proven(atom.text, c.whyLoadBearing, 'Plan review',
       `Atom ${atom.id} of the plan claim: ${c.claim}\n${atom.settle ? `Settle it with: ${atom.settle}\n` : ''}\n${planText.slice(0, 4000)}`,
-      { evenHanded: true })
+      { memo: false })
     verdicts.set(atom.id, verdictWord(v))
     trail.push(`atom ${atom.id} ${verdicts.get(atom.id)}: ${atom.text}`, ...voteLines(v).map(l => `  ${l}`))
     for (const id of lineage(atom.parent)) if (!decidedBy.has(id) && verdictOf(id) !== 'unsettled') decidedBy.set(id, atom.id)
@@ -778,7 +777,7 @@ async function answerRound(unsettled, planText) {
     const v = await proven(checked, c.whyLoadBearing, 'Plan review',
       `The answer round added this evidence for a plan claim no refuter could settle:\n${a.evidence}\n` +
       `${reworded ? `The plan rests on the original wording: ${c.claim}\nRefute this rewording if it claims less.\n` : ''}` +
-      `\n${planText.slice(0, 4000)}`, { evenHanded: true })
+      `\n${planText.slice(0, 4000)}`, { memo: false })
     c.status = verdictWord(v)
     c.trail.push(`answer: ${a.evidence}`, `re-check ${c.status}: ${checked}`, ...voteLines(v).map(l => `  ${l}`))
     if (v.proven) {

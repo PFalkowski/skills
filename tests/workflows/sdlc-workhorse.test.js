@@ -1125,7 +1125,7 @@ console.log('\nan answer that lacks the field its action needs is no answer: the
   }
 }
 
-console.log('\natom checks and the answer re-check are even-handed and fresh; first checks keep the default-to-refuted line:')
+console.log('\natom checks and the answer re-check are even-handed and fresh, like the first check:')
 {
   const DEFAULT_REFUTED = /Default to "refuted"/
   const EVEN = /otherwise answer "unverifiable"/
@@ -1148,8 +1148,8 @@ console.log('\natom checks and the answer re-check are even-handed and fresh; fi
     () => atomRefuters.every(c => EVEN.test(c.prompt) && !DEFAULT_REFUTED.test(c.prompt)))
   await t('...so do the re-check refuters', () => recheck.length === 3 &&
     recheck.every(c => EVEN.test(c.prompt) && !DEFAULT_REFUTED.test(c.prompt)))
-  await t('...while the first check keeps the default-to-refuted line',
-    () => firstChecks.length === 3 && firstChecks.every(c => DEFAULT_REFUTED.test(c.prompt) && !EVEN.test(c.prompt)))
+  await t('...and so do the first-check refuters',
+    () => firstChecks.length === 3 && firstChecks.every(c => EVEN.test(c.prompt) && !DEFAULT_REFUTED.test(c.prompt)))
 
   const proved = 'the pool size is read from config'
   const m = await unsettledAnswered({ claims: [root, proved],
@@ -1159,6 +1159,32 @@ console.log('\natom checks and the answer re-check are even-handed and fresh; fi
       'decompose': () => ({ split: 'all', nodes: [{ id: 'A1', parent: 'root', text: proved, settle: 'node a1.js' }] }) } })
   await t('an atom whose text a first check proved earlier in the run still gets three fresh refuters',
     () => m.calls.filter(c => c.opts.label.startsWith('refute:') && c.prompt.includes(`Claim: ${proved}\n`)).length === 6)
+}
+
+console.log('\nevery first check is even-handed, and a claim nobody can settle is still not held:')
+{
+  const DEFAULT_REFUTED = /Default to "refuted"/
+  const EVEN = /otherwise answer "unverifiable"/
+  const spec = 'the spec claim nobody can run'
+  const sharp = 'the sharpened claim nobody can run'
+  const planned = 'the plan claim nobody can run'
+  const nit = finding({ summary: 'a variable name is vague', severity: 'nit' })
+  const open = [spec, sharp, planned, blockerFinding.summary, nit.summary]
+  const asClaims = claim => () => ({ claims: [{ claim, whyLoadBearing: 'load-bearing', blastRadius: 'total' }] })
+  const r = await runWorkhorse({ args: baseArgs({ maxPlanRounds: 1 }), agentFn: overriding({
+    'claims:spec': asClaims(spec), 'claims:sharpened spec': asClaims(sharp), 'claims:plan': asClaims(planned),
+    'refute:': p => open.some(c => p.includes(`Claim: ${c}\n`)) ? { status: 'unverifiable', evidence: 'no runtime here' } : undefined,
+  }, mkAgent({ reviews: { _single: [blockerFinding, nit] } })) })
+  const refutersOf = c => r.calls.filter(x => x.opts.label.startsWith('refute:') && x.prompt.includes(`Claim: ${c}\n`))
+  const premise = promptFor(r, 'plan:r1').slice(promptFor(r, 'plan:r1').indexOf('VERIFIED PREMISE'), promptFor(r, 'plan:r1').indexOf('<spec>'))
+  await t('the spec, sharpened spec, plan and review-finding refuters carry the even-handed line, not the default-to-refuted one',
+    () => open.every(c => refutersOf(c).length === 3 && refutersOf(c).every(x => EVEN.test(x.prompt) && !DEFAULT_REFUTED.test(x.prompt))))
+  await t('...claims their refuters all answer unverifiable are not held as premise',
+    () => !premise.includes(spec) && !premise.includes(sharp))
+  await t('...the plan claim reaches the decomposer on the approved last round',
+    () => promptFor(r, 'decompose').includes(planned))
+  await t('...the blocker finding blocks the merge as unadjudicated, the nit does not',
+    () => r.mergeReady === false && r.mergeBlockedBy.some(b => /\b1 finding\(s\) unadjudicated/.test(b)))
 }
 
 console.log('\na reworded claim reaches the builders in the wording that was confirmed, naming the claim it replaces:')
