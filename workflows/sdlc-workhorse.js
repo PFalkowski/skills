@@ -719,7 +719,7 @@ async function decompose(c, planText) {
     }
     checked++
     const v = await proven(atom.text, c.whyLoadBearing, 'Plan review',
-      `Atom ${atom.id} of the plan claim: ${c.claim}\nSettle it with: ${atom.settle}\n\n${planText.slice(0, 4000)}`,
+      `Atom ${atom.id} of the plan claim: ${c.claim}\n${atom.settle ? `Settle it with: ${atom.settle}\n` : ''}\n${planText.slice(0, 4000)}`,
       { evenHanded: true })
     verdicts.set(atom.id, verdictWord(v))
     trail.push(`atom ${atom.id} ${verdicts.get(atom.id)}: ${atom.text}`, ...voteLines(v).map(l => `  ${l}`))
@@ -729,7 +729,8 @@ async function decompose(c, planText) {
 }
 
 // The agent that answers a claim never settles it: fresh refuters re-check every answer.
-async function answerRound(open, planText) {
+async function answerRound(unsettled, planText) {
+  const open = unsettled.filter((c, i) => unsettled.findIndex(d => claimKey(d) === claimKey(c)) === i)
   if (!open.length) return
   let answers = []
   let noAnswer = 'the answer round gave no answer for it'
@@ -741,7 +742,8 @@ async function answerRound(open, planText) {
       `independent sources). Reword it in "claim" only if the plan rests on the new wording. Fresh refuters re-check it.\n` +
       `- "withdrawn": the plan does not rest on it; give the reason.\n` +
       `- "settled-by-test": only as the last resort, when nothing short of running the built code settles it; name ` +
-      `the test in "test". The build writes that test first, and the claim blocks the merge until it is green.\n` +
+      `the test in "test". The build writes that test first, and it must fail before the change exists; the claim blocks ` +
+      `the merge until it is green.\n` +
       `Do not redesign the plan and do not edit files. A claim you leave out stays unsettled and blocks the merge.\n\n` +
       `${open.map((c, i) => `C${i + 1} — ${claimEvidence(c)}`).join('\n\n')}\n\n<plan>\n${planText}\n</plan>\n\n` +
       `${FACT_CHECK_RULE}\n\n${READ_ONLY_RULE}`,
@@ -770,15 +772,16 @@ async function answerRound(open, planText) {
       c.status = 'settled-by-test'
       return { claim: c.claim, test: a.test }
     }
-    const checked = a.claim || c.claim
+    const checked = String(a.claim || '').trim() || c.claim
+    const reworded = checked !== c.claim
     const v = await proven(checked, c.whyLoadBearing, 'Plan review',
       `The answer round added this evidence for a plan claim no refuter could settle:\n${a.evidence}\n` +
-      `${a.claim ? `The plan rests on the original wording: ${c.claim}\nRefute this rewording if it claims less.\n` : ''}` +
+      `${reworded ? `The plan rests on the original wording: ${c.claim}\nRefute this rewording if it claims less.\n` : ''}` +
       `\n${planText.slice(0, 4000)}`, { evenHanded: true })
     c.status = verdictWord(v)
     c.trail.push(`answer: ${a.evidence}`, `re-check ${c.status}: ${checked}`, ...voteLines(v).map(l => `  ${l}`))
     if (v.proven) {
-      return { claim: checked, ...(a.claim && { replaces: c.claim }), outcome: 'confirmed after the answer round', evidence: a.evidence }
+      return { claim: checked, ...(reworded && { replaces: c.claim }), outcome: 'confirmed after the answer round', evidence: a.evidence }
     }
   }))
   for (const p of settled.filter(Boolean)) {
@@ -787,6 +790,10 @@ async function answerRound(open, planText) {
       p.outcome = `to be settled by test ${p.id}`
     }
     planClaims.push(p)
+  }
+  for (const c of unsettled) {
+    const answered = open.find(d => claimKey(d) === claimKey(c))
+    Object.assign(c, { status: answered.status, trail: answered.trail })
   }
 }
 
@@ -834,7 +841,7 @@ async function runRetro(sliceCount) {
     `Close this run with a retrospective. Read the chronicles the agents left in ${chronicleDir}/ — they are the field ` +
     `notes of what actually happened, written as it happened.\n\n` +
     `WHAT HAPPENED:\n${record.phases.map(p => `- ${p.phase}: ${p.detail}`).join('\n')}\n\n` +
-    `${record.blockers.length ? `BLOCKERS:\n${record.blockers.map(b => `- ${b.what}: ${b.claim ? b.detail : JSON.stringify(b.detail).slice(0, 300)}`).join('\n')}\n\n` : ''}` +
+    `${record.blockers.length ? `BLOCKERS:\n${record.blockers.map(b => `- ${b.what}: ${JSON.stringify(b.detail).slice(0, b.claim ? undefined : 300)}`).join('\n')}\n\n` : ''}` +
     `${record.unchecked.length ? `GATES THAT DID NOT RUN:\n${record.unchecked.map(u => `- ${u}`).join('\n')}\n\n` : ''}` +
     `${record.deferred.length ? `DEFERRED:\n${record.deferred.map(d => `- ${d.what}: ${JSON.stringify(d.detail).slice(0, 300)}`).join('\n')}\n\n` : ''}` +
     `Turn the lens on the run itself: what slowed it down, what was ambiguous, what broke, what you would want to ` +
@@ -1020,25 +1027,36 @@ for (let round = 1; round <= maxPlanRounds; round++) {
   const fallback = bad.filter(c => c.status || c.unverified)
   // While a claim refuted at its first check sends the plan back, the fallbacks wait: the next design may
   // drop the claims they would settle.
-  if (approvedClean && fallback.length && (round === maxPlanRounds || !refutedFirst.length)) {
+  const fallbackDue = approvedClean && fallback.length && (round === maxPlanRounds || !refutedFirst.length)
+  if (fallbackDue) {
     await parallel(fallback.filter(c => !c.status).map(c => async () => {
       if (!decompositions.has(claimKey(c))) decompositions.set(claimKey(c), decompose(c, planText)
         .catch(e => ({ status: 'unsettled', trail: [`the decomposition did not finish: ${e}`] })))
       adoptDecomposition(c, await decompositions.get(claimKey(c)))
     }))
+  }
+  const confirmedByAtoms = claims.filter(c => c.status === 'confirmed')
+  if (fallbackDue) {
     if (round < maxPlanRounds && fallback.some(c => c.status === 'refuted')) {
       bad = bad.filter(c => c.status !== 'confirmed')
     } else {
       await answerRound(fallback.filter(c => c.status === 'unsettled'), planText)
       const open = fallback.filter(c => !['confirmed', 'withdrawn', 'settled-by-test'].includes(c.status))
       record.blockers.push(...open.map(claimBlocker))
-      say(`${fallback.length - open.length} plan claim(s) settled by their atoms or the answer round; ${open.length} block the merge.`)
+      const counted = status => fallback.filter(c => c.status === status).length
+      say(`Plan claims after the fallbacks: ${counted('confirmed')} confirmed, ${counted('withdrawn')} withdrawn, ` +
+        `${counted('settled-by-test')} marked for a test, ${open.length} left open` +
+        `${open.length ? ', so the run stops at the plan review' : ''}.`)
       bad = refutedFirst
     }
   }
+  if (approvedClean && (!bad.length || round === maxPlanRounds)) {
+    planClaims.unshift(...confirmedByAtoms.map(c =>
+      ({ claim: c.claim, outcome: 'confirmed by its atoms', evidence: c.trail.map(l => l.trim()).join('; ') })))
+  }
   if (approvedClean && !bad.length) break
   if (approvedClean && round === maxPlanRounds) {
-    record.deferred.push({ what: 'plan approved on the last round with claims refuted', detail: bad.map(c => `${c.claim} — ${c.why}`) })
+    record.deferred.push({ what: 'plan approved on the last round with claims refuted', detail: bad.map(claimEvidence) })
     say(`Plan approved with 0 must-fix on the last round; ${bad.length} refuted claim(s) are recorded, not a veto.`)
     break
   }
@@ -1144,7 +1162,7 @@ const buildStages = [
     const red = await agent(
       `Slice "${slice.id}" — ${slice.title}\nACCEPTANCE CRITERION: ${slice.acceptanceCriterion}\n\n` +
       `<plan>\n${JSON.stringify(plan, null, 2)}\n</plan>\n\n${planClaimsNote}${pitfallRule}\n\n` +
-      `${planned ? `Your test is ${planned.test}. Its pass settles the plan claim: ${planned.claim}\n\n` : ''}` +
+      `${planned ? `Your test is ${planned.test}. It must fail before the change exists. Its pass settles the plan claim: ${planned.claim}\n\n` : ''}` +
       `Write EXACTLY ONE failing test that encodes the acceptance criterion. Write NO implementation — not a stub, not ` +
       `a signature. Run the test. Paste its ACTUAL output.\n\n` +
       `The test must fail because the BEHAVIOUR is absent, not because of an import error, a typo, or a missing ` +

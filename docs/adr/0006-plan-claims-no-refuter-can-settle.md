@@ -12,10 +12,10 @@ At the plan gate of `workflows/sdlc-workhorse.js`, three refuters judge each loa
 
 A claim that no refuter can settle goes through four steps, in this order.
 
-1. **Decompose.** The script dispatches a `decompose` agent that builds an atom tree with the `atomic-decomposition` skill, and a separate `split-check` agent that must return "confirmed" before any atom is checked. At most 3 atoms are checked, one after another, in the skill's order. An atom under a branch that an earlier atom already decided is skipped and the trail names the deciding atom. A refuted atom refutes its branch; an unsettled atom is kept and reported, never dropped. A malformed tree, a rejected split, a null reply or a throw leaves the claim unsettled with the reason in its trail. Each claim text is decomposed once per run.
-2. **One answer round.** One `answer` agent, at the plan tier, sees every claim still unsettled and, per claim, answers it with evidence, withdraws it with a reason, or marks it "settled by test X". Answers are re-checked by three fresh refuters that skip the memo of earlier verdicts. A re-check that does not confirm leaves the claim unsettled or refuted. There is exactly one round per run: the branch that runs it always ends the plan loop.
+1. **Decompose.** The script dispatches a `decompose` agent that builds an atom tree with the `atomic-decomposition` skill, and a separate `split-check` agent that must return "confirmed" before any atom is checked. At most 3 atoms are checked, one after another, in the skill's order. An atom under a branch that an earlier atom already decided is skipped and the trail names the deciding atom. A refuted atom refutes its branch; an unsettled atom is kept and reported, never dropped. A malformed tree (a root or parent `split` other than "all" or "any" included), a rejected split, a null reply or a throw leaves the claim unsettled with the reason in its trail. Each claim text is decomposed once per run. Atom refuters get an even-handed opening, as the `atomic-decomposition` skill asks: answer "refuted" or "confirmed" only on a run with its output, a quoted source or two independent sources, otherwise "unverifiable". They skip the memo of earlier verdicts, which holds only default-to-refuted ones.
+2. **One answer round.** One `answer` agent, at the plan tier, sees every claim still unsettled and, per claim, answers it with evidence, withdraws it with a reason, or marks it "settled by test X". A claim text listed twice is answered once. An answer that lacks the field its action needs (evidence, reason or test) is no answer. Answers are re-checked by three fresh refuters with the even-handed opening, skipping the memo. A rewording is checked, and reported to the builders, in its new wording beside the claim it replaces. A re-check that does not confirm leaves the claim unsettled or refuted. There is exactly one round per run: the branch that runs it always ends the plan loop.
 3. **Evidence in the blocker.** Each claim left unsettled or refuted becomes its own blocker, `plan claim <status>: <claim>`, whose detail holds every vote, every atom and the answer. This holds on a reopens-requirements stop and on an unapproved last round too.
-4. **Settled by test, last.** A claim marked "settled by test X" gets an id (T1, T2, ...). The slicer names the slice that writes it, that slice is built first, and its red step names the test. After the build the report shows `green` or `not green`. A planned test no slice carries goes to `mergeBlockedBy`.
+4. **Settled by test, last.** A claim marked "settled by test X" gets an id (T1, T2, ...), in claim order. The answer prompt and the red step both say the test must fail before the change exists. The slicer names the slice that writes it, that slice is built first, and its red step names the test. After the build the report shows `green` or `not green`. A planned test no slice carries goes to `mergeBlockedBy`.
 
 The fallbacks run only on an approved review with no must-fix finding, and either on the last round or when no claim was refuted at its first check. Otherwise the plan is redesigned anyway and the fallbacks would be wasted. On an earlier round, a claim refuted by its atoms sends the plan back with the atom evidence, with no answer round.
 
@@ -25,7 +25,7 @@ Cost bounds: at most 3 atom checks per claim (each with three refuters), plus on
 
 - A cached decomposition result is reused for the same claim text. A cached "refuted" always applies. A cached "confirmed" or "unsettled" applies only when this round's first check was also unverified, so it never overrides a fresh majority.
 - Only a claim that stayed unsettled may be marked "settled by test". A claim refuted with evidence never takes that route.
-- A claim confirmed, withdrawn or marked for a test after the plan review goes to `planClaims` and the builders' note, never to a `VERIFIED PREMISE` block.
+- A claim confirmed by its atoms, confirmed after the answer round, withdrawn or marked for a test goes to `planClaims` and the builders' note, in claim order, never to a `VERIFIED PREMISE` block.
 - A claim refuted at its first check on an approved last round is still deferred, as before. A gate that did not run still blocks `mergeReady`.
 
 ## Alternatives rejected
@@ -41,6 +41,6 @@ Cost bounds: at most 3 atom checks per claim (each with three refuters), plus on
 ## Consequences and residuals
 
 - The decomposer and split checker share a tier and may share a blind spot.
-- Atom checks share the memo and the first-check refuter prompt ("Default to refuted"); a separate fallback prompt asking for "unverifiable" unless a run or sources settle the claim was planned but not built. Two refuted votes without grounds can still refute an atom, but then the claim blocks or goes back, so nothing is built on it.
-- The root node's own `split` is not validated by the script; a missing one is read as "any".
-- The round note still counts refuted and unsettled claims together.
+- First checks at every gate keep the default-to-refuted opening, so a claim nobody can check is refuted there before any fallback sees it. Issue #361 decides whether that changes.
+- The script does not compare the test the red step wrote with the test the claim named.
+- A claim about behaviour that already exists can be marked for a test that passes at once; the prompts forbid it, but nothing checks it (issue #353 covers the RED gate).
