@@ -680,7 +680,9 @@ console.log('\nevery agent is told the lines it must not cross:')
 // ---------------------------------------------------------------------------
 // An agent() without `effort` inherits the LAUNCHING SESSION's effort: from an xhigh session the
 // spec and every refuter ran at xhigh, from a low one the plan review would run at low, and
-// nothing said so. So every dispatch must name both, and a new call site that forgets fails here.
+// nothing said so. So every dispatch must name both. The run below can only vouch for the call sites
+// it reaches, so the call sites are also counted in the source: a new one on a branch this run never
+// takes fails the count until the run is taught to reach it.
 // ---------------------------------------------------------------------------
 console.log('\nevery dispatch names its model and effort — nothing inherits the launching session:')
 {
@@ -700,6 +702,9 @@ console.log('\nevery dispatch names its model and effort — nothing inherits th
   const KINDS = ['baseline', 'spec', 'grill', 'plan', 'plan-review', 'claims', 'quotes', 'refute', 'slice',
     'red', 'red-check', 'green', 'review', 'document', 'retro']
   await t('the run reaches every kind of step', () => KINDS.every(k => r.calls.some(c => kindOf(c) === k)))
+  const callSites = (SRC.match(/\bagent\((?!\))/g) || []).length
+  await t(`...and the script has no agent() call site beyond those kinds (${callSites} call sites, ${KINDS.length} kinds)`,
+    () => callSites === KINDS.length)
   await t('every dispatched agent sets an explicit model and effort', () => {
     const bare = r.calls.filter(c => !c.opts.model || !c.opts.effort).map(c => c.opts.label)
     if (bare.length) console.log('      no model or effort: ' + [...new Set(bare)].join(', '))

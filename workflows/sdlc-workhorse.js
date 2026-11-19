@@ -95,7 +95,6 @@ const fableTier = Object.entries(tiers).find(([, m]) => /fable/i.test(String(m))
 if (fableTier) throw new Error(`sdlc-workhorse: tiers.${fableTier[0]} is '${fableTier[1]}' — subagents never run on fable; use opus or sonnet.`)
 
 // Effort per phase. An agent() without one inherits the launching session's effort, so every call names it.
-// Build steps run at the slice's own effort.
 const EFFORT_NAMES = ['low', 'medium', 'high', 'xhigh', 'max']
 const efforts = Object.assign({
   baseline: 'low',
