@@ -1,4 +1,4 @@
-# ADR-0004: memory-palace keeps the palace and its machine record outside the agent-state root
+# ADR-0005: memory-palace keeps the palace and its machine record outside the agent-state root
 
 - **Status:** Proposed (accepted when the pull request that adds `memory-palace` merges)
 - **Date:** 2026-11-18
