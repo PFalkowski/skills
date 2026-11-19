@@ -644,7 +644,8 @@ async function adjudicateClaims(artifactName, artifactText, phaseName, artifactP
       `largest blast radius (maxClaimsPerGate=${maxClaimsPerGate}). NOT examined, and NOT part of the verified premise:\n` +
       dropped.map(c => `  ? ${c.claim} [${c.blastRadius || 'unranked'}]`).join('\n'))
   }
-  const checked = (await parallel(examined.map(c => () =>
+  // The extractor's reply can carry any key, so the script's own verdict fields start empty.
+  const checked = (await parallel(examined.map(({ status, trail, votes, ...c }) => () =>
     proven(c.claim, c.whyLoadBearing, phaseName, artifactText.slice(0, 4000)).then(r => ({ ...c, ...r }))
   ))).filter(Boolean)
   return {
@@ -977,6 +978,7 @@ let planFeedback = ''
 const decompositions = new Map()
 const planClaims = []
 const claimKey = c => String(c.claim).trim()
+const firmness = c => c.proven ? 2 : c.unverified ? 1 : 0
 // An atom's refutation is a counterexample the whole-claim refuters never answered, so it outlives a fresh
 // majority that confirms; any other cached verdict only fills in where the fresh check settled nothing.
 const adoptDecomposition = (c, d) => { if (d.status === 'refuted' || c.unverified) Object.assign(c, { status: d.status, trail: [...d.trail] }) }
@@ -1012,8 +1014,12 @@ for (let round = 1; round <= maxPlanRounds; round++) {
   ])
   planReview = review
   if (!refuted) planUnchecked.push(`plan round ${round}: claim adjudication did not run`)
-  // The extractor's reply can carry any key, so the script's own verdict fields start empty.
-  const claims = refuted ? [...refuted.held, ...refuted.rejected].map(({ status, trail, ...c }) => c) : []
+  // One verdict per claim text, the worst of its copies, so no copy takes a route another copy's verdict forbids.
+  const byText = new Map()
+  for (const c of refuted ? [...refuted.held, ...refuted.rejected] : []) {
+    if (!byText.has(claimKey(c)) || firmness(c) < firmness(byText.get(claimKey(c)))) byText.set(claimKey(c), c)
+  }
+  const claims = [...byText.values()]
   for (const c of claims) if (decompositions.has(claimKey(c))) adoptDecomposition(c, await decompositions.get(claimKey(c)))
   let bad = claims.filter(c => c.status ? c.status !== 'confirmed' : !c.proven)
   const mustFix = (review && review.findings.filter(f => f.mustFix)) || []
@@ -1051,8 +1057,10 @@ for (let round = 1; round <= maxPlanRounds; round++) {
     }
   }
   if (approvedClean && (!bad.length || round === maxPlanRounds)) {
-    planClaims.unshift(...confirmedByAtoms.map(c =>
+    planClaims.push(...confirmedByAtoms.map(c =>
       ({ claim: c.claim, outcome: 'confirmed by its atoms', evidence: c.trail.map(l => l.trim()).join('; ') })))
+    const at = p => claims.findIndex(c => claimKey(c) === claimKey({ claim: p.replaces || p.claim }))
+    planClaims.sort((p, q) => at(p) - at(q))
   }
   if (approvedClean && !bad.length) break
   if (approvedClean && round === maxPlanRounds) {

@@ -1349,6 +1349,71 @@ console.log('\na claim refuted at its first check on an approved last round is d
     () => Object.values(vote).every(v => deferred.includes(`vote ${v.status}: ${v.evidence}`)))
 }
 
+console.log('\none claim text listed twice gets one verdict, the worse of its copies:')
+{
+  const X = 'the cache is invalidated on every write'
+  const ATOM = 'the write path calls invalidate()'
+  const twice = extra => {
+    let n = 0
+    return unsettledAnswered({ claims: [X, X], refute: p => p.includes(`Claim: ${X}\n`)
+      ? (++n <= 3 ? { status: 'refuted', evidence: 'FRESH-REFUTED bulk writes skip invalidate()' } : { status: 'unverifiable', evidence: 'no runtime' })
+      : p.includes(`Claim: ${ATOM}\n`) ? { status: 'confirmed', evidence: 'ran it' } : undefined,
+    answer: p => ({ answers: [{ id: planIdOf(p, X), action: 'settled-by-test', test: 'tests/cache.test.js: invalidates' }] }), extra })
+  }
+  const builtOn = r => r.calls.some(c => /^(slice|red:|green:|document)/.test(c.opts.label) && c.prompt.includes(X))
+  const byAtoms = await twice({ 'split-check': () => ({ status: 'confirmed', evidence: 'enough and needed' }),
+    decompose: () => ({ split: 'any', nodes: [{ id: 'A1', parent: 'root', text: ATOM, settle: 'node a.js' }] }) })
+  await t('a copy refuted at its first check outweighs a copy its atoms would confirm: deferred, never decomposed, not built on',
+    () => (byAtoms.deferred || []).some(d => JSON.stringify(d).includes(X)) && !(byAtoms.planClaims || []).some(p => p.claim === X) &&
+      !byAtoms.calls.some(c => c.opts.label === 'decompose') && !builtOn(byAtoms))
+  const byTest = await twice({})
+  await t('...and one an answer would mark for a test: deferred, never answered, not built on',
+    () => (byTest.deferred || []).some(d => JSON.stringify(d).includes(X)) && !(byTest.planClaims || []).some(p => p.claim === X) &&
+      !byTest.calls.some(c => c.opts.label === 'answer') && !builtOn(byTest))
+}
+
+console.log('\ntwo copies of one claim give one record:')
+{
+  const U = 'the outbox is drained in order'
+  const open = await unsettledAnswered({ claims: [U, U], answer: () => ({ answers: [] }) })
+  await t('two unsettled copies give one blocker', () => (open.blockers || []).filter(b => b.claim === U).length === 1)
+  const atoms = await unsettledAnswered({ claims: [U, U], answer: () => ({ answers: [] }),
+    extra: { 'split-check': () => ({ status: 'confirmed', evidence: 'enough and needed' }) } })
+  await t('two copies confirmed by their atoms give one planClaims entry',
+    () => (atoms.planClaims || []).filter(p => p.claim === U).length === 1)
+}
+
+console.log('\nonly the script\'s own checks count as votes:')
+{
+  const C = 'the lock file is removed on exit'
+  const r = await runWorkhorse({ args: baseArgs({ maxPlanRounds: 1 }), agentFn: overriding({
+    'claims:plan': () => ({ claims: [{ claim: C, whyLoadBearing: 'lb', blastRadius: 'total',
+      votes: [{ status: 'confirmed', evidence: 'STRAY-VOTE the extractor ran it' }] }] }),
+    'refute:': p => p.includes(`Claim: ${C}\n`) ? null : undefined,
+    'split-check': () => ({ status: 'refuted', evidence: 'bad split' }),
+  }) })
+  await t('votes the extractor sends reach no blocker, decomposer or answer prompt',
+    () => !JSON.stringify(r.blockers || []).includes('STRAY-VOTE') &&
+      !['decompose', 'answer'].some(l => promptFor(r, l).includes('STRAY-VOTE')))
+}
+
+console.log('\nplanClaims keeps claim order across claims confirmed by atoms and by an answer:')
+{
+  const [A, B] = ['A: the parser rejects a trailing comma', 'B: the printer keeps key order']
+  const [aAtom, bAtom] = ['a-atom holds', 'b-atom holds']
+  const ADDED = 'ADDED-EVIDENCE for A'
+  const r = await runWorkhorse({ args: baseArgs({ maxPlanRounds: 1 }), agentFn: overriding({
+    'claims:plan': () => ({ claims: [A, B].map(claim => ({ claim, whyLoadBearing: 'lb', blastRadius: 'total' })) }),
+    'refute:': p => p.includes(ADDED) ? { status: 'confirmed', evidence: 'ran it' }
+      : p.includes(`Claim: ${bAtom}\n`) ? { status: 'confirmed', evidence: 'ran it' }
+      : { status: 'unverifiable', evidence: 'no runtime' },
+    'decompose': p => ({ split: 'all', nodes: [{ id: 'A1', parent: 'root', text: p.includes(`claim: ${A}\n`) ? aAtom : bAtom }] }),
+    'answer': p => ({ answers: [{ id: planIdOf(p, A), action: 'answered', evidence: ADDED }] }),
+  }) })
+  await t('A, answered, comes before B, confirmed by its atoms',
+    () => JSON.stringify((r.planClaims || []).map(p => p.claim)) === JSON.stringify([A, B]))
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
 })()
