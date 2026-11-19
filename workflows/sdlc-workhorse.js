@@ -94,6 +94,26 @@ const tiers = Object.assign({
 const fableTier = Object.entries(tiers).find(([, m]) => /fable/i.test(String(m)))
 if (fableTier) throw new Error(`sdlc-workhorse: tiers.${fableTier[0]} is '${fableTier[1]}' — subagents never run on fable; use opus or sonnet.`)
 
+// Effort per phase. An agent() without one inherits the launching session's effort, so every call names it.
+// Build steps run at the slice's own effort.
+const EFFORT_NAMES = ['low', 'medium', 'high', 'xhigh', 'max']
+const efforts = Object.assign({
+  baseline: 'low',
+  spec: 'high',
+  grill: 'high',
+  plan: 'high',
+  planReview: 'high',
+  slice: 'medium',
+  review: 'high',
+  verify: 'high',      // refuters and the RED check
+  claims: 'medium',
+  quotes: 'low',
+  document: 'medium',
+  retro: 'medium',
+}, cfg.efforts || {})
+const badEffort = Object.entries(efforts).find(([, e]) => !EFFORT_NAMES.includes(e))
+if (badEffort) throw new Error(`sdlc-workhorse: efforts.${badEffort[0]} is '${badEffort[1]}' — use one of ${EFFORT_NAMES.join(', ')}.`)
+
 // ---------------------------------------------------------------------------
 // The premise gates are FLOORED, not defaulted. These four phases are where
 // "what correct means" is established, and every later phase inherits their
@@ -491,7 +511,7 @@ async function proven(claim, whyLoadBearing, phaseName, context, memoKey = Strin
       `Return only your own verdict on this one claim. You are one vote of ${LENSES.length}; do not try to reach a ` +
       `balanced conclusion on your own — attack the claim from your lens and report what you actually found.\n\n` +
       READ_ONLY_RULE,
-      { label: `refute:${i + 1}`, phase: phaseName, model: tiers.verify, schema: REFUTE_SCHEMA }
+      { label: `refute:${i + 1}`, phase: phaseName, model: tiers.verify, effort: efforts.verify, schema: REFUTE_SCHEMA }
     )
   ))
   const valid = votes.filter(Boolean)
@@ -535,7 +555,7 @@ async function adjudicateClaims(artifactName, artifactText, phaseName, artifactP
     `Extract ONLY the load-bearing claims from this ${artifactName} — the facts it leans on, where it collapses if the ` +
     `claim is false. Ignore stylistic assertions and hedged asides.\n\n${source}\n\n` +
     READ_ONLY_RULE,
-    { label: `claims:${artifactName}`, phase: phaseName, model: tiers.verify, schema: CLAIM_LIST }
+    { label: `claims:${artifactName}`, phase: phaseName, model: tiers.verify, effort: efforts.claims, schema: CLAIM_LIST }
   )
   if (!extracted) return { held: [], rejected: [], extracted: 0, notRun: true }
   let claims = extracted.claims || []
@@ -546,7 +566,7 @@ async function adjudicateClaims(artifactName, artifactText, phaseName, artifactP
     const found = quoted.length ? await agent(
       `Check these quotes against the file ${artifactPath}. Return in "missing" every quote that does not appear in the ` +
       `file word for word.\n\n${quoted.map((c, i) => `${i + 1}. ${JSON.stringify(c.quote)}`).join('\n')}\n\n${READ_ONLY_RULE}`,
-      { label: `quotes:${artifactName}`, phase: phaseName, model: tiers.verify, schema: QUOTE_CHECK }
+      { label: `quotes:${artifactName}`, phase: phaseName, model: tiers.verify, effort: efforts.quotes, schema: QUOTE_CHECK }
     ) : { missing: [] }
     const gone = new Set(found ? found.missing : [])
     const kept = claims.filter(c => c.quote && c.quote.trim() && !gone.has(c.quote))
@@ -645,7 +665,7 @@ async function runRetro(sliceCount) {
     `record it as a calibration lesson so the next run's reserve is a number, not a guess.\n\n` +
     `The output is an artifact: a short WRITTEN reflection committed to the repo, not a feeling that it went fine.\n\n` +
     OUTWARD_RULE,
-    { label: 'retro', phase: 'Retrospective', model: tiers.retro, effort: 'medium', schema: RETRO_SCHEMA }
+    { label: 'retro', phase: 'Retrospective', model: tiers.retro, effort: efforts.retro, schema: RETRO_SCHEMA }
   )
 }
 
@@ -664,7 +684,7 @@ const baseline = await agent(
   `3. RUN them, right now, unchanged. Report each command with its ACTUAL output tail and whether it passed.\n` +
   `4. Report any guardrail that is simply missing.\n\n` +
   `Do not fix anything. Do not write code. This phase only observes and reports.\n\n${OUTWARD_RULE}\n${LIBRARY_RULE}\n${CHRONICLE_RULE(chronicle('baseline'))}`,
-  { label: 'baseline', phase: 'Baseline', model: tiers.baseline, effort: 'low', schema: BASELINE_SCHEMA }
+  { label: 'baseline', phase: 'Baseline', model: tiers.baseline, effort: efforts.baseline, schema: BASELINE_SCHEMA }
 )
 if (!baseline) throw new Error('sdlc-workhorse: baseline agent returned nothing — cannot proceed without a known starting state.')
 if (!baseline.green) {
@@ -692,7 +712,7 @@ const spec = await agent(
   `Write the spec for this work. No code, no design — what and why only.\n\nGOAL: ${cfg.goal}\n\n${pitfallRule}\n\n` +
   `Problem, goal, scope, NON-GOALS, and observable success criteria. Save it in the repo and report the path.\n` +
   `Follow the format of the "to-prd" skill (problem, goal, scope, non-goals, success criteria), but save the spec in the repo instead of publishing it to the issue tracker.\n\n${FACT_CHECK_RULE}\n\n${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('spec'))}`,
-  { label: 'spec', phase: 'Spec', model: tiers.spec, schema: SPEC_SCHEMA }
+  { label: 'spec', phase: 'Spec', model: tiers.spec, effort: efforts.spec, schema: SPEC_SCHEMA }
 )
 if (!spec) throw new Error('sdlc-workhorse: spec agent returned nothing.')
 note('Spec', `${spec.scope.length} in scope, ${spec.nonGoals.length} non-goals, ${spec.successCriteria.length} success criteria`)
@@ -725,7 +745,7 @@ for (let round = 1; round <= maxGrillRounds; round++) {
     `Use the "grill-with-docs" skill if available (fallback "grill-me"), and record crystallised decisions as ADRs / ` +
     `CONTEXT.md updates.\n\n${FACT_CHECK_RULE}\n\n${NO_HUMAN_RULE}\n\nRound ${round} of ${maxGrillRounds}.\n\n` +
     `${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('grill'))}`,
-    { label: `grill:r${round}`, phase: 'Grill', model: tiers.grill, schema: GRILL_SCHEMA }
+    { label: `grill:r${round}`, phase: 'Grill', model: tiers.grill, effort: efforts.grill, schema: GRILL_SCHEMA }
   )
   if (!g) break
   grill = g
@@ -773,7 +793,7 @@ for (let round = 1; round <= maxPlanRounds; round++) {
     `Approach; key components and interfaces; data and control flow; failure modes; alternatives considered and WHY ` +
     `rejected; the test strategy. Save the plan in the repo and report the path.\n\n${INVERT_RULE}\n\n${FACT_CHECK_RULE}\n\n` +
     `${BACKLOG_RULE}\n${CHRONICLE_RULE(chronicle('plan'))}`,
-    { label: `plan:r${round}`, phase: 'Plan', model: tiers.plan, schema: PLAN_SCHEMA }
+    { label: `plan:r${round}`, phase: 'Plan', model: tiers.plan, effort: efforts.plan, schema: PLAN_SCHEMA }
   )
   if (!plan) throw new Error('sdlc-workhorse: plan agent returned nothing.')
 
@@ -788,7 +808,7 @@ for (let round = 1; round <= maxPlanRounds; round++) {
       `problem? Mark a finding mustFix only if shipping this plan unchanged would be a defect.\n\n${INVERT_RULE} A failure ` +
       `this plan does not already block is a finding (category "unhandled-failure").\n\n` +
       `Use the "grill-with-docs" skill if available.\n\n${NO_HUMAN_RULE}\n\n${OUTWARD_RULE}\n${CHRONICLE_RULE(chronicle('plan-review'))}`,
-      { label: `plan-review:r${round}`, phase: 'Plan review', model: tiers.planReview, schema: PLAN_REVIEW_SCHEMA }
+      { label: `plan-review:r${round}`, phase: 'Plan review', model: tiers.planReview, effort: efforts.planReview, schema: PLAN_REVIEW_SCHEMA }
     ),
     () => premiseGate('plan', planText, 'Plan review', planUnchecked, plan.planPath || null),
   ])
@@ -856,7 +876,7 @@ const sliced = await agent(
   `<plan>\n${JSON.stringify(plan, null, 2)}\n</plan>\n\nACCEPTANCE CRITERIA:\n${acceptance.map(a => `- ${a}`).join('\n')}\n\n` +
   `Assign each slice the LOWEST effort that can actually do it: low for mechanical, medium default, high only for ` +
   `genuine design risk. Record the slices in ${backlogPath} as the live source of truth.\n\n${OUTWARD_RULE}\n${CHRONICLE_RULE(chronicle('slice'))}`,
-  { label: 'slice', phase: 'Slice', model: tiers.slice, effort: 'medium', schema: SLICES_SCHEMA }
+  { label: 'slice', phase: 'Slice', model: tiers.slice, effort: efforts.slice, schema: SLICES_SCHEMA }
 )
 if (!sliced || !sliced.slices.length) throw new Error('sdlc-workhorse: slicing produced no slices.')
 
@@ -910,7 +930,7 @@ const buildStages = [
       `An unrelated failure is a FALSE RED and must be refuted. In a compiled language a compile error that names ` +
       `only a symbol the criterion introduces, in the new test file only, is a real red; any other compile error is not.\n\n` +
       READ_ONLY_RULE,
-      { label: `red-check:${slice.id}`, phase: 'Build', model: tiers.verify, schema: REFUTE_SCHEMA }
+      { label: `red-check:${slice.id}`, phase: 'Build', model: tiers.verify, effort: efforts.verify, schema: REFUTE_SCHEMA }
     )
     const realRed = red.failedForTheRightReason && redCheck && redCheck.status === 'confirmed'
     if (!realRed) {
@@ -969,7 +989,7 @@ const buildStages = [
       `distil its house rules first, because the same construct that is right in one architecture is a defect in another.\n\n` +
       `${NO_HUMAN_RULE}\n\n${READ_ONLY_RULE}\n\n${CHRONICLE_RULE(chronicle(`review-${slice.id}${concern ? `-${concern}` : ''}`))}`,
       { label: `review:${slice.id}${concern ? `:${concern}` : ''}`, phase: 'Review',
-        model: tiers.review, schema: REVIEW_SCHEMA }
+        model: tiers.review, effort: efforts.review, schema: REVIEW_SCHEMA }
     )
     // THE QUORUM IS THE SCRIPT'S TO CONVENE. A reviewer agent has no Agent/Task tool,
     // so telling one "you are a quorum reviewer" got a single agent role-playing several
@@ -1051,7 +1071,7 @@ const docs = done.length ? await agent(
   `not to the plan's intent — where they diverged, the code is the truth.\n\n` +
   `Then re-run the Phase-1 baseline checks and report whether they are still green:\n` +
   `${baseline.checks.map(c => `- ${c.command}`).join('\n')}\n\n${OUTWARD_RULE}\n${CHRONICLE_RULE(chronicle('document'))}`,
-  { label: 'document', phase: 'Document', model: tiers.document, effort: 'medium', schema: {
+  { label: 'document', phase: 'Document', model: tiers.document, effort: efforts.document, schema: {
     type: 'object',
     required: ['docsChanged', 'baselineStillGreen', 'baselineOutput'],
     properties: {
