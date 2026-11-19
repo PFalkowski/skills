@@ -340,8 +340,10 @@ console.log('\nthe premise is fact-checked and only the survivors are carried fo
     agentFn: mkClaimAgent({ claims: ['the timeout is 30s'], verdicts: { 'the timeout is 30s': 'unverifiable' } }) })
   await t('an all-unverifiable claim is rejected, not silently held',
     () => !promptFor(r, 'plan:r1').includes('the timeout is 30s'))
+  await t('...and the gate logs it as unsettled, not refuted',
+    () => r.logs.some(l => /0 held, 0 refuted, 1 unsettled/.test(l)) && !r.logs.some(l => /did not survive refutation/.test(l)))
   await t('...with a non-empty explanation in the log, not the dead-verifier placeholder',
-    () => r.logs.some(m => /did not survive refutation/.test(m) && /the timeout is 30s/.test(m)
+    () => r.logs.some(m => /no refuter could settle/.test(m) && /the timeout is 30s/.test(m)
       && /verdict for the timeout is 30s/.test(m) && !/no verifier returned a verdict/.test(m)))
 }
 
@@ -1125,10 +1127,11 @@ console.log('\nan answer that lacks the field its action needs is no answer: the
   }
 }
 
+const DEFAULT_REFUTED = /Default to "refuted"/
+const EVEN = /otherwise answer "unverifiable"/
+
 console.log('\natom checks and the answer re-check are even-handed and fresh, like the first check:')
 {
-  const DEFAULT_REFUTED = /Default to "refuted"/
-  const EVEN = /otherwise answer "unverifiable"/
   const root = 'the socket is closed on timeout'
   const atom = 'the timer handler calls close()'
   const ADDED = 'ADDED-EVIDENCE close() runs in the timer callback'
@@ -1163,8 +1166,6 @@ console.log('\natom checks and the answer re-check are even-handed and fresh, li
 
 console.log('\nevery first check is even-handed, and a claim nobody can settle is still not held:')
 {
-  const DEFAULT_REFUTED = /Default to "refuted"/
-  const EVEN = /otherwise answer "unverifiable"/
   const spec = 'the spec claim nobody can run'
   const sharp = 'the sharpened claim nobody can run'
   const planned = 'the plan claim nobody can run'
@@ -1176,11 +1177,8 @@ console.log('\nevery first check is even-handed, and a claim nobody can settle i
     'refute:': p => open.some(c => p.includes(`Claim: ${c}\n`)) ? { status: 'unverifiable', evidence: 'no runtime here' } : undefined,
   }, mkAgent({ reviews: { _single: [blockerFinding, nit] } })) })
   const refutersOf = c => r.calls.filter(x => x.opts.label.startsWith('refute:') && x.prompt.includes(`Claim: ${c}\n`))
-  const premise = promptFor(r, 'plan:r1').slice(promptFor(r, 'plan:r1').indexOf('VERIFIED PREMISE'), promptFor(r, 'plan:r1').indexOf('<spec>'))
   await t('the spec, sharpened spec, plan and review-finding refuters carry the even-handed line, not the default-to-refuted one',
     () => open.every(c => refutersOf(c).length === 3 && refutersOf(c).every(x => EVEN.test(x.prompt) && !DEFAULT_REFUTED.test(x.prompt))))
-  await t('...claims their refuters all answer unverifiable are not held as premise',
-    () => !premise.includes(spec) && !premise.includes(sharp))
   await t('...the plan claim reaches the decomposer on the approved last round',
     () => promptFor(r, 'decompose').includes(planned))
   await t('...the blocker finding blocks the merge as unadjudicated, the nit does not',

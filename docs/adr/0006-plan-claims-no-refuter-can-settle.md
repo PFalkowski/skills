@@ -41,6 +41,6 @@ Cost bounds: at most 3 atom checks per claim (each with three refuters), plus on
 ## Consequences and residuals
 
 - The decomposer and split checker share a tier and may share a blind spot.
-- Since issue #361, every first check uses the same even-handed opening, so a plan claim nobody can check reaches the fallbacks instead of being refuted. Only a confirmed majority is held, so "unprovable = false" is unchanged. A blocker-level review finding nobody can check blocks the merge as unadjudicated.
+- Since issue #361, every first check uses the same even-handed opening, so a plan claim nobody can check reaches the fallbacks instead of being refuted. Only a confirmed majority is held, so "unprovable = false" is unchanged. A blocking review finding (blocker, major or quality-standard) nobody can check blocks the merge as unadjudicated.
 - The script does not compare the test the red step wrote with the test the claim named.
 - A claim about behaviour that already exists can be marked for a test that passes at once; the prompts forbid it, but nothing checks it (issue #353 covers the RED gate).

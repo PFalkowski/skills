@@ -814,11 +814,17 @@ async function premiseGate(artifactName, artifactText, phaseName, unchecked = re
   const { held, rejected, extracted, unexamined, notRun, unquoted } = await adjudicateClaims(artifactName, artifactText, phaseName, artifactPath)
   if (notRun) unchecked.push(`${artifactName}: claim extraction did not run, so its premise was never checked`)
   if (unquoted) unchecked.push(`${artifactName}: ${unquoted} claim(s) had no quote and were not adjudicated`)
-  note(phaseName, `${extracted} load-bearing claim(s): ${held.length} held, ${rejected.length} refuted` +
+  const unsettled = rejected.filter(c => c.unverified)
+  const refutedClaims = rejected.filter(c => !c.unverified)
+  note(phaseName, `${extracted} load-bearing claim(s): ${held.length} held, ${refutedClaims.length} refuted, ${unsettled.length} unsettled` +
     (unexamined ? `, ${unexamined} unexamined (over maxClaimsPerGate)` : ''))
-  if (rejected.length) {
-    say(`${rejected.length} claim(s) in the ${artifactName} did not survive refutation and are NOT part of the premise:\n` +
-      rejected.map(c => `  ✗ ${c.claim} — ${c.why}`).join('\n'))
+  if (refutedClaims.length) {
+    say(`${refutedClaims.length} claim(s) in the ${artifactName} did not survive refutation and are NOT part of the premise:\n` +
+      refutedClaims.map(c => `  ✗ ${c.claim} — ${c.why}`).join('\n'))
+  }
+  if (unsettled.length) {
+    say(`${unsettled.length} claim(s) in the ${artifactName} no refuter could settle; they are NOT part of the premise:\n` +
+      unsettled.map(c => `  ? ${c.claim} — ${c.why}`).join('\n'))
   }
   return { held, rejected }
 }
