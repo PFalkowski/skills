@@ -31,6 +31,7 @@ Workflow({
     reviewConcerns: ['correctness', 'documentation'],   // quorum only; the script appends 'quality-standard'
     libraryIndex: null,                    // '.nights-watch/library/INDEX.md' if the repo keeps one
     tiers: { document: 'sonnet' },         // per-phase model; fable throws; spec, grill, plan and plan review never drop below opus
+    efforts: { review: 'xhigh' },          // per-phase effort over the defaults below; an unknown effort value throws
   },
 })
 ```
@@ -60,6 +61,7 @@ as `script` instead ([WATCH.md § Dispatch](../../nights-watch/WATCH.md)).
 | No code before a real red test | A second agent confirms the RED failed on the asserted behaviour; a false red stops the slice. |
 | Unprovable = false | Load-bearing claims at each premise gate face three refuters; only survivors reach the next phase as `VERIFIED PREMISE`. |
 | The premise is floored | Spec, grill, plan and plan review run at opus or above whatever `tiers` says, and the clamp is logged. |
+| Effort is the script's, never the launching session's | Every agent names its effort, because one that does not inherits the session's. Defaults: `high` for spec, grill, plan, plan review, code review, refuters and the RED check; `medium` for slicing, claim extraction, docs and the retro; `low` for the baseline and the quote check; RED and GREEN at the slice's own effort. `efforts` overrides any of `baseline`, `spec`, `grill`, `plan`, `planReview`, `slice`, `review`, `verify` (refuters and the RED check), `claims`, `quotes`, `document`, `retro`. Efforts are not floored: unlike `tiers`, a caller can lower any phase, and nothing logs it. A test runs every `agent()` call site and fails any dispatch without an explicit model and effort. |
 | A reviewer "approved" with a refuted claim is still a block | The static-export run's round 4 verdict was approved yet the run reported the plan unapproved, because one claim stayed refuted. Fold or fix the refuted claim before the last round, or the run stops with nothing built. (On an approved last round a claim refuted at its first check is deferred; a claim no refuter could settle blocks `mergeReady` unless the fallbacks below settle it.) |
 | A plan claim no refuter can settle is never lost | A claim with no majority either way is split into at most 3 checked atoms (per [atomic-decomposition](../../atomic-decomposition/SKILL.md); a refuted atom refutes its branch, an unsettled atom is kept). Whatever stays unsettled then gets exactly one answer round: the planner answers it with evidence, withdraws it, or marks it "settled by test X" as the last resort. Answers are re-checked by three fresh refuters, never trusted. A claim that is still unsettled or refuted is a blocker of its own, with every verifier's finding. A claim marked settled by test X reaches the build as the first test its slice runs. Only a claim that stayed unsettled may take that route. |
 | Deferred controls need a hook | When a control goes to the owner (approval check, variable group), the plan must create the hook the owner will attach it to (an `environment`, a named variable). |

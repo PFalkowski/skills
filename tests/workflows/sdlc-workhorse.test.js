@@ -680,6 +680,50 @@ console.log('\nevery agent is told the lines it must not cross:')
     r.calls.filter(c => READERS.test(c.opts.label)).every(c => /read-only/i.test(c.prompt) && /git stash/.test(c.prompt)))
 }
 
+// ---------------------------------------------------------------------------
+// An agent() without `effort` inherits the LAUNCHING SESSION's effort: from an xhigh session the
+// spec and every refuter ran at xhigh, from a low one the plan review would run at low, and
+// nothing said so. So every dispatch must name both. The run below can only vouch for the call sites
+// it reaches, so the call sites are also counted in the source: a new one on a branch this run never
+// takes fails the count until the run is taught to reach it.
+// ---------------------------------------------------------------------------
+console.log('\nevery dispatch names its model and effort — nothing inherits the launching session:')
+{
+  const everyKind = (args) => runWorkhorse({ args, agentFn: overriding({
+    'plan:': () => ({ approach: 'a', components: ['c'], failureModes: [{ failure: 'f', blockedBy: 'b' }],
+      alternativesRejected: [{ alternative: 'x', whyRejected: 'y' }], testStrategy: 't', planPath: 'docs/plan.md' }),
+    'claims:': () => ({ claims: [{ claim: 'c', quote: 'q', whyLoadBearing: 'w', blastRadius: 'total' }] }),
+    'quotes:': () => ({ missing: [] }),
+  }, mkAgent({ reviews: { _single: [finding()] } })) })
+  const kindOf = c => c.opts.label.split(':')[0]
+  const effortsByKind = r => {
+    const m = {}
+    for (const c of r.calls) (m[kindOf(c)] ||= new Set()).add(c.opts.effort)
+    return Object.fromEntries(Object.entries(m).sort().map(([k, s]) => [k, [...s].join('|')]))
+  }
+  const r = await everyKind(baseArgs())
+  const KINDS = ['baseline', 'spec', 'grill', 'plan', 'plan-review', 'claims', 'quotes', 'refute', 'slice',
+    'red', 'red-check', 'green', 'review', 'document', 'retro']
+  await t('the run reaches every kind of step', () => KINDS.every(k => r.calls.some(c => kindOf(c) === k)))
+  const callSites = (SRC.match(/\bagent\((?!\))/g) || []).length
+  await t(`...and the script has no agent() call site beyond those kinds (${callSites} call sites, ${KINDS.length} kinds)`,
+    () => callSites === KINDS.length)
+  await t('every dispatched agent sets an explicit model and effort', () => {
+    const bare = r.calls.filter(c => !c.opts.model || !c.opts.effort).map(c => c.opts.label)
+    if (bare.length) console.log('      no model or effort: ' + [...new Set(bare)].join(', '))
+    return !bare.length
+  })
+  await t('defaults: planning, review and verification high; claims medium; quotes low; build at the slice effort',
+    () => JSON.stringify(effortsByKind(r)) === JSON.stringify(Object.fromEntries(Object.entries({
+      baseline: 'low', spec: 'high', claims: 'medium', quotes: 'low', refute: 'high', grill: 'high', plan: 'high',
+      'plan-review': 'high', slice: 'medium', red: 'low', 'red-check': 'high', green: 'low', review: 'high',
+      document: 'medium', retro: 'medium' }).sort())))
+  const o = effortsByKind(await everyKind(baseArgs({ efforts: { review: 'max', verify: 'xhigh', quotes: 'medium' } })))
+  await t('cfg.efforts overrides a phase and leaves the rest at their defaults',
+    () => o.review === 'max' && o.refute === 'xhigh' && o['red-check'] === 'xhigh' && o.quotes === 'medium' && o.spec === 'high')
+  await t('an unknown effort name throws', () => rejects(baseArgs({ efforts: { plan: 'extreme' } }), /efforts\.plan is 'extreme'/))
+}
+
 console.log('\nthis repo is public — no bare issue numbers from elsewhere:')
 await t('the script holds no bare #<number> reference', () => !/(^|[^\w/])#\d+/m.test(SRC))
 
