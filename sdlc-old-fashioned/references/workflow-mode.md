@@ -6,7 +6,10 @@ skill's; this file holds only what is particular to running them as [`workflows/
 ## When
 
 The conductor dispatches that script and **never authors its own**. It is autonomous by construction (Dial 1 is
-autonomous in this mode) and ends at a merge-ready report. Confirm first that this session has a `Workflow` tool; if it does not, say so and run
+autonomous in this mode) and ends at a merge-ready report. Dial 2 picks this mode when it weighs a wrong plan as costly (no revert can
+fix it, wide scope, large size), or when the human names the script, because it is the costliest mode: every load-bearing claim and every review finding faces three
+refuters. One 11-slice run that added about 1,700 lines used about 13 million subagent tokens (47% design phases, 30%
+refuting per-slice review findings, 16% building); budget about 1.2 million per slice. Confirm first that this session has a `Workflow` tool; if it does not, say so and run
 the lifecycle as fresh process per phase instead.
 
 ## Dispatch
