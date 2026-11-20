@@ -19,10 +19,10 @@ node <skill-dir>/scripts/palace.js setup --palace ~/memory-palace <<'EOF'
 EOF
 ```
 
-- `backend`: `"folder"` or `"sqlite"`.
+- `backend`: optional; `"folder"` is the only backend. `"sqlite"` is a usage error (exit 2).
 - `passphrase`: `null` for an unprotected palace, `{"env": "<variable name>"}`, or `{"file": "<key file path>"}`. The variable or file must already hold a non-empty passphrase. One trailing newline in a key file is ignored.
 - `kinds`: a list of strings. `moments`: a list drawn from `on-request`, `after-decision`, `end-of-task`.
-- Optional: `"remote": "<url>"` (folder backend only) and `"private": true` when the user confirmed the remote is private.
+- Optional: `"remote": "<url>"` and `"private": true` when the user confirmed the remote is private.
 - With a remote, this machine records its URL in `$XDG_CONFIG_HOME/memory-palace/config.json` (or `~/.config/memory-palace/config.json`) as the palace's `origin`. Git is given that URL on the command line for every fetch and push; the palace's `.git/config` names no remote.
 - Result: `{palace, default}`, and `warning` when the push did not happen (an unconfirmed remote, or a push that failed) or a protected palace sits in a git repository that does not ignore it. The new palace becomes this machine's default.
 - A remote that cannot be reached, or is not empty, refuses the setup, and nothing is written.
@@ -67,7 +67,6 @@ EOF
 
 - `save` reports `synced: true` only after a push succeeded; an offline palace, or one with no recorded remote, reports `false`. `status` reports `remote` as the recorded URL, or `null`. `save`, `forget` and `check` add `warning` when the push did not happen. Reads add `warning` when the fetch failed or the remote holds foreign files; the answer then comes from the local copy.
 - `forget` on a palace with a remote adds `note`: git history still holds earlier versions.
-- `unlock` on a SQLite palace returns `{removed: null, note}`.
 - `recall`, `browse` and `list` do not clean up the pages of a write that was killed or is still running; the next `save`, `forget`, `check`, `sync` or `remote` does.
 - On SIGINT or SIGTERM while it holds the lock, a command finishes and exits with its own code. A second signal ends it at once, which leaves the lock like any kill. A command still waiting for the lock ends at the first signal.
 

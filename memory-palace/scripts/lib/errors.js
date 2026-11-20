@@ -1,6 +1,7 @@
 'use strict';
 
 class PalaceError extends Error {}
+class UsageError extends PalaceError {}
 
 function parseJson(text, what) {
   try {
@@ -15,4 +16,4 @@ function describe(err) {
   return ['internal error:', err?.name, err?.code, err?.syscall, err?.path].filter(Boolean).join(' ');
 }
 
-module.exports = { PalaceError, parseJson, describe };
+module.exports = { PalaceError, UsageError, parseJson, describe };

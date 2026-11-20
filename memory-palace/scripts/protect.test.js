@@ -443,18 +443,6 @@ test('B2 folder offline', async (t) => {
   for (const needle of live) assert.ok(scan([dir], [needle]).length > 0, `scan missed ${needle}`);
 });
 
-test('B1 sqlite offline', async (t) => {
-  const { env, dir } = sandbox(t);
-  const { all } = await fillPalace(env, dir, { ...PROTECTED, backend: 'sqlite' });
-  assert.deepStrictEqual(scan([dir, env.HOME, env.TMPDIR], [...all, PASS]), []);
-});
-
-test('B2 sqlite offline', async (t) => {
-  const { env, dir } = sandbox(t);
-  const { live } = await fillPalace(env, dir, { ...SETTINGS, backend: 'sqlite' });
-  for (const needle of live) assert.ok(scan([dir], [needle]).length > 0, `scan missed ${needle}`);
-});
-
 const KILL_CAP = 20;
 
 async function killedSaves(env, dir, backend, onKill) {
@@ -473,7 +461,7 @@ async function killedSaves(env, dir, backend, onKill) {
 }
 
 test('B1 at a kill point, both backends', async (t) => {
-  for (const backend of ['folder', 'sqlite']) {
+  for (const backend of ['folder']) {
     await t.test(backend, async (t) => {
       const { env, dir } = sandbox(t);
       ok(await cli(env, ['setup', '--palace', dir], { ...PROTECTED, backend }));
@@ -491,7 +479,7 @@ test('B1 at a kill point, both backends', async (t) => {
 });
 
 test('B1 at a kill point: the scan finds markers when protection is off', async (t) => {
-  for (const backend of ['folder', 'sqlite']) {
+  for (const backend of ['folder']) {
     await t.test(backend, async (t) => {
       const { env, dir } = sandbox(t);
       ok(await cli(env, ['setup', '--palace', dir], { ...SETTINGS, backend }));

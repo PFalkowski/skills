@@ -42,11 +42,10 @@ Never set up a palace unasked, under any autonomy setting.
 Ask, and record the answers through `setup` (shapes in [REFERENCE.md](REFERENCE.md)):
 
 1. **Where:** a folder that is absent or empty, whose parent folder exists. A palace with a git remote must not be in a folder that a file-sync service (such as Dropbox or OneDrive) copies to other machines.
-2. **Backend:** `folder` (default; can sync through git) or `sqlite` (one database file; needs a Node with `node:sqlite`; cannot have a remote).
-3. **Protection:** encrypted or not. If encrypted, where the passphrase comes from: the name of an environment variable, or the path of a key file outside the palace. The user sets the value; never ask for it in chat. Tell the user to `chmod 600` a key file, and tell them what protection covers (below).
-4. **Remote:** none, or a git repository URL (folder backend only).
-5. **Kinds:** which kinds of things to remember, such as `decision` or `preference`.
-6. **Moments:** when to save: `on-request`, `after-decision`, `end-of-task`.
+2. **Protection:** encrypted or not. If encrypted, where the passphrase comes from: the name of an environment variable, or the path of a key file outside the palace. The user sets the value; never ask for it in chat. Tell the user to `chmod 600` a key file, and tell them what protection covers (below).
+3. **Remote:** none, or a git repository URL.
+4. **Kinds:** which kinds of things to remember, such as `decision` or `preference`.
+5. **Moments:** when to save: `on-request`, `after-decision`, `end-of-task`.
 
 Kinds and moments are stored in clear, so they name categories, never secrets. A palace that already exists elsewhere (on a remote or in a folder this machine does not know) is opened with `join`, not `setup`.
 
@@ -86,8 +85,7 @@ Match the error's opening words below. On any error this list does not name, sto
 
 **The lock**
 
-- **"busy: <palace>/lock is held by memory-palace ..."** (folder palace): run `unlock` yourself only when you know no other session uses this palace and the named command is dead: it was stopped or killed, not timed out or backgrounded. Otherwise, and always for **"... holds no readable record"**, show the message, and run `unlock` only after the user confirms that no memory-palace command is running on any machine that uses this palace. Then retry. An `unlock` while a command still runs can corrupt the palace and lose memories.
-- **"busy: another memory-palace command is using ... palace.db"** (SQLite palace): retry later. `unlock` does nothing there.
+- **"busy: <palace>/lock is held by memory-palace ..."**: run `unlock` yourself only when you know no other session uses this palace and the named command is dead: it was stopped or killed, not timed out or backgrounded. Otherwise, and always for **"... holds no readable record"**, show the message, and run `unlock` only after the user confirms that no memory-palace command is running on any machine that uses this palace. Then retry. An `unlock` while a command still runs can corrupt the palace and lose memories.
 - **"the lock was removed while this command ran"**: nothing more was changed. Tell the user, run `check`, then retry. A `warning` that the lock was removed while the command held it means the result stands; run `check`.
 
 **The passphrase and the settings**
@@ -99,7 +97,7 @@ Match the error's opening words below. On any error this list does not name, sto
 
 **Damage**
 
-- **"... is damaged or altered"**, **"page id ... is not valid"**, **"page ... is not a regular file"**, **"integrity check failed"**, **"... is not valid JSON"**, or `node:sqlite` missing: stop and show the error.
+- **"... is damaged or altered"**, **"page id ... is not valid"**, **"page ... is not a regular file"**, **"integrity check failed"**, or **"... is not valid JSON"**: stop and show the error.
 - **After a power loss or an operating-system crash**: run `check` before anything else, and tell the user if it fails. The palace is built to survive a killed command, not a power loss.
 
 **Git and the remote**
@@ -117,7 +115,8 @@ Match the error's opening words below. On any error this list does not name, sto
 **Folders**
 
 - **"no palace at <dir>"** (`status` can print it when the default palace's folder moved): ask the user where the palace is now, then `join --palace <its folder>` with its passphrase source, or `null`, and the palace's remote URL as `remote` (`null` if it has none; leave it out if the folder has no `.git`). Never set up a new palace in its place.
-- **A refused setup** (folder not empty, a URL with a secret, a remote that cannot be reached or is not empty, a SQLite palace with a remote, invalid kinds or moments, or an unprotected palace without a remote inside a git repository that does not ignore it): show the message and ask the user to choose again.
+- **A refused setup** (folder not empty, a URL with a secret, a remote that cannot be reached or is not empty, invalid kinds or moments, or an unprotected palace without a remote inside a git repository that does not ignore it): show the message and ask the user to choose again.
+- **"<dir> is a SQLite palace, which this version no longer reads"**: show the message and offer to move the memories with the user. Say first that each memory passes through the conversation, and that the new palace records the time of the move, not the original time. Set up a new palace (one confirmation), move the memories one at a time with the v1 scripts the message names, and never delete `palace.db`.
 - **A leftover `.<name>.setup-<hex>` folder** beside the palace is a killed `setup` or `join`. It is safe to delete, and after a killed `join` it can hold a full copy of the palace, in clear for an unprotected one, so tell the user to delete it.
 
 ## What protection covers

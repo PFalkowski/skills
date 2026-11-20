@@ -1,10 +1,8 @@
 'use strict';
 
 const fs = require('node:fs');
-const { PalaceError, parseJson, describe } = require('./lib/errors.js');
+const { PalaceError, UsageError, parseJson, describe } = require('./lib/errors.js');
 const palace = require('./lib/palace.js');
-
-class UsageError extends PalaceError {}
 
 const USAGE = 'usage: palace.js <status|setup|join|save|recall|browse|list|forget|sync|remote|check|unlock> [--palace <dir>]; places, titles, summaries and texts go on standard input as one JSON object';
 const SECRET_OPTION = /^--(passphrase|password)(=|$)/;

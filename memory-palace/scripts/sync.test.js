@@ -301,25 +301,6 @@ test('E6: a changed URL needs confirmation', async (t) => {
   assert.strictEqual(mainOf(box.env, moved), headOf(box.env, dir));
 });
 
-test('E7: SQLite with a remote', async (t) => {
-  const box = sandbox(t);
-  const remote = box.bare('remote.git');
-  const target = box.at('sqlite');
-  const refused = failed(await cli(box.env, ['setup', '--palace', target], { ...SETTINGS, backend: 'sqlite', remote, private: true }), 'setup');
-  assert.match(refused, /folder backend/);
-  assert.ok(!fs.existsSync(target), `${target} exists`);
-  noTempSibling(box.root);
-  assert.ok(!fs.existsSync(machineFile(box.env)), 'a machine record was written');
-
-  const dir = box.at('offline-sqlite');
-  setup(dir, { ...SETTINGS, backend: 'sqlite' }, { env: box.env });
-  const before = hashes(dir);
-  assert.match(failed(await cli(box.env, ['remote', '--palace', dir], { url: remote, private: true }), 'remote'), /folder backend/);
-  assert.deepStrictEqual(hashes(dir), before);
-  assert.ok(!fs.existsSync(path.join(dir, '.git')), 'remote made a repository');
-  assert.strictEqual(refs(box.env, remote), '');
-});
-
 test('J3: settings hold no machine path', async (t) => {
   const box = sandbox(t);
   const b = box.home('b');
@@ -940,12 +921,6 @@ test('B1 with a remote', (t) => {
 
 test('B2 with a remote', (t) => {
   assert.deepStrictEqual(cell(sandbox(t), 'folder', false), []);
-});
-
-test('B: the full matrix', (t) => {
-  const box = sandbox(t);
-  const problems = ['folder', 'sqlite'].flatMap((backend) => [true, false].flatMap((protection) => cell(box, backend, protection)));
-  assert.deepStrictEqual(problems, []);
 });
 
 async function plantedGit(t, config) {

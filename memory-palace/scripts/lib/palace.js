@@ -3,10 +3,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { PalaceError, parseJson } = require('./errors.js');
+const { PalaceError, UsageError, parseJson } = require('./errors.js');
 const { LIMITS, CONTROL, parsePlace, showPlace, rangeOf, childPrefix, checkLimits } = require('./place.js');
 const { createTree } = require('./tree.js');
-const { folderStore, sqliteStore, requireSqlite, pageId, checkId } = require('./stores.js');
+const { folderStore, pageId, checkId } = require('./stores.js');
 const lock = require('./lock.js');
 const seal = require('./seal.js');
 const git = require('./git.js');
@@ -24,7 +24,6 @@ const SHORT_GIT_MS = 20000;
 const LONG_GIT_MS = 120000;
 const META = 'meta';
 const DEFAULT_N = 2 ** 17;
-const STORES = { folder: folderStore, sqlite: sqliteStore };
 
 const randomHex = (bytes) => crypto.randomBytes(bytes).toString('hex');
 
@@ -132,10 +131,15 @@ function locate(ctx) {
   return path.resolve(dir);
 }
 
+const sqliteRefusal = (dir) =>
+  `${dir} is a SQLite palace, which this version no longer reads. Its memories are safe in ${path.join(dir, 'palace.db')}; nothing was changed. To move them to a folder palace: get the v1 scripts (git clone https://github.com/PFalkowski/skills skills-v1 and git -C skills-v1 checkout f7a6691), run node skills-v1/memory-palace/scripts/palace.js browse --palace ${dir} and recall each place with a Node version that has the built-in SQLite module, and save each memory into a new palace with this version. Keep palace.db until the new palace holds everything.`;
+
 function readSettings(dir) {
   const file = path.join(dir, 'palace.json');
   if (!fs.existsSync(file)) throw new PalaceError(`no palace at ${dir}: ${file} is missing`);
-  return parseSettings(fs.readFileSync(file, 'utf8'), file);
+  const text = fs.readFileSync(file, 'utf8');
+  if (parseJson(text, file).backend === 'sqlite') throw new PalaceError(sqliteRefusal(dir));
+  return parseSettings(text, file);
 }
 
 const isIntIn = (n, least, most) => Number.isInteger(n) && n >= least && n <= most;
@@ -156,8 +160,8 @@ function parseSettings(text, file) {
     const shown = isIntIn(settings.format, 0, 999) ? `format ${settings.format}` : 'an unknown format';
     throw new PalaceError(`${file} has ${shown}; this version reads format ${FORMAT} only. Nothing was changed.`);
   }
-  if (!Object.hasOwn(STORES, settings.backend)) {
-    throw new PalaceError(`${file} has an unknown backend; this version reads "folder" and "sqlite" only. Nothing was changed.`);
+  if (settings.backend !== 'folder') {
+    throw new PalaceError(`${file} has an unknown backend; this version reads "folder" only. Nothing was changed.`);
   }
   if (!isIntIn(settings.tree?.m, 3, TREE_MOST) || !isIntIn(settings.tree?.L, 1, TREE_MOST)) {
     throw new PalaceError(`${file} has tree sizes outside m 3 to ${TREE_MOST} and L 1 to ${TREE_MOST}. Nothing was changed.`);
@@ -194,7 +198,7 @@ function status(ctx) {
   if (!dir) return { palace: null };
   const settings = readSettings(dir);
   const { backend, kinds, moments, privateRemote } = settings;
-  const online = backend === 'folder' && git.online(ctx.env, dir);
+  const online = git.online(ctx.env, dir);
   const remote = online ? recordedOrigin(machine.palaces[fs.realpathSync(dir)]) : null;
   return { palace: dir, backend, protected: settings.protected, online, remote, privateRemote, kinds, moments };
 }
@@ -204,10 +208,7 @@ function checkSource(source) {
   if (!valid) throw new PalaceError('passphrase must be null, {"env": "<variable name>"} or {"file": "<key file path>"}. Nothing was written.');
 }
 
-function checkUrl(url, backend) {
-  if (backend === 'sqlite') {
-    throw new PalaceError('a SQLite palace cannot have a git remote: git would keep a full copy of the database for every save. Use the folder backend for a palace with a remote. Nothing was written.');
-  }
+function checkUrl(url) {
   if (typeof url !== 'string' || url === '') throw new PalaceError('the remote URL must be a non-empty string. Nothing was written.');
   if (!plainUrl(url)) throw new PalaceError(`the remote URL must be at most ${MOST_URL} characters with no control characters. Nothing was written.`);
   if (git.carriesSecret(url)) throw new PalaceError(git.SECRET_URL);
@@ -215,7 +216,7 @@ function checkUrl(url, backend) {
 
 function recordedOrigin(entry) {
   const origin = entry?.origin ?? null;
-  if (origin !== null) checkUrl(origin, 'folder');
+  if (origin !== null) checkUrl(origin);
   return origin;
 }
 
@@ -246,9 +247,9 @@ function checkSetup(dir, real, options, ctx) {
   checkSource(options.passphrase);
   if (options.passphrase?.file !== undefined) keyFileOutside(options.passphrase.file, real);
   checkEmpty(dir);
-  if (!Object.hasOwn(STORES, options.backend)) throw new PalaceError('backend must be "folder" or "sqlite". Nothing was written.');
-  if (options.remote !== undefined) checkUrl(options.remote, options.backend);
-  if (options.backend === 'sqlite') requireSqlite();
+  if (options.backend === 'sqlite') throw new UsageError('v2 has only the folder backend. Nothing was written.');
+  if (![undefined, 'folder'].includes(options.backend)) throw new PalaceError('backend must be "folder" or left out. Nothing was written.');
+  if (options.remote !== undefined) checkUrl(options.remote);
   const bad = badLists(options);
   if (bad) throw new PalaceError(`${bad}. Nothing was written.`);
   const protection = options.passphrase === null ? null : protect(options, ctx.env, real);
@@ -301,11 +302,11 @@ function setup(target, options, ctx) {
   const palace = buildBeside(dir, (temp) => {
     fs.mkdirSync(temp);
     writeSettings(temp, withCheck({
-      format: FORMAT, backend: options.backend, protected: Boolean(protection), kdf: protection?.kdf ?? null, check: null,
+      format: FORMAT, backend: 'folder', protected: Boolean(protection), kdf: protection?.kdf ?? null, check: null,
       tree: TREE, kinds: options.kinds, moments: options.moments, privateRemote: options.private === true ? options.remote : null,
     }, protection?.keys));
     fs.writeFileSync(path.join(temp, '.gitignore'), GITIGNORE);
-    const store = STORES[options.backend](temp);
+    const store = folderStore(temp);
     store.lock({ write: true, waitMs: LOCK_WAIT_MS, command: 'setup' });
     try {
       const seed = randomHex(16);
@@ -340,7 +341,7 @@ function checkJoined(dir, palace, passphrase, ctx, joinRemote) {
   if (!settings.protected && passphrase !== null) {
     throw new PalaceError(`settings mismatch: a passphrase was given, but the palace.json of ${palace} says it is not protected. Its settings may have been altered. Nothing was written.`);
   }
-  const online = settings.backend === 'folder' && git.online(ctx.env, dir, joinRemote);
+  const online = git.online(ctx.env, dir, joinRemote);
   if (online) {
     const foreign = git.foreignPaths(ctx.env, dir, 'HEAD');
     if (foreign.length > 0) throw git.foreignError(foreign, 'Nothing was written. Remove them from the remote and from this folder, then join again.');
@@ -362,11 +363,11 @@ function join(target, options, ctx) {
       throw new PalaceError(`${dir} has its own git repository. Pass this palace's remote URL to join as "remote", or null if it has none. Nothing was written.`);
     } else if (origin !== null && !git.hasRepo(dir)) {
       throw new PalaceError(`${dir} has no git repository, so join cannot attach a remote. Join without "remote", then run the remote command. Nothing was written.`);
-    } else if (origin !== null) checkUrl(origin, 'folder');
+    } else if (origin !== null) checkUrl(origin);
     const online = checkJoined(dir, palace, options.passphrase, ctx, known ? null : origin);
     if (online && !known) git.unlink(ctx.env, dir);
   } else {
-    checkUrl(options.remote, 'folder');
+    checkUrl(options.remote);
     const real = realTarget(dir);
     checkEmpty(dir);
     palace = buildBeside(dir, (temp) => {
@@ -381,7 +382,7 @@ function join(target, options, ctx) {
 
 function unlock(ctx) {
   const dir = locate(ctx);
-  if (readSettings(dir).backend === 'sqlite') return { removed: null, note: 'a SQLite palace has no lock file: its lock ends with the command that holds it, even when that process is killed.' };
+  readSettings(dir);
   return { removed: lock.remove(dir) };
 }
 
@@ -462,14 +463,14 @@ function open(ctx) {
   }
 
   function operate(command, work, { pulls = true } = {}) {
-    const raw = STORES[settings.backend](dir);
+    const raw = folderStore(dir);
     const store = ctx.wrapStore ? ctx.wrapStore(raw) : raw;
     const write = WRITES.has(command);
     store.lock({ write, waitMs: ctx.lockWaitMs ?? LOCK_WAIT_MS, command });
     let result;
     const warnings = [];
     try {
-      const online = settings.backend === 'folder' && git.online(env, dir) ? dir : null;
+      const online = git.online(env, dir) ? dir : null;
       if (online) git.clearStaleLocks(online);
       store.checkLock();
       store.repair((bytes) => codec.decode(META, bytes), () => online && git.commit(env, online), () => online && git.refuseForeignHead(env, online));
@@ -557,7 +558,7 @@ function open(ctx) {
       });
     },
     setRemote(input) {
-      checkUrl(input.url, settings.backend);
+      checkUrl(input.url);
       return operate('remote', ({ store, online: existing }) => {
         git.checkRemote(env, existing, input.url, gitTimeout(ctx, true));
         if (!existing) git.init(env, dir);

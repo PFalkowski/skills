@@ -195,3 +195,48 @@ test('errors: describe prints only name, code, syscall and path of an error the 
   assert.strictEqual(describe(bug), 'internal error: TypeError');
   assert.ok(!describe(bug).includes(' at '), 'describe printed a stack');
 });
+
+const SQLITE_COMMANDS = [
+  ['status'], ['unlock'], ['save', MEMORY], ['recall', { place: MEMORY.place }], ['browse', {}], ['list', {}],
+  ['forget', { place: MEMORY.place }], ['sync'], ['check'], ['remote', { url: 'https://example.invalid/palace.git' }], ['join', { passphrase: null }],
+];
+
+test('358-1: every command refuses a v1 SQLite palace and changes nothing', async (t) => {
+  const { root, env } = sandbox(t);
+  const dir = path.join(root, 'v1-sqlite');
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, 'palace.json'), `${JSON.stringify({ ...SETTINGS, format: 1, backend: 'sqlite', protected: false, kdf: null, check: null, tree: { m: 128, L: 32 }, privateRemote: null })}\n`);
+  fs.writeFileSync(path.join(dir, 'palace.db'), 'v1 database bytes');
+  const before = hashes(dir);
+  for (const [command, input] of SQLITE_COMMANDS) {
+    const result = await cli(env, [command, '--palace', dir], input ?? '');
+    assert.strictEqual(result.code, 1, `${command}: ${result.stdout}${result.stderr}`);
+    assert.ok(result.stderr.startsWith(`${dir} is a SQLite palace, which this version no longer reads.`), `${command}: ${result.stderr}`);
+    assert.match(result.stderr, /git -C skills-v1 checkout f7a6691/, command);
+    assert.deepStrictEqual(hashes(dir), before, command);
+  }
+  assert.ok(!fs.existsSync(path.join(env.XDG_CONFIG_HOME, 'memory-palace')), 'a command wrote the machine record');
+});
+
+test('358-2: setup with the sqlite backend is a usage error', async (t) => {
+  const { root, env } = sandbox(t);
+  const dir = path.join(root, 'palace');
+  const result = await cli(env, ['setup', '--palace', dir], { ...SETTINGS, backend: 'sqlite' });
+  assert.strictEqual(result.code, 2, result.stderr);
+  assert.match(result.stderr, /v2 has only the folder backend/);
+  assert.ok(!fs.existsSync(dir), 'setup made the folder');
+});
+
+test('358-3: no file of the skill names the SQLite module', () => {
+  const needle = ['node', 'sqlite'].join(':');
+  const skill = path.dirname(__dirname);
+  const files = [...function* walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) yield* walk(full);
+      else yield full;
+    }
+  }(skill)];
+  assert.ok(files.length > 10, `only ${files.length} files found`);
+  assert.deepStrictEqual(files.filter((file) => fs.readFileSync(file, 'utf8').includes(needle)).map((file) => path.relative(skill, file)), []);
+});

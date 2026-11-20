@@ -12,7 +12,7 @@ const DROPPED_VARIABLES = [
   'GIT_REPLACE_REF_BASE', 'GIT_PREFIX', 'GIT_SHALLOW_FILE', 'GIT_COMMON_DIR', 'GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_AUTHOR_DATE',
   'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL', 'GIT_COMMITTER_DATE',
 ];
-const OWNED = ['palace.json', 'meta', path.join('pages', '00', '0'), 'palace.db', '.gitignore'];
+const OWNED = ['palace.json', 'meta', path.join('pages', '00', '0'), '.gitignore'];
 const OWNED_PATHS = ['palace.json', 'meta', 'pages', '.gitignore'];
 const OWNED_FILE = /^(palace\.json|meta|\.gitignore|pages\/[0-9a-f]{2}\/[0-9a-f]{32})$/;
 const CONFINED = [
