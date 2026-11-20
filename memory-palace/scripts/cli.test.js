@@ -133,7 +133,7 @@ test('cli: malformed stdin with a marker', async (t) => {
   }
 });
 
-const SESSION_FALLBACK = 'path.join(os.tmpdir(), `memory-palace-${os.userInfo().username}`)';
+const SESSION_FALLBACK = 'path.join(os.tmpdir(), `memory-palace-${user}`)';
 
 test('cli: K5 source scan', () => {
   const files = [];

@@ -68,11 +68,15 @@ function realKeyFile(file) {
   }
 }
 
-function keyFileOutside(file, palace) {
-  const real = realKeyFile(file);
+function refuseInside(file, real, palace) {
   if (isInside(real, palace)) {
     throw new PalaceError(`the key file ${file} is inside the palace folder ${palace}. Keep it outside the palace. Nothing was changed.`);
   }
+}
+
+function keyFileOutside(file, palace) {
+  const real = realKeyFile(file);
+  refuseInside(file, real, palace);
   if (process.platform !== 'win32' && (fs.statSync(real).mode & 0o077) !== 0) {
     throw new PalaceError(`the key file ${file} is open to other users, so they can read the passphrase. Run chmod 600 on it. Nothing was changed.`);
   }
@@ -131,6 +135,7 @@ function writeReplacing(file, text) {
 
 function boundFolder(scope, ctx, machine) {
   if (scope === 'global') return { dir: machine.default };
+  if (ctx.cwd === null && ctx.scope === undefined) return { root: null, dir: null };
   const root = projectRoot(ctx.env, ctx.cwd);
   return { root, dir: machine.projects[root] ?? null };
 }
@@ -350,6 +355,8 @@ function createKeyFile(file, ctx) {
 
 function checkSetup(dir, real, options, ctx) {
   if (options.passphrase !== undefined) checkSource(options.passphrase);
+  const keyFile = options.passphrase === undefined ? machineKeyFile(ctx.env) : undefined;
+  if (keyFile) refuseInside(keyFile, realPath(keyFile), real);
   if (options.passphrase?.file !== undefined) keyFileOutside(options.passphrase.file, real);
   checkEmpty(dir);
   if (options.backend === 'sqlite') throw new UsageError('v2 has only the folder backend. Nothing was written.');
@@ -362,7 +369,6 @@ function checkSetup(dir, real, options, ctx) {
   let warning;
   if (options.remote === null) warning = checkRepo(real, protectedPalace, ctx.env);
   else git.checkRemote(ctx.env, null, options.remote, gitTimeout(ctx, true));
-  const keyFile = options.passphrase === undefined ? machineKeyFile(ctx.env) : undefined;
   if (keyFile && !fs.existsSync(keyFile)) createKeyFile(keyFile, ctx);
   const source = keyFile ? { file: keyFile } : options.passphrase;
   const protection = protectedPalace ? protect(kdf, source, ctx.env, real) : null;
@@ -775,7 +781,9 @@ function run(command, input, ctx) {
   if (READS.has(command) && ctx.palace === undefined && ctx.scope === undefined) return acrossScopes(command, input, ctx);
   const dir = target(ctx, command);
   const result = open({ ...ctx, palace: dir })[command === 'remote' ? 'setRemote' : command](input);
-  return READS.has(command) ? labelled(command, result, ctx.scope ?? scopeOf(dir, ctx)) : result;
+  if (!READS.has(command) && command !== 'save' && command !== 'forget') return result;
+  const scope = ctx.palace === undefined ? ctx.scope ?? 'global' : scopeOf(dir, ctx);
+  return READS.has(command) ? labelled(command, result, scope) : { ...result, scope };
 }
 
 module.exports = { status, setup, join, unlock, open, run, readMachine, readSettings };

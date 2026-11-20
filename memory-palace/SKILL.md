@@ -69,11 +69,11 @@ Kinds and moments are stored in clear: never secrets. A palace that already exis
 | Command | Standard input | Result |
 |---|---|---|
 | `status` | none | `{scopes: {global, project, session}, projectRoot, hook}`, each scope `null` or `{palace, backend, protected, online, remote, privateRemote, kinds, moments, passphrase}`; plus `proposed` when global and project are `null` |
-| `save` | `{"place", "title", "summary", "text", "kind"}` | `{saved, replaced, synced}` |
+| `save` | `{"place", "title", "summary", "text", "kind"}` | `{saved, replaced, synced, scope}` |
 | `recall` | `{"place"}` | `{found: true, place, title, summary, kind, saved, text, scope, alsoIn?}` or `{found: false}`; `alsoIn`: other scopes holding it |
 | `browse` | `{}` or `{"place"}` | `{memories: [{place, title, summary, kind, saved, scope}]}`: the place and everything under it, no texts, narrowest scope first |
 | `list` | `{}` or `{"place"}` | `{children: [names]}`: the segments one level below |
-| `forget` | `{"place"}` | `{forgot, found}`; exact place only |
+| `forget` | `{"place"}` | `{forgot, found, scope}`; exact place only |
 | `sync` | none | `{synced: true}` |
 | `check` | none | `{memories, height, nodes, unreachableRemoved}` |
 | `unlock` | none | `{removed: <holder record> \| "unreadable" \| null}` |

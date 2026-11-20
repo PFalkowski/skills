@@ -61,12 +61,21 @@ function remind() {
   return 0;
 }
 
+function currentFolder() {
+  try {
+    return process.cwd();
+  } catch (err) {
+    if (err.code === 'ENOENT') return null;
+    throw err;
+  }
+}
+
 function main() {
   try {
     const { command, ...options } = parseArgs(process.argv.slice(2));
     if (command === 'remind') return remind();
     const input = TAKES_INPUT.has(command) ? readInput() : {};
-    process.stdout.write(`${JSON.stringify(COMMANDS[command](input, { env: process.env, cwd: process.cwd(), script: process.argv[1], ...options }))}\n`);
+    process.stdout.write(`${JSON.stringify(COMMANDS[command](input, { env: process.env, cwd: currentFolder(), script: process.argv[1], ...options }))}\n`);
     return 0;
   } catch (err) {
     process.stderr.write(`${describe(err)}\n`);

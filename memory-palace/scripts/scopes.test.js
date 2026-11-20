@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 const { cli, envFor } = require('./test-support.js');
 
 const IDENTITY = ['-c', 'user.name=test', '-c', 'user.email=test@example.invalid'];
@@ -189,7 +189,7 @@ test('355-14: a bare save goes to the global palace, and refuses without one; fo
   ok(await run(['save'], memoryAt('wing/room', 'global text')));
   assert.deepStrictEqual(ok(await run(['recall', '--scope', 'project'], { place: 'wing/room' })), { found: false });
   ok(await run(['save', '--scope', 'project'], memoryAt('wing/room', 'project text')));
-  assert.deepStrictEqual(ok(await run(['forget', '--scope', 'project'], { place: 'wing/room' })), { forgot: 'wing/room', found: true });
+  assert.deepStrictEqual(ok(await run(['forget', '--scope', 'project'], { place: 'wing/room' })), { forgot: 'wing/room', found: true, scope: 'project' });
   const left = ok(await run(['recall'], { place: 'wing/room' }));
   assert.strictEqual(left.text, 'global text');
   assert.strictEqual(left.scope, 'global');
@@ -323,7 +323,7 @@ test('355-6: the first session save creates a private, unprotected session palac
   ok(await cli(box.env, ['setup'], UNPROTECTED));
   const record = fs.readFileSync(box.record);
   const env = withSession(box.env, 'abc-1');
-  assert.deepStrictEqual(ok(await cli(env, ['save', '--scope', 'session'], memoryAt('wing/room', 'session text'))), { saved: 'wing/room', replaced: false, synced: false });
+  assert.deepStrictEqual(ok(await cli(env, ['save', '--scope', 'session'], memoryAt('wing/room', 'session text'))), { saved: 'wing/room', replaced: false, synced: false, scope: 'session' });
   const dir = box.sessionFolder('abc-1');
   for (const folder of [box.sessionBase, path.dirname(dir), dir]) assert.strictEqual(modeOf(folder), 0o700, folder);
   const settings = JSON.parse(fs.readFileSync(path.join(dir, 'palace.json'), 'utf8'));
@@ -445,4 +445,65 @@ test('two first session saves at once both land in one session palace', async (t
   const results = await Promise.all(['one', 'two', 'three'].map((name) => cli(env, ['save', '--scope', 'session'], memoryAt(`race/${name}`, name))));
   results.forEach((result) => ok(result));
   assert.deepStrictEqual(ok(await cli(env, ['list', '--scope', 'session'], { place: 'race' })).children.sort(), ['one', 'three', 'two']);
+});
+
+test('save and forget results name the scope they wrote to', async (t) => {
+  const box = sandbox(t);
+  const root = project(box);
+  const run = (args, input) => cli(withSession(box.env, 'abc'), args, input, { cwd: root });
+  ok(await run(['setup'], UNPROTECTED));
+  ok(await run(['setup', '--scope', 'project'], UNPROTECTED));
+  assert.strictEqual(ok(await run(['save'], memoryAt('wing/room', 'x'))).scope, 'global');
+  assert.strictEqual(ok(await run(['save', '--scope', 'project'], memoryAt('wing/room', 'x'))).scope, 'project');
+  assert.strictEqual(ok(await run(['save', '--scope', 'session'], memoryAt('wing/room', 'x'))).scope, 'session');
+  assert.strictEqual(ok(await run(['save', '--palace', box.globalFolder], memoryAt('wing/room', 'x'))).scope, 'global');
+  assert.deepStrictEqual(ok(await run(['forget'], { place: 'wing/other' })), { forgot: 'wing/other', found: false, scope: 'global' });
+  assert.strictEqual(ok(await run(['forget', '--scope', 'session'], { place: 'wing/room' })).scope, 'session');
+});
+
+function inDeletedFolder(box, args, input = {}) {
+  const gone = path.join(box.root, 'gone');
+  fs.mkdirSync(gone);
+  const result = spawnSync('sh', ['-c', 'cd "$0" && rmdir "$0" && exec "$@"', gone, process.execPath, path.join(__dirname, 'palace.js'), ...args],
+    { env: box.env, input: JSON.stringify(input), encoding: 'utf8', timeout: 30000 });
+  return { code: result.status, stdout: result.stdout, stderr: result.stderr };
+}
+
+test('in a deleted current folder, global and --palace commands work and only the project scope refuses', { skip: process.platform === 'win32' }, async (t) => {
+  const box = sandbox(t);
+  ok(await cli(box.env, ['setup'], UNPROTECTED));
+  assert.strictEqual(ok(inDeletedFolder(box, ['save'], memoryAt('wing/room', 'x'))).saved, 'wing/room');
+  assert.strictEqual(ok(inDeletedFolder(box, ['recall'], { place: 'wing/room' })).text, 'x');
+  assert.strictEqual(ok(inDeletedFolder(box, ['recall', '--palace', box.globalFolder], { place: 'wing/room' })).scope, 'global');
+  assert.strictEqual(ok(inDeletedFolder(box, ['status', '--palace', box.globalFolder])).palace, box.globalFolder);
+  const status = ok(inDeletedFolder(box, ['status']));
+  assert.strictEqual(status.projectRoot, null);
+  assert.strictEqual(status.scopes.project, null);
+  assert.strictEqual(failed(inDeletedFolder(box, ['recall', '--scope', 'project'], { place: 'wing/room' }), 'project read'),
+    'the current folder no longer exists, so it has no project scope. Change to an existing folder, or use --scope global. Nothing was changed.');
+});
+
+test('a session save never creates a folder through a link planted at the temporary fallback', { skip: process.platform === 'win32' }, async (t) => {
+  const box = sandbox(t);
+  const { XDG_RUNTIME_DIR: _, ...env } = withSession(box.env, 'abc');
+  const victim = path.join(box.root, 'victim');
+  fs.mkdirSync(victim, { mode: 0o700 });
+  const planted = path.join(env.TMPDIR, `memory-palace-${os.userInfo().username}`);
+  fs.symlinkSync(victim, planted);
+  assert.strictEqual(failed(await cli(env, ['save', '--scope', 'session'], memoryAt('wing/room', 'x')), 'planted link'), `${planted}${NOT_PRIVATE}`);
+  assert.deepStrictEqual(fs.readdirSync(victim), []);
+});
+
+test('with no passwd entry for the user, the session scope falls back to the numeric user id', { skip: process.platform === 'win32' }, async (t) => {
+  const box = sandbox(t);
+  const preload = path.join(box.root, 'no-passwd.js');
+  fs.writeFileSync(preload, "require('node:os').userInfo = () => { throw new Error('uv_os_get_passwd'); };\n");
+  const { XDG_RUNTIME_DIR: _, ...rest } = withSession(box.env, 'abc');
+  const env = { ...rest, NODE_OPTIONS: `--require=${preload}` };
+  ok(await cli(env, ['setup'], UNPROTECTED));
+  ok(await cli(env, ['save'], memoryAt('wing/room', 'global text')));
+  assert.strictEqual(ok(await cli(env, ['recall'], { place: 'wing/room' })).text, 'global text');
+  assert.strictEqual(ok(await cli(env, ['status'])).scopes.session, null);
+  ok(await cli(env, ['save', '--scope', 'session'], memoryAt('wing/room', 'session text')));
+  assert.ok(fs.existsSync(path.join(env.TMPDIR, `memory-palace-${process.getuid()}`, 'sessions', 'abc', 'palace.json')));
 });

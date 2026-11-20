@@ -213,3 +213,10 @@ test('359-10: join with a key file that does not open the palace says wrong pass
   assert.deepStrictEqual([fs.readFileSync(keyFile), fs.readFileSync(other.keyFile)], keys);
   assert.ok(!fs.existsSync(other.record), 'join wrote the machine record');
 });
+
+test('a setup refused because the machine key file would be inside the palace leaves no key file behind', async (t) => {
+  const { env, keyFile } = sandbox(t);
+  const inside = path.dirname(keyFile);
+  assert.match(failed(await cli(env, ['setup', '--palace', inside], {}), 'key inside'), /is inside the palace folder/);
+  assert.ok(!fs.existsSync(keyFile), 'the refused setup created the key file');
+});

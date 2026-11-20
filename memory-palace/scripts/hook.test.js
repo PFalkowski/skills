@@ -219,3 +219,24 @@ test('hook and remind take no option', async (t) => {
   assert.strictEqual((await cli(box.env, ['remind', '--scope', 'global'], { cwd: box.root })).code, 2);
   assert.ok(!fs.existsSync(box.settings));
 });
+
+test('remove with no handler of the skill leaves an empty SessionStart list in place', async (t) => {
+  const box = sandbox(t);
+  box.write({ hooks: { SessionStart: [] } });
+  const before = fs.readFileSync(box.settings, 'utf8');
+  assert.deepStrictEqual(ok(await hook(box.env, 'remove')), { hook: 'absent', changed: false, settings: box.settings });
+  assert.strictEqual(fs.readFileSync(box.settings, 'utf8'), before);
+});
+
+test('a settings link whose target does not exist is refused and stays a link', { skip: process.platform === 'win32' }, async (t) => {
+  const box = sandbox(t);
+  const target = path.join(box.root, 'dotfiles', 'settings.json');
+  fs.mkdirSync(path.dirname(target));
+  fs.mkdirSync(path.dirname(box.settings), { recursive: true });
+  fs.symlinkSync(target, box.settings);
+  const result = await hook(box.env, 'install');
+  assert.strictEqual(result.code, 1, result.stdout);
+  assert.strictEqual(result.stderr.trim(), `the Claude Code settings file ${box.settings} is a link to a file that does not exist, so memory-palace will not change it. Nothing was changed.`);
+  assert.ok(fs.lstatSync(box.settings).isSymbolicLink());
+  assert.deepStrictEqual(fs.readdirSync(path.dirname(target)), []);
+});

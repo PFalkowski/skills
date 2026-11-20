@@ -50,7 +50,7 @@ function state(ctx) {
 }
 
 function withoutOwn(settings) {
-  if (settings.hooks === undefined) return settings;
+  if (ownHandlers(settings).length === 0) return settings;
   const { SessionStart = [], ...others } = settings.hooks;
   const groups = SessionStart.flatMap((group) => {
     if (!Array.isArray(group?.hooks) || !group.hooks.some(isOwn)) return [group];
@@ -73,6 +73,9 @@ function withOwn(settings, handler) {
 
 function writeSettings(file, value) {
   const old = fs.statSync(file, { throwIfNoEntry: false });
+  if (!old && fs.lstatSync(file, { throwIfNoEntry: false })) {
+    throw new PalaceError(`the Claude Code settings file ${file} is a link to a file that does not exist, so memory-palace will not change it. Nothing was changed.`);
+  }
   const real = old ? fs.realpathSync(file) : file;
   if (!old) fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
   const mode = old ? old.mode & 0o777 : 0o600;
