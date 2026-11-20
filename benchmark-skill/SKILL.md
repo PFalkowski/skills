@@ -60,8 +60,8 @@ gate yourself from § Ceiling and floor effects before you trust the verdict.
 - Ceiling: if arm A's success rate on the test clusters reaches the frozen ceiling
   rate, the report says INCONCLUSIVE with `next_step` set, unless an earlier step
   applies. Leave the suite unedited and run the next rung of the frozen ladder on new
-  held-out cases. On the last allowed suite the verdict follows steps 6 to 10, with the reason "ceiling" when it
-  is **INCONCLUSIVE**.
+  held-out cases. On the last allowed suite the verdict follows steps 6 to 10, with
+  the reason "ceiling" when it is **INCONCLUSIVE**.
 - Floor effect: if A's rate is at or below the margin, check the graders and answer
   keys first, then step down the same way. On the last allowed suite the verdict is
   **INCONCLUSIVE**, "floor effect" (step 5).
