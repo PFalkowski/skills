@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Fails on a SKILL.md description or a workflows/*.js meta.description over 120 characters, naming its own slash command, or with an unquoted ": "; warns above 100.
 # Prints the cost split by whether the description is actually in context: disable-model-invocation excludes it entirely.
+# A workflow's meta.description or meta.whenToUse that is not one quoted string on its own line also fails, since it cannot be measured.
 set -u
 cd "$(dirname "$0")/.."
 hard=120 soft=100 status=0 total=0 loaded=0
@@ -31,12 +32,30 @@ for f in */SKILL.md; do
   elif [ "$n" -gt "$soft" ]; then echo "warn $f: description is $n chars (target under $soft)"; fi
 done
 # A workflow script's meta.description is listed to the model beside the skills', so it has the same limit.
+# Its meta.whenToUse is appended to that text, so it counts in the totals but has no limit of its own.
+# Each field must be one quoted string on its own line; any other shape cannot be measured and fails.
+meta_field() {
+  sed -nE "s/^[[:space:]]+$2:[[:space:]]*(['\"\`])(.*)\1,?[[:space:]]*\$/\2/p" <<<"$1" | head -n 1
+}
 for f in workflows/*.js; do
   [ -f "$f" ] || continue
-  d=$(grep -m1 -E '^[[:space:]]*description:' "$f" | sed -E "s/^[[:space:]]*description:[[:space:]]*['\"\`]//; s/['\"\`],?[[:space:]]*\$//")
-  n=$(printf '%s' "$d" | wc -m)
-  if [ "$n" -gt "$hard" ]; then echo "FAIL $f: meta.description is $n chars (max $hard)"; status=1
-  elif [ "$n" -gt "$soft" ]; then echo "warn $f: meta.description is $n chars (target under $soft)"; fi
+  meta=$(awk '/^export const meta = \{/ { on = 1; print; if (/\}/) exit; next } on { print } on && /^\}/ { exit }' "$f")
+  for field in description whenToUse; do
+    if ! grep -qE "^[[:space:]]+$field:" <<<"$meta"; then
+      [ "$field" = description ] && { echo "FAIL $f: no meta.description line (put each meta field on its own line)"; status=1; }
+      continue
+    fi
+    text=$(meta_field "$meta" "$field")
+    n=$(printf '%s' "$text" | wc -m)
+    if [ "$n" -eq 0 ]; then
+      echo "FAIL $f: meta.$field is empty or is not one quoted string on one line (a concatenation or a value on the next line cannot be measured)"; status=1
+      continue
+    fi
+    total=$((total + n)); loaded=$((loaded + n))
+    [ "$field" = description ] || continue
+    if [ "$n" -gt "$hard" ]; then echo "FAIL $f: meta.description is $n chars (max $hard)"; status=1
+    elif [ "$n" -gt "$soft" ]; then echo "warn $f: meta.description is $n chars (target under $soft)"; fi
+  done
 done
 echo "automatic descriptions (Claude invocation policy): $loaded chars"
 echo "withheld by disable-model-invocation: $((total - loaded)) chars"

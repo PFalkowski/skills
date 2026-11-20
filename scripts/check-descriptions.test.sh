@@ -73,5 +73,72 @@ LONG_SKILL=$(printf 'y%.0s' $(seq 1 121))
 sed -i "s/Fixture only, not a real skill./$LONG_SKILL/" "$FIXTURE/fixture-skill/SKILL.md"
 expect_status "a skill description of 121 characters still fails" 1 bash "$CHECK"
 
+sed -i "s/$LONG_SKILL/Fixture only, not a real skill./" "$FIXTURE/fixture-skill/SKILL.md"
+
+write_shape() { cat > "$FIXTURE/workflows/shape.js"; }
+write_shape <<EOF
+export const meta = {
+  name: 'shape',
+  description: 'a first part that is short ' +
+    '$LONG',
+}
+EOF
+expect_status "a concatenated workflow description fails, since only its first line could be counted" 1 bash "$CHECK"
+write_shape <<EOF
+export const meta = {
+  name: 'shape',
+  description:
+    '$LONG',
+}
+EOF
+expect_status "a workflow description on the line after the key fails" 1 bash "$CHECK"
+write_shape <<EOF
+export const meta = { name: 'shape', description: '$LONG' }
+EOF
+expect_status "a one-line meta fails" 1 bash "$CHECK"
+write_shape <<'EOF'
+export const meta = {
+  name: 'shape',
+  description: '',
+}
+EOF
+expect_status "an empty workflow description fails" 1 bash "$CHECK"
+write_shape <<EOF
+export const meta = {
+  name: 'shape',
+  phases: [],
+}
+const later = { description: '$LONG' }
+EOF
+expect_status "a workflow with no meta.description fails, and does not read a later description" 1 bash "$CHECK"
+write_shape <<'EOF'
+export const meta = {
+  name: 'shape',
+  description: 'Short.',
+  whenToUse: 'abcd' +
+    'efgh',
+}
+EOF
+expect_status "a concatenated whenToUse fails" 1 bash "$CHECK"
+
+printed_total() { bash "$CHECK" 2>&1 | sed -n 's/^total across all descriptions: \([0-9]*\) chars$/\1/p'; }
+rm "$FIXTURE/workflows/shape.js"
+before=$(printed_total)
+write_shape <<'EOF'
+export const meta = {
+  name: 'shape',
+  description: 'Short.',
+  whenToUse: 'abcdefghij',
+}
+EOF
+expect_status "a whenToUse longer than the description cap is not capped" 0 bash "$CHECK"
+after=$(printed_total)
+total=$((total + 1))
+if [ "$((after - before))" -ne 16 ]; then
+  echo "FAIL: a workflow's description and whenToUse count in the printed totals -- expected +16 chars, got $((after - before))"
+  fail=$((fail + 1))
+fi
+rm "$FIXTURE/workflows/shape.js"
+
 echo "check-descriptions: $((total - fail))/$total cases passed"
 [ "$fail" -eq 0 ]
