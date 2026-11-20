@@ -215,8 +215,14 @@ function hasGitAbove(dir) {
   }
 }
 
-function enclosingRepo(target, env) {
-  const parent = path.dirname(target);
+function existingAncestor(file) {
+  let at = path.dirname(file);
+  while (!fs.existsSync(at)) at = path.dirname(at);
+  return at;
+}
+
+function enclosingRepo(target, env, owned = OWNED.map((name) => path.join(target, name))) {
+  const parent = existingAncestor(target);
   let config;
   try {
     config = git(env, ['-C', parent, 'config', '--list']);
@@ -233,9 +239,9 @@ function enclosingRepo(target, env) {
     throw new PalaceError(`git could not tell whether ${target} is inside a git repository: ${toplevel.stderr.trim()}. Nothing was written.`);
   }
   const top = toplevel.stdout.trim();
-  const ignored = git(env, ['-C', top, 'check-ignore', '--', ...OWNED.map((owned) => path.join(target, owned))]);
+  const ignored = git(env, ['-C', top, 'check-ignore', '--', ...owned]);
   if (ignored.status !== 0 && ignored.status !== 1) throw new PalaceError(`git check-ignore failed in ${top}: ${ignored.stderr.trim()}. Nothing was written.`);
-  return { top, allIgnored: ignored.stdout.split('\n').filter(Boolean).length === OWNED.length };
+  return { top, allIgnored: ignored.stdout.split('\n').filter(Boolean).length === owned.length };
 }
 
 module.exports = {

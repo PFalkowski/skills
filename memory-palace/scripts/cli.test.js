@@ -30,9 +30,11 @@ async function setUp(t, name = 'palace') {
   return { ...box, dir };
 }
 
-test('cli: status with no machine record prints {"palace": null}', async (t) => {
+test('cli: status with no machine record prints {"palace": null} and a proposal', async (t) => {
   const { env } = sandbox(t);
-  assert.deepStrictEqual(ok(await cli(env, ['status'])), { palace: null });
+  const status = ok(await cli(env, ['status']));
+  assert.strictEqual(status.palace, null);
+  assert.strictEqual(status.proposed.scope, 'global');
 });
 
 test('cli: setup then status prints kinds and moments', async (t) => {
@@ -173,7 +175,7 @@ test('setup refuses a non-empty target', async (t) => {
   assert.strictEqual(result.code, 1, result.stderr);
   assert.deepStrictEqual(hashes(dir), before);
   assert.deepStrictEqual(fs.readdirSync(root), siblings);
-  assert.deepStrictEqual(ok(await cli(env, ['status'])), { palace: null });
+  assert.strictEqual(ok(await cli(env, ['status'])).palace, null);
 });
 
 test('errors: parseJson gives a fixed message and never echoes the input', () => {

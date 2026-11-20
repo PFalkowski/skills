@@ -10,6 +10,7 @@ const { folderStore, pageId, checkId } = require('./stores.js');
 const lock = require('./lock.js');
 const seal = require('./seal.js');
 const git = require('./git.js');
+const { configDir, machineKeyFile, globalFolder } = require('./scopes.js');
 
 const FORMAT = 1;
 const LOCK_WAIT_MS = 60000;
@@ -18,6 +19,7 @@ const TREE_MOST = 1024;
 const MOST_KINDS = 32;
 const MOST_URL = 2048;
 const MOMENTS = ['on-request', 'after-decision', 'end-of-task'];
+const DEFAULT_KINDS = ['decision', 'preference', 'fact', 'lesson'];
 const GITIGNORE = 'lock\n*.tmp\npending.*\n';
 const WRITES = new Set(['save', 'forget', 'sync', 'remote', 'check']);
 const SHORT_GIT_MS = 20000;
@@ -27,7 +29,7 @@ const DEFAULT_N = 2 ** 17;
 
 const randomHex = (bytes) => crypto.randomBytes(bytes).toString('hex');
 
-const machineFile = (env) => path.join(env.XDG_CONFIG_HOME || path.join(env.HOME, '.config'), 'memory-palace', 'config.json');
+const machineFile = (env) => path.join(configDir(env), 'config.json');
 
 const label = (id) => (id === META ? 'the meta page' : `page ${id}`);
 const aad = (id) => `memory-palace/1/${id}`;
@@ -192,10 +194,15 @@ function optionalKey(input) {
   return parsePlace(input.place);
 }
 
+function proposal(env) {
+  const file = machineKeyFile(env);
+  return { scope: 'global', palace: globalFolder(env), passphrase: { file, create: !fs.existsSync(file) }, remote: null, kinds: DEFAULT_KINDS, moments: MOMENTS };
+}
+
 function status(ctx) {
   const machine = readMachine(ctx.env);
   const dir = ctx.palace ? path.resolve(ctx.palace) : machine.default;
-  if (!dir) return { palace: null };
+  if (!dir) return { palace: null, proposed: proposal(ctx.env) };
   const settings = readSettings(dir);
   const { backend, kinds, moments, privateRemote } = settings;
   const online = git.online(ctx.env, dir);
@@ -220,18 +227,22 @@ function recordedOrigin(entry) {
   return origin;
 }
 
-function protect(options, env, palace) {
+function kdfOf(options) {
   const kdf = { name: 'scrypt', N: options.kdf?.N ?? DEFAULT_N, r: 8, p: 1, salt: crypto.randomBytes(16).toString('base64') };
   if (!validKdf(kdf)) throw new PalaceError('kdf.N must be a power of two from 16384 (2^14) to 1048576 (2^20). Nothing was written.');
-  const passphrase = readPassphrase(options.passphrase, env, palace);
+  return kdf;
+}
+
+function protect(kdf, source, env, palace) {
+  const passphrase = readPassphrase(source, env, palace);
   if (passphrase === '') throw new PalaceError('the passphrase is empty. Nothing was written.');
   return { kdf, keys: seal.deriveKeys(passphrase, kdf) };
 }
 
-function checkRepo(target, protection, env) {
+function checkRepo(target, protectedPalace, env) {
   const repo = git.enclosingRepo(target, env);
   if (!repo || repo.allIgnored) return undefined;
-  if (!protection) {
+  if (!protectedPalace) {
     throw new PalaceError(`${target} is inside the git repository ${repo.top} and is not ignored there, so that repository's commits would take this unprotected palace's memories in clear. Ignore the folder in ${repo.top}, choose a folder outside it, or turn on protection. Nothing was written.`);
   }
   return `${target} is inside the git repository ${repo.top} and is not ignored there, so that repository's commits would take this palace's sealed files.`;
@@ -243,26 +254,63 @@ function checkEmpty(dir) {
   if (fs.existsSync(dir) && fs.readdirSync(dir).length > 0) throw new PalaceError(`${dir} is not empty. Nothing was written.`);
 }
 
+const keyNote = (file) => `This palace is encrypted with the key in ${file}. Back up that file now, somewhere private and off this machine, such as a password manager. Losing it loses every memory in this palace: nothing else can open it. To use this palace on another machine, copy the file there and give \`join\` its path.`;
+
+function createKeyFile(file, ctx) {
+  const real = realPath(file);
+  const repo = git.enclosingRepo(real, ctx.env, [real]);
+  if (repo && !repo.allIgnored) {
+    throw new PalaceError(`${file} is inside the git repository ${repo.top} and is not ignored there, so that repository's commits would take the key. Ignore it there, or pass a passphrase source. Nothing was written.`);
+  }
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  const temp = path.join(path.dirname(file), `.key-${randomHex(8)}.tmp`);
+  try {
+    const fd = fs.openSync(temp, 'wx', 0o600);
+    try {
+      fs.writeSync(fd, `${crypto.randomBytes(32).toString('base64url')}\n`);
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    ctx.beforeKeyLink?.();
+    fs.linkSync(temp, file);
+  } catch (err) {
+    if (err.code !== 'EEXIST') throw err;
+  } finally {
+    fs.rmSync(temp, { force: true });
+  }
+}
+
 function checkSetup(dir, real, options, ctx) {
-  checkSource(options.passphrase);
+  if (options.passphrase !== undefined) checkSource(options.passphrase);
   if (options.passphrase?.file !== undefined) keyFileOutside(options.passphrase.file, real);
   checkEmpty(dir);
   if (options.backend === 'sqlite') throw new UsageError('v2 has only the folder backend. Nothing was written.');
   if (![undefined, 'folder'].includes(options.backend)) throw new PalaceError('backend must be "folder" or left out. Nothing was written.');
-  if (options.remote !== undefined) checkUrl(options.remote);
+  if (options.remote !== null) checkUrl(options.remote);
   const bad = badLists(options);
   if (bad) throw new PalaceError(`${bad}. Nothing was written.`);
-  const protection = options.passphrase === null ? null : protect(options, ctx.env, real);
-  if (options.remote === undefined) return { protection, warning: checkRepo(real, protection, ctx.env) };
-  git.checkRemote(ctx.env, null, options.remote, gitTimeout(ctx, true));
-  return { protection };
+  const protectedPalace = options.passphrase !== null;
+  const kdf = protectedPalace ? kdfOf(options) : null;
+  let warning;
+  if (options.remote === null) warning = checkRepo(real, protectedPalace, ctx.env);
+  else git.checkRemote(ctx.env, null, options.remote, gitTimeout(ctx, true));
+  const keyFile = options.passphrase === undefined ? machineKeyFile(ctx.env) : undefined;
+  if (keyFile && !fs.existsSync(keyFile)) createKeyFile(keyFile, ctx);
+  const source = keyFile ? { file: keyFile } : options.passphrase;
+  const protection = protectedPalace ? protect(kdf, source, ctx.env, real) : null;
+  return { protection, warning, keyFile, source };
 }
 
-function realTarget(dir) {
-  if (fs.existsSync(dir)) return fs.realpathSync(dir);
+function realPath(file) {
+  if (fs.existsSync(file)) return fs.realpathSync(file);
+  return path.join(realPath(path.dirname(file)), path.basename(file));
+}
+
+function realTarget(dir, isDefault) {
   const parent = path.dirname(dir);
-  if (!fs.existsSync(parent)) throw new PalaceError(`the parent folder ${parent} does not exist. Create it first. Nothing was written.`);
-  return path.join(fs.realpathSync(parent), path.basename(dir));
+  if (!isDefault && !fs.existsSync(parent)) throw new PalaceError(`the parent folder ${parent} does not exist. Create it first. Nothing was written.`);
+  return realPath(dir);
 }
 
 const writeMachine = (env, machine) => writeReplacing(machineFile(env), `${JSON.stringify(machine, null, 2)}\n`);
@@ -282,6 +330,7 @@ function recordOrigin(env, palace, origin) {
 }
 
 function buildBeside(dir, build) {
+  fs.mkdirSync(path.dirname(dir), { recursive: true, mode: 0o700 });
   const temp = path.join(path.dirname(dir), `.${path.basename(dir)}.setup-${randomHex(8)}`);
   try {
     build(temp);
@@ -295,12 +344,13 @@ function buildBeside(dir, build) {
 
 const writeSettings = (dir, settings) => writeReplacing(path.join(dir, 'palace.json'), `${JSON.stringify(settings, null, 2)}\n`);
 
-function setup(target, options, ctx) {
-  const dir = path.resolve(target);
-  const { protection, warning } = checkSetup(dir, realTarget(dir), options, ctx);
+function setup(target, input, ctx) {
+  const options = { kinds: DEFAULT_KINDS, moments: MOMENTS, ...input, remote: input.remote ?? null };
+  const dir = path.resolve(target ?? globalFolder(ctx.env));
+  const { protection, warning, keyFile, source } = checkSetup(dir, realTarget(dir, target === undefined), options, ctx);
   const codec = codecFor(protection?.keys ?? null);
   const palace = buildBeside(dir, (temp) => {
-    fs.mkdirSync(temp);
+    fs.mkdirSync(temp, { mode: 0o700 });
     writeSettings(temp, withCheck({
       format: FORMAT, backend: 'folder', protected: Boolean(protection), kdf: protection?.kdf ?? null, check: null,
       tree: TREE, kinds: options.kinds, moments: options.moments, privateRemote: options.private === true ? options.remote : null,
@@ -319,13 +369,13 @@ function setup(target, options, ctx) {
       store.release();
       store.close();
     }
-    if (options.remote === undefined) return;
+    if (options.remote === null) return;
     git.init(ctx.env, temp);
     git.commit(ctx.env, temp);
   });
-  register(ctx.env, palace, { passphrase: options.passphrase, protected: Boolean(protection), origin: options.remote ?? null }, true);
-  const result = { palace, default: palace, ...(warning && { warning }) };
-  if (options.remote === undefined) return result;
+  register(ctx.env, palace, { passphrase: source, protected: Boolean(protection), origin: options.remote }, true);
+  const result = { palace, scope: 'global', default: palace, ...(warning && { warning }), ...(keyFile && { keyFile, note: keyNote(keyFile) }) };
+  if (options.remote === null) return result;
   try {
     open({ ...ctx, palace }).sync();
   } catch (err) {
@@ -351,7 +401,7 @@ function checkJoined(dir, palace, passphrase, ctx, joinRemote) {
 }
 
 function join(target, options, ctx) {
-  const dir = path.resolve(target);
+  const dir = path.resolve(target ?? globalFolder(ctx.env));
   checkSource(options.passphrase);
   let palace;
   let origin = options.remote ?? null;
@@ -368,10 +418,11 @@ function join(target, options, ctx) {
     if (online && !known) git.unlink(ctx.env, dir);
   } else {
     checkUrl(options.remote);
-    const real = realTarget(dir);
+    const real = realTarget(dir, target === undefined);
     checkEmpty(dir);
     palace = buildBeside(dir, (temp) => {
       git.clone(ctx.env, options.remote, temp, gitTimeout(ctx, true));
+      fs.chmodSync(temp, 0o700);
       if (!fs.existsSync(path.join(temp, 'palace.json'))) throw new PalaceError('the remote holds no palace: its main branch has no palace.json. Nothing was written.');
       checkJoined(temp, real, options.passphrase, ctx);
     });

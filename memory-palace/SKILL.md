@@ -30,22 +30,29 @@ EOF
 
 ## First, always
 
-Run `status` (no input). On `{"palace": null}`:
+Run `status` (no input). On `{"palace": null, "proposed": ...}`:
 
-- If the user asked to set up or use a memory palace, ask the setup questions below.
+- If the user asked to set up or use a memory palace, propose the setup below.
 - Otherwise say in one line that no memory palace is set up, leave the request to the harness's own memory, and stop.
 
 Never set up a palace unasked, under any autonomy setting.
 
-## Setup questions
+## Setup
 
-Ask, and record the answers through `setup` (shapes in [REFERENCE.md](REFERENCE.md)):
+1. Show `proposed` as a numbered list, one line per setting, then say: "Say yes to set this up, or change any line. The folder and the protection are hard to change later." Ask nothing else.
 
-1. **Where:** a folder that is absent or empty, whose parent folder exists. A palace with a git remote must not be in a folder that a file-sync service (such as Dropbox or OneDrive) copies to other machines.
-2. **Protection:** encrypted or not. If encrypted, where the passphrase comes from: the name of an environment variable, or the path of a key file outside the palace. The user sets the value; never ask for it in chat. Tell the user to `chmod 600` a key file, and tell them what protection covers (below).
-3. **Remote:** none, or a git repository URL.
-4. **Kinds:** which kinds of things to remember, such as `decision` or `preference`.
-5. **Moments:** when to save: `on-request`, `after-decision`, `end-of-task`.
+   ```
+   1. Scope: global (one palace every project can read)
+   2. Folder: <palace>
+   3. Protection: encrypted with a key file that setup creates at <passphrase.file> (you must back it up: losing it loses the palace)
+   4. Remote: none (add one later with `remote`)
+   5. Kinds: <kinds>
+   6. Moments: <moments>
+   ```
+
+   When `passphrase.create` is false, line 3 reads "encrypted with this machine's key file at <passphrase.file>".
+2. Run `setup` once, with only the changed lines in its input (`{}` when the user said yes; shapes in [REFERENCE.md](REFERENCE.md)). A changed folder goes in `--palace <dir>`: absent or empty, its parent existing, and not copied to other machines by a file-sync service (such as Dropbox or OneDrive) if the palace gets a remote. Changed protection is `null`, or a passphrase source the user set: an environment variable's name, or a key file outside the palace (mode 600). Never ask for a passphrase. Tell the user what protection covers (below).
+3. Show the result's `note` word for word, and any `warning`.
 
 Kinds and moments are stored in clear, so they name categories, never secrets. A palace that already exists elsewhere (on a remote or in a folder this machine does not know) is opened with `join`, not `setup`.
 
@@ -59,7 +66,7 @@ Kinds and moments are stored in clear, so they name categories, never secrets. A
 
 | Command | Standard input | Result |
 |---|---|---|
-| `status` | none | `{palace, backend, protected, online, remote, privateRemote, kinds, moments}` or `{"palace": null}` |
+| `status` | none | `{palace, backend, protected, online, remote, privateRemote, kinds, moments}` or `{"palace": null, proposed}` |
 | `save` | `{"place", "title", "summary", "text", "kind"}` | `{saved, replaced, synced}` |
 | `recall` | `{"place"}` | `{found: true, place, title, summary, kind, saved, text}` or `{found: false}` |
 | `browse` | `{}` or `{"place"}` | `{memories: [{place, title, summary, kind, saved}]}`: the place and everything under it, no texts |
@@ -72,6 +79,8 @@ Kinds and moments are stored in clear, so they name categories, never secrets. A
 ## Passphrase
 
 The passphrase lives only in the environment variable or key file recorded at setup. Never put it on a command line, in chat, in a memory or in the palace folder, and never print the variable. The CLI refuses `--passphrase` and `--password`.
+
+Never read, print, copy, move, overwrite or delete a key file; the user backs it up and copies it themselves.
 
 ## Remote
 
@@ -93,7 +102,9 @@ Match the error's opening words below. On any error this list does not name, sto
 - **"no passphrase: the environment variable ... is not set"** or **"no passphrase: the key file ... does not exist"**: ask the user to set the variable where the agent's shell starts (for example their shell profile), or to restore the key file, then retry. Never ask for the value or put it in a command.
 - **"no passphrase: ... records no passphrase source"**: ask the user where the passphrase comes from, then run `join --palace <dir>` with that source; it records the source again. A folder this machine knows needs no `remote`; if `join` says the folder has its own git repository, follow that stop.
 - **"the key file ... is open to other users"**: ask the user to run `chmod 600` on it, then retry.
-- **"wrong passphrase"**, **"settings mismatch"**, **"the settings in ... were altered"**, or any other error that names a `palace.json`: stop and show the error. Someone who can write the folder or the remote may have altered the settings. Do not retry with other settings.
+- **"wrong passphrase"** at `join`: the key file is not the one the palace was made with. Ask the user for the path of the right copy; never replace a key file.
+- **"<path> is inside the git repository ... would take the key"**: ask the user to ignore it in that repository, or to choose a passphrase source, then run `setup` again.
+- **"wrong passphrase"** elsewhere, **"settings mismatch"**, **"the settings in ... were altered"**, or any other error that names a `palace.json`: stop and show the error. Someone who can write the folder or the remote may have altered the settings. Do not retry with other settings.
 
 **Damage**
 

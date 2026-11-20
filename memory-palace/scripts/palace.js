@@ -26,7 +26,6 @@ function parseArgs([command, ...options]) {
   if (!Object.hasOwn(COMMANDS, command)) throw new UsageError(USAGE);
   if (options.length === 2 && options[0] === '--palace') return { command, palace: options[1] };
   if (options.length > 0) throw new UsageError(USAGE);
-  if (command === 'setup' || command === 'join') throw new UsageError(`${command} needs --palace <dir>`);
   return { command };
 }
 

@@ -41,6 +41,7 @@ function envFor(root) {
     PATH: process.env.PATH,
     HOME: path.join(root, 'home'),
     XDG_CONFIG_HOME: path.join(root, 'home', '.config'),
+    XDG_DATA_HOME: path.join(root, 'home', '.local', 'share'),
     TMPDIR: path.join(root, 'tmp'),
     GIT_CONFIG_GLOBAL: path.join(root, 'gitconfig'),
     GIT_CONFIG_NOSYSTEM: '1',

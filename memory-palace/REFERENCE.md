@@ -11,26 +11,28 @@ Read this before `setup`, `join` or `remote`, or when you need a limit or a resu
 
 ## setup
 
-`setup --palace <dir>` (the flag is required):
+`setup [--palace <dir>]`, every input field optional:
 
 ```sh
-node <skill-dir>/scripts/palace.js setup --palace ~/memory-palace <<'EOF'
-{"backend": "folder", "passphrase": {"env": "MEMORY_PALACE_PASSPHRASE"}, "kinds": ["decision", "preference"], "moments": ["on-request", "end-of-task"]}
+node <skill-dir>/scripts/palace.js setup <<'EOF'
+{}
 EOF
 ```
 
+- Without `--palace`, the palace goes in `$XDG_DATA_HOME/memory-palace/global` (or `~/.local/share/memory-palace/global`), and missing parent folders are created, mode 700. A folder given with `--palace` must be absent or empty, and its parent must exist. Every new palace folder is mode 700.
+- `passphrase`: left out, the palace is encrypted with this machine's key file, `$XDG_CONFIG_HOME/memory-palace/key` (or `~/.config/memory-palace/key`). Setup creates it when absent: 32 random bytes in base64url, mode 600, complete or not at all, and never inside a git repository that does not ignore it. An existing key file is used as it is and never written. `null` makes an unprotected palace; `{"env": "<variable name>"}` or `{"file": "<key file path>"}` names a source the user set, which must hold a non-empty passphrase. One trailing newline in a key file is ignored.
+- `kinds`: a list of strings, default `["decision", "preference", "fact", "lesson"]`. `moments`: a list drawn from `on-request`, `after-decision`, `end-of-task`, default all three.
+- `remote`: a git repository URL, or `null` (the default) for none. `"private": true` when the user confirmed the remote is private.
 - `backend`: optional; `"folder"` is the only backend. `"sqlite"` is a usage error (exit 2).
-- `passphrase`: `null` for an unprotected palace, `{"env": "<variable name>"}`, or `{"file": "<key file path>"}`. The variable or file must already hold a non-empty passphrase. One trailing newline in a key file is ignored.
-- `kinds`: a list of strings. `moments`: a list drawn from `on-request`, `after-decision`, `end-of-task`.
-- Optional: `"remote": "<url>"` and `"private": true` when the user confirmed the remote is private.
 - With a remote, this machine records its URL in `$XDG_CONFIG_HOME/memory-palace/config.json` (or `~/.config/memory-palace/config.json`) as the palace's `origin`. Git is given that URL on the command line for every fetch and push; the palace's `.git/config` names no remote.
-- Result: `{palace, default}`, and `warning` when the push did not happen (an unconfirmed remote, or a push that failed) or a protected palace sits in a git repository that does not ignore it. The new palace becomes this machine's default.
-- A remote that cannot be reached, or is not empty, refuses the setup, and nothing is written.
+- Result: `{palace, scope, default}`; `keyFile` and `note` whenever the machine key file was used; `warning` when the push did not happen (an unconfirmed remote, or a push that failed) or a protected palace sits in a git repository that does not ignore it. The new palace becomes this machine's default.
+- `status` with no palace returns `proposed`: `{scope, palace, passphrase: {file, create}, remote, kinds, moments}`, the defaults above with absolute paths. `create` is true when the key file does not exist yet.
+- A refused setup writes nothing, the key file included. A remote that cannot be reached, or is not empty, refuses the setup.
 - An unprotected palace inside a git repository that does not ignore it is refused, unless it is set up with a remote, which gives it a repository of its own: ignore the folder there, choose another folder, or turn on protection.
 
 ## join
 
-`join --palace <dir>` registers a palace on this machine:
+`join [--palace <dir>]` registers a palace on this machine; without `--palace`, the folder is the global default above. `passphrase` has no default: a palace made on another machine opens only with that machine's key file, which the user copies here to a path of their choice:
 
 ```sh
 node <skill-dir>/scripts/palace.js join --palace ~/memory-palace <<'EOF'
