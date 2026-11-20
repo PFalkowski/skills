@@ -244,6 +244,7 @@ test('355-18: a bare status reports each scope, the project root and the recorde
   assert.deepStrictEqual(empty.scopes, { global: null, project: null, session: null });
   assert.deepStrictEqual(ok(await run(['status', '--scope', 'session'])), { palace: null });
   assert.strictEqual(empty.projectRoot, root);
+  assert.strictEqual(empty.hook, 'absent');
   assert.strictEqual(empty.proposed.scope, 'global');
   const unset = ok(await run(['status', '--scope', 'project']));
   assert.strictEqual(unset.palace, null);

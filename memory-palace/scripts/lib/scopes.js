@@ -49,4 +49,4 @@ function sessionFolder(env, create) {
   return folder;
 }
 
-module.exports = { configDir, machineKeyFile, defaultFolder, projectRoot, sessionId, sessionFolder };
+module.exports = { home, configDir, machineKeyFile, defaultFolder, projectRoot, sessionId, sessionFolder };

@@ -1,6 +1,6 @@
 # memory-palace command reference
 
-Read this before `setup`, `join` or `remote`, or when you need a limit or a result field that [SKILL.md](SKILL.md) does not show. Every command runs as `node <skill-dir>/scripts/palace.js <command> [--scope global|project|session] [--palace <dir>]`, with its input as one JSON object on standard input through a quoted heredoc.
+Read this before `setup`, `join`, `remote` or `hook`, or when you need a limit or a result field that [SKILL.md](SKILL.md) does not show. Every command runs as `node <skill-dir>/scripts/palace.js <command> [--scope global|project|session] [--palace <dir>]`, with its input as one JSON object on standard input through a quoted heredoc.
 
 ## Scopes
 
@@ -78,6 +78,17 @@ EOF
 - The URL is at most 2,048 characters with no control characters. A URL with a password, a token, a query, a fragment or a `::` form is refused.
 - Commits carry the author `memory-palace` and the current time, whatever the `GIT_AUTHOR_*` and `GIT_COMMITTER_*` variables say. Git never prompts on the terminal.
 - The palace's `.git/config` may hold only the keys that `git init` writes; any other key, `remote.*`, `branch.*` and `include.*` among them, is refused, and so is a `.git/remotes` or `.git/branches` folder that holds files. On systems other than Windows, `.git` and `.git/config` must be owned by the user.
+
+## hook
+
+`hook` takes no option and `{"action": "install"}` or `{"action": "remove"}`, and returns `{"hook": "installed" | "absent", "changed": true | false, "settings": "<settings file>"}`. It works only in Claude Code, and the handler needs a current Claude Code (one that runs a handler's `args`).
+
+- **Setup line 7** reads "off" when `status` without options reports `hook` as `absent`; "on" for `installed` (offer "hook off", which is `remove`); "broken" for `stale`, an own handler that names another `palace.js`, such as after the skill folder moved (offer a repair, which is `install`). Run `hook` only when the user asks. After a change, tell the user that Claude Code picks it up itself, that it takes effect at the next session start or compaction, and that `/hooks` shows it.
+- **What it adds:** one group under `hooks.SessionStart`, with no matcher, holding `{"type": "command", "command": "node", "args": ["<palace.js as run>", "remind"], "timeout": 10}`. Its own handlers are those whose `args` are exactly a path ending in `palace.js` and `remind`; nothing else in the file is touched. `install` changes nothing when that one handler is already there, and otherwise replaces every own handler with it. `remove` deletes every own handler, then any group, `SessionStart` list or `hooks` object left empty.
+- **What it does:** at every session start, resume, `/clear` and compaction, `remind` prints one line naming the skill, then one line for the global palace and one for this folder's project palace, each only if it has a moment, giving its kinds and moments. A kind outside lowercase letters, digits and `-` (at most 32) is not printed; that line reads "kinds that `status` shows". `remind` reads only the machine record and each `palace.json`, runs one local git call (the project root), and takes no key, no lock and no network. On any error it prints nothing and exits 0. It does not save: the model still loads the skill and saves at the moments.
+- **The settings file** is `settings.json` in `$CLAUDE_CONFIG_DIR` when that is set, otherwise in `~/.claude/`. It is written through its real path, so a link stays a link, with its mode kept (600 for a new file). It is rewritten as JSON with two-space indentation: every value and key order is kept, but the file's own formatting is lost, and keys that are whole numbers move to the front of their object. Another program that writes the file at the same instant can lose its change.
+- A settings file that is not JSON, or whose `hooks` or `hooks.SessionStart` has another shape, is refused unchanged; `status` then reports `absent`.
+- If a session start shows a hook error, run `hook` with `{"action": "remove"}`, or install again to repair a stale path.
 
 ## Other result fields
 

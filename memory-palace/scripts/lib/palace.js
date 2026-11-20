@@ -778,4 +778,4 @@ function run(command, input, ctx) {
   return READS.has(command) ? labelled(command, result, ctx.scope ?? scopeOf(dir, ctx)) : result;
 }
 
-module.exports = { status, setup, join, unlock, open, run };
+module.exports = { status, setup, join, unlock, open, run, readMachine, readSettings };

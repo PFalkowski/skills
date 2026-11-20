@@ -18,7 +18,7 @@ node <skill-dir>/scripts/palace.js <command> [--scope global|project|session | -
 EOF
 ```
 
-`<skill-dir>` is the folder that holds this file. A palace has a scope: `global` (the machine's default, read from every project), `project` (one per project root, see `status`) or `session` (this Claude Code session only). Without options, `recall`, `browse` and `list` read every scope and the other commands use the global palace; `--scope` or `--palace` picks one palace. The result is one JSON line on standard output, exit 0. An error goes to standard error with exit 1, or exit 2 for a usage error. Read [REFERENCE.md](REFERENCE.md) before you run a command whose input or output this file does not show, before `setup`, `join` or `remote`, and when you need a time limit.
+`<skill-dir>` is the folder that holds this file. A palace has a scope: `global` (the machine's default, read from every project), `project` (one per project root) or `session` (this Claude Code session only). Without options, `recall`, `browse` and `list` read every scope and the other commands use the global palace; `--scope` or `--palace` picks one palace. The result is one JSON line on standard output, exit 0. An error goes to standard error with exit 1, or exit 2 for a usage error. Read [REFERENCE.md](REFERENCE.md) before you run a command whose input or output this file does not show, before `setup`, `join` or `remote`, and when you need a time limit.
 
 ## Rules for every command
 
@@ -35,7 +35,7 @@ Run `status` (no input). On `proposed` (no palace in any scope):
 - If the user asked to set up or use a memory palace, propose the setup below.
 - Otherwise say in one line that no memory palace is set up, leave the request to the harness's own memory, and stop.
 
-Never set up a palace unasked, under any autonomy setting.
+Never set up a palace or the hook unasked, under any autonomy setting.
 
 ## Setup
 
@@ -48,13 +48,14 @@ Never set up a palace unasked, under any autonomy setting.
    4. Remote: none (add one later with `remote`)
    5. Kinds: <kinds>
    6. Moments: <moments>
+   7. Reminder hook: off (say "hook on" so each session starts knowing the kinds and moments)
    ```
 
-   When `passphrase.create` is false, line 3 reads "encrypted with this machine's key file at <passphrase.file>".
-2. Run `setup` once, with only the changed lines in its input (`{}` when the user said yes; shapes in [REFERENCE.md](REFERENCE.md)). Scope project is `--scope project`, run from the project; its folder is in `status --scope project`. A changed folder goes in `--palace <dir>`: absent or empty, its parent existing, and not copied to other machines by a file-sync service (such as Dropbox or OneDrive) if the palace gets a remote. Changed protection is `null`, or a passphrase source the user set: an environment variable's name, or a key file outside the palace (mode 600). Never ask for a passphrase. Tell the user what protection covers (below).
+   When `passphrase.create` is false, line 3 reads "encrypted with this machine's key file at <passphrase.file>". Show line 7 only in Claude Code (`hook` in [REFERENCE.md](REFERENCE.md)).
+2. Run `setup` once, with only the changed lines in its input (`{}` when the user said yes; shapes in [REFERENCE.md](REFERENCE.md)). Scope project is `--scope project`, run from the project. A changed folder goes in `--palace <dir>`: absent or empty, its parent existing, and not copied to other machines by a file-sync service (such as Dropbox or OneDrive) if the palace gets a remote. Changed protection is `null`, or a passphrase source the user set: an environment variable's name, or a key file outside the palace (mode 600). Never ask for a passphrase. Tell the user what protection covers (below).
 3. Show the result's `note` word for word, and any `warning`.
 
-Kinds and moments are stored in clear, so they name categories, never secrets. A palace that already exists elsewhere (on a remote or in a folder this machine does not know) is opened with `join`, not `setup`.
+Kinds and moments are stored in clear: never secrets. A palace that already exists elsewhere (on a remote or in a folder this machine does not know) is opened with `join`, not `setup`.
 
 ## Using the palace
 
@@ -67,7 +68,7 @@ Kinds and moments are stored in clear, so they name categories, never secrets. A
 
 | Command | Standard input | Result |
 |---|---|---|
-| `status` | none | `{scopes: {global, project, session}, projectRoot}`, each scope `null` or `{palace, backend, protected, online, remote, privateRemote, kinds, moments, passphrase}`; plus `proposed` when global and project are `null` |
+| `status` | none | `{scopes: {global, project, session}, projectRoot, hook}`, each scope `null` or `{palace, backend, protected, online, remote, privateRemote, kinds, moments, passphrase}`; plus `proposed` when global and project are `null` |
 | `save` | `{"place", "title", "summary", "text", "kind"}` | `{saved, replaced, synced}` |
 | `recall` | `{"place"}` | `{found: true, place, title, summary, kind, saved, text, scope, alsoIn?}` or `{found: false}`; `alsoIn`: other scopes holding it |
 | `browse` | `{}` or `{"place"}` | `{memories: [{place, title, summary, kind, saved, scope}]}`: the place and everything under it, no texts, narrowest scope first |
@@ -105,7 +106,8 @@ Match the error's opening words below. A read or `status` without options starts
 - **"the key file ... is open to other users"**: ask the user to run `chmod 600` on it, then retry.
 - **"wrong passphrase"** at `join`: the key file is not the one the palace was made with. Ask the user for the path of the right copy; never replace a key file.
 - **"<path> is inside the git repository ... would take the key"**: ask the user to ignore it in that repository, or to choose a passphrase source, then run `setup` again.
-- **"wrong passphrase"** elsewhere, **"settings mismatch"**, **"the settings in ... were altered"**, or any other error that names a `palace.json`: stop and show the error. Someone who can write the folder or the remote may have altered the settings. Do not retry with other settings.
+- **"wrong passphrase"** elsewhere, **"settings mismatch"**, **"the settings in ... were altered"**, or any other error that names a `palace.json`: stop and show the error.
+- **"the Claude Code settings file ... will not change it"**: show it; the user repairs the file. Never edit it yourself.
 
 **Damage**
 
@@ -121,7 +123,7 @@ Match the error's opening words below. A read or `status` without options starts
 - **"saved in the palace files, but <step> failed"**: the change is kept and the next command finishes it. Tell the user. Do not save again.
 - **"the remote holds files memory-palace did not write"**: on a read, say the answer comes from the local copy. Otherwise do not save or sync until the user removes those files where the message says.
 - **"the remote is not empty"**: offer `join`, or a new empty repository.
-- **"this palace and its remote have both changed"**: on a read, say the answer comes from this folder and may lack memories saved elsewhere. On a write, stop and show the message: `save`, `forget`, `sync` and `check` refuse until it is resolved, and the memories this folder never synced exist only here. Offer the rescue, one step at a time with the user: (1) run `status --palace <this folder>` for its `remote` and `passphrase`, then `join --scope <its scope> --palace <a new folder beside this one>` with that `remote` and `passphrase`, so the fresh copy takes its place; (2) `browse --palace <this folder>` and `browse` the fresh copy, then for each memory the fresh copy lacks, `recall --palace <this folder>` and save it with `--scope <its scope>`; where both hold the same place with different text, show both and let the user choose; (3) leave this folder as it is until the user deletes it.
+- **"this palace and its remote have both changed"**: on a read, say the answer comes from this folder and may lack memories saved elsewhere. On a write, stop and show the message: `save`, `forget`, `sync` and `check` refuse until it is resolved. Offer the rescue, one step at a time with the user: (1) run `status --palace <this folder>` for its `remote` and `passphrase`, then `join --scope <its scope> --palace <a new folder beside this one>` with that `remote` and `passphrase`; (2) `browse --palace <this folder>` and `browse` the fresh copy, then for each memory the fresh copy lacks, `recall --palace <this folder>` and save it with `--scope <its scope>`; where both hold the same place with different text, show both and let the user choose; (3) leave this folder as it is until the user deletes it.
 - **"... not yet synced"** or **"the push waits"**: the change is saved locally. Follow the message: fix the remote, or confirm it private as above, then `sync`.
 
 **Folders**
@@ -131,7 +133,7 @@ Match the error's opening words below. A read or `status` without options starts
 - **"no palace at <dir>"** (a palace's folder moved): ask the user where the palace is now, then `join --scope <its scope> --palace <its folder>` with its passphrase source, or `null`, and the palace's remote URL as `remote` (`null` if it has none; leave it out if the folder has no `.git`). Never set up a new palace in its place.
 - **A refused setup** (folder not empty, a URL with a secret, a remote that cannot be reached or is not empty, invalid kinds or moments, or an unprotected palace without a remote inside a git repository that does not ignore it): show the message and ask the user to choose again.
 - **"<dir> is a SQLite palace, which this version no longer reads"**: show the message and offer to move the memories with the user. Say first that each memory passes through the conversation, and that the new palace records the time of the move, not the original time. Set up a new palace (one confirmation), move the memories one at a time with the v1 scripts the message names, and never delete `palace.db`.
-- **A leftover `.<name>.setup-<hex>` folder** beside the palace is a killed `setup` or `join`. Tell the user to delete it: after a killed `join` it can hold a full copy of the palace, in clear for an unprotected one.
+- **A leftover `.<name>.setup-<hex>` folder** beside the palace is a killed `setup` or `join`. Tell the user to delete it.
 
 ## What protection covers
 
@@ -145,4 +147,4 @@ Tell the user this when they choose protection, and whenever they ask.
 - A remote given as a local path runs that repository's own hooks when the skill pushes to it. Use a local-path remote only if you control it.
 - Someone who controls the remote or a backup can roll the whole palace back to an older valid state. That brings back forgotten memories and undoes corrections, and the skill cannot detect it.
 - The lock cannot fully guard against two machines writing through a synced or network folder, or someone deleting the lock file. Each can corrupt the palace and lose memories. Write from one machine at a time.
-- The recorded moments apply only in sessions where this skill is loaded.
+- The recorded moments apply only in sessions where this skill is loaded. The hook saves nothing; it tells each session the kinds and moments.

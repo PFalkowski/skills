@@ -3,20 +3,23 @@
 const fs = require('node:fs');
 const { PalaceError, UsageError, parseJson, describe } = require('./lib/errors.js');
 const palace = require('./lib/palace.js');
+const hook = require('./lib/hook.js');
 
-const USAGE = 'usage: palace.js <status|setup|join|save|recall|browse|list|forget|sync|remote|check|unlock> [--palace <dir>] [--scope global|project|session]; places, titles, summaries and texts go on standard input as one JSON object';
+const USAGE = 'usage: palace.js <status|setup|join|save|recall|browse|list|forget|sync|remote|check|unlock|hook|remind> [--palace <dir>] [--scope global|project|session]; places, titles, summaries and texts go on standard input as one JSON object';
 const SECRET_OPTION = /^--(passphrase|password)(=|$)/;
-const TAKES_INPUT = new Set(['setup', 'join', 'save', 'recall', 'browse', 'list', 'forget', 'remote']);
+const TAKES_INPUT = new Set(['setup', 'join', 'save', 'recall', 'browse', 'list', 'forget', 'remote', 'hook']);
 
 const OPTIONS = { '--palace': 'palace', '--scope': 'scope' };
 const SCOPES = ['global', 'project', 'session'];
 const BINDS = new Set(['setup', 'join']);
+const NO_OPTIONS = new Set(['hook', 'remind']);
 
 const COMMANDS = {
-  status: (input, ctx) => palace.status(ctx),
+  status: (input, ctx) => (ctx.palace === undefined && ctx.scope === undefined ? { ...palace.status(ctx), hook: hook.state(ctx) } : palace.status(ctx)),
   setup: (input, ctx) => palace.setup(ctx.palace, input, ctx),
   join: (input, ctx) => palace.join(ctx.palace, input, ctx),
   unlock: (input, ctx) => palace.unlock(ctx),
+  hook: (input, ctx) => hook.change(input, ctx),
   ...Object.fromEntries(['save', 'recall', 'browse', 'list', 'forget', 'sync', 'check', 'remote'].map((name) => [name, (input, ctx) => palace.run(name, input, ctx)])),
 };
 
@@ -24,7 +27,7 @@ function parseArgs([command, ...options]) {
   if (options.some((option) => SECRET_OPTION.test(option))) {
     throw new UsageError('a passphrase never goes on the command line. Give setup {"passphrase": {"env": "<variable name>"}} or {"passphrase": {"file": "<key file path>"}} on standard input.');
   }
-  if (!Object.hasOwn(COMMANDS, command)) throw new UsageError(USAGE);
+  if ((!Object.hasOwn(COMMANDS, command) && command !== 'remind') || (NO_OPTIONS.has(command) && options.length > 0)) throw new UsageError(USAGE);
   const parsed = { command };
   for (let i = 0; i < options.length; i += 2) {
     const name = Object.hasOwn(OPTIONS, options[i]) ? OPTIONS[options[i]] : undefined;
@@ -50,11 +53,20 @@ function readInput() {
   return input;
 }
 
+function remind() {
+  try {
+    const reminder = hook.remind(fs.readFileSync(0, 'utf8'), process.env);
+    if (reminder) process.stdout.write(`${reminder}\n`);
+  } catch {}
+  return 0;
+}
+
 function main() {
   try {
     const { command, ...options } = parseArgs(process.argv.slice(2));
+    if (command === 'remind') return remind();
     const input = TAKES_INPUT.has(command) ? readInput() : {};
-    process.stdout.write(`${JSON.stringify(COMMANDS[command](input, { env: process.env, cwd: process.cwd(), ...options }))}\n`);
+    process.stdout.write(`${JSON.stringify(COMMANDS[command](input, { env: process.env, cwd: process.cwd(), script: process.argv[1], ...options }))}\n`);
     return 0;
   } catch (err) {
     process.stderr.write(`${describe(err)}\n`);
