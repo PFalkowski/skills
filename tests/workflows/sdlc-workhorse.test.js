@@ -1453,6 +1453,12 @@ console.log('\nthe Document prompt asks for the signal that operates the change 
   const p = promptFor(r, 'document')
   await t('names logging of the new failure path and reporting success and failure', () => /observab/i.test(p) && /log/i.test(p) && /success and failure/i.test(p))
   await t('...and nothing swallowed silently', () => /swallow/i.test(p))
+  const gaps = await runWorkhorse({ args: baseArgs(), agentFn: async (pr, o) => o.label === 'document'
+    ? { docsChanged: ['README.md'], observabilityGaps: ['a.js: the new catch swallows the error'], baselineStillGreen: true, baselineOutput: 'ok' }
+    : mkAgent()(pr, o) })
+  await t('a gap the agent lists reaches the report as a deferred item',
+    () => (gaps.deferred || []).some(d => /observability/i.test(d.what) && JSON.stringify(d.detail).includes('swallows the error')))
+  await t('...and an empty list defers nothing', () => !(r.deferred || []).some(d => /observability/i.test(d.what)))
 }
 
 console.log('\nthe default state paths:')
@@ -1472,6 +1478,8 @@ console.log('\nthe default state paths:')
   await t('with no startedAt the run id comes from the goal', () => pathOf(e1, 'slice').includes('first-goal') && pathOf(e1, 'slice') !== pathOf(e2, 'slice'))
   const chron = promptFor(a, 'baseline').match(/\$HOME\/\.agent-state\/\S*chronicles/)
   await t('the chronicle folder sits under the same run id', () => chron && chron[0].includes('11-20-09-13-'))
+  const long = await runWorkhorse({ args: noPaths({ startedAt: 'x'.repeat(500) }), agentFn: mkAgent() })
+  await t('a very long startedAt still gives a short folder name', () => (pathOf(long, 'slice').split('/sdlc-workhorse/')[1] || '').split('/')[0].length <= 60)
   const explicit = await runWorkhorse({ args: noPaths({ backlogPath: '/x/b.md', chronicleDir: '/x/c' }), agentFn: mkAgent() })
   await t('an explicit path is used as given', () => promptFor(explicit, 'slice').includes('/x/b.md') && !promptFor(explicit, 'slice').includes('<repo-slug>'))
 }
@@ -1500,6 +1508,8 @@ console.log('\nslices build in dependsOn order:')
   let built = 0
   const early = await (async () => { try { await runWorkhorse({ args: baseArgs(), agentFn: async (p, o) => { if (o.label.startsWith('red:')) built++; return withSlices([{ ...sliceOf('s1'), dependsOn: ['nope'] }])(p, o) } }) } catch { } return built })()
   await t('...before any slice is built', () => early === 0)
+  const dup = await outcome([sliceOf('s1'), sliceOf('s1'), sliceOf('s2')])
+  await t('a duplicate slice id stops the run with an error that says so, not a cycle', () => dup && /duplicate/i.test(dup.message) && /s1/.test(dup.message) && !/cycle/i.test(dup.message))
   const capped = await runWorkhorse({ args: baseArgs({ maxSlices: 1 }), agentFn: withSlices([
     { ...sliceOf('s1'), dependsOn: ['s2'] }, sliceOf('s2')]) })
   await t('the cap drops a dependent, never the slice it needs', () => at(capped, 'red:s2') >= 0 && at(capped, 'red:s1') < 0)

@@ -40,7 +40,7 @@ Workflow({
 ```
 
 Without `backlogPath` or `chronicleDir` the prompts carry the placeholder
-`$HOME/.agent-state/<repo-slug>/sdlc-workhorse/<run-id>/…` for the agents to resolve. The run id comes from `startedAt` (or the goal's words) and a hash of the goal, so two runs never share a folder; pass both paths when a later dispatch must continue the same run.
+`$HOME/.agent-state/<repo-slug>/sdlc-workhorse/<run-id>/…` for the agents to resolve. The run id comes from `startedAt` (or the goal's words) and a hash of the goal, so two different goals never share a folder; pass both paths when a later dispatch must continue the same run.
 
 **If the name is not found**, dispatch by `scriptPath` instead, resolved rather than guessed:
 

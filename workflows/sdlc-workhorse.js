@@ -60,7 +60,7 @@ if (localSession) {
 // still differ. It is a pure function of the args: no clock, so a resumed run finds its own folder.
 const slugOf = (text) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 const hashOf = (text) => { let h = 5381; for (const c of String(text)) h = ((h * 33) ^ c.charCodeAt(0)) >>> 0; return h.toString(36) }
-const runId = `${slugOf(startedAt) || slugOf(cfg.goal).slice(0, 30).replace(/-+$/g, '') || 'run'}-${hashOf(cfg.goal)}`
+const runId = `${slugOf(startedAt).slice(0, 40).replace(/-+$/g, '') || slugOf(cfg.goal).slice(0, 30).replace(/-+$/g, '') || 'run'}-${hashOf(cfg.goal)}`
 const stateRoot = `$HOME/.agent-state/<repo-slug>/sdlc-workhorse/${runId}`
 const backlogPath = cfg.backlogPath || `${stateRoot}/backlog.md`
 const chronicleDir = cfg.chronicleDir || `${stateRoot}/chronicles`
@@ -1151,10 +1151,12 @@ const testOf = s => plannedTests.find(p => p.id === s.claimTest)
 // Built first so the cap cannot drop a slice the merge is waiting on.
 const claimFirst = [...sliced.slices.filter(testOf), ...sliced.slices.filter(s => !testOf(s))]
 // A slice builds after every slice it dependsOn. The sort is stable, so slices with no dependency between
-// them keep the order above. An unknown id or a cycle stops the run before anything is built, because a
+// them keep the order above. A duplicate id, an unknown id or a cycle stops the run before anything is built, because a
 // build in the wrong order would test code that is not there yet.
 const orderByDependsOn = (list) => {
   const ids = new Set(list.map(s => s.id))
+  const repeated = [...new Set(list.map(s => s.id).filter((id, i, all) => all.indexOf(id) !== i))]
+  if (repeated.length) throw new Error(`sdlc-workhorse: duplicate slice id(s): ${repeated.join(', ')}.`)
   for (const s of list) {
     const unknown = (s.dependsOn || []).filter(d => !ids.has(d))
     if (unknown.length) throw new Error(`sdlc-workhorse: slice ${s.id} dependsOn unknown slice id(s): ${unknown.join(', ')}.`)
