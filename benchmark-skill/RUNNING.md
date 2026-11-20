@@ -41,7 +41,7 @@ it before the run for the frozen values, and add the control's cases afterwards.
 
 | Field | Meaning |
 |---|---|
-| `ceiling_rate` | The frozen ceiling rate, above twice the margin. The default is the lower of 0.90 and one minus the margin. |
+| `ceiling_rate` | The frozen ceiling rate, above twice the margin; otherwise the run is INVALID, as it is with the default when the margin is one third or more. The default is the lower of 0.90 and one minus the margin. |
 | `last_allowed_suite` | `true` when the rung cap is reached or no remaining declared rung meets its calibration target; `false` when the ladder goes on. Absent counts as `true`, and the report lists "ladder position" as unchecked. |
 | `earlier_suite_effects` | The observed paired effect (B's rate minus A's) of each earlier suite, as numbers. Use `[]` for the first suite. |
 | `control_passed_case_ids` | The cases the no-skill control passed in every trial on this frozen suite. Run the control as its own experiment with the control prompt as arm `a`, and list the cases whose trials all passed. Use `[]` when it passed none. |

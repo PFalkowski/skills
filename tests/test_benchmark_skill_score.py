@@ -375,6 +375,41 @@ class GateTests(unittest.TestCase):
         self.assertEqual(clear["verdict"], "NO_MEANINGFUL_CHANGE")
         self.assertEqual(clear["gates"]["control_success_rate"], 0.3)
 
+    def test_a_difference_of_exactly_the_margin_is_not_enough(self):
+        data = records_for([(f"c{i}", i < 80, i < 80) for i in range(200)])
+        data[0]["config"]["decision"]["margin"] = 0.1
+        ids = case_ids(data)
+        report = score.analyze(data, {"control_passed_case_ids": ids[:60]})
+        self.assertEqual(report["reason"], "skill not visible")
+        beaten = score.analyze(data, {"control_passed_case_ids": ids[:59]})
+        self.assertNotEqual(beaten["reason"], "skill not visible")
+
+    def test_the_default_ceiling_rate_has_no_rounding_error(self):
+        data = records_for([(f"c{i}", i < 41, i < 41) for i in range(50)])
+        data[0]["config"]["decision"]["margin"] = 0.18
+        self.assertTrue(score.analyze(data)["gates"]["ceiling"])
+
+    def test_a_ceiling_is_named_when_the_quality_floor_blocks_a_clean_verdict(self):
+        data = records_for([(f"c{i}", True, i != 0) for i in range(100)], quality_floor=1.0)
+        report = score.analyze(data, {"last_allowed_suite": True})
+        self.assertEqual(report["verdict"], "INCONCLUSIVE")
+        self.assertEqual(report["reason"], "ceiling")
+
+    def test_the_gates_apply_in_the_documented_order(self):
+        data = records_for([(f"c{i}", i < 1, i < 1) for i in range(100)])
+        ids = case_ids(data)
+        context = {"last_allowed_suite": True, "earlier_suite_effects": [-0.3],
+                   "control_passed_case_ids": ids[:1]}
+        self.assertEqual(score.analyze(data, context)["reason"], "floor effect")
+        data = records_for([(f"c{i}", i < 50, i < 50) for i in range(100)])
+        ids = case_ids(data)
+        context = {"last_allowed_suite": True, "earlier_suite_effects": [-0.3],
+                   "control_passed_case_ids": ids[:50]}
+        self.assertEqual(score.analyze(data, context)["reason"], "earlier loss")
+        context["last_allowed_suite"] = False
+        data = records_for([(f"c{i}", True, True) for i in range(100)])
+        self.assertEqual(score.analyze(data, context)["reason"], "ceiling")
+
     def test_a_control_case_must_exist(self):
         data = records_for([("x", True, True)])
         self.assertEqual(score.analyze(data, {"control_passed_case_ids": ["nope"]})["verdict"],

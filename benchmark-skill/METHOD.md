@@ -27,6 +27,9 @@ should expose checks that pass without the intended behavior. These development
 controls do not become independent held-out observations. For the sensitivity gate,
 score the control on the frozen suite as its own experiment, with the control as arm
 `a` and A as arm `b`: the observed paired effect `(w-l)/n` must exceed the margin.
+The scorer takes the control's passed cases and A's outcomes from the scored run; that
+equals the paired effect of the control experiment when A's outcomes are the same in
+both runs.
 
 Keep purposively selected safety cases in the `gate` split: they can block promotion
 but are excluded from the representative `test` sample and its uncertainty estimate.
@@ -71,7 +74,8 @@ scorer's verdict when it matches. An empty output, or one that ends for any reas
 but a normal stop, makes the run INVALID (step 1).
 
 1. Missing/duplicate/extra trials, malformed grades, truncation, an empty or blocked
-   output, environment drift or incomplete runs: **INVALID**.
+   output, environment drift, incomplete runs, or a ceiling rate at or below `2m`
+   (the default ceiling rate fails this when `m` is one third or more): **INVALID**.
 2. With validated graders, a critical test that passed all A trials fails any B
    trial: **REGRESSION**, an observed release-gate failure, not a population
    significance claim. An unvalidated grader cannot justify that verdict.

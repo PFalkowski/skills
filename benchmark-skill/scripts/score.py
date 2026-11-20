@@ -406,7 +406,7 @@ def validate_context(context, margin, case_by_id):
                               "earlier_suite_effects", "control_passed_case_ids"}
     if unknown:
         raise ValueError(f"unknown context fields: {sorted(unknown)}")
-    ceiling_rate = context.get("ceiling_rate", min(0.90, 1 - margin))
+    ceiling_rate = context.get("ceiling_rate", min(0.90, round(1 - margin, 12)))
     ceiling_rate = _number(ceiling_rate, "ceiling_rate", minimum=0, maximum=1,
                            inclusive_min=False)
     if ceiling_rate <= 2 * margin:
@@ -509,17 +509,19 @@ def analyze(records, context=None):
     ceiling_effect = a_rate is not None and a_rate >= ctx["ceiling_rate"]
     floor_effect = a_rate is not None and a_rate <= margin
     earlier_loss = any(e < -margin for e in ctx["earlier_suite_effects"] or [])
-    control_rate = None
+    control_rate = control_passes = None
     if ctx["control"] is not None and test["clusters"]:
         passed_ids = set(ctx["control"])
         test_clusters = {}
         for case_id, case in cases.items():
             if case["split"] == "test":
                 test_clusters.setdefault(case["cluster"], []).append(case_id)
-        control_rate = sum(all(i in passed_ids for i in ids)
-                           for ids in test_clusters.values()) / len(test_clusters)
-    skill_visible = (None if control_rate is None
-                     else a_rate - control_rate > margin)
+        control_passes = sum(all(i in passed_ids for i in ids)
+                             for ids in test_clusters.values())
+        control_rate = control_passes / len(test_clusters)
+    skill_visible = (None if control_passes is None else
+                     (test["a_reliable_successes"] - control_passes)
+                     / test["clusters"] > margin)
     case_lists = {"every_arm_passed": [], "every_arm_failed": [], "only_one_arm_passed": []}
     for case_id, case in cases.items():
         if case["split"] != "test":
@@ -551,6 +553,8 @@ def analyze(records, context=None):
         verdict, reason = "INCONCLUSIVE", "skill not visible"
     elif not floor_met or candidate_critical_failures:
         verdict = "INCONCLUSIVE"
+        if ceiling_effect:
+            reason = "ceiling"
     elif interval[0] > margin:
         verdict = "IMPROVEMENT"
     elif interval[0] >= -margin and interval[1] <= margin:
