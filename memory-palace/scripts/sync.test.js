@@ -889,38 +889,38 @@ function fillCell(env, dir, settings) {
   return { live: [...needlesOf(kept), ...needlesOf(replacement)], all: [kept, replaced, forgotten, replacement].flatMap(needlesOf) };
 }
 
-function cell(box, backend, protection) {
-  const name = `${backend} ${backend === 'folder' ? 'with a remote' : 'offline'}, protection ${protection ? 'on' : 'off'}`;
-  const id = `${backend}-${protection ? 'on' : 'off'}`;
+function cell(box, protection) {
+  const name = `with a remote, protection ${protection ? 'on' : 'off'}`;
+  const id = protection ? 'on' : 'off';
   const env = box.home(id);
   const dir = box.at(`${id}-palace`);
-  const remote = backend === 'folder' ? box.bare(`${id}-remote.git`) : null;
-  const settings = { ...(protection ? PROTECTED : SETTINGS), backend, ...(remote && { remote, private: !protection }) };
+  const remote = box.bare(`${id}-remote.git`);
+  const settings = { ...(protection ? PROTECTED : SETTINGS), remote, private: !protection };
   const { live, all } = fillCell(env, dir, settings);
   const problems = [];
   if (protection) {
     const needles = [...all, PASS];
     for (const hit of scan([dir, env.HOME, env.TMPDIR], needles)) problems.push(`${name}: leaked, ${hit}`);
-    for (const repo of remote ? [path.join(dir, '.git'), remote] : []) {
+    for (const repo of [path.join(dir, '.git'), remote]) {
       const bytes = objects(env, repo);
       for (const needle of needles) if (bytes.includes(needle)) problems.push(`${name}: leaked, a decompressed object of ${repo} holds ${needle}`);
     }
     return problems;
   }
-  const remoteBytes = remote ? objects(env, remote) : null;
+  const remoteBytes = objects(env, remote);
   for (const needle of live) {
     if (scan([dir], [needle]).length === 0) problems.push(`${name}: the control found nothing for ${needle} in the palace folder`);
-    if (remoteBytes && !remoteBytes.includes(needle)) problems.push(`${name}: the control found nothing for ${needle} in the decompressed remote`);
+    if (!remoteBytes.includes(needle)) problems.push(`${name}: the control found nothing for ${needle} in the decompressed remote`);
   }
   return problems;
 }
 
 test('B1 with a remote', (t) => {
-  assert.deepStrictEqual(cell(sandbox(t), 'folder', true), []);
+  assert.deepStrictEqual(cell(sandbox(t), true), []);
 });
 
 test('B2 with a remote', (t) => {
-  assert.deepStrictEqual(cell(sandbox(t), 'folder', false), []);
+  assert.deepStrictEqual(cell(sandbox(t), false), []);
 });
 
 async function plantedGit(t, config) {
