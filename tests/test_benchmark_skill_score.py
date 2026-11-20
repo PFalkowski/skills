@@ -196,12 +196,12 @@ class AnalyzeTests(unittest.TestCase):
         self.assertEqual(score.analyze(data)["verdict"], "INCONCLUSIVE")
 
     def test_only_representative_frozen_validated_sample_can_claim(self):
-        data = records_for([(f"a{i}", False, True) for i in range(40)], min_clusters=30)
+        data = records_for([(f"a{i}", i < 10, True) for i in range(40)], min_clusters=30)
         report = score.analyze(data)
         self.assertEqual(report["verdict"], "IMPROVEMENT")
         for key, value in (("frozen", False), ("validated", False),
                            ("sampling", "curated")):
-            altered = records_for([(f"a{i}", False, True) for i in range(40)], min_clusters=30,
+            altered = records_for([(f"a{i}", i < 10, True) for i in range(40)], min_clusters=30,
                                   frozen=False if key == "frozen" else True,
                                   validated=False if key == "validated" else True,
                                   sampling="curated" if key == "sampling" else "representative")
@@ -294,6 +294,141 @@ class AnalyzeTests(unittest.TestCase):
         self.assertEqual(report["metrics"]["gate"]["clusters"], 1)
         self.assertEqual(report["verdict"], "REGRESSION")
         self.assertEqual(report["introduced_critical_failures"], ["rare-critical"])
+
+
+def case_ids(data):
+    return [case["id"] for case in data[0]["config"]["cases"]]
+
+
+class GateTests(unittest.TestCase):
+    def test_ceiling_on_the_last_suite_is_inconclusive_with_the_reason(self):
+        data = records_for([(f"c{i}", True, True) for i in range(20)])
+        for context in (None, {"last_allowed_suite": True}):
+            report = score.analyze(data, context)
+            self.assertEqual(report["verdict"], "INCONCLUSIVE")
+            self.assertEqual(report["reason"], "ceiling")
+            self.assertTrue(report["gates"]["ceiling"])
+
+    def test_ceiling_with_a_tight_interval_still_shows_no_meaningful_change(self):
+        data = records_for([(f"c{i}", True, True) for i in range(100)])
+        report = score.analyze(data, {"last_allowed_suite": True})
+        self.assertEqual(report["verdict"], "NO_MEANINGFUL_CHANGE")
+        self.assertTrue(report["gates"]["ceiling"])
+
+    def test_ceiling_before_the_last_suite_gives_no_verdict_and_asks_for_the_next_rung(self):
+        data = records_for([(f"c{i}", True, True) for i in range(100)])
+        report = score.analyze(data, {"last_allowed_suite": False})
+        self.assertEqual(report["verdict"], "INCONCLUSIVE")
+        self.assertEqual(report["reason"], "ceiling")
+        self.assertEqual(report["next_step"], "run the next rung")
+
+    def test_a_ceiling_does_not_hide_a_regression(self):
+        data = records_for([(f"c{i}", True, False) for i in range(100)])
+        report = score.analyze(data, {"last_allowed_suite": False})
+        self.assertEqual(report["verdict"], "REGRESSION")
+
+    def test_floor_effect(self):
+        data = records_for([(f"c{i}", False, False) for i in range(100)])
+        last = score.analyze(data, {"last_allowed_suite": True})
+        self.assertEqual(last["verdict"], "INCONCLUSIVE")
+        self.assertEqual(last["reason"], "floor effect")
+        self.assertNotIn("next_step", last)
+        earlier = score.analyze(data, {"last_allowed_suite": False})
+        self.assertEqual(earlier["reason"], "floor effect")
+        self.assertEqual(earlier["next_step"], "run the next rung")
+
+    def test_a_rate_at_the_margin_is_a_floor_effect(self):
+        data = records_for([("w", True, True)] + [(f"c{i}", False, False) for i in range(19)])
+        self.assertEqual(score.analyze(data)["reason"], "floor effect")
+
+    def test_ceiling_rate_must_exceed_twice_the_margin(self):
+        data = records_for([("x", True, True)])
+        for rate in (0.10, 0.05, 1.5, True):
+            report = score.analyze(data, {"ceiling_rate": rate})
+            self.assertEqual(report["verdict"], "INVALID", rate)
+
+    def test_a_lower_frozen_ceiling_rate_changes_the_detection(self):
+        data = records_for([(f"c{i}", i < 8, i < 8) for i in range(10)])
+        self.assertFalse(score.analyze(data)["gates"]["ceiling"])
+        report = score.analyze(data, {"ceiling_rate": 0.8})
+        self.assertTrue(report["gates"]["ceiling"])
+        self.assertEqual(report["gates"]["ceiling_rate"], 0.8)
+
+    def test_an_earlier_loss_beyond_the_margin_blocks_a_later_clean_verdict(self):
+        data = records_for([(f"c{i}", i < 50, i < 50) for i in range(100)])
+        self.assertEqual(score.analyze(data)["verdict"], "NO_MEANINGFUL_CHANGE")
+        report = score.analyze(data, {"earlier_suite_effects": [-0.2, 0.1]})
+        self.assertEqual(report["verdict"], "INCONCLUSIVE")
+        self.assertEqual(report["reason"], "earlier loss")
+        small = score.analyze(data, {"earlier_suite_effects": [-0.05, 0.0]})
+        self.assertEqual(small["verdict"], "NO_MEANINGFUL_CHANGE")
+
+    def test_the_skill_must_beat_the_control_by_more_than_the_margin(self):
+        data = records_for([(f"c{i}", i < 50, i < 50) for i in range(100)])
+        ids = case_ids(data)
+        same = score.analyze(data, {"control_passed_case_ids": ids[:50]})
+        self.assertEqual(same["verdict"], "INCONCLUSIVE")
+        self.assertEqual(same["reason"], "skill not visible")
+        slightly = score.analyze(data, {"control_passed_case_ids": ids[:46]})
+        self.assertEqual(slightly["reason"], "skill not visible")
+        clear = score.analyze(data, {"control_passed_case_ids": ids[:30]})
+        self.assertEqual(clear["verdict"], "NO_MEANINGFUL_CHANGE")
+        self.assertEqual(clear["gates"]["control_success_rate"], 0.3)
+
+    def test_a_control_case_must_exist(self):
+        data = records_for([("x", True, True)])
+        self.assertEqual(score.analyze(data, {"control_passed_case_ids": ["nope"]})["verdict"],
+                         "INVALID")
+
+    def test_gates_the_scorer_could_not_check_are_named(self):
+        data = records_for([(f"c{i}", i < 50, i < 50) for i in range(100)])
+        self.assertEqual(score.analyze(data)["unchecked_gates"],
+                         ["ladder position", "earlier loss", "sensitivity"])
+        full = score.analyze(data, {"last_allowed_suite": True, "earlier_suite_effects": [],
+                                    "control_passed_case_ids": []})
+        self.assertEqual(full["unchecked_gates"], [])
+
+    def test_case_lists_include_the_control(self):
+        data = records_for([("both", True, True), ("onlyb", False, True),
+                            ("none", False, False), ("onlya", True, False)])
+        ids = {c["cluster"]: c["id"] for c in data[0]["config"]["cases"]}
+        report = score.analyze(data, {"control_passed_case_ids": [ids["both"]]})
+        lists = report["case_lists"]
+        self.assertEqual(lists["every_arm_passed"], [ids["both"]])
+        self.assertEqual(lists["every_arm_failed"], [ids["none"]])
+        self.assertEqual(lists["only_one_arm_passed"], sorted([ids["onlyb"], ids["onlya"]]))
+        without = score.analyze(data)["case_lists"]
+        self.assertEqual(without["every_arm_passed"], sorted([ids["both"]]))
+        self.assertEqual(without["every_arm_failed"], [ids["none"]])
+
+    def test_an_empty_or_blocked_output_is_invalid(self):
+        for change in ({"output": " \n"}, {"done_reason": "content_filter"}):
+            data = records_for([("x", False, False)])
+            for row in (r for r in data if r["type"] == "result"):
+                if "output" in change:
+                    row["output"] = change["output"]
+                    row["response"]["response"] = change["output"]
+                else:
+                    row["response"]["done_reason"] = change["done_reason"]
+            self.assertEqual(score.analyze(data)["verdict"], "INVALID", change)
+
+    def test_the_command_line_reads_a_context_file(self):
+        data = records_for([(f"c{i}", True, True) for i in range(20)])
+        with tempfile.TemporaryDirectory() as folder:
+            folder = pathlib.Path(folder)
+            run = folder / "run.jsonl"
+            run.write_text("\n".join(json.dumps(r) for r in data), encoding="utf-8")
+            context = folder / "context.json"
+            context.write_text(json.dumps({"last_allowed_suite": False}), encoding="utf-8")
+            out = folder / "report.json"
+            code = score.main([str(run), str(out), "--context", str(context)])
+            report = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(code, 2)
+            self.assertEqual(report["next_step"], "run the next rung")
+            bad = folder / "bad.json"
+            bad.write_text("[]", encoding="utf-8")
+            out2 = folder / "report2.json"
+            self.assertEqual(score.main([str(run), str(out2), "--context", str(bad)]), 3)
 
 
 if __name__ == "__main__":
