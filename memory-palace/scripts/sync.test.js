@@ -18,6 +18,8 @@ const PROTECTED = { ...SETTINGS, passphrase: { env: VAR }, kdf: { N: 2 ** 14 } }
 const IDENTITY = ['-c', 'user.name=test', '-c', 'user.email=test@example.invalid'];
 const OWNED = /^(palace\.json|meta|\.gitignore|pages\/[0-9a-f]{2}\/[0-9a-f]{32})$/;
 const DIVERGED = /both changed since they last matched/;
+const DIVERGED_WRITE = /both changed since they last matched\. Nothing was changed\. Reads still answer from this folder\./;
+const DIVERGED_READ = /both changed since they last matched\. This answer comes from the local copy/;
 const FOREIGN = /the remote holds files memory-palace did not write/;
 const NOT_EMPTY = /the remote is not empty/;
 const UNREACHABLE = /does not appear to be a git repository/;
@@ -131,10 +133,11 @@ function diverged(box) {
   fs.renameSync(remote, `${remote}.away`);
   const fromA = memoryOf(tag());
   saveIn(a, dirA, fromA);
-  saveIn(b, dirB, memoryOf(tag()));
+  const fromB = memoryOf(tag());
+  saveIn(b, dirB, fromB);
   fs.renameSync(`${remote}.away`, remote);
   within(a, dirA, (palace) => palace.sync());
-  return { a, b, dirA, dirB, remote, fromA };
+  return { a, b, dirA, dirB, remote, fromA, fromB };
 }
 
 function foreignRemote(box) {
@@ -232,15 +235,34 @@ test('E2: unconfirmed unprotected push', async (t) => {
   assert.strictEqual(mainOf(box.env, sealed.remote), headOf(box.env, sealed.dir));
 });
 
-test('E3: diverged sync stops', async (t) => {
+test('E3: diverged writes stop, reads answer from the local copy', async (t) => {
   const box = sandbox(t);
-  const { b, dirB, remote } = diverged(box);
+  const { b, dirB, remote, fromA, fromB } = diverged(box);
   const state = () => ({ head: headOf(b, dirB), files: workFiles(dirB), remote: refs(b, remote) });
   const before = state();
-  assert.match(failed(await cli(b, ['sync']), 'sync'), DIVERGED);
+  for (const [command, input] of [['save', memoryOf(tag())], ['forget', { place: fromB.place }], ['sync'], ['check']]) {
+    assert.match(failed(await cli(b, [command], input), command), DIVERGED_WRITE);
+    assert.deepStrictEqual(state(), before, command);
+  }
+  const recalled = ok(await cli(b, ['recall'], { place: fromB.place }));
+  assert.strictEqual(recalled.text, fromB.text);
+  const browsed = ok(await cli(b, ['browse'], {}));
+  const places = browsed.memories.map((memory) => memory.place);
+  assert.ok(places.includes(fromB.place) && !places.includes(fromA.place), places.join(' '));
+  const listed = ok(await cli(b, ['list'], {}));
+  assert.ok(listed.children.length > 0);
+  for (const read of [recalled, browsed, listed]) assert.match(read.warning, DIVERGED_READ);
   assert.deepStrictEqual(state(), before);
-  assert.match(failed(await cli(b, ['browse'], {}), 'browse'), DIVERGED);
-  assert.deepStrictEqual(state(), before);
+});
+
+test('a read in step with its remote carries no divergence warning', async (t) => {
+  const box = sandbox(t);
+  const { dir } = onlinePalace(box);
+  const memory = memoryOf(tag());
+  saveIn(box.env, dir, memory);
+  for (const [command, input] of [['recall', { place: memory.place }], ['browse', {}], ['list', {}]]) {
+    assert.doesNotMatch(output(await cli(box.env, [command], input)), DIVERGED, command);
+  }
 });
 
 test('E4: git\'s error reaches the user', async (t) => {
@@ -275,11 +297,14 @@ test('E5: unreachable remote', async (t) => {
 
 test('E5: known divergence with the remote gone', async (t) => {
   const box = sandbox(t);
-  const { a, b, dirB, remote } = diverged(box);
+  const { a, b, dirB, remote, fromB } = diverged(box);
   failed(await cli(b, ['sync']), 'the sync that learns of the divergence');
   fs.renameSync(remote, `${remote}.away`);
   const state = () => ({ head: headOf(b, dirB), files: workFiles(dirB) });
   const before = state();
+  const { warning } = ok(await cli(b, ['recall'], { place: fromB.place }));
+  assert.match(warning, UNREACHABLE);
+  assert.match(warning, DIVERGED_READ);
   assert.match(failed(await cli(b, ['save'], memoryOf(tag())), 'diverged save'), DIVERGED);
   assert.deepStrictEqual(state(), before);
   for (const round of ['equal', 'ahead']) {
@@ -446,14 +471,16 @@ test('diverged palace whose remote was emptied at the same URL syncs', async (t)
 
 test('divergence way out', async (t) => {
   const box = sandbox(t);
-  const { b, dirB, remote, fromA } = diverged(box);
-  assert.match(failed(await cli(b, ['sync']), 'sync'), /\bjoin\b/);
+  const { b, dirB, remote, fromA, fromB } = diverged(box);
+  failed(await cli(b, ['sync']), 'the sync that learns of the divergence');
   const state = () => ({ head: headOf(b, dirB), files: workFiles(dirB) });
   const before = state();
   const fresh = box.at('fresh-copy');
   assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', fresh], { remote, passphrase: null })), { joined: fresh, default: fresh });
+  const { place, title, summary, kind, text } = ok(await cli(b, ['recall', '--palace', dirB], { place: fromB.place }));
+  ok(await cli(b, ['save'], { place, title, summary, kind, text }));
+  assert.strictEqual(ok(await cli(b, ['recall'], { place: fromB.place })).text, fromB.text);
   assert.strictEqual(ok(await cli(b, ['recall'], { place: fromA.place })).text, fromA.text);
-  assert.strictEqual(ok(await cli(b, ['status'])).palace, fresh);
   assert.deepStrictEqual(state(), before);
 });
 

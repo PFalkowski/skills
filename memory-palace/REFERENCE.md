@@ -65,7 +65,7 @@ EOF
 
 ## Other result fields
 
-- `save` reports `synced: true` only after a push succeeded; an offline palace, or one with no recorded remote, reports `false`. `status` reports `remote` as the recorded URL, or `null`. `save`, `forget` and `check` add `warning` when the push did not happen. Reads add `warning` when the fetch failed or the remote holds foreign files; the answer then comes from the local copy.
+- `save` reports `synced: true` only after a push succeeded; an offline palace, or one with no recorded remote, reports `false`. `status` reports `remote` as the recorded URL, or `null`. `save`, `forget` and `check` add `warning` when the push did not happen. Reads add `warning` when the fetch failed, the remote holds foreign files, or the palace and its remote have both changed since they last matched; the answer then comes from the local copy and nothing is merged. A read that cannot reach the remote still warns about a divergence its last fetch saw.
 - `forget` on a palace with a remote adds `note`: git history still holds earlier versions.
 - `recall`, `browse` and `list` do not clean up the pages of a write that was killed or is still running; the next `save`, `forget`, `check`, `sync` or `remote` does.
 - On SIGINT or SIGTERM while it holds the lock, a command finishes and exits with its own code. A second signal ends it at once, which leaves the lock like any kill. A command still waiting for the lock ends at the first signal.

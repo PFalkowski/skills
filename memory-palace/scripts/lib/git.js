@@ -30,7 +30,8 @@ const STALE_LOCK_MS = 10000;
 
 const NOT_EMPTY = 'the remote is not empty. To open the palace it holds, use join. Otherwise create an empty repository (no README, license or .gitignore) and try again. Nothing was written.';
 const SECRET_URL = 'the remote URL carries a password or token. Use a credential helper or ssh. Nothing was written.';
-const DIVERGED = 'this palace and its remote have both changed since they last matched. Nothing was changed. To keep working, join a fresh copy into a new folder (`join --palace <new folder>`). This folder is left as it is and keeps the memories that were not synced.';
+const DIVERGED = 'this palace and its remote have both changed since they last matched. Nothing was changed. Reads still answer from this folder. To save again, follow the steps under \'this palace and its remote have both changed\' in the skill\'s SKILL.md.';
+const DIVERGED_READ = 'this palace and its remote have both changed since they last matched. This answer comes from the local copy, which may lack memories saved elsewhere. Saves and sync stop until the two are brought together: follow the steps under \'this palace and its remote have both changed\' in the skill\'s SKILL.md.';
 
 function scrubbed(env) {
   const clean = { ...env };
@@ -138,7 +139,10 @@ function fetchAndForward(env, palace, url, { timeoutMs, read, checkLock, checkSe
   const upstream = revision(env, palace, TRACKING);
   const head = revision(env, palace, 'HEAD');
   if (upstream === null || upstream === head || isAncestor(env, palace, upstream, head)) return { warning };
-  if (!isAncestor(env, palace, head, upstream)) throw new PalaceError(DIVERGED);
+  if (!isAncestor(env, palace, head, upstream)) {
+    if (!read) throw new PalaceError(DIVERGED);
+    return { warning: [warning, DIVERGED_READ].filter(Boolean).join(' ') };
+  }
   checkLock();
   const foreign = foreignPaths(env, palace, upstream);
   if (foreign.length === 0) {
