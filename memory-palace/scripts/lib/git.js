@@ -27,6 +27,7 @@ const LINK = /^(remote|branch)\./;
 const TRACKING = 'refs/remotes/origin/main';
 const LOCAL_TIMEOUT_MS = 120000;
 const STALE_LOCK_MS = 10000;
+const PROJECT_ROOT_MS = 5000;
 
 const NOT_EMPTY = 'the remote is not empty. To open the palace it holds, use join. Otherwise create an empty repository (no README, license or .gitignore) and try again. Nothing was written.';
 const SECRET_URL = 'the remote URL carries a password or token. Use a credential helper or ssh. Nothing was written.';
@@ -244,7 +245,20 @@ function enclosingRepo(target, env, owned = OWNED.map((name) => path.join(target
   return { top, allIgnored: ignored.stdout.split('\n').filter(Boolean).length === owned.length };
 }
 
+function projectRoot(env, cwd) {
+  let result;
+  try {
+    result = git(env, ['-C', cwd, 'rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir'], { timeoutMs: PROJECT_ROOT_MS });
+  } catch (err) {
+    if (err.code === 'ENOENT') return null;
+    throw err;
+  }
+  if (result.status !== 0) return null;
+  const [top, common] = result.stdout.split('\n');
+  return fs.realpathSync(path.basename(common) === '.git' ? path.dirname(common) : top);
+}
+
 module.exports = {
-  hasRepo, online, unlink, init, clone, dropTracking, foreignPaths, foreignError, refuseForeignHead, checkRemote, fetchAndForward, clearStaleLocks, restore, commit, push, gc,
+  projectRoot, hasRepo, online, unlink, init, clone, dropTracking, foreignPaths, foreignError, refuseForeignHead, checkRemote, fetchAndForward, clearStaleLocks, restore, commit, push, gc,
   carriesSecret, SECRET_URL, enclosingRepo,
 };

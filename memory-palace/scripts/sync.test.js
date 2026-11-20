@@ -161,8 +161,8 @@ test('E1: B joins from A\'s remote', async (t) => {
   ok(await cli(box.env, ['sync']));
 
   const dirB = box.at('b-palace');
-  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', dirB], { remote, passphrase: null })), { joined: dirB, default: dirB });
-  const status = ok(await cli(b, ['status']));
+  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', dirB], { remote, passphrase: null })), { joined: dirB, scope: 'global', default: dirB });
+  const status = ok(await cli(b, ['status', '--scope', 'global']));
   assert.strictEqual(status.online, true);
   assert.strictEqual(status.remote, remote);
   for (const memory of fromA) assert.strictEqual(ok(await cli(b, ['recall'], { place: memory.place })).text, memory.text);
@@ -352,7 +352,7 @@ test('remote with private: true on a protected palace keeps its settings check v
   const memory = memoryOf(tag());
   saveIn(box.env, dir, memory);
   ok(await cli(box.env, ['remote'], { url: remote, private: true }));
-  assert.strictEqual(ok(await cli(box.env, ['status'])).privateRemote, remote);
+  assert.strictEqual(ok(await cli(box.env, ['status', '--scope', 'global'])).privateRemote, remote);
   assert.strictEqual(ok(await cli(box.env, ['recall'], { place: memory.place })).text, memory.text);
 });
 
@@ -476,7 +476,8 @@ test('divergence way out', async (t) => {
   const state = () => ({ head: headOf(b, dirB), files: workFiles(dirB) });
   const before = state();
   const fresh = box.at('fresh-copy');
-  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', fresh], { remote, passphrase: null })), { joined: fresh, default: fresh });
+  const { passphrase } = ok(await cli(b, ['status', '--palace', dirB]));
+  assert.deepStrictEqual(ok(await cli(b, ['join', '--scope', 'global', '--palace', fresh], { remote, passphrase })), { joined: fresh, scope: 'global', default: fresh });
   const { place, title, summary, kind, text } = ok(await cli(b, ['recall', '--palace', dirB], { place: fromB.place }));
   ok(await cli(b, ['save'], { place, title, summary, kind, text }));
   assert.strictEqual(ok(await cli(b, ['recall'], { place: fromB.place })).text, fromB.text);
@@ -490,8 +491,8 @@ test('join of a new folder sets the default', async (t) => {
   const b = box.home('b');
   setup(box.at('b-own'), SETTINGS, { env: b });
   const joined = box.at('b-joined');
-  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', joined], { remote, passphrase: null })), { joined, default: joined });
-  assert.strictEqual(ok(await cli(b, ['status'])).palace, joined);
+  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', joined], { remote, passphrase: null })), { joined, scope: 'global', default: joined });
+  assert.strictEqual(ok(await cli(b, ['status', '--scope', 'global'])).palace, joined);
 });
 
 test('join of a registered folder keeps the default', async (t) => {
@@ -502,8 +503,8 @@ test('join of a registered folder keeps the default', async (t) => {
   const second = box.at('b-second');
   join(first, { remote, passphrase: null }, { env: b });
   join(second, { remote, passphrase: null }, { env: b });
-  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', first], { passphrase: null })), { joined: first, default: second });
-  assert.strictEqual(ok(await cli(b, ['status'])).palace, second);
+  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', first], { passphrase: null })), { joined: first, scope: null, default: second });
+  assert.strictEqual(ok(await cli(b, ['status', '--scope', 'global'])).palace, second);
 });
 
 test('join --palace on a hand clone opens it', async (t) => {
@@ -520,7 +521,7 @@ test('join --palace on a hand clone opens it', async (t) => {
   assert.ok(!output(refused).includes(remote), output(refused));
   assert.ok(!fs.existsSync(machineFile(b)), 'a machine record was written');
 
-  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', hand], { passphrase: null, remote })), { joined: hand, default: hand });
+  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', hand], { passphrase: null, remote })), { joined: hand, scope: 'global', default: hand });
   assert.deepStrictEqual(linkKeys(b, hand), []);
   assert.strictEqual(ok(await cli(b, ['recall'], { place: memory.place })).text, memory.text);
   assert.ok(!fs.existsSync(path.join(hand, 'lock')), 'the recall left its lock');
@@ -767,7 +768,7 @@ test('insteadOf', async (t) => {
   const dir = box.at('palace');
   ok(await cli(env, ['setup', '--palace', dir], { ...SETTINGS, remote: url, private: true }));
   ok(await cli(env, ['save'], memoryOf(tag())));
-  assert.strictEqual(ok(await cli(env, ['status'])).remote, url);
+  assert.strictEqual(ok(await cli(env, ['status', '--scope', 'global'])).remote, url);
   assert.strictEqual(mainOf(env, remote), headOf(env, dir));
 });
 

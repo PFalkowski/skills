@@ -10,7 +10,7 @@ const { folderStore, pageId, checkId } = require('./stores.js');
 const lock = require('./lock.js');
 const seal = require('./seal.js');
 const git = require('./git.js');
-const { configDir, machineKeyFile, globalFolder } = require('./scopes.js');
+const { configDir, machineKeyFile, defaultFolder, projectRoot } = require('./scopes.js');
 
 const FORMAT = 1;
 const LOCK_WAIT_MS = 60000;
@@ -22,6 +22,8 @@ const MOMENTS = ['on-request', 'after-decision', 'end-of-task'];
 const DEFAULT_KINDS = ['decision', 'preference', 'fact', 'lesson'];
 const GITIGNORE = 'lock\n*.tmp\npending.*\n';
 const WRITES = new Set(['save', 'forget', 'sync', 'remote', 'check']);
+const READS = new Set(['recall', 'browse', 'list']);
+const SCOPES = ['project', 'global'];
 const SHORT_GIT_MS = 20000;
 const LONG_GIT_MS = 120000;
 const META = 'meta';
@@ -117,8 +119,8 @@ function unlockKeys(settings, entry, env, palace) {
 
 function readMachine(env) {
   const file = machineFile(env);
-  if (!fs.existsSync(file)) return { default: null, palaces: {} };
-  return parseJson(fs.readFileSync(file, 'utf8'), file);
+  const parsed = fs.existsSync(file) ? parseJson(fs.readFileSync(file, 'utf8'), file) : {};
+  return { default: null, palaces: {}, projects: {}, ...parsed };
 }
 
 function writeReplacing(file, text) {
@@ -127,10 +129,35 @@ function writeReplacing(file, text) {
   fs.renameSync(`${file}.tmp`, file);
 }
 
-function locate(ctx) {
-  const dir = ctx.palace ?? readMachine(ctx.env).default;
-  if (!dir) throw new PalaceError('no palace set up on this machine');
-  return path.resolve(dir);
+function boundFolder(scope, ctx, machine) {
+  if (scope === 'global') return { dir: machine.default };
+  const root = projectRoot(ctx.env, ctx.cwd);
+  return { root, dir: machine.projects[root] ?? null };
+}
+
+function target(ctx) {
+  if (ctx.palace !== undefined) return path.resolve(ctx.palace);
+  const { root, dir } = boundFolder(ctx.scope ?? 'global', ctx, readMachine(ctx.env));
+  if (dir) return dir;
+  if (root === undefined) throw new PalaceError('no global palace on this machine. Pass --scope project or --scope session, or set up a global palace.');
+  throw new PalaceError(`no project palace for ${root}. Set one up with setup --scope project, or bind its folder with join --scope project.`);
+}
+
+function scopeOf(dir, ctx) {
+  const machine = readMachine(ctx.env);
+  const real = fs.realpathSync(dir);
+  return SCOPES.find((scope) => boundFolder(scope, ctx, machine).dir === real) ?? null;
+}
+
+const inScope = (scope, message) => `${scope} palace: ${message}`;
+
+function prefixingErrors(scope, work) {
+  try {
+    return work();
+  } catch (err) {
+    if (err instanceof PalaceError) throw new PalaceError(inScope(scope, err.message));
+    throw err;
+  }
 }
 
 const sqliteRefusal = (dir) =>
@@ -194,20 +221,34 @@ function optionalKey(input) {
   return parsePlace(input.place);
 }
 
-function proposal(env) {
+function proposal(scope, env, root) {
   const file = machineKeyFile(env);
-  return { scope: 'global', palace: globalFolder(env), passphrase: { file, create: !fs.existsSync(file) }, remote: null, kinds: DEFAULT_KINDS, moments: MOMENTS };
+  return { scope, palace: defaultFolder(scope, env, root), passphrase: { file, create: !fs.existsSync(file) }, remote: null, kinds: DEFAULT_KINDS, moments: MOMENTS };
+}
+
+function palaceStatus(dir, machine, env) {
+  const settings = readSettings(dir);
+  const { backend, kinds, moments, privateRemote } = settings;
+  const online = git.online(env, dir);
+  const entry = machine.palaces[fs.realpathSync(dir)];
+  const remote = online ? recordedOrigin(entry) : null;
+  return { palace: dir, backend, protected: settings.protected, online, remote, privateRemote, kinds, moments, passphrase: entry?.passphrase ?? null };
 }
 
 function status(ctx) {
   const machine = readMachine(ctx.env);
-  const dir = ctx.palace ? path.resolve(ctx.palace) : machine.default;
-  if (!dir) return { palace: null, proposed: proposal(ctx.env) };
-  const settings = readSettings(dir);
-  const { backend, kinds, moments, privateRemote } = settings;
-  const online = git.online(ctx.env, dir);
-  const remote = online ? recordedOrigin(machine.palaces[fs.realpathSync(dir)]) : null;
-  return { palace: dir, backend, protected: settings.protected, online, remote, privateRemote, kinds, moments };
+  if (ctx.palace !== undefined) return palaceStatus(path.resolve(ctx.palace), machine, ctx.env);
+  if (ctx.scope !== undefined) {
+    const { root, dir } = boundFolder(ctx.scope, ctx, machine);
+    return dir ? palaceStatus(dir, machine, ctx.env) : { palace: null, proposed: proposal(ctx.scope, ctx.env, root) };
+  }
+  const project = boundFolder('project', ctx, machine);
+  const scopes = {};
+  for (const [scope, dir] of [['global', machine.default], ['project', project.dir]]) {
+    scopes[scope] = dir ? prefixingErrors(scope, () => palaceStatus(dir, machine, ctx.env)) : null;
+  }
+  const result = { scopes, projectRoot: project.root };
+  return scopes.global || scopes.project ? result : { ...result, proposed: proposal('global', ctx.env) };
 }
 
 function checkSource(source) {
@@ -315,10 +356,11 @@ function realTarget(dir, isDefault) {
 
 const writeMachine = (env, machine) => writeReplacing(machineFile(env), `${JSON.stringify(machine, null, 2)}\n`);
 
-function register(env, palace, entry, makeDefault) {
+function bind(env, scope, palace, entry, root) {
   const machine = readMachine(env);
-  if (makeDefault || !Object.hasOwn(machine.palaces, palace)) machine.default = palace;
   machine.palaces[palace] = entry;
+  if (scope === 'global') machine.default = palace;
+  if (scope === 'project') machine.projects[root] = palace;
   writeMachine(env, machine);
   return machine.default;
 }
@@ -345,8 +387,10 @@ function buildBeside(dir, build) {
 const writeSettings = (dir, settings) => writeReplacing(path.join(dir, 'palace.json'), `${JSON.stringify(settings, null, 2)}\n`);
 
 function setup(target, input, ctx) {
+  const scope = ctx.scope ?? 'global';
+  const root = scope === 'project' ? projectRoot(ctx.env, ctx.cwd) : undefined;
   const options = { kinds: DEFAULT_KINDS, moments: MOMENTS, ...input, remote: input.remote ?? null };
-  const dir = path.resolve(target ?? globalFolder(ctx.env));
+  const dir = path.resolve(target ?? defaultFolder(scope, ctx.env, root));
   const { protection, warning, keyFile, source } = checkSetup(dir, realTarget(dir, target === undefined), options, ctx);
   const codec = codecFor(protection?.keys ?? null);
   const palace = buildBeside(dir, (temp) => {
@@ -373,8 +417,8 @@ function setup(target, input, ctx) {
     git.init(ctx.env, temp);
     git.commit(ctx.env, temp);
   });
-  register(ctx.env, palace, { passphrase: source, protected: Boolean(protection), origin: options.remote }, true);
-  const result = { palace, scope: 'global', default: palace, ...(warning && { warning }), ...(keyFile && { keyFile, note: keyNote(keyFile) }) };
+  const machineDefault = bind(ctx.env, scope, palace, { passphrase: source, protected: Boolean(protection), origin: options.remote }, root);
+  const result = { palace, scope, default: machineDefault, ...(warning && { warning }), ...(keyFile && { keyFile, note: keyNote(keyFile) }) };
   if (options.remote === null) return result;
   try {
     open({ ...ctx, palace }).sync();
@@ -401,7 +445,8 @@ function checkJoined(dir, palace, passphrase, ctx, joinRemote) {
 }
 
 function join(target, options, ctx) {
-  const dir = path.resolve(target ?? globalFolder(ctx.env));
+  const root = ctx.scope === 'project' ? projectRoot(ctx.env, ctx.cwd) : undefined;
+  const dir = path.resolve(target ?? defaultFolder(ctx.scope, ctx.env, root));
   checkSource(options.passphrase);
   let palace;
   let origin = options.remote ?? null;
@@ -428,11 +473,12 @@ function join(target, options, ctx) {
     });
   }
   const entry = { passphrase: options.passphrase, protected: readSettings(palace).protected, origin };
-  return { joined: palace, default: register(ctx.env, palace, entry, false) };
+  const scope = ctx.scope ?? (Object.hasOwn(readMachine(ctx.env).palaces, palace) ? null : 'global');
+  return { joined: palace, scope, default: bind(ctx.env, scope, palace, entry, root) };
 }
 
 function unlock(ctx) {
-  const dir = locate(ctx);
+  const dir = target(ctx);
   readSettings(dir);
   return { removed: lock.remove(dir) };
 }
@@ -478,7 +524,7 @@ const unconfirmed = 'the push waits: this palace is not protected, and its remot
 
 function open(ctx) {
   const { env } = ctx;
-  const dir = locate(ctx);
+  const dir = path.resolve(ctx.palace);
   let settings = readSettings(dir);
   const palace = fs.realpathSync(dir);
   const entry = readMachine(env).palaces[palace];
@@ -648,4 +694,42 @@ function open(ctx) {
   };
 }
 
-module.exports = { status, setup, join, unlock, open };
+function labelled(command, result, scope) {
+  if (command === 'browse') return { ...result, memories: result.memories.map((memory) => ({ ...memory, scope })) };
+  if (command === 'recall' && result.found) return { ...result, scope };
+  return result;
+}
+
+const MERGE = {
+  recall(answers) {
+    const [first, ...others] = answers.filter((answer) => answer.found);
+    if (!first) return { found: false };
+    const { warning: _, ...memory } = first;
+    return others.length > 0 ? { ...memory, alsoIn: others.map((answer) => answer.scope) } : memory;
+  },
+  browse: (answers) => ({ memories: answers.flatMap((answer) => answer.memories) }),
+  list: (answers) => ({ children: [...new Set(answers.flatMap((answer) => answer.children))].sort() }),
+};
+
+function acrossScopes(command, input, ctx) {
+  const machine = readMachine(ctx.env);
+  const targets = [];
+  for (const scope of SCOPES) {
+    const { dir } = boundFolder(scope, ctx, machine);
+    if (dir && !targets.some((known) => known.dir === dir)) targets.push({ scope, dir });
+  }
+  if (targets.length === 0) throw new PalaceError('no palace set up on this machine');
+  const answers = targets.map(({ scope, dir }) => prefixingErrors(scope, () => ({ ...labelled(command, open({ ...ctx, palace: dir })[command](input), scope), scope })));
+  const merged = MERGE[command](answers);
+  const warning = answers.filter((answer) => answer.warning).map((answer) => inScope(answer.scope, answer.warning)).join(' ');
+  return warning ? { ...merged, warning } : merged;
+}
+
+function run(command, input, ctx) {
+  if (READS.has(command) && ctx.palace === undefined && ctx.scope === undefined) return acrossScopes(command, input, ctx);
+  const dir = target(ctx);
+  const result = open({ ...ctx, palace: dir })[command === 'remote' ? 'setRemote' : command](input);
+  return READS.has(command) ? labelled(command, result, ctx.scope ?? scopeOf(dir, ctx)) : result;
+}
+
+module.exports = { status, setup, join, unlock, open, run };

@@ -24,7 +24,8 @@ that belongs to Claude Code and that the user also edits.
   record's `default`, as in v1.
 - **Project palace:** the palace of one project. The **project root** is the main checkout of
   the git repository that holds the current folder, so every worktree of a repository shares
-  one project palace. Outside a git repository it is the current folder.
+  one project palace, except a linked worktree of a submodule, which gets its own. Outside a
+  git repository it is the current folder.
 - **Session:** one Claude Code session, named by the session id that Claude Code puts in the
   environment of the commands it runs (`CLAUDE_CODE_SESSION_ID`). It is not a login. The id
   survives compaction; `/clear` starts a new one.

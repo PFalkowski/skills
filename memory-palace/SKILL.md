@@ -13,12 +13,12 @@ metadata:
 A palace is a folder of memories, each stored at a place such as `work/billing/decisions`. Every command is:
 
 ```sh
-node <skill-dir>/scripts/palace.js <command> [--palace <dir>] <<'EOF'
+node <skill-dir>/scripts/palace.js <command> [--scope global|project | --palace <dir>] <<'EOF'
 { one JSON object }
 EOF
 ```
 
-`<skill-dir>` is the folder that holds this file. Without `--palace`, a command uses the machine's default palace. The result is one JSON line on standard output, exit 0. An error goes to standard error with exit 1, or exit 2 for a usage error. Read [REFERENCE.md](REFERENCE.md) before you run a command whose input or output this file does not show, before `setup`, `join` or `remote`, and when you need a time limit.
+`<skill-dir>` is the folder that holds this file. A palace has a scope: `global` (the machine's default, read from every project) or `project` (one per project root: the main checkout of the current folder's git repository, else the current folder). Without options, `recall`, `browse` and `list` read every scope and the other commands use the global palace; `--scope` or `--palace` picks one palace. The result is one JSON line on standard output, exit 0. An error goes to standard error with exit 1, or exit 2 for a usage error. Read [REFERENCE.md](REFERENCE.md) before you run a command whose input or output this file does not show, before `setup`, `join` or `remote`, and when you need a time limit.
 
 ## Rules for every command
 
@@ -30,7 +30,7 @@ EOF
 
 ## First, always
 
-Run `status` (no input). On `{"palace": null, "proposed": ...}`:
+Run `status` (no input). On `proposed` (no palace in any scope):
 
 - If the user asked to set up or use a memory palace, propose the setup below.
 - Otherwise say in one line that no memory palace is set up, leave the request to the harness's own memory, and stop.
@@ -42,7 +42,7 @@ Never set up a palace unasked, under any autonomy setting.
 1. Show `proposed` as a numbered list, one line per setting, then say: "Say yes to set this up, or change any line. The folder and the protection are hard to change later." Ask nothing else.
 
    ```
-   1. Scope: global (one palace every project can read)
+   1. Scope: global (one palace every project can read; or project: this project only)
    2. Folder: <palace>
    3. Protection: encrypted with a key file that setup creates at <passphrase.file> (you must back it up: losing it loses the palace)
    4. Remote: none (add one later with `remote`)
@@ -51,14 +51,15 @@ Never set up a palace unasked, under any autonomy setting.
    ```
 
    When `passphrase.create` is false, line 3 reads "encrypted with this machine's key file at <passphrase.file>".
-2. Run `setup` once, with only the changed lines in its input (`{}` when the user said yes; shapes in [REFERENCE.md](REFERENCE.md)). A changed folder goes in `--palace <dir>`: absent or empty, its parent existing, and not copied to other machines by a file-sync service (such as Dropbox or OneDrive) if the palace gets a remote. Changed protection is `null`, or a passphrase source the user set: an environment variable's name, or a key file outside the palace (mode 600). Never ask for a passphrase. Tell the user what protection covers (below).
+2. Run `setup` once, with only the changed lines in its input (`{}` when the user said yes; shapes in [REFERENCE.md](REFERENCE.md)). Scope project is `--scope project`, run from the project; its folder is in `status --scope project`. A changed folder goes in `--palace <dir>`: absent or empty, its parent existing, and not copied to other machines by a file-sync service (such as Dropbox or OneDrive) if the palace gets a remote. Changed protection is `null`, or a passphrase source the user set: an environment variable's name, or a key file outside the palace (mode 600). Never ask for a passphrase. Tell the user what protection covers (below).
 3. Show the result's `note` word for word, and any `warning`.
 
 Kinds and moments are stored in clear, so they name categories, never secrets. A palace that already exists elsewhere (on a remote or in a folder this machine does not know) is opened with `join`, not `setup`.
 
 ## Using the palace
 
-- **"Remember this"**, when a palace exists, goes to the palace only, not to the harness's memory. Tell the user the place you saved it at.
+- **"Remember this"**, when a palace exists, goes to the palace only, not to the harness's memory. Tell the user the place and scope you saved it at.
+- **Which scope:** save with `--scope project` what is true only of this project, when a project palace exists; otherwise save without options (global). To replace or forget a memory, pass the scope `recall` reported for it.
 - **When to save:** only at the recorded moments, and only things of the recorded kinds, unless the user asks.
 - **When to read:** when the user asks what is remembered, or the task touches a subject the palace holds. Run `list` or `browse` to find places, then `recall` the ones you need.
 - **Places:** segments joined by `/`. Reuse rooms that `list` shows. Saving to a place that holds a memory replaces it (`"replaced": true`); `recall` it first unless the user asked to replace it.
@@ -66,10 +67,10 @@ Kinds and moments are stored in clear, so they name categories, never secrets. A
 
 | Command | Standard input | Result |
 |---|---|---|
-| `status` | none | `{palace, backend, protected, online, remote, privateRemote, kinds, moments}` or `{"palace": null, proposed}` |
+| `status` | none | `{scopes: {global, project}, projectRoot}`, each scope `null` or `{palace, backend, protected, online, remote, privateRemote, kinds, moments, passphrase}`; plus `proposed` when both are `null` |
 | `save` | `{"place", "title", "summary", "text", "kind"}` | `{saved, replaced, synced}` |
-| `recall` | `{"place"}` | `{found: true, place, title, summary, kind, saved, text}` or `{found: false}` |
-| `browse` | `{}` or `{"place"}` | `{memories: [{place, title, summary, kind, saved}]}`: the place and everything under it, no texts |
+| `recall` | `{"place"}` | `{found: true, place, title, summary, kind, saved, text, scope, alsoIn?}` or `{found: false}`; `alsoIn`: other scopes holding it |
+| `browse` | `{}` or `{"place"}` | `{memories: [{place, title, summary, kind, saved, scope}]}`: the place and everything under it, no texts, project first |
 | `list` | `{}` or `{"place"}` | `{children: [names]}`: the segments one level below |
 | `forget` | `{"place"}` | `{forgot, found}`; exact place only |
 | `sync` | none | `{synced: true}` |
@@ -90,7 +91,7 @@ Never read, print, copy, move, overwrite or delete a key file; the user backs it
 
 ## Stopping conditions
 
-Match the error's opening words below. On any error this list does not name, stop, show the error, change nothing and do not retry with other settings.
+Match the error's opening words below. A read or `status` without options starts every error and warning with "<scope> palace: ": match the words after it, and pass `--scope <that scope>` when you act on it. On any error this list does not name, stop, show the error, change nothing and do not retry with other settings.
 
 **The lock**
 
@@ -120,12 +121,13 @@ Match the error's opening words below. On any error this list does not name, sto
 - **"saved in the palace files, but <step> failed"**: the change is kept and the next command finishes it. Tell the user. Do not save again.
 - **"the remote holds files memory-palace did not write"**: on a read, say the answer comes from the local copy. Otherwise do not save or sync until the user removes those files where the message says.
 - **"the remote is not empty"**: offer `join`, or a new empty repository.
-- **"this palace and its remote have both changed"**: on a read, say the answer comes from this folder and may lack memories saved elsewhere. On a write, stop and show the message: `save`, `forget`, `sync` and `check` refuse until it is resolved, and the memories this folder never synced exist only here. Offer the rescue, one step at a time with the user: (1) run `status --palace <this folder>` for its remote URL, then `join` that remote into a new folder beside this one, with this palace's passphrase source (`null` if unprotected), so the fresh copy becomes the default; (2) `browse --palace <this folder>` and `browse` the fresh copy, then for each memory the fresh copy lacks, `recall --palace <this folder>` and `save` it; where both hold the same place with different text, show both and let the user choose; (3) leave this folder as it is until the user deletes it.
+- **"this palace and its remote have both changed"**: on a read, say the answer comes from this folder and may lack memories saved elsewhere. On a write, stop and show the message: `save`, `forget`, `sync` and `check` refuse until it is resolved, and the memories this folder never synced exist only here. Offer the rescue, one step at a time with the user: (1) run `status --palace <this folder>` for its `remote` and `passphrase`, then `join --scope <its scope> --palace <a new folder beside this one>` with that `remote` and `passphrase`, so the fresh copy takes its place; (2) `browse --palace <this folder>` and `browse` the fresh copy, then for each memory the fresh copy lacks, `recall --palace <this folder>` and save it with `--scope <its scope>`; where both hold the same place with different text, show both and let the user choose; (3) leave this folder as it is until the user deletes it.
 - **"... not yet synced"** or **"the push waits"**: the change is saved locally. Follow the message: fix the remote, or confirm it private as above, then `sync`.
 
 **Folders**
 
-- **"no palace at <dir>"** (`status` can print it when the default palace's folder moved): ask the user where the palace is now, then `join --palace <its folder>` with its passphrase source, or `null`, and the palace's remote URL as `remote` (`null` if it has none; leave it out if the folder has no `.git`). Never set up a new palace in its place.
+- **"no global palace on this machine"** or **"no project palace for <root>"**: offer the setup above for that scope, or save to another scope. A moved project: see [REFERENCE.md](REFERENCE.md).
+- **"no palace at <dir>"** (`status` can print it when a palace's folder moved): ask the user where the palace is now, then `join --scope <its scope> --palace <its folder>` with its passphrase source, or `null`, and the palace's remote URL as `remote` (`null` if it has none; leave it out if the folder has no `.git`). Never set up a new palace in its place.
 - **A refused setup** (folder not empty, a URL with a secret, a remote that cannot be reached or is not empty, invalid kinds or moments, or an unprotected palace without a remote inside a git repository that does not ignore it): show the message and ask the user to choose again.
 - **"<dir> is a SQLite palace, which this version no longer reads"**: show the message and offer to move the memories with the user. Say first that each memory passes through the conversation, and that the new palace records the time of the move, not the original time. Set up a new palace (one confirmation), move the memories one at a time with the v1 scripts the message names, and never delete `palace.db`.
 - **A leftover `.<name>.setup-<hex>` folder** beside the palace is a killed `setup` or `join`. It is safe to delete, and after a killed `join` it can hold a full copy of the palace, in clear for an unprotected one, so tell the user to delete it.
