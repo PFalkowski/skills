@@ -39,6 +39,9 @@ for (const command of [
   'git worktree remove .claude/worktrees/feature',
   'git worktree remove --force "/src/repo/.claude/worktrees/feature/"',
   'git -C /src/repo worktree remove .claude/worktrees',
+  'git worktree remove /src/repo',
+  'git worktree remove .claude/worktrees/feature 2>&1',
+  'git worktree remove /SRC/Repo/.claude/worktrees/feature > out.txt',
 ]) test(`denies removing the launch worktree: ${command}`, () => assert.strictEqual(decide(command, launched), 'deny'));
 
 for (const command of [
@@ -49,6 +52,13 @@ for (const command of [
 
 test('allows removal when launched in the main checkout', () =>
   assert.strictEqual(decide('git worktree remove .claude/worktrees/feature', launchedIn('/src/repo')), 'allow'));
+
+test('allows removing a sibling whose name the launch folder extends', () =>
+  assert.strictEqual(decide('git worktree remove .claude/worktrees/feature',
+    launchedIn('/src/repo/.claude/worktrees/feature-two')), 'allow'));
+
+for (const input of ['null', '{"cwd":5,"transcript_path":"/a/b/c.jsonl","tool_input":{"command":"git worktree remove x"}}'])
+  test(`fails open silently on ${input}`, () => assert.strictEqual(execFileSync('node', [hook], { input }).toString(), ''));
 
 test('allows input that is not JSON', () => {
   assert.strictEqual(execFileSync('node', [hook], { input: 'not json' }).toString(), '');
