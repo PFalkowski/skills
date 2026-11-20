@@ -27,8 +27,9 @@ that belongs to Claude Code and that the user also edits.
   one project palace, except a linked worktree of a submodule, which gets its own. Outside a
   git repository it is the current folder.
 - **Session:** one Claude Code session, named by the session id that Claude Code puts in the
-  environment of the commands it runs (`CLAUDE_CODE_SESSION_ID`). It is not a login. The id
-  survives compaction; `/clear` starts a new one.
+  environment of the commands it runs (`CLAUDE_CODE_SESSION_ID`). It is not a login. Claude
+  Code documents that `/clear` starts a new id; that the id stays the same through compaction
+  is expected but has not been checked.
 - **Session palace:** the palace of one session.
 - **Machine key file:** the one key file that setup creates for this machine and reuses for
   every palace set up with the default protection.
