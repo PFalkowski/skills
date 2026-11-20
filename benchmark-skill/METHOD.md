@@ -84,9 +84,9 @@ but a normal stop, makes the run INVALID (step 1).
    **INCONCLUSIVE**. Still report observed improvements/losses on the suite.
 4. Interval entirely below `-m`: **REGRESSION**.
 5. A ceiling or floor effect (§ Ceiling and floor effects) on a suite that is not the
-   last allowed suite: no verdict; run the next rung. The last allowed suite is the
-   one run when the rung cap is reached, or when no remaining declared rung meets its
-   calibration target. A floor effect on the last allowed suite:
+   last allowed suite: **INCONCLUSIVE** with `next_step` "run the next rung". The last
+   allowed suite is the one run when the rung cap is reached, or when no remaining
+   declared rung meets its calibration target. A floor effect on the last allowed suite:
    **INCONCLUSIVE**, reason "floor effect". A ceiling on the last allowed suite goes on
    to step 6, and the report names the ceiling; IMPROVEMENT is out of reach there
    when A's rate is at or above `1-m`.
