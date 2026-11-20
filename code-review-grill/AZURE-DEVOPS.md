@@ -4,7 +4,8 @@ Reference for `code-review-grill` and `fix-pr` when the PR lives on Azure DevOps
 (`dev.azure.com` / `visualstudio.com`). Read it when you need to resolve a PR, produce a
 reviewable diff, or post inline comments there; the CLI is ordinary, the workarounds are not.
 
-> Mechanics only. Apply your normal review judgement (or run `/code-review`) on the diff it produces.
+> Mechanics only: resolve the PR, get the diff, read the files, post. The review itself is
+> [code-review-grill](SKILL.md) Steps 4 to 6; this file has no review step of its own.
 
 ## Prerequisites
 - `az` CLI with the **azure-devops** extension (`az extension add --name azure-devops`).
@@ -47,15 +48,10 @@ ref directly, no clone/checkout/archive needed. Don't guess a file's path from a
 (they often don't match) or archive+extract a ref just to grep it — `git grep <pattern> <ref>` alone
 does that.
 
-## 4. Review
-Read the diff **and** the surrounding code — entities/models, callers, DI/registration, sibling
-implementations — before judging. A change is only correct in context (e.g. an invariant removed in
-one file may have been silently relied on in another). Capture each finding as `file:line` +
-severity + a concrete suggested fix. A nit opens with the nit marker
-([REFERENCE](REFERENCE.md), § The nit marker) above its body.
-
-## 5. Post inline comments
-Each inline comment is a PR **thread** with a `threadContext`. Write the body to a JSON file (this
+## 4. Post inline comments
+Each inline comment is a PR **thread** with a `threadContext`. The body follows the comment
+template in [REFERENCE](REFERENCE.md), § Posting mechanics; a nit opens with the nit marker
+([REFERENCE](REFERENCE.md), § The nit marker) above its body. Write the body to a JSON file (this
 avoids shell-escaping markdown that contains backticks/quotes), then POST it:
 ```bash
 az devops invoke --org https://dev.azure.com/<ORG> \

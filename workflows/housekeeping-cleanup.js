@@ -1,13 +1,13 @@
 export const meta = {
   name: 'housekeeping-cleanup',
-  description: 'Apply adjudicated documentation dispositions — one editor per file, each edit re-checked by a second agent that never made it',
+  description: 'Apply adjudicated doc dispositions: one editor per file, each edit re-checked by a second agent',
   phases: [{ title: 'Edit' }, { title: 'Check' }],
 }
 // args: { startedAt: '08-15 21:04',
 //         dispositions: [{ id: 'D3', doc: 'README.md', action: 'fix-doc',
 //                          instruction: 'the retry count is 5, not 3 — correct the paragraph',
 //                          sourceOfTruth: 'code', proof: 'src/http.ts:88' }, ...],
-//         reserve: 40000, chronicleDir: '$HOME/.agent-state/<repo dir name>/housekeeping/chronicles',
+//         reserve: 40000, chronicleDir: '$HOME/.agent-state/<repo-slug>/housekeeping/chronicles',
 //         tiers: { edit: 'opus', check: 'opus' } }
 //
 // THE SECOND HALF of housekeeping-audit.js, and deliberately a SEPARATE DISPATCH: a human

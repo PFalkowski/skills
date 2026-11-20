@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fails on a SKILL.md description over 120 characters, naming its own slash command, or with an unquoted ": "; warns above 100.
+# Fails on a SKILL.md description or a workflows/*.js meta.description over 120 characters, naming its own slash command, or with an unquoted ": "; warns above 100.
 # Prints the cost split by whether the description is actually in context: disable-model-invocation excludes it entirely.
 set -u
 cd "$(dirname "$0")/.."
@@ -29,6 +29,14 @@ for f in */SKILL.md; do
   if awk '/^---$/{n++; next} n==1' "$f" | grep -q '^disable-model-invocation:[[:space:]]*true'; then :; else loaded=$((loaded + n)); fi
   if [ "$n" -gt "$hard" ]; then echo "FAIL $f: description is $n chars (max $hard)"; status=1
   elif [ "$n" -gt "$soft" ]; then echo "warn $f: description is $n chars (target under $soft)"; fi
+done
+# A workflow script's meta.description is listed to the model beside the skills', so it has the same limit.
+for f in workflows/*.js; do
+  [ -f "$f" ] || continue
+  d=$(grep -m1 -E '^[[:space:]]*description:' "$f" | sed -E "s/^[[:space:]]*description:[[:space:]]*['\"\`]//; s/['\"\`],?[[:space:]]*\$//")
+  n=$(printf '%s' "$d" | wc -m)
+  if [ "$n" -gt "$hard" ]; then echo "FAIL $f: meta.description is $n chars (max $hard)"; status=1
+  elif [ "$n" -gt "$soft" ]; then echo "warn $f: meta.description is $n chars (target under $soft)"; fi
 done
 echo "automatic descriptions (Claude invocation policy): $loaded chars"
 echo "withheld by disable-model-invocation: $((total - loaded)) chars"
