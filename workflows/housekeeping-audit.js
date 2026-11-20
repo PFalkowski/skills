@@ -1,6 +1,6 @@
 export const meta = {
   name: 'housekeeping-audit',
-  description: 'Audit documentation against the code and the authoritative externals: drift, bloat, gaps and contradictions, every finding refute-verified',
+  description: 'Audit docs against the code and authoritative externals: drift, bloat, gaps, contradictions, each refute-verified',
   phases: [{ title: 'Inventory' }, { title: 'Externals' }, { title: 'Audit' }, { title: 'Verify' }, { title: 'Consolidate' }],
 }
 // args: { startedAt: '08-15 21:04',              // the conductor's clock — there is none in here
@@ -8,7 +8,7 @@ export const meta = {
 //         includeComments: true,                 // treat code comments as documentation too
 //         externals: [{ name: 'Confluence: Platform space', how: 'mcp__atlassian__search or the URL' }],
 //         maxShards: 6, perShard: 8, maxFindingsPerShard: 25,
-//         reserve: 40000, chronicleDir: '$HOME/.agent-state/<repo dir name>/housekeeping/chronicles', libraryIndex: null,
+//         reserve: 40000, chronicleDir: '$HOME/.agent-state/<repo-slug>/housekeeping/chronicles', libraryIndex: null,
 //         tiers: { inventory: 'opus', audit: 'opus', verify: 'opus', consolidate: 'opus' } }
 //
 // THIS SCRIPT IS READ-ONLY BY CONSTRUCTION. There is no edit, delete, commit, or post code path in
@@ -244,7 +244,7 @@ const perShardResults = await pipeline(
            will be refuted, and should be.
 
          ${args.libraryIndex ? `Read the Library index at ${args.libraryIndex} and fold in what it records about this repo's conventions.` : ''}
-         Keep a chronicle at ${args.chronicleDir ?? '$HOME/.agent-state/<repo dir name>/housekeeping/chronicles'}/audit-shard-${i + 1}.md as you go.
+         Keep a chronicle at ${args.chronicleDir ?? '$HOME/.agent-state/<repo-slug>/housekeeping/chronicles'}/audit-shard-${i + 1}.md as you go.
          ${READ_ONLY} ${NO_SPAWN}
          Return {findings: [...]}; empty is a fine answer for documentation that holds up.`,
         { label: `audit:shard-${i + 1}`, phase: 'Audit',

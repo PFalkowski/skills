@@ -1438,6 +1438,82 @@ console.log('\nplanClaims keeps claim order across claims confirmed by atoms and
     () => JSON.stringify((r.planClaims || []).map(p => p.claim)) === JSON.stringify([A, B]))
 }
 
+console.log('\nthe review prompt names the one human gate code-review-grill still has (Step 7) and no second one:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: mkAgent() })
+  const p = promptFor(r, 'review:s1')
+  await t('says Step 0 is decided by the script, and Step 7 is the gate', () => /Step 0/.test(p) && /Step 7/.test(p))
+  await t('...and does not claim two human gates', () => !/two (human|ALWAYS-ASK) gates/i.test(p))
+  await t('...the script source no longer says "two ALWAYS-ASK gates" anywhere', () => !/two ALWAYS-ASK/i.test(SRC) && !/two human gates/i.test(SRC))
+}
+
+console.log('\nthe Document prompt asks for the signal that operates the change (observability):')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: mkAgent() })
+  const p = promptFor(r, 'document')
+  await t('names logging of the new failure path and reporting success and failure', () => /observab/i.test(p) && /log/i.test(p) && /success and failure/i.test(p))
+  await t('...and nothing swallowed silently', () => /swallow/i.test(p))
+}
+
+console.log('\nthe default state paths:')
+{
+  const noPaths = o => ({ goal: 'build the thing', ...o })
+  const a = await runWorkhorse({ args: noPaths({ startedAt: '11-20 09:13' }), agentFn: mkAgent() })
+  const pa = promptFor(a, 'slice')
+  await t('use <repo-slug>, not the old <repo dir name> placeholder', () => /<repo-slug>/.test(pa) && !/repo dir name/.test(pa + SRC))
+  await t('...with a run id taken from startedAt', () => pa.includes('/sdlc-workhorse/11-20-09-13-'))
+  const b = await runWorkhorse({ args: noPaths({ goal: 'a different thing', startedAt: '11-20 09:13' }), agentFn: mkAgent() })
+  const pathOf = (r, label) => (promptFor(r, label).match(/\$HOME\/\.agent-state\/[^\s`'"]*backlog\.md/) || [''])[0]
+  await t('two goals dispatched in the same minute get two paths', () => pathOf(a, 'slice') && pathOf(a, 'slice') !== pathOf(b, 'slice'))
+  const a2 = await runWorkhorse({ args: noPaths({ startedAt: '11-20 09:13' }), agentFn: mkAgent() })
+  await t('the same goal and stamp get the same path (a resumed run finds its files)', () => pathOf(a, 'slice') === pathOf(a2, 'slice'))
+  const e1 = await runWorkhorse({ args: noPaths({ goal: 'first goal' }), agentFn: mkAgent() })
+  const e2 = await runWorkhorse({ args: noPaths({ goal: 'second goal' }), agentFn: mkAgent() })
+  await t('with no startedAt the run id comes from the goal', () => pathOf(e1, 'slice').includes('first-goal') && pathOf(e1, 'slice') !== pathOf(e2, 'slice'))
+  const chron = promptFor(a, 'baseline').match(/\$HOME\/\.agent-state\/\S*chronicles/)
+  await t('the chronicle folder sits under the same run id', () => chron && chron[0].includes('11-20-09-13-'))
+  const explicit = await runWorkhorse({ args: noPaths({ backlogPath: '/x/b.md', chronicleDir: '/x/c' }), agentFn: mkAgent() })
+  await t('an explicit path is used as given', () => promptFor(explicit, 'slice').includes('/x/b.md') && !promptFor(explicit, 'slice').includes('<repo-slug>'))
+}
+
+console.log('\nslices build in dependsOn order:')
+{
+  const base = mkAgent()
+  const sliceOf = id => ({ id, title: id, acceptanceCriterion: 'AC ' + id, effort: 'low' })
+  const withSlices = slices => async (prompt, opts) => opts.label === 'slice' ? { slices } : base(prompt, opts)
+  const at = (r, label) => r.calls.findIndex(c => c.opts.label === label)
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: withSlices([
+    { ...sliceOf('s1'), dependsOn: ['s2'] }, { ...sliceOf('s2'), dependsOn: ['s3'] }, sliceOf('s3')]) })
+  await t('a slice waits for the slices it depends on', () => at(r, 'red:s3') < at(r, 'red:s2') && at(r, 'red:s2') < at(r, 'red:s1'))
+  const free = await runWorkhorse({ args: baseArgs(), agentFn: withSlices([sliceOf('s1'), sliceOf('s2'), sliceOf('s3')]) })
+  await t('slices with no dependsOn keep the order the slicer gave', () => at(free, 'red:s1') < at(free, 'red:s2') && at(free, 'red:s2') < at(free, 'red:s3'))
+  const tied = await runWorkhorse({ args: baseArgs(), agentFn: withSlices([
+    { ...sliceOf('s1'), dependsOn: ['s3'] }, sliceOf('s2'), sliceOf('s3')]) })
+  await t('...and a free slice keeps its place relative to the others', () => at(tied, 'red:s2') < at(tied, 'red:s3') && at(tied, 'red:s3') < at(tied, 'red:s1'))
+  const outcome = async slices => { try { await runWorkhorse({ args: baseArgs(), agentFn: withSlices(slices) }); return null } catch (e) { return e } }
+  const cycle = await outcome([{ ...sliceOf('s1'), dependsOn: ['s2'] }, { ...sliceOf('s2'), dependsOn: ['s1'] }])
+  await t('a cycle stops the run with an error that names it', () => cycle && /cycle/i.test(cycle.message) && /s1/.test(cycle.message))
+  const self = await outcome([{ ...sliceOf('s1'), dependsOn: ['s1'] }])
+  await t('a slice that depends on itself is a cycle', () => self && /cycle/i.test(self.message))
+  const unknown = await outcome([{ ...sliceOf('s1'), dependsOn: ['nope'] }])
+  await t('an unknown id stops the run with an error that names it', () => unknown && /unknown/i.test(unknown.message) && /nope/.test(unknown.message))
+  let built = 0
+  const early = await (async () => { try { await runWorkhorse({ args: baseArgs(), agentFn: async (p, o) => { if (o.label.startsWith('red:')) built++; return withSlices([{ ...sliceOf('s1'), dependsOn: ['nope'] }])(p, o) } }) } catch { } return built })()
+  await t('...before any slice is built', () => early === 0)
+  const capped = await runWorkhorse({ args: baseArgs({ maxSlices: 1 }), agentFn: withSlices([
+    { ...sliceOf('s1'), dependsOn: ['s2'] }, sliceOf('s2')]) })
+  await t('the cap drops a dependent, never the slice it needs', () => at(capped, 'red:s2') >= 0 && at(capped, 'red:s1') < 0)
+}
+
+console.log('\nthe retrospective is posted by the dispatcher, not committed as a file:')
+{
+  const r = await runWorkhorse({ args: baseArgs(), agentFn: mkAgent() })
+  const p = promptFor(r, 'retro')
+  await t('the reflection is returned for the dispatcher to post on the PR', () => /dispatcher posts it on the PR/i.test(p))
+  await t('...and is not committed to the repo', () => !/committed to the repo/i.test(p))
+  await t('...while lessons for this repo are still committed on the run branch', () => /on this run's branch/.test(p))
+}
+
 console.log(`\n${pass} passed, ${fail} failed`)
 process.exit(fail ? 1 : 0)
 })()

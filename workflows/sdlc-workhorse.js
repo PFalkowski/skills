@@ -1,6 +1,6 @@
 export const meta = {
   name: 'sdlc-workhorse',
-  description: 'The full SDLC as an executable pipeline: baseline → spec → grill → plan → adversarial review → slice → TDD fanout → grill the diff → document → retrospective. Autonomous, evidence-gated, stops at irreversible lines.',
+  description: 'The full SDLC as an unattended pipeline: spec, plan, TDD build, review, docs, retro. Stops at irreversible lines.',
   whenToUse: 'A load-bearing change that deserves the full lifecycle, run unattended. Dispatched by sdlc-old-fashioned in dynamic-workflow mode, and by nights-watch for load-bearing tickets.',
   phases: [
     { title: 'Baseline', detail: 'catalogue the repo pitfalls and prove the guardrails are green before touching anything' },
@@ -54,8 +54,16 @@ if (localSession) {
   throw new Error('sdlc-workhorse: refusing to start in a local-model session (CLAUDE_LOCAL=1 or args.local). Each local GPU answers one request at a time and this workflow fans agents out in parallel. Run the lifecycle phase by phase instead.')
 }
 
-const backlogPath = cfg.backlogPath || '$HOME/.agent-state/<repo dir name>/sdlc-workhorse/backlog.md'
-const chronicleDir = cfg.chronicleDir || '$HOME/.agent-state/<repo dir name>/sdlc-workhorse/chronicles'
+// Without paths from the caller, each run gets its own folder, so two runs started by hand never share a
+// backlog or have their retrospectives read each other's chronicles. The run id is the stamp the caller passed
+// (or the goal's words when there is none) plus a hash of the goal, so two goals dispatched in the same minute
+// still differ. It is a pure function of the args: no clock, so a resumed run finds its own folder.
+const slugOf = (text) => String(text).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+const hashOf = (text) => { let h = 5381; for (const c of String(text)) h = ((h * 33) ^ c.charCodeAt(0)) >>> 0; return h.toString(36) }
+const runId = `${slugOf(startedAt) || slugOf(cfg.goal).slice(0, 30).replace(/-+$/g, '') || 'run'}-${hashOf(cfg.goal)}`
+const stateRoot = `$HOME/.agent-state/<repo-slug>/sdlc-workhorse/${runId}`
+const backlogPath = cfg.backlogPath || `${stateRoot}/backlog.md`
+const chronicleDir = cfg.chronicleDir || `${stateRoot}/chronicles`
 const libraryIndex = cfg.libraryIndex || null          // nights-watch Library, if the repo keeps one
 const maxGrillRounds = cfg.maxGrillRounds ?? 3
 const maxPlanRounds = cfg.maxPlanRounds ?? 2
@@ -69,7 +77,8 @@ const maxSlices = cfg.maxSlices ?? 12
 // handed a verbose spec will happily call fifteen things load-bearing; this bounds how many get
 // the full triple, most-blast-radius first, and says out loud what it dropped.
 const maxClaimsPerGate = cfg.maxClaimsPerGate ?? 5
-// code-review-grill's two ALWAYS-ASK gates, pre-answered — there is no human to ask.
+// code-review-grill decides its Step 0 stance without asking, and has one human gate, Step 7 (posting). The script
+// sets the stance below and pre-answers that gate — there is no human to ask.
 const reviewStance = cfg.reviewStance || 'single'
 const QUALITY_LENS = 'quality-standard'
 const callerConcerns = [].concat(cfg.reviewConcerns || ['correctness', 'documentation'])
@@ -217,7 +226,7 @@ const isQualityFinding = f => f.rule && f.rule !== 'behaviour'
 const blocksMerge = f => f.severity === 'blocker' || f.severity === 'major' || isQualityFinding(f)
 
 // Several skills this workflow composes are INTERACTIVE by design — grill-me and
-// grill-with-docs interview a user; code-review-grill has two ALWAYS-ASK gates.
+// grill-with-docs interview a user; code-review-grill has one ALWAYS-ASK gate (Step 7, posting).
 // Invoked from an autonomous worker they would stall or improvise past their own
 // rules, so every prompt that reaches for one says plainly that no human exists
 // and how to satisfy the gate instead. Skipping the skill is NOT the answer.
@@ -861,7 +870,7 @@ async function runRetro(sliceCount) {
     `${libraryIndex ? `Curate the durable lessons into the Library at ${libraryIndex} (one fact per file + index): conventions, gotchas, token calibrations, settled decisions, tooling. Noise dies with the chronicle.\n\n` : ''}` +
     `Token spend this run: ~${Math.round(budget.spent() / 1000)}k output tokens across ${sliceCount} slice(s) — ` +
     `record it as a calibration lesson so the next run's reserve is a number, not a guess.\n\n` +
-    `The output is an artifact: a short WRITTEN reflection committed to the repo, not a feeling that it went fine.\n\n` +
+    `The output is an artifact: a short WRITTEN reflection, not a feeling that it went fine. Return it as this task's result; the dispatcher posts it on the PR, so do not commit it as a file. Commit only the evolved-now work above, on this run's branch.\n\n` +
     OUTWARD_RULE,
     { label: 'retro', phase: 'Retrospective', model: tiers.retro, effort: efforts.retro, schema: RETRO_SCHEMA }
   )
@@ -1140,7 +1149,30 @@ if (!sliced || !sliced.slices.length) throw new Error('sdlc-workhorse: slicing p
 
 const testOf = s => plannedTests.find(p => p.id === s.claimTest)
 // Built first so the cap cannot drop a slice the merge is waiting on.
-let slices = [...sliced.slices.filter(testOf), ...sliced.slices.filter(s => !testOf(s))]
+const claimFirst = [...sliced.slices.filter(testOf), ...sliced.slices.filter(s => !testOf(s))]
+// A slice builds after every slice it dependsOn. The sort is stable, so slices with no dependency between
+// them keep the order above. An unknown id or a cycle stops the run before anything is built, because a
+// build in the wrong order would test code that is not there yet.
+const orderByDependsOn = (list) => {
+  const ids = new Set(list.map(s => s.id))
+  for (const s of list) {
+    const unknown = (s.dependsOn || []).filter(d => !ids.has(d))
+    if (unknown.length) throw new Error(`sdlc-workhorse: slice ${s.id} dependsOn unknown slice id(s): ${unknown.join(', ')}.`)
+  }
+  const ordered = []
+  const placed = new Set()
+  while (ordered.length < list.length) {
+    const next = list.find(s => !placed.has(s.id) && (s.dependsOn || []).every(d => placed.has(d)))
+    if (!next) {
+      const stuck = list.filter(s => !placed.has(s.id)).map(s => s.id)
+      throw new Error(`sdlc-workhorse: slices form a dependsOn cycle among ${stuck.join(', ')}.`)
+    }
+    ordered.push(next)
+    placed.add(next.id)
+  }
+  return ordered
+}
+let slices = orderByDependsOn(claimFirst)
 if (slices.length > maxSlices) {
   say(`${slices.length} slices produced, capping at ${maxSlices}. NOT worked this run: ${slices.slice(maxSlices).map(s => s.id).join(', ')} — left in ${backlogPath}.`)
   record.blockers.push({ what: `${slices.length - maxSlices} slice(s) left past the maxSlices cap`, detail: slices.slice(maxSlices).map(s => s.id) })
@@ -1239,14 +1271,13 @@ const buildStages = [
       `behaviour? Every behaviour finding needs a CONCRETE failure scenario — inputs/state → wrong output/crash. A ` +
       `finding without one is speculation and does not count.\n\n` +
       (!concern || concern === QUALITY_LENS ? `${QUALITY_REVIEW_RULE}\n\n` : '') +
-      // code-review-grill is bookended by two ALWAYS-ASK human gates (Step 0
-      // stance, Step 7 posting). There is no human in this run, so they are
-      // pre-answered here. An autonomous agent left to hit those gates either
-      // stalls or improvises past the skill's own rules.
-      `Use the "code-review-grill" skill, with its two human gates already decided for you — do NOT ask, and do NOT ` +
-      `skip the skill because you cannot ask:\n` +
+      // code-review-grill has one ALWAYS-ASK human gate, Step 7 (posting). Its Step 0 stance is decided, not asked,
+      // and the script sets it here. There is no human in this run, so the gate is pre-answered. An autonomous agent
+      // left to hit it either stalls or improvises past the skill's own rules.
+      `Use the "code-review-grill" skill. Its one human gate (Step 7) is already decided for you, and the script has ` +
+      `set the Step 0 stance — do NOT ask, and do NOT skip the skill because you cannot ask:\n` +
       `- Step 0 (stance): you ARE the single adversarial reviewer for this task${concern ? ` on the "${concern}" concern` : ''}. ` +
-      `Decided; do not prompt. Do NOT try to convene a quorum or spawn reviewer subagents — you have no Agent/Task ` +
+      `Set by the script; do not decide it again. Do NOT try to convene a quorum or spawn reviewer subagents — you have no Agent/Task ` +
       `tool, and the quorum is already fanned out by the script that dispatched you. Grill the diff yourself.\n` +
       `- Step 7 (posting): do NOT post anything to any PR, and do not open one. Return your findings as this task's ` +
       `result instead — the human decides what gets posted, and this run has no authority to speak on a PR.\n` +
@@ -1337,6 +1368,10 @@ const docs = done.length ? await agent(
   `Update: user-facing docs / README usage where behaviour changed; an ADR for each load-bearing decision the plan ` +
   `made (including the alternatives it rejected and why); a changelog entry. Match the docs to the SHIPPED behaviour, ` +
   `not to the plan's intent — where they diverged, the code is the truth.\n\n` +
+  `Production code also ships the signal needed to operate it, so check observability on the code that shipped: the ` +
+  `new failure path logs, the job or worker reports success and failure, nothing is swallowed silently, and ` +
+  `instrumentation removed with old code is replaced. List each gap in observabilityGaps, with the file and what is ` +
+  `missing; an empty list means you checked and found none. Do not edit code to close a gap.\n\n` +
   `Then re-run the Phase-1 baseline checks and report whether they are still green:\n` +
   `${baseline.checks.map(c => `- ${c.command}`).join('\n')}\n\n${OUTWARD_RULE}\n${CHRONICLE_RULE(chronicle('document'))}`,
   { label: 'document', phase: 'Document', model: tiers.document, effort: efforts.document, schema: {
@@ -1345,12 +1380,16 @@ const docs = done.length ? await agent(
     properties: {
       docsChanged: { type: 'array', items: { type: 'string' } },
       adrsWritten: { type: 'array', items: { type: 'string' } },
+      observabilityGaps: { type: 'array', items: { type: 'string' }, description: 'Each missing log, success or failure report, swallowed error or dropped instrumentation, with its file.' },
       baselineStillGreen: { type: 'boolean' },
       baselineOutput: { type: 'string', description: 'Actual output of re-running the baseline checks.' },
     },
   } }
 ) : null
 if (done.length && !docs) record.unchecked.push('document: the agent returned nothing, so the docs were not updated and the baseline was not re-run')
+if (docs && (docs.observabilityGaps || []).length) {
+  record.deferred.push({ what: 'observability gaps in the shipped code', detail: docs.observabilityGaps })
+}
 if (docs && !docs.baselineStillGreen) {
   record.blockers.push({ what: 'baseline regressed', detail: docs.baselineOutput })
   say('BASELINE REGRESSED — the change broke a check that was green before it. Not merge-ready.');
