@@ -88,7 +88,7 @@ The mandate still bounds what the maintenance may do. The manager grants the yes
 | a PR with no independent review yet | `code-review-grill` — a fresh reviewer, then `fix-pr` headless for what it finds |
 | review comments to work | `fix-pr` with `reply=`/`resolve=` from the mandate |
 | a claim the decision hinges on | `fact-check` in a fresh subagent |
-| a hard bug or regression | `diagnose` |
+| a hard bug or regression | `systematic-debugging` |
 | stale prose, comments, slop | suggest the human run `/desloppify` (manual-only); a whole-repo audit is `housekeeping` |
 | a backlog to keep draining | `nights-watch`, stood up with the principal brief, managed from `watch` |
 | a board nobody has groomed | `triage` first, so what gets dispatched is both specified and wanted |
