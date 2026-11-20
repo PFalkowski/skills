@@ -10,8 +10,8 @@ const { acquire, sleep } = require('./lib/lock.js');
 const PALACE_CLI = path.join(__dirname, 'palace.js');
 const PAUSE_LIMIT_MS = 20000;
 
-function start(file, args, { env, input = '', timeoutMs = 30000 }) {
-  const child = spawn(process.execPath, [file, ...args], { env, stdio: ['pipe', 'pipe', 'pipe'] });
+function start(file, args, { env, input = '', timeoutMs = 30000, cwd }) {
+  const child = spawn(process.execPath, [file, ...args], { env, cwd, stdio: ['pipe', 'pipe', 'pipe'] });
   let stdout = '';
   let stderr = '';
   child.stdout.on('data', (chunk) => { stdout += chunk; });
@@ -31,8 +31,8 @@ function start(file, args, { env, input = '', timeoutMs = 30000 }) {
   return { child, done };
 }
 
-const cli = (env, args, input = '') =>
-  start(PALACE_CLI, args, { env, input: typeof input === 'string' ? input : JSON.stringify(input) }).done;
+const cli = (env, args, input = '', { cwd = env.HOME } = {}) =>
+  start(PALACE_CLI, args, { env, cwd, input: typeof input === 'string' ? input : JSON.stringify(input) }).done;
 
 const support = (env, spec) => start(__filename, [JSON.stringify(spec)], { env });
 
@@ -41,6 +41,8 @@ function envFor(root) {
     PATH: process.env.PATH,
     HOME: path.join(root, 'home'),
     XDG_CONFIG_HOME: path.join(root, 'home', '.config'),
+    XDG_DATA_HOME: path.join(root, 'home', '.local', 'share'),
+    XDG_RUNTIME_DIR: path.join(root, 'run'),
     TMPDIR: path.join(root, 'tmp'),
     GIT_CONFIG_GLOBAL: path.join(root, 'gitconfig'),
     GIT_CONFIG_NOSYSTEM: '1',

@@ -18,6 +18,8 @@ const PROTECTED = { ...SETTINGS, passphrase: { env: VAR }, kdf: { N: 2 ** 14 } }
 const IDENTITY = ['-c', 'user.name=test', '-c', 'user.email=test@example.invalid'];
 const OWNED = /^(palace\.json|meta|\.gitignore|pages\/[0-9a-f]{2}\/[0-9a-f]{32})$/;
 const DIVERGED = /both changed since they last matched/;
+const DIVERGED_WRITE = /both changed since they last matched\. Nothing was changed\. Reads still answer from this folder\./;
+const DIVERGED_READ = /both changed since they last matched\. This answer comes from the local copy/;
 const FOREIGN = /the remote holds files memory-palace did not write/;
 const NOT_EMPTY = /the remote is not empty/;
 const UNREACHABLE = /does not appear to be a git repository/;
@@ -131,10 +133,11 @@ function diverged(box) {
   fs.renameSync(remote, `${remote}.away`);
   const fromA = memoryOf(tag());
   saveIn(a, dirA, fromA);
-  saveIn(b, dirB, memoryOf(tag()));
+  const fromB = memoryOf(tag());
+  saveIn(b, dirB, fromB);
   fs.renameSync(`${remote}.away`, remote);
   within(a, dirA, (palace) => palace.sync());
-  return { a, b, dirA, dirB, remote, fromA };
+  return { a, b, dirA, dirB, remote, fromA, fromB };
 }
 
 function foreignRemote(box) {
@@ -158,8 +161,8 @@ test('E1: B joins from A\'s remote', async (t) => {
   ok(await cli(box.env, ['sync']));
 
   const dirB = box.at('b-palace');
-  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', dirB], { remote, passphrase: null })), { joined: dirB, default: dirB });
-  const status = ok(await cli(b, ['status']));
+  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', dirB], { remote, passphrase: null })), { joined: dirB, scope: 'global', default: dirB });
+  const status = ok(await cli(b, ['status', '--scope', 'global']));
   assert.strictEqual(status.online, true);
   assert.strictEqual(status.remote, remote);
   for (const memory of fromA) assert.strictEqual(ok(await cli(b, ['recall'], { place: memory.place })).text, memory.text);
@@ -232,15 +235,34 @@ test('E2: unconfirmed unprotected push', async (t) => {
   assert.strictEqual(mainOf(box.env, sealed.remote), headOf(box.env, sealed.dir));
 });
 
-test('E3: diverged sync stops', async (t) => {
+test('E3: diverged writes stop, reads answer from the local copy', async (t) => {
   const box = sandbox(t);
-  const { b, dirB, remote } = diverged(box);
+  const { b, dirB, remote, fromA, fromB } = diverged(box);
   const state = () => ({ head: headOf(b, dirB), files: workFiles(dirB), remote: refs(b, remote) });
   const before = state();
-  assert.match(failed(await cli(b, ['sync']), 'sync'), DIVERGED);
+  for (const [command, input] of [['save', memoryOf(tag())], ['forget', { place: fromB.place }], ['sync'], ['check']]) {
+    assert.match(failed(await cli(b, [command], input), command), DIVERGED_WRITE);
+    assert.deepStrictEqual(state(), before, command);
+  }
+  const recalled = ok(await cli(b, ['recall'], { place: fromB.place }));
+  assert.strictEqual(recalled.text, fromB.text);
+  const browsed = ok(await cli(b, ['browse'], {}));
+  const places = browsed.memories.map((memory) => memory.place);
+  assert.ok(places.includes(fromB.place) && !places.includes(fromA.place), places.join(' '));
+  const listed = ok(await cli(b, ['list'], {}));
+  assert.ok(listed.children.length > 0);
+  for (const read of [recalled, browsed, listed]) assert.match(read.warning, DIVERGED_READ);
   assert.deepStrictEqual(state(), before);
-  assert.match(failed(await cli(b, ['browse'], {}), 'browse'), DIVERGED);
-  assert.deepStrictEqual(state(), before);
+});
+
+test('a read in step with its remote carries no divergence warning', async (t) => {
+  const box = sandbox(t);
+  const { dir } = onlinePalace(box);
+  const memory = memoryOf(tag());
+  saveIn(box.env, dir, memory);
+  for (const [command, input] of [['recall', { place: memory.place }], ['browse', {}], ['list', {}]]) {
+    assert.doesNotMatch(output(await cli(box.env, [command], input)), DIVERGED, command);
+  }
 });
 
 test('E4: git\'s error reaches the user', async (t) => {
@@ -275,11 +297,14 @@ test('E5: unreachable remote', async (t) => {
 
 test('E5: known divergence with the remote gone', async (t) => {
   const box = sandbox(t);
-  const { a, b, dirB, remote } = diverged(box);
+  const { a, b, dirB, remote, fromB } = diverged(box);
   failed(await cli(b, ['sync']), 'the sync that learns of the divergence');
   fs.renameSync(remote, `${remote}.away`);
   const state = () => ({ head: headOf(b, dirB), files: workFiles(dirB) });
   const before = state();
+  const { warning } = ok(await cli(b, ['recall'], { place: fromB.place }));
+  assert.match(warning, UNREACHABLE);
+  assert.match(warning, DIVERGED_READ);
   assert.match(failed(await cli(b, ['save'], memoryOf(tag())), 'diverged save'), DIVERGED);
   assert.deepStrictEqual(state(), before);
   for (const round of ['equal', 'ahead']) {
@@ -299,25 +324,6 @@ test('E6: a changed URL needs confirmation', async (t) => {
   assert.strictEqual(refs(box.env, moved), '');
   ok(await cli(box.env, ['remote'], { url: moved, private: true }));
   assert.strictEqual(mainOf(box.env, moved), headOf(box.env, dir));
-});
-
-test('E7: SQLite with a remote', async (t) => {
-  const box = sandbox(t);
-  const remote = box.bare('remote.git');
-  const target = box.at('sqlite');
-  const refused = failed(await cli(box.env, ['setup', '--palace', target], { ...SETTINGS, backend: 'sqlite', remote, private: true }), 'setup');
-  assert.match(refused, /folder backend/);
-  assert.ok(!fs.existsSync(target), `${target} exists`);
-  noTempSibling(box.root);
-  assert.ok(!fs.existsSync(machineFile(box.env)), 'a machine record was written');
-
-  const dir = box.at('offline-sqlite');
-  setup(dir, { ...SETTINGS, backend: 'sqlite' }, { env: box.env });
-  const before = hashes(dir);
-  assert.match(failed(await cli(box.env, ['remote', '--palace', dir], { url: remote, private: true }), 'remote'), /folder backend/);
-  assert.deepStrictEqual(hashes(dir), before);
-  assert.ok(!fs.existsSync(path.join(dir, '.git')), 'remote made a repository');
-  assert.strictEqual(refs(box.env, remote), '');
 });
 
 test('J3: settings hold no machine path', async (t) => {
@@ -346,7 +352,7 @@ test('remote with private: true on a protected palace keeps its settings check v
   const memory = memoryOf(tag());
   saveIn(box.env, dir, memory);
   ok(await cli(box.env, ['remote'], { url: remote, private: true }));
-  assert.strictEqual(ok(await cli(box.env, ['status'])).privateRemote, remote);
+  assert.strictEqual(ok(await cli(box.env, ['status', '--scope', 'global'])).privateRemote, remote);
   assert.strictEqual(ok(await cli(box.env, ['recall'], { place: memory.place })).text, memory.text);
 });
 
@@ -465,14 +471,17 @@ test('diverged palace whose remote was emptied at the same URL syncs', async (t)
 
 test('divergence way out', async (t) => {
   const box = sandbox(t);
-  const { b, dirB, remote, fromA } = diverged(box);
-  assert.match(failed(await cli(b, ['sync']), 'sync'), /\bjoin\b/);
+  const { b, dirB, remote, fromA, fromB } = diverged(box);
+  failed(await cli(b, ['sync']), 'the sync that learns of the divergence');
   const state = () => ({ head: headOf(b, dirB), files: workFiles(dirB) });
   const before = state();
   const fresh = box.at('fresh-copy');
-  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', fresh], { remote, passphrase: null })), { joined: fresh, default: fresh });
+  const { passphrase } = ok(await cli(b, ['status', '--palace', dirB]));
+  assert.deepStrictEqual(ok(await cli(b, ['join', '--scope', 'global', '--palace', fresh], { remote, passphrase })), { joined: fresh, scope: 'global', default: fresh });
+  const { place, title, summary, kind, text } = ok(await cli(b, ['recall', '--palace', dirB], { place: fromB.place }));
+  ok(await cli(b, ['save'], { place, title, summary, kind, text }));
+  assert.strictEqual(ok(await cli(b, ['recall'], { place: fromB.place })).text, fromB.text);
   assert.strictEqual(ok(await cli(b, ['recall'], { place: fromA.place })).text, fromA.text);
-  assert.strictEqual(ok(await cli(b, ['status'])).palace, fresh);
   assert.deepStrictEqual(state(), before);
 });
 
@@ -482,8 +491,8 @@ test('join of a new folder sets the default', async (t) => {
   const b = box.home('b');
   setup(box.at('b-own'), SETTINGS, { env: b });
   const joined = box.at('b-joined');
-  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', joined], { remote, passphrase: null })), { joined, default: joined });
-  assert.strictEqual(ok(await cli(b, ['status'])).palace, joined);
+  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', joined], { remote, passphrase: null })), { joined, scope: 'global', default: joined });
+  assert.strictEqual(ok(await cli(b, ['status', '--scope', 'global'])).palace, joined);
 });
 
 test('join of a registered folder keeps the default', async (t) => {
@@ -494,8 +503,8 @@ test('join of a registered folder keeps the default', async (t) => {
   const second = box.at('b-second');
   join(first, { remote, passphrase: null }, { env: b });
   join(second, { remote, passphrase: null }, { env: b });
-  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', first], { passphrase: null })), { joined: first, default: second });
-  assert.strictEqual(ok(await cli(b, ['status'])).palace, second);
+  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', first], { passphrase: null })), { joined: first, scope: null, default: second });
+  assert.strictEqual(ok(await cli(b, ['status', '--scope', 'global'])).palace, second);
 });
 
 test('join --palace on a hand clone opens it', async (t) => {
@@ -512,7 +521,7 @@ test('join --palace on a hand clone opens it', async (t) => {
   assert.ok(!output(refused).includes(remote), output(refused));
   assert.ok(!fs.existsSync(machineFile(b)), 'a machine record was written');
 
-  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', hand], { passphrase: null, remote })), { joined: hand, default: hand });
+  assert.deepStrictEqual(ok(await cli(b, ['join', '--palace', hand], { passphrase: null, remote })), { joined: hand, scope: 'global', default: hand });
   assert.deepStrictEqual(linkKeys(b, hand), []);
   assert.strictEqual(ok(await cli(b, ['recall'], { place: memory.place })).text, memory.text);
   assert.ok(!fs.existsSync(path.join(hand, 'lock')), 'the recall left its lock');
@@ -759,7 +768,7 @@ test('insteadOf', async (t) => {
   const dir = box.at('palace');
   ok(await cli(env, ['setup', '--palace', dir], { ...SETTINGS, remote: url, private: true }));
   ok(await cli(env, ['save'], memoryOf(tag())));
-  assert.strictEqual(ok(await cli(env, ['status'])).remote, url);
+  assert.strictEqual(ok(await cli(env, ['status', '--scope', 'global'])).remote, url);
   assert.strictEqual(mainOf(env, remote), headOf(env, dir));
 });
 
@@ -908,44 +917,38 @@ function fillCell(env, dir, settings) {
   return { live: [...needlesOf(kept), ...needlesOf(replacement)], all: [kept, replaced, forgotten, replacement].flatMap(needlesOf) };
 }
 
-function cell(box, backend, protection) {
-  const name = `${backend} ${backend === 'folder' ? 'with a remote' : 'offline'}, protection ${protection ? 'on' : 'off'}`;
-  const id = `${backend}-${protection ? 'on' : 'off'}`;
+function cell(box, protection) {
+  const name = `with a remote, protection ${protection ? 'on' : 'off'}`;
+  const id = protection ? 'on' : 'off';
   const env = box.home(id);
   const dir = box.at(`${id}-palace`);
-  const remote = backend === 'folder' ? box.bare(`${id}-remote.git`) : null;
-  const settings = { ...(protection ? PROTECTED : SETTINGS), backend, ...(remote && { remote, private: !protection }) };
+  const remote = box.bare(`${id}-remote.git`);
+  const settings = { ...(protection ? PROTECTED : SETTINGS), remote, private: !protection };
   const { live, all } = fillCell(env, dir, settings);
   const problems = [];
   if (protection) {
     const needles = [...all, PASS];
     for (const hit of scan([dir, env.HOME, env.TMPDIR], needles)) problems.push(`${name}: leaked, ${hit}`);
-    for (const repo of remote ? [path.join(dir, '.git'), remote] : []) {
+    for (const repo of [path.join(dir, '.git'), remote]) {
       const bytes = objects(env, repo);
       for (const needle of needles) if (bytes.includes(needle)) problems.push(`${name}: leaked, a decompressed object of ${repo} holds ${needle}`);
     }
     return problems;
   }
-  const remoteBytes = remote ? objects(env, remote) : null;
+  const remoteBytes = objects(env, remote);
   for (const needle of live) {
     if (scan([dir], [needle]).length === 0) problems.push(`${name}: the control found nothing for ${needle} in the palace folder`);
-    if (remoteBytes && !remoteBytes.includes(needle)) problems.push(`${name}: the control found nothing for ${needle} in the decompressed remote`);
+    if (!remoteBytes.includes(needle)) problems.push(`${name}: the control found nothing for ${needle} in the decompressed remote`);
   }
   return problems;
 }
 
 test('B1 with a remote', (t) => {
-  assert.deepStrictEqual(cell(sandbox(t), 'folder', true), []);
+  assert.deepStrictEqual(cell(sandbox(t), true), []);
 });
 
 test('B2 with a remote', (t) => {
-  assert.deepStrictEqual(cell(sandbox(t), 'folder', false), []);
-});
-
-test('B: the full matrix', (t) => {
-  const box = sandbox(t);
-  const problems = ['folder', 'sqlite'].flatMap((backend) => [true, false].flatMap((protection) => cell(box, backend, protection)));
-  assert.deepStrictEqual(problems, []);
+  assert.deepStrictEqual(cell(sandbox(t), false), []);
 });
 
 async function plantedGit(t, config) {

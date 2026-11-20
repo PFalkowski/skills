@@ -30,14 +30,16 @@ async function setUp(t, name = 'palace') {
   return { ...box, dir };
 }
 
-test('cli: status with no machine record prints {"palace": null}', async (t) => {
+test('cli: status with no machine record prints {"palace": null} and a proposal', async (t) => {
   const { env } = sandbox(t);
-  assert.deepStrictEqual(ok(await cli(env, ['status'])), { palace: null });
+  const status = ok(await cli(env, ['status', '--scope', 'global']));
+  assert.strictEqual(status.palace, null);
+  assert.strictEqual(status.proposed.scope, 'global');
 });
 
 test('cli: setup then status prints kinds and moments', async (t) => {
   const { env, dir } = await setUp(t);
-  const status = ok(await cli(env, ['status']));
+  const status = ok(await cli(env, ['status', '--scope', 'global']));
   assert.strictEqual(status.palace, dir);
   assert.strictEqual(status.backend, 'folder');
   assert.strictEqual(status.protected, false);
@@ -58,7 +60,7 @@ test('cli: setup makes the palace the default; --palace opens another', async (t
   const { root, env, dir: first } = await setUp(t, 'first');
   const second = path.join(root, 'second');
   ok(await cli(env, ['setup', '--palace', second], SETTINGS));
-  assert.strictEqual(ok(await cli(env, ['status'])).palace, second);
+  assert.strictEqual(ok(await cli(env, ['status', '--scope', 'global'])).palace, second);
   ok(await cli(env, ['save'], MEMORY));
   assert.strictEqual(ok(await cli(env, ['recall', '--palace', second], { place: MEMORY.place })).found, true);
   assert.deepStrictEqual(ok(await cli(env, ['recall', '--palace', first], { place: MEMORY.place })), { found: false });
@@ -131,6 +133,8 @@ test('cli: malformed stdin with a marker', async (t) => {
   }
 });
 
+const SESSION_FALLBACK = 'path.join(os.tmpdir(), `memory-palace-${user}`)';
+
 test('cli: K5 source scan', () => {
   const files = [];
   const walk = (dir) => {
@@ -147,7 +151,7 @@ test('cli: K5 source scan', () => {
     for (const [, argument] of source.matchAll(/\brequire\s*\(([^)]*)\)/g)) {
       assert.match(argument, /^\s*['"](node:|\.\/|\.\.\/)/, `${path.relative(__dirname, file)} requires ${argument}`);
     }
-    if (!file.endsWith('.test.js')) assert.doesNotMatch(source, /\b(tmpdir|mkdtemp)/, `${path.relative(__dirname, file)} makes temp files`);
+    if (!file.endsWith('.test.js')) assert.doesNotMatch(source.replace(SESSION_FALLBACK, ''), /\b(tmpdir|mkdtemp)/, `${path.relative(__dirname, file)} makes temp files`);
   }
 });
 
@@ -173,7 +177,7 @@ test('setup refuses a non-empty target', async (t) => {
   assert.strictEqual(result.code, 1, result.stderr);
   assert.deepStrictEqual(hashes(dir), before);
   assert.deepStrictEqual(fs.readdirSync(root), siblings);
-  assert.deepStrictEqual(ok(await cli(env, ['status'])), { palace: null });
+  assert.strictEqual(ok(await cli(env, ['status', '--scope', 'global'])).palace, null);
 });
 
 test('errors: parseJson gives a fixed message and never echoes the input', () => {
@@ -194,4 +198,66 @@ test('errors: describe prints only name, code, syscall and path of an error the 
   const bug = new TypeError(`cannot read ${MARKER}`);
   assert.strictEqual(describe(bug), 'internal error: TypeError');
   assert.ok(!describe(bug).includes(' at '), 'describe printed a stack');
+});
+
+const SQLITE_COMMANDS = [
+  ['status'], ['unlock'], ['save', MEMORY], ['recall', { place: MEMORY.place }], ['browse', {}], ['list', {}],
+  ['forget', { place: MEMORY.place }], ['sync'], ['check'], ['remote', { url: 'https://example.invalid/palace.git' }], ['join', { passphrase: null }],
+];
+
+test('358-1: every command refuses a v1 SQLite palace and changes nothing', async (t) => {
+  const { root, env } = sandbox(t);
+  const dir = path.join(root, 'v1-sqlite');
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, 'palace.json'), `${JSON.stringify({ ...SETTINGS, format: 1, backend: 'sqlite', protected: false, kdf: null, check: null, tree: { m: 128, L: 32 }, privateRemote: null })}\n`);
+  fs.writeFileSync(path.join(dir, 'palace.db'), 'v1 database bytes');
+  const before = hashes(dir);
+  for (const [command, input] of SQLITE_COMMANDS) {
+    const result = await cli(env, [command, '--palace', dir], input ?? '');
+    assert.strictEqual(result.code, 1, `${command}: ${result.stdout}${result.stderr}`);
+    assert.ok(result.stderr.startsWith(`${dir} is a SQLite palace, which this version no longer reads.`), `${command}: ${result.stderr}`);
+    assert.match(result.stderr, /git -C skills-v1 checkout f7a6691/, command);
+    assert.deepStrictEqual(hashes(dir), before, command);
+  }
+  assert.ok(!fs.existsSync(path.join(env.XDG_CONFIG_HOME, 'memory-palace')), 'a command wrote the machine record');
+});
+
+test('358-2: setup with the sqlite backend is a usage error', async (t) => {
+  const { root, env } = sandbox(t);
+  const dir = path.join(root, 'palace');
+  const result = await cli(env, ['setup', '--palace', dir], { ...SETTINGS, backend: 'sqlite' });
+  assert.strictEqual(result.code, 2, result.stderr);
+  assert.match(result.stderr, /v2 has only the folder backend/);
+  assert.ok(!fs.existsSync(dir), 'setup made the folder');
+});
+
+test('358-3: no file of the skill names the SQLite module', () => {
+  const needle = ['node', 'sqlite'].join(':');
+  const skill = path.dirname(__dirname);
+  const files = [...function* walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) yield* walk(full);
+      else yield full;
+    }
+  }(skill)];
+  assert.ok(files.length > 10, `only ${files.length} files found`);
+  assert.deepStrictEqual(files.filter((file) => fs.readFileSync(file, 'utf8').includes(needle)).map((file) => path.relative(skill, file)), []);
+});
+
+test('358-4: a SQLite default stops a bare status with the global prefix, and setup {} takes the default over', async (t) => {
+  const { root, env } = sandbox(t);
+  const dir = path.join(root, 'v1-sqlite');
+  fs.mkdirSync(dir);
+  fs.writeFileSync(path.join(dir, 'palace.json'), `${JSON.stringify({ ...SETTINGS, format: 1, backend: 'sqlite', protected: false, kdf: null, check: null, tree: { m: 128, L: 32 }, privateRemote: null })}\n`);
+  const record = path.join(env.XDG_CONFIG_HOME, 'memory-palace', 'config.json');
+  fs.mkdirSync(path.dirname(record), { recursive: true });
+  fs.writeFileSync(record, JSON.stringify({ default: dir, palaces: { [dir]: { passphrase: null, protected: false } } }));
+  const result = await cli(env, ['status']);
+  assert.strictEqual(result.code, 1, result.stdout);
+  assert.ok(result.stderr.startsWith(`global palace: ${dir} is a SQLite palace, which this version no longer reads.`), result.stderr);
+  const { palace } = ok(await cli(env, ['setup'], { passphrase: null }));
+  const machine = JSON.parse(fs.readFileSync(record, 'utf8'));
+  assert.strictEqual(machine.default, palace);
+  assert.deepStrictEqual(machine.palaces[dir], { passphrase: null, protected: false });
 });

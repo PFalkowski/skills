@@ -12,7 +12,7 @@ const DROPPED_VARIABLES = [
   'GIT_REPLACE_REF_BASE', 'GIT_PREFIX', 'GIT_SHALLOW_FILE', 'GIT_COMMON_DIR', 'GIT_AUTHOR_NAME', 'GIT_AUTHOR_EMAIL', 'GIT_AUTHOR_DATE',
   'GIT_COMMITTER_NAME', 'GIT_COMMITTER_EMAIL', 'GIT_COMMITTER_DATE',
 ];
-const OWNED = ['palace.json', 'meta', path.join('pages', '00', '0'), 'palace.db', '.gitignore'];
+const OWNED = ['palace.json', 'meta', path.join('pages', '00', '0'), '.gitignore'];
 const OWNED_PATHS = ['palace.json', 'meta', 'pages', '.gitignore'];
 const OWNED_FILE = /^(palace\.json|meta|\.gitignore|pages\/[0-9a-f]{2}\/[0-9a-f]{32})$/;
 const CONFINED = [
@@ -27,10 +27,12 @@ const LINK = /^(remote|branch)\./;
 const TRACKING = 'refs/remotes/origin/main';
 const LOCAL_TIMEOUT_MS = 120000;
 const STALE_LOCK_MS = 10000;
+const PROJECT_ROOT_MS = 5000;
 
 const NOT_EMPTY = 'the remote is not empty. To open the palace it holds, use join. Otherwise create an empty repository (no README, license or .gitignore) and try again. Nothing was written.';
 const SECRET_URL = 'the remote URL carries a password or token. Use a credential helper or ssh. Nothing was written.';
-const DIVERGED = 'this palace and its remote have both changed since they last matched. Nothing was changed. To keep working, join a fresh copy into a new folder (`join --palace <new folder>`). This folder is left as it is and keeps the memories that were not synced.';
+const DIVERGED = 'this palace and its remote have both changed since they last matched. Nothing was changed. Reads still answer from this folder. To save again, follow the steps under \'this palace and its remote have both changed\' in the skill\'s SKILL.md.';
+const DIVERGED_READ = 'this palace and its remote have both changed since they last matched. This answer comes from the local copy, which may lack memories saved elsewhere. Saves and sync stop until the two are brought together: follow the steps under \'this palace and its remote have both changed\' in the skill\'s SKILL.md.';
 
 function scrubbed(env) {
   const clean = { ...env };
@@ -138,7 +140,10 @@ function fetchAndForward(env, palace, url, { timeoutMs, read, checkLock, checkSe
   const upstream = revision(env, palace, TRACKING);
   const head = revision(env, palace, 'HEAD');
   if (upstream === null || upstream === head || isAncestor(env, palace, upstream, head)) return { warning };
-  if (!isAncestor(env, palace, head, upstream)) throw new PalaceError(DIVERGED);
+  if (!isAncestor(env, palace, head, upstream)) {
+    if (!read) throw new PalaceError(DIVERGED);
+    return { warning: [warning, DIVERGED_READ].filter(Boolean).join(' ') };
+  }
   checkLock();
   const foreign = foreignPaths(env, palace, upstream);
   if (foreign.length === 0) {
@@ -211,8 +216,14 @@ function hasGitAbove(dir) {
   }
 }
 
-function enclosingRepo(target, env) {
-  const parent = path.dirname(target);
+function existingAncestor(file) {
+  let at = path.dirname(file);
+  while (!fs.existsSync(at)) at = path.dirname(at);
+  return at;
+}
+
+function enclosingRepo(target, env, owned = OWNED.map((name) => path.join(target, name))) {
+  const parent = existingAncestor(target);
   let config;
   try {
     config = git(env, ['-C', parent, 'config', '--list']);
@@ -229,12 +240,25 @@ function enclosingRepo(target, env) {
     throw new PalaceError(`git could not tell whether ${target} is inside a git repository: ${toplevel.stderr.trim()}. Nothing was written.`);
   }
   const top = toplevel.stdout.trim();
-  const ignored = git(env, ['-C', top, 'check-ignore', '--', ...OWNED.map((owned) => path.join(target, owned))]);
+  const ignored = git(env, ['-C', top, 'check-ignore', '--', ...owned]);
   if (ignored.status !== 0 && ignored.status !== 1) throw new PalaceError(`git check-ignore failed in ${top}: ${ignored.stderr.trim()}. Nothing was written.`);
-  return { top, allIgnored: ignored.stdout.split('\n').filter(Boolean).length === OWNED.length };
+  return { top, allIgnored: ignored.stdout.split('\n').filter(Boolean).length === owned.length };
+}
+
+function projectRoot(env, cwd) {
+  let result;
+  try {
+    result = git(env, ['-C', cwd, 'rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir'], { timeoutMs: PROJECT_ROOT_MS });
+  } catch (err) {
+    if (err.code === 'ENOENT') return null;
+    throw err;
+  }
+  if (result.status !== 0) return null;
+  const [top, common] = result.stdout.split('\n');
+  return fs.realpathSync(path.basename(common) === '.git' ? path.dirname(common) : top);
 }
 
 module.exports = {
-  hasRepo, online, unlink, init, clone, dropTracking, foreignPaths, foreignError, refuseForeignHead, checkRemote, fetchAndForward, clearStaleLocks, restore, commit, push, gc,
+  projectRoot, hasRepo, online, unlink, init, clone, dropTracking, foreignPaths, foreignError, refuseForeignHead, checkRemote, fetchAndForward, clearStaleLocks, restore, commit, push, gc,
   carriesSecret, SECRET_URL, enclosingRepo,
 };
