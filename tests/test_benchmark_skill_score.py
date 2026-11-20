@@ -315,7 +315,7 @@ class GateTests(unittest.TestCase):
         self.assertEqual(report["verdict"], "NO_MEANINGFUL_CHANGE")
         self.assertTrue(report["gates"]["ceiling"])
 
-    def test_ceiling_before_the_last_suite_gives_no_verdict_and_asks_for_the_next_rung(self):
+    def test_ceiling_before_the_last_suite_is_inconclusive_with_next_step(self):
         data = records_for([(f"c{i}", True, True) for i in range(100)])
         report = score.analyze(data, {"last_allowed_suite": False})
         self.assertEqual(report["verdict"], "INCONCLUSIVE")
