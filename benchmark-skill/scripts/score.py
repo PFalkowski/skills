@@ -259,6 +259,11 @@ def _validate_response(config, record, case):
     if (not isinstance(output, str) or response.get("response") != output
             or response.get("done") is not True or response.get("done_reason") == "length"):
         raise ValueError(f"result {record.get('case_id')} response does not match output or is incomplete")
+    if not output.strip():
+        raise ValueError(f"result {record.get('case_id')} has an empty output")
+    if response.get("done_reason") not in (None, "stop"):
+        raise ValueError(f"result {record.get('case_id')} ended with done_reason "
+                         f"{response.get('done_reason')!r}, not a normal stop")
     eval_count = response.get("eval_count")
     prompt_count = response.get("prompt_eval_count")
     if any(isinstance(count, bool) or not isinstance(count, int) or count < 0
@@ -391,10 +396,53 @@ def _summarize_split(case_by_id, cells, repeats, split):
             "outcomes": outcomes}
 
 
-def analyze(records):
-    """Return a report. Malformed/incomplete input is always INVALID."""
+def validate_context(context, margin, case_by_id):
+    """Check the optional ladder, ceiling and control evidence; return it normalised."""
+    if context is None:
+        context = {}
+    if not isinstance(context, dict):
+        raise ValueError("context must be an object")
+    unknown = set(context) - {"ceiling_rate", "last_allowed_suite",
+                              "earlier_suite_effects", "control_passed_case_ids"}
+    if unknown:
+        raise ValueError(f"unknown context fields: {sorted(unknown)}")
+    ceiling_rate = context.get("ceiling_rate", min(0.90, round(1 - margin, 12)))
+    ceiling_rate = _number(ceiling_rate, "ceiling_rate", minimum=0, maximum=1,
+                           inclusive_min=False)
+    if ceiling_rate <= 2 * margin:
+        raise ValueError("ceiling_rate must exceed twice the margin")
+    last = context.get("last_allowed_suite")
+    if last is not None and not isinstance(last, bool):
+        raise ValueError("last_allowed_suite must be boolean")
+    effects = context.get("earlier_suite_effects")
+    if effects is not None:
+        if not isinstance(effects, list):
+            raise ValueError("earlier_suite_effects must be a list")
+        effects = [_number(e, "earlier_suite_effects item", minimum=-1, maximum=1)
+                   for e in effects]
+    control = context.get("control_passed_case_ids")
+    if control is not None:
+        if (not isinstance(control, list) or any(not isinstance(i, str) for i in control)
+                or len(set(control)) != len(control)):
+            raise ValueError("control_passed_case_ids must be a list of distinct case ids")
+        missing = [i for i in control if i not in case_by_id]
+        if missing:
+            raise ValueError(f"control_passed_case_ids names unknown cases: {missing}")
+    return {"ceiling_rate": ceiling_rate, "last_allowed_suite": last,
+            "earlier_suite_effects": effects, "control": control}
+
+
+def analyze(records, context=None):
+    """Return a report. Malformed/incomplete input is always INVALID.
+
+    context is optional evidence from outside the run file: the frozen ceiling
+    rate, whether this is the last allowed suite of the ladder, the paired
+    effects of earlier suites, and the case ids the no-skill control passed.
+    A gate whose evidence is absent is listed in unchecked_gates.
+    """
     try:
         config, decision, cases, cells, margin, alpha, floor, minimum = _validate(records)
+        ctx = validate_context(context, margin, cases)
     except (ValueError, TypeError, KeyError) as exc:
         return {"verdict": "INVALID", "errors": [str(exc)]}
     test = _summarize_split(cases, cells, config["repeats"], "test")
@@ -456,39 +504,102 @@ def analyze(records):
                 and decision["sampling"] == "representative"
                 and test["clusters"] >= minimum)
     floor_met = test["b_success_rate"] is not None and test["b_success_rate"] >= floor
+    a_rate = test["a_success_rate"]
+    last_suite = ctx["last_allowed_suite"] is not False
+    ceiling_effect = a_rate is not None and a_rate >= ctx["ceiling_rate"]
+    floor_effect = a_rate is not None and a_rate <= margin
+    earlier_loss = any(e < -margin for e in ctx["earlier_suite_effects"] or [])
+    control_rate = control_passes = None
+    if ctx["control"] is not None and test["clusters"]:
+        passed_ids = set(ctx["control"])
+        test_clusters = {}
+        for case_id, case in cases.items():
+            if case["split"] == "test":
+                test_clusters.setdefault(case["cluster"], []).append(case_id)
+        control_passes = sum(all(i in passed_ids for i in ids)
+                             for ids in test_clusters.values())
+        control_rate = control_passes / len(test_clusters)
+    skill_visible = (None if control_passes is None else
+                     (test["a_reliable_successes"] - control_passes)
+                     / test["clusters"] > margin)
+    case_lists = {"every_arm_passed": [], "every_arm_failed": [], "only_one_arm_passed": []}
+    for case_id, case in cases.items():
+        if case["split"] != "test":
+            continue
+        passed = [all(cells[(case_id, arm, t)]["passed"] for t in range(config["repeats"]))
+                  for arm in ("a", "b")]
+        if ctx["control"] is not None:
+            passed.append(case_id in ctx["control"])
+        key = ("every_arm_passed" if all(passed) else "every_arm_failed" if not any(passed)
+               else "only_one_arm_passed" if sum(passed) == 1 else None)
+        if key:
+            case_lists[key].append(case_id)
+    case_lists = {k: sorted(v) for k, v in case_lists.items()}
+    reason = next_step = None
     if critical_failures and decision["grader_validated"]:
         verdict = "REGRESSION"
     elif not eligible:
         verdict = "INCONCLUSIVE"
     elif interval[1] < -margin:
         verdict = "REGRESSION"
+    elif floor_effect or (ceiling_effect and not last_suite):
+        verdict = "INCONCLUSIVE"
+        reason = "floor effect" if floor_effect else "ceiling"
+        if not last_suite:
+            next_step = "run the next rung"
+    elif earlier_loss:
+        verdict, reason = "INCONCLUSIVE", "earlier loss"
+    elif skill_visible is False:
+        verdict, reason = "INCONCLUSIVE", "skill not visible"
     elif not floor_met or candidate_critical_failures:
         verdict = "INCONCLUSIVE"
+        if ceiling_effect:
+            reason = "ceiling"
     elif interval[0] > margin:
         verdict = "IMPROVEMENT"
     elif interval[0] >= -margin and interval[1] <= margin:
         verdict = "NO_MEANINGFUL_CHANGE"
     else:
         verdict = "INCONCLUSIVE"
+        if ceiling_effect:
+            reason = "ceiling"
+    unchecked = [name for name, given in (
+        ("ladder position", ctx["last_allowed_suite"] is not None),
+        ("earlier loss", ctx["earlier_suite_effects"] is not None),
+        ("sensitivity", ctx["control"] is not None)) if not given]
     for summary in (test, dev, gate):
         summary.pop("outcomes", None)
     point_delta = (test["b_success_rate"] - test["a_success_rate"]
                    if test["clusters"] else None)
-    return {"verdict": verdict, "errors": [], "metrics": {"test": test, "dev": dev, "gate": gate},
+    report = {"verdict": verdict, "errors": [], "metrics": {"test": test, "dev": dev, "gate": gate},
             "test_point_delta": point_delta,
             "test_delta_interval": list(interval) if interval else None,
             "introduced_critical_failures": sorted(critical_failures),
             "candidate_critical_failures": sorted(candidate_critical_failures),
             "diagnostics": diagnostics,
+            "reason": reason, "case_lists": case_lists,
+            "gates": {"ceiling_rate": ctx["ceiling_rate"], "ceiling": ceiling_effect,
+                      "floor_effect": floor_effect,
+                      "last_allowed_suite": last_suite,
+                      "earlier_loss": earlier_loss,
+                      "control_success_rate": control_rate,
+                      "skill_visible": skill_visible},
+            "unchecked_gates": unchecked,
             "decision_eligible": eligible, "quality_floor_met": floor_met,
             "assumptions": {"margin": margin, "alpha": alpha, "quality_floor": floor,
                             "min_clusters": minimum}}
+    if next_step:
+        report["next_step"] = next_step
+    return report
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", help="JSONL run file")
     parser.add_argument("output", help="JSON report path")
+    parser.add_argument("--context", help="JSON file with the frozen ceiling rate, "
+                        "last_allowed_suite, earlier_suite_effects and "
+                        "control_passed_case_ids")
     args = parser.parse_args(argv)
     try:
         if os.path.normcase(os.path.abspath(args.input)) == os.path.normcase(os.path.abspath(args.output)):
@@ -498,7 +609,11 @@ def main(argv=None):
     try:
         with open(args.input, encoding="utf-8") as source:
             records = [json.loads(line) for line in source if line.strip()]
-        report = analyze(records)
+        context = None
+        if args.context:
+            with open(args.context, encoding="utf-8") as source:
+                context = json.load(source)
+        report = analyze(records, context)
         with open(args.output, "x", encoding="utf-8") as target:
             json.dump(report, target, indent=2, sort_keys=True)
             target.write("\n")

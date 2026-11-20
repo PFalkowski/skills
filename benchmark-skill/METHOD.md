@@ -27,6 +27,9 @@ should expose checks that pass without the intended behavior. These development
 controls do not become independent held-out observations. For the sensitivity gate,
 score the control on the frozen suite as its own experiment, with the control as arm
 `a` and A as arm `b`: the observed paired effect `(w-l)/n` must exceed the margin.
+The scorer takes the control's passed cases and A's outcomes from the scored run; that
+equals the paired effect of the control experiment when A's outcomes are the same in
+both runs.
 
 Keep purposively selected safety cases in the `gate` split: they can block promotion
 but are excluded from the representative `test` sample and its uncertainty estimate.
@@ -64,12 +67,15 @@ arm widens the interval, so more clusters may be needed.
 ## Verdict precedence
 
 Apply the first step that matches; exactly one does. "Interval" means the paired
-interval above. The scorer applies steps 1 to 4 and 8 to 10. The agent applies steps
-5 to 7, checks empty and blocked outputs for step 1, and overrides the scorer's
-verdict when one of these matches.
+interval above. The scorer applies all ten steps. It needs a context file for steps
+5 to 7 (RUNNING.md § Gate evidence); a step whose evidence is absent is named in the
+report's `unchecked_gates`, and the agent applies it from this file and overrides the
+scorer's verdict when it matches. An empty output, or one that ends for any reason
+but a normal stop, makes the run INVALID (step 1).
 
 1. Missing/duplicate/extra trials, malformed grades, truncation, an empty or blocked
-   output, environment drift or incomplete runs: **INVALID**.
+   output, environment drift, incomplete runs, or a ceiling rate at or below `2m`
+   (the default ceiling rate fails this when `m` is one third or more): **INVALID**.
 2. With validated graders, a critical test that passed all A trials fails any B
    trial: **REGRESSION**, an observed release-gate failure, not a population
    significance claim. An unvalidated grader cannot justify that verdict.
@@ -111,8 +117,9 @@ and, with enough clusters, bound a loss, but it cannot show a gain larger than o
 minus A's rate. A floor effect is the
 mirror: A passes so little that B has almost no room to do worse, so a regression
 cannot show. Either one triggers a new suite, harder or easier, by the procedure
-below, without tuning to results already seen. The scorer does not apply these rules;
-the agent applies them to the scorer's report and the control run.
+below, without tuning to results already seen. The scorer applies these rules when
+it is given the ceiling rate, the ladder position, the earlier suites' effects and the
+control run.
 
 **Detect.** Before the first run, freeze a ceiling rate. The floor rate is `m`; it is
 not a free choice. Both are compared with arm A's reliable-success rate: the share of
