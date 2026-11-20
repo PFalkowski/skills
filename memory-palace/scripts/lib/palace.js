@@ -10,7 +10,7 @@ const { folderStore, pageId, checkId } = require('./stores.js');
 const lock = require('./lock.js');
 const seal = require('./seal.js');
 const git = require('./git.js');
-const { configDir, machineKeyFile, defaultFolder, projectRoot } = require('./scopes.js');
+const { configDir, machineKeyFile, defaultFolder, projectRoot, sessionId, sessionFolder } = require('./scopes.js');
 
 const FORMAT = 1;
 const LOCK_WAIT_MS = 60000;
@@ -135,8 +135,17 @@ function boundFolder(scope, ctx, machine) {
   return { root, dir: machine.projects[root] ?? null };
 }
 
-function target(ctx) {
+function sessionTarget(ctx, command) {
+  if (command === 'remote') throw new PalaceError('a session palace has no remote. Nothing was changed.');
+  const dir = sessionFolder(ctx.env, command === 'save');
+  if (dir === null) throw new PalaceError('this session has saved no session memories. Nothing was changed.');
+  if (command === 'save' && !fs.existsSync(path.join(dir, 'palace.json'))) createSession(dir, ctx);
+  return dir;
+}
+
+function target(ctx, command) {
   if (ctx.palace !== undefined) return path.resolve(ctx.palace);
+  if (ctx.scope === 'session') return sessionTarget(ctx, command);
   const { root, dir } = boundFolder(ctx.scope ?? 'global', ctx, readMachine(ctx.env));
   if (dir) return dir;
   if (root === undefined) throw new PalaceError('no global palace on this machine. Pass --scope project or --scope session, or set up a global palace.');
@@ -150,6 +159,17 @@ function scopeOf(dir, ctx) {
 }
 
 const inScope = (scope, message) => `${scope} palace: ${message}`;
+
+function fromSession(ctx, work) {
+  if (sessionId(ctx.env) === null) return {};
+  try {
+    const dir = sessionFolder(ctx.env, false);
+    return dir ? { value: work(dir) } : {};
+  } catch (err) {
+    if (!(err instanceof PalaceError)) throw err;
+    return { warning: inScope('session', err.message) };
+  }
+}
 
 function prefixingErrors(scope, work) {
   try {
@@ -238,6 +258,10 @@ function palaceStatus(dir, machine, env) {
 function status(ctx) {
   const machine = readMachine(ctx.env);
   if (ctx.palace !== undefined) return palaceStatus(path.resolve(ctx.palace), machine, ctx.env);
+  if (ctx.scope === 'session') {
+    const dir = sessionFolder(ctx.env, false);
+    return dir ? palaceStatus(dir, machine, ctx.env) : { palace: null };
+  }
   if (ctx.scope !== undefined) {
     const { root, dir } = boundFolder(ctx.scope, ctx, machine);
     return dir ? palaceStatus(dir, machine, ctx.env) : { palace: null, proposed: proposal(ctx.scope, ctx.env, root) };
@@ -247,7 +271,9 @@ function status(ctx) {
   for (const [scope, dir] of [['global', machine.default], ['project', project.dir]]) {
     scopes[scope] = dir ? prefixingErrors(scope, () => palaceStatus(dir, machine, ctx.env)) : null;
   }
-  const result = { scopes, projectRoot: project.root };
+  const session = fromSession(ctx, (dir) => palaceStatus(dir, machine, ctx.env));
+  scopes.session = session.value ?? null;
+  const result = { scopes, projectRoot: project.root, ...(session.warning && { warning: session.warning }) };
   return scopes.global || scopes.project ? result : { ...result, proposed: proposal('global', ctx.env) };
 }
 
@@ -386,12 +412,9 @@ function buildBeside(dir, build) {
 
 const writeSettings = (dir, settings) => writeReplacing(path.join(dir, 'palace.json'), `${JSON.stringify(settings, null, 2)}\n`);
 
-function setup(target, input, ctx) {
-  const scope = ctx.scope ?? 'global';
-  const root = scope === 'project' ? projectRoot(ctx.env, ctx.cwd) : undefined;
-  const options = { kinds: DEFAULT_KINDS, moments: MOMENTS, ...input, remote: input.remote ?? null };
-  const dir = path.resolve(target ?? defaultFolder(scope, ctx.env, root));
-  const { protection, warning, keyFile, source } = checkSetup(dir, realTarget(dir, target === undefined), options, ctx);
+function build(dir, isDefault, options, ctx) {
+  const checked = checkSetup(dir, realTarget(dir, isDefault), options, ctx);
+  const { protection } = checked;
   const codec = codecFor(protection?.keys ?? null);
   const palace = buildBeside(dir, (temp) => {
     fs.mkdirSync(temp, { mode: 0o700 });
@@ -417,6 +440,23 @@ function setup(target, input, ctx) {
     git.init(ctx.env, temp);
     git.commit(ctx.env, temp);
   });
+  return { ...checked, palace };
+}
+
+function createSession(dir, ctx) {
+  try {
+    build(dir, true, { passphrase: null, remote: null, kinds: DEFAULT_KINDS, moments: ['on-request'] }, ctx);
+  } catch (err) {
+    if (!fs.existsSync(path.join(dir, 'palace.json'))) throw err;
+  }
+}
+
+function setup(target, input, ctx) {
+  const scope = ctx.scope ?? 'global';
+  const root = scope === 'project' ? projectRoot(ctx.env, ctx.cwd) : undefined;
+  const options = { kinds: DEFAULT_KINDS, moments: MOMENTS, ...input, remote: input.remote ?? null };
+  const dir = path.resolve(target ?? defaultFolder(scope, ctx.env, root));
+  const { palace, protection, warning, keyFile, source } = build(dir, target === undefined, options, ctx);
   const machineDefault = bind(ctx.env, scope, palace, { passphrase: source, protected: Boolean(protection), origin: options.remote }, root);
   const result = { palace, scope, default: machineDefault, ...(warning && { warning }), ...(keyFile && { keyFile, note: keyNote(keyFile) }) };
   if (options.remote === null) return result;
@@ -478,7 +518,7 @@ function join(target, options, ctx) {
 }
 
 function unlock(ctx) {
-  const dir = target(ctx);
+  const dir = target(ctx, 'unlock');
   readSettings(dir);
   return { removed: lock.remove(dir) };
 }
@@ -713,21 +753,27 @@ const MERGE = {
 
 function acrossScopes(command, input, ctx) {
   const machine = readMachine(ctx.env);
-  const targets = [];
+  const answer = (scope, dir) => ({ ...labelled(command, open({ ...ctx, palace: dir })[command](input), scope), scope });
+  const session = fromSession(ctx, (dir) => answer('session', dir));
+  const answers = session.value ? [session.value] : [];
+  const dirs = [];
   for (const scope of SCOPES) {
     const { dir } = boundFolder(scope, ctx, machine);
-    if (dir && !targets.some((known) => known.dir === dir)) targets.push({ scope, dir });
+    if (dir && !dirs.includes(dir)) {
+      dirs.push(dir);
+      answers.push(prefixingErrors(scope, () => answer(scope, dir)));
+    }
   }
-  if (targets.length === 0) throw new PalaceError('no palace set up on this machine');
-  const answers = targets.map(({ scope, dir }) => prefixingErrors(scope, () => ({ ...labelled(command, open({ ...ctx, palace: dir })[command](input), scope), scope })));
+  if (answers.length === 0 && !session.warning) throw new PalaceError('no palace set up on this machine');
   const merged = MERGE[command](answers);
-  const warning = answers.filter((answer) => answer.warning).map((answer) => inScope(answer.scope, answer.warning)).join(' ');
+  const warnings = [session.warning, ...answers.filter((one) => one.warning).map((one) => inScope(one.scope, one.warning))];
+  const warning = warnings.filter(Boolean).join(' ');
   return warning ? { ...merged, warning } : merged;
 }
 
 function run(command, input, ctx) {
   if (READS.has(command) && ctx.palace === undefined && ctx.scope === undefined) return acrossScopes(command, input, ctx);
-  const dir = target(ctx);
+  const dir = target(ctx, command);
   const result = open({ ...ctx, palace: dir })[command === 'remote' ? 'setRemote' : command](input);
   return READS.has(command) ? labelled(command, result, ctx.scope ?? scopeOf(dir, ctx)) : result;
 }

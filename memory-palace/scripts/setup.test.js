@@ -50,7 +50,7 @@ async function savesAndRecalls(env, dir) {
 test('359-1: status with no palace proposes the defaults with absolute paths', async (t) => {
   const { env, keyFile, globalFolder } = sandbox(t);
   assert.deepStrictEqual(ok(await cli(env, ['status'])), {
-    scopes: { global: null, project: null },
+    scopes: { global: null, project: null, session: null },
     projectRoot: env.HOME,
     proposed: { scope: 'global', palace: globalFolder, passphrase: { file: keyFile, create: true }, remote: null, kinds: KINDS, moments: MOMENTS },
   });

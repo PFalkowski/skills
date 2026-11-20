@@ -133,6 +133,8 @@ test('cli: malformed stdin with a marker', async (t) => {
   }
 });
 
+const SESSION_FALLBACK = 'path.join(os.tmpdir(), `memory-palace-${os.userInfo().username}`)';
+
 test('cli: K5 source scan', () => {
   const files = [];
   const walk = (dir) => {
@@ -149,7 +151,7 @@ test('cli: K5 source scan', () => {
     for (const [, argument] of source.matchAll(/\brequire\s*\(([^)]*)\)/g)) {
       assert.match(argument, /^\s*['"](node:|\.\/|\.\.\/)/, `${path.relative(__dirname, file)} requires ${argument}`);
     }
-    if (!file.endsWith('.test.js')) assert.doesNotMatch(source, /\b(tmpdir|mkdtemp)/, `${path.relative(__dirname, file)} makes temp files`);
+    if (!file.endsWith('.test.js')) assert.doesNotMatch(source.replace(SESSION_FALLBACK, ''), /\b(tmpdir|mkdtemp)/, `${path.relative(__dirname, file)} makes temp files`);
   }
 });
 

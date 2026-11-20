@@ -4,12 +4,12 @@ const fs = require('node:fs');
 const { PalaceError, UsageError, parseJson, describe } = require('./lib/errors.js');
 const palace = require('./lib/palace.js');
 
-const USAGE = 'usage: palace.js <status|setup|join|save|recall|browse|list|forget|sync|remote|check|unlock> [--palace <dir>] [--scope global|project]; places, titles, summaries and texts go on standard input as one JSON object';
+const USAGE = 'usage: palace.js <status|setup|join|save|recall|browse|list|forget|sync|remote|check|unlock> [--palace <dir>] [--scope global|project|session]; places, titles, summaries and texts go on standard input as one JSON object';
 const SECRET_OPTION = /^--(passphrase|password)(=|$)/;
 const TAKES_INPUT = new Set(['setup', 'join', 'save', 'recall', 'browse', 'list', 'forget', 'remote']);
 
 const OPTIONS = { '--palace': 'palace', '--scope': 'scope' };
-const SCOPES = ['global', 'project'];
+const SCOPES = ['global', 'project', 'session'];
 const BINDS = new Set(['setup', 'join']);
 
 const COMMANDS = {
@@ -35,6 +35,7 @@ function parseArgs([command, ...options]) {
   if (Object.hasOwn(parsed, 'scope') && Object.hasOwn(parsed, 'palace') && !BINDS.has(command)) {
     throw new UsageError('--scope and --palace go together only for setup and join; give one of them.');
   }
+  if (parsed.scope === 'session' && BINDS.has(command)) throw new UsageError('a session palace needs no setup: save with --scope session');
   return parsed;
 }
 

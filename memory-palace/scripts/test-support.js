@@ -42,6 +42,7 @@ function envFor(root) {
     HOME: path.join(root, 'home'),
     XDG_CONFIG_HOME: path.join(root, 'home', '.config'),
     XDG_DATA_HOME: path.join(root, 'home', '.local', 'share'),
+    XDG_RUNTIME_DIR: path.join(root, 'run'),
     TMPDIR: path.join(root, 'tmp'),
     GIT_CONFIG_GLOBAL: path.join(root, 'gitconfig'),
     GIT_CONFIG_NOSYSTEM: '1',
