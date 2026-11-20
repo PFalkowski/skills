@@ -21,7 +21,7 @@ An agent finishes a ticket, opens a PR, and hands back a dense, confident, low-l
 
 ## Step 1 — Mandate
 
-Nothing was passed, so it comes from the ticket the PR closes and the ADR it amends: *restore retry/breaker coverage on every store path without changing the failover routing; production behaviour changes need a pinned test and an ADR note.* Defaults: `merge=allow`, `post=post`, `tickets=file`, tracker = GitHub (remote). Working assumption carried from the ticket: "the ORM store is the only layer that should own resilience."
+Nothing was passed, so it comes from the ticket the PR closes and the ADR it amends: *restore retry/breaker coverage on every store path without changing the failover routing; production behaviour changes need a pinned test and an ADR note.* Defaults in an autonomous session (`CLAUDE_AUTONOMY=autonomous`): `merge=allow`, `post=post`, `tickets=file`, tracker = GitHub (remote). Working assumption carried from the ticket: "the ORM store is the only layer that should own resilience."
 
 ## Step 2 — Ledger
 

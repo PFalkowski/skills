@@ -196,7 +196,7 @@ Command: k6 run loadtest/retry-backoff.js against a staging deploy.
 
 ### Comment body
 
-An inline comment holds four parts and nothing else, in this order, under twelve lines:
+An inline comment holds four parts and nothing else, in this order, under twelve lines. The one allowed addition is a status line, `Status: fixed in <sha>` or `Status: left unresolved`, directly under line one; `go-go-go` asks for it and no other caller adds anything:
 
 ````markdown
 🔥 **F1** `userId` reaches the SQL string unescaped, so any caller can read every row.

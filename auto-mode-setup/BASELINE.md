@@ -118,9 +118,9 @@ only delisted, and the version number is burned permanently.
 **`gh pr merge` used to be on this list and is deliberately no longer.** It was the one entry that
 denied a *reversible* action — a merge commit can be reverted, and unlike a published package
 nothing leaves the repository. Keeping it here also made a whole class of run impossible rather
-than merely supervised: the [manager](../manager/SKILL.md) defaults to `merge=allow`, meaning a
+than merely supervised: the [manager](../manager/SKILL.md) runs with `merge=allow` in an autonomous session, meaning a
 green, independently grilled PR merges without waking anyone, and a deny rule silently made that
-default undeliverable. **Deny is evaluated before ask and allow, and a tool denied at any scope
+setting undeliverable. **Deny is evaluated before ask and allow, and a tool denied at any scope
 cannot be allowed at another**, so there was no way to grant it back for one repo — the rule had to
 go or the feature did.
 
