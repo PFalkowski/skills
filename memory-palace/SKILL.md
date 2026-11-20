@@ -52,8 +52,9 @@ Never set up a palace or the hook unasked, under any autonomy setting.
    ```
 
    When `passphrase.create` is false, line 3 reads "encrypted with this machine's key file at <passphrase.file>". Show line 7 only in Claude Code (`hook` in [REFERENCE.md](REFERENCE.md)).
-2. Run `setup` once, with only the changed lines in its input (`{}` when the user said yes; shapes in [REFERENCE.md](REFERENCE.md)). Scope project is `--scope project`, run from the project. A changed folder goes in `--palace <dir>`: absent or empty, its parent existing, and not copied to other machines by a file-sync service (such as Dropbox or OneDrive) if the palace gets a remote. Changed protection is `null`, or a passphrase source the user set: an environment variable's name, or a key file outside the palace (mode 600). Never ask for a passphrase. Tell the user what protection covers (below).
-3. Show the result's `note` word for word, and any `warning`.
+2. If the user changed the scope to project, show `proposed` from `status --scope project` and confirm again.
+3. Run `setup` once, with only the changed lines in its input (`{}` when the user said yes; shapes in [REFERENCE.md](REFERENCE.md)). Scope project is `--scope project`, run from the project. A changed folder goes in `--palace <dir>`: absent or empty, its parent existing, and not copied to other machines by a file-sync service (such as Dropbox or OneDrive) if the palace gets a remote. Changed protection is `null`, or a passphrase source the user set: an environment variable's name, or a key file outside the palace (mode 600). Never ask for a passphrase. Tell the user what protection covers (below).
+4. Show the result's `note` word for word, and any `warning`.
 
 Kinds and moments are stored in clear: never secrets. A palace that already exists elsewhere (on a remote or in a folder this machine does not know) is opened with `join`, not `setup`.
 
@@ -131,7 +132,7 @@ Match the error's opening words below. A read or `status` without options starts
 - **"no global palace on this machine"** or **"no project palace for <root>"**: offer the setup above for that scope, or save to another scope. A moved project: see [REFERENCE.md](REFERENCE.md).
 - **"the session scope needs a session id"** or **"... is not a private folder of the current user"**: tell the user, and save to another scope only if they agree.
 - **"no palace at <dir>"** (a palace's folder moved): ask the user where the palace is now, then `join --scope <its scope> --palace <its folder>` with its passphrase source, or `null`, and the palace's remote URL as `remote` (`null` if it has none; leave it out if the folder has no `.git`). Never set up a new palace in its place.
-- **A refused setup** (folder not empty, a URL with a secret, a remote that cannot be reached or is not empty, invalid kinds or moments, or an unprotected palace without a remote inside a git repository that does not ignore it): show the message and ask the user to choose again.
+- **A refused setup**: show the message and ask the user to choose again.
 - **"<dir> is a SQLite palace, which this version no longer reads"**: show the message and offer to move the memories with the user. Say first that each memory passes through the conversation, and that the new palace records the time of the move, not the original time. Set up a new palace (one confirmation), move the memories one at a time with the v1 scripts the message names, and never delete `palace.db`.
 - **A leftover `.<name>.setup-<hex>` folder** beside the palace is a killed `setup` or `join`. Tell the user to delete it.
 
