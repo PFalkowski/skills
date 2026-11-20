@@ -5,8 +5,8 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { isDeepStrictEqual } = require('node:util');
 const { PalaceError, UsageError } = require('./errors.js');
-const { home, projectRoot } = require('./scopes.js');
-const { readMachine, readSettings } = require('./palace.js');
+const { home } = require('./scopes.js');
+const { readMachine, readSettings, boundFolders } = require('./palace.js');
 
 const PLAIN_KIND = /^[a-z][a-z0-9-]{0,31}$/;
 const MOMENT_PHRASES = { 'on-request': 'when the user asks', 'after-decision': 'after a decision', 'end-of-task': 'at the end of a task' };
@@ -105,9 +105,8 @@ function reminderLine(scope, dir) {
 function remind(text, env) {
   const { cwd } = JSON.parse(text);
   if (typeof cwd !== 'string') throw new PalaceError('the hook input has no cwd');
-  const machine = readMachine(env);
-  const project = machine.projects[projectRoot(env, cwd)];
-  const lines = [['global', machine.default], ['project', project]].flatMap(([scope, dir]) => (dir ? reminderLine(scope, dir) : []));
+  const bound = boundFolders({ env, cwd }, readMachine(env));
+  const lines = ['global', 'project'].flatMap((scope) => (bound[scope] ? reminderLine(scope, bound[scope]) : []));
   return lines.length > 0 ? [HEADER, ...lines].join('\n') : '';
 }
 

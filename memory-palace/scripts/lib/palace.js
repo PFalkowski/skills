@@ -140,6 +140,11 @@ function boundFolder(scope, ctx, machine) {
   return { root, dir: machine.projects[root] ?? null };
 }
 
+function boundFolders(ctx, machine) {
+  const project = boundFolder('project', ctx, machine);
+  return { projectRoot: project.root, global: machine.default, project: project.dir };
+}
+
 function sessionTarget(ctx, command) {
   if (command === 'remote') throw new PalaceError('a session palace has no remote. Nothing was changed.');
   const dir = sessionFolder(ctx.env, command === 'save');
@@ -158,9 +163,9 @@ function target(ctx, command) {
 }
 
 function scopeOf(dir, ctx) {
-  const machine = readMachine(ctx.env);
+  const bound = boundFolders(ctx, readMachine(ctx.env));
   const real = fs.realpathSync(dir);
-  return SCOPES.find((scope) => boundFolder(scope, ctx, machine).dir === real) ?? null;
+  return SCOPES.find((scope) => bound[scope] === real) ?? null;
 }
 
 const inScope = (scope, message) => `${scope} palace: ${message}`;
@@ -271,14 +276,14 @@ function status(ctx) {
     const { root, dir } = boundFolder(ctx.scope, ctx, machine);
     return dir ? palaceStatus(dir, machine, ctx.env) : { palace: null, proposed: proposal(ctx.scope, ctx.env, root) };
   }
-  const project = boundFolder('project', ctx, machine);
+  const bound = boundFolders(ctx, machine);
   const scopes = {};
-  for (const [scope, dir] of [['global', machine.default], ['project', project.dir]]) {
-    scopes[scope] = dir ? prefixingErrors(scope, () => palaceStatus(dir, machine, ctx.env)) : null;
+  for (const scope of ['global', 'project']) {
+    scopes[scope] = bound[scope] ? prefixingErrors(scope, () => palaceStatus(bound[scope], machine, ctx.env)) : null;
   }
   const session = fromSession(ctx, (dir) => palaceStatus(dir, machine, ctx.env));
   scopes.session = session.value ?? null;
-  const result = { scopes, projectRoot: project.root, ...(session.warning && { warning: session.warning }) };
+  const result = { scopes, projectRoot: bound.projectRoot, ...(session.warning && { warning: session.warning }) };
   return scopes.global || scopes.project ? result : { ...result, proposed: proposal('global', ctx.env) };
 }
 
@@ -759,12 +764,13 @@ const MERGE = {
 
 function acrossScopes(command, input, ctx) {
   const machine = readMachine(ctx.env);
+  const bound = boundFolders(ctx, machine);
   const answer = (scope, dir) => ({ ...labelled(command, open({ ...ctx, palace: dir })[command](input), scope), scope });
   const session = fromSession(ctx, (dir) => answer('session', dir));
   const answers = session.value ? [session.value] : [];
   const dirs = [];
   for (const scope of SCOPES) {
-    const { dir } = boundFolder(scope, ctx, machine);
+    const dir = bound[scope];
     if (dir && !dirs.includes(dir)) {
       dirs.push(dir);
       answers.push(prefixingErrors(scope, () => answer(scope, dir)));
@@ -786,4 +792,4 @@ function run(command, input, ctx) {
   return READS.has(command) ? labelled(command, result, scope) : { ...result, scope };
 }
 
-module.exports = { status, setup, join, unlock, open, run, readMachine, readSettings };
+module.exports = { status, setup, join, unlock, open, run, readMachine, readSettings, boundFolders };
