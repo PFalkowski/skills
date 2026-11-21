@@ -1148,7 +1148,7 @@ const sliced = await agent(
 if (!sliced || !sliced.slices.length) throw new Error('sdlc-workhorse: slicing produced no slices.')
 
 const testOf = s => plannedTests.find(p => p.id === s.claimTest)
-// Built first so the cap cannot drop a slice the merge is waiting on.
+// Built first, with every slice they depend on, so the cap cannot drop a slice the merge is waiting on.
 const claimFirst = [...sliced.slices.filter(testOf), ...sliced.slices.filter(s => !testOf(s))]
 // A slice builds after every slice it dependsOn. The sort is stable, so slices with no dependency between
 // them keep the order above. A duplicate id, an unknown id or a cycle stops the run before anything is built, because a
@@ -1156,17 +1156,25 @@ const claimFirst = [...sliced.slices.filter(testOf), ...sliced.slices.filter(s =
 const orderByDependsOn = (list) => {
   const ids = new Set(list.map(s => s.id))
   const repeated = [...new Set(list.map(s => s.id).filter((id, i, all) => all.indexOf(id) !== i))]
-  if (repeated.length) throw new Error(`sdlc-workhorse: duplicate slice id(s): ${repeated.join(', ')}.`)
+  if (repeated.length) throw new Error(`sdlc-workhorse: duplicate slice id(s): ${repeated.map(id => JSON.stringify(id)).join(', ')}.`)
   for (const s of list) {
     const unknown = (s.dependsOn || []).filter(d => !ids.has(d))
     if (unknown.length) throw new Error(`sdlc-workhorse: slice ${s.id} dependsOn unknown slice id(s): ${unknown.join(', ')}.`)
   }
+  const needed = new Set()
+  const need = s => {
+    if (needed.has(s.id)) return
+    needed.add(s.id)
+    for (const d of s.dependsOn || []) need(list.find(x => x.id === d))
+  }
+  list.filter(testOf).forEach(need)
+  const ranked = [...list.filter(s => needed.has(s.id)), ...list.filter(s => !needed.has(s.id))]
   const ordered = []
   const placed = new Set()
-  while (ordered.length < list.length) {
-    const next = list.find(s => !placed.has(s.id) && (s.dependsOn || []).every(d => placed.has(d)))
+  while (ordered.length < ranked.length) {
+    const next = ranked.find(s => !placed.has(s.id) && (s.dependsOn || []).every(d => placed.has(d)))
     if (!next) {
-      const stuck = list.filter(s => !placed.has(s.id)).map(s => s.id)
+      const stuck = ranked.filter(s => !placed.has(s.id)).map(s => s.id)
       throw new Error(`sdlc-workhorse: slices form a dependsOn cycle among ${stuck.join(', ')}.`)
     }
     ordered.push(next)

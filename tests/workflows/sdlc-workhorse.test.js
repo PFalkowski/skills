@@ -1063,7 +1063,7 @@ console.log('\na claim settled by test X goes to the build as its first test, an
   const GHOST = 'tests/ghost.test.js: a claim nobody gave the answer agent'
   const idOf = (p, claim) => ((p.split('\n').find(l => l.includes(claim)) || '').match(/\b[A-Z]+\d+\b/) || [])[0]
   const testIdOf = p => ((p.split('\n').find(l => l.includes(TEST_X)) || '').match(/\bT\d+\b/) || ['T1'])[0]
-  const run = ({ carried, maxSlices, greenS2 = true }) => runWorkhorse({
+  const run = ({ carried, maxSlices, greenS2 = true, claimNeedsS3 = false }) => runWorkhorse({
     args: baseArgs({ maxPlanRounds: 1, ...(maxSlices ? { maxSlices } : {}) }), agentFn: overriding({
       'claims:plan': () => ({ claims: [{ claim: U, whyLoadBearing: 'load-bearing', blastRadius: 'total' }] }),
       'refute:': p => p.includes(`Claim: ${U}\n`) ? { status: 'unverifiable', evidence: 'no clock to try it' } : undefined,
@@ -1071,7 +1071,9 @@ console.log('\na claim settled by test X goes to the build as its first test, an
       'answer': p => ({ answers: [{ id: idOf(p, U), action: 'settled-by-test', test: TEST_X },
         { id: 'C9', action: 'settled-by-test', test: GHOST }] }),
       'slice': p => ({ slices: [{ id: 's1', title: 'S1', acceptanceCriterion: 'AC1', effort: 'low' },
-        { id: 's2', title: 'S2', acceptanceCriterion: 'AC2', effort: 'low', ...(carried ? { claimTest: testIdOf(p) } : {}) }] }),
+        { id: 's2', title: 'S2', acceptanceCriterion: 'AC2', effort: 'low', ...(carried ? { claimTest: testIdOf(p) } : {}),
+          ...(claimNeedsS3 ? { dependsOn: ['s3'] } : {}) },
+        ...(claimNeedsS3 ? [{ id: 's3', title: 'S3', acceptanceCriterion: 'AC3', effort: 'low' }] : [])] }),
       'green:s2': () => greenS2 ? undefined : { passed: false, output: 'FAIL boundary', summary: 'not green' },
     }) })
   const reds = r => r.calls.filter(c => c.opts.label.startsWith('red:'))
@@ -1083,6 +1085,9 @@ console.log('\na claim settled by test X goes to the build as its first test, an
   await t('...its carrying slice moves to the front before the maxSlices cap: the first red: is red:s2, naming the claim and test X',
     () => reds(capped).length === 1 && reds(capped)[0].opts.label === 'red:s2' &&
       reds(capped)[0].prompt.includes(U) && reds(capped)[0].prompt.includes(TEST_X))
+  const needy = await run({ carried: true, maxSlices: 2, claimNeedsS3: true })
+  await t('a claim slice that depends on an ordinary slice is built first, with that slice, ahead of the cap',
+    () => reds(needy).map(c => c.opts.label).join() === 'red:s3,red:s2')
   const red = await run({ carried: true, greenS2: false })
   await t('a carrying slice that does not go green keeps mergeReady false, and planClaims says test X was not green',
     () => red.mergeReady === false && testEntry(red).slice === 's2' && /not green/.test(JSON.stringify(testEntry(red))))
@@ -1510,6 +1515,8 @@ console.log('\nslices build in dependsOn order:')
   await t('...before any slice is built', () => early === 0)
   const dup = await outcome([sliceOf('s1'), sliceOf('s1'), sliceOf('s2')])
   await t('a duplicate slice id stops the run with an error that says so, not a cycle', () => dup && /duplicate/i.test(dup.message) && /s1/.test(dup.message) && !/cycle/i.test(dup.message))
+  const emptyIds = await outcome([sliceOf(''), sliceOf(''), sliceOf('s2')])
+  await t('a duplicate empty id is quoted in the error, so it can be seen', () => emptyIds && /duplicate/i.test(emptyIds.message) && /""/.test(emptyIds.message))
   const capped = await runWorkhorse({ args: baseArgs({ maxSlices: 1 }), agentFn: withSlices([
     { ...sliceOf('s1'), dependsOn: ['s2'] }, sliceOf('s2')]) })
   await t('the cap drops a dependent, never the slice it needs', () => at(capped, 'red:s2') >= 0 && at(capped, 'red:s1') < 0)
