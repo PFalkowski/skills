@@ -1,3 +1,5 @@
+> Superseded for decisions by [real-prose/RESULTS.md](real-prose/RESULTS.md).
+
 # unslop compaction: results, 2026-11-14
 
 This file is the only addition to this folder after the run.

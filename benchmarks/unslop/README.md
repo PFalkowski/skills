@@ -15,6 +15,7 @@ held-out passages, with a mechanical grader. The plan, thresholds and verdict ru
 | `prompt.py` | Builds the exact prompt for one batch of 5 passages, per arm. Passes only `id` and `text`. |
 | `grade.py` | Grades a directory of rewrites. One JSON record per passage, then a summary. `--self-test` validates passages and grader. |
 | `analyze.py` | Applies the frozen decision rule to the graded A, B and control results. |
+| `real-prose/` | The rerun on this repo's own skill prose, with the upstream original as arm A. Its [RESULTS.md](real-prose/RESULTS.md) supersedes this suite's for decisions. |
 | `dev/` | Hand-written rewrites of the dev passages: `good`, `alt` (valid alternative), `bad` (patterns left in), `factdrop` (one fact lost or reformatted). |
 
 ## Rerun
