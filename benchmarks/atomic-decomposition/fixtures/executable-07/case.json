@@ -17,10 +17,7 @@
     "\\$ (?!.*(before|preceding).*newline).*(strict|only|exact|end of (the )?string)"
   ],
   "must_run": [
-    "python3? .*\\.py",
-    "python3? -c",
-    "python3? *<<",
-    "python3? *-$"
+    "python3? .*\\.py|python3? -c|python3? *<<|python3? *-$"
   ],
   "exemplar": {
     "root": {
