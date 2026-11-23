@@ -119,8 +119,8 @@ over-applied its rules where there was nothing to fix. On the pattern cases B pa
   emoji ⛏️ as a functional marker for a "nit" comment, every arm rightly kept it, and the
   emoji detector counts it twice (the symbol and its variation selector). No faithful
   rewrite can pass `r1t01`. A and B fail it for this fault alone (the control also fails on bold), so it does
-  not move the paired effect (B alone 6, A alone 1 either way). Counted as a pass for every arm, the
-  rates would be control 7, A 17 and B 22 of 30. METHOD.md says a grader fault found after
+  not move the paired effect (B alone 6, A alone 1 either way). With the emoji fault removed, the
+  rates would be control 7 (it still fails `r1t01` on bold), A 17 and B 22 of 30. METHOD.md says a grader fault found after
   the run means fixing it and running anew. That was not done here, because the fault
   changes no outcome and no verdict; this is a deviation from that rule.
 - Only one arm passed: B alone on `r1t09`, `r1t10`, `r1t18`, `r1t22`, `r1t28`, `r1t29`;
