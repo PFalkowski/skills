@@ -1,0 +1,47 @@
+{
+  "id": "lying-doc-05",
+  "kind": "lying-doc",
+  "split": "test",
+  "claim": "A cart whose items add up to 55.00, with a 10 percent coupon, pays no shipping.",
+  "root": "confirmed",
+  "why": "Shipping is decided by shipping_cents on the subtotal before the coupon is applied, so 5500 cents meets the 5000 threshold and shipping is 0. The README says the threshold applies to the total after coupons, which would give 49.50 and charge shipping. The trap is trusting the README instead of reading the order of calls in quote.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "before.{0,30}coupon|pre.?coupon|undiscounted|without.{0,20}(the )?(coupon|discount)|coupon.{0,30}after.{0,30}shipping|subtotal.{0,40}(shipping_cents|not.{0,20}coupon)|shipping_cents\\(subtotal",
+      "note": "shipping uses the pre-coupon subtotal"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "5500|55\\.00.{0,60}(free|0|no shipping)|>=\\s*5000",
+      "note": "5500 reaches the 5000 threshold"
+    }
+  ],
+  "false_confirms": [
+    "(threshold|free shipping|shipping).{0,40}(based on|uses|checks|applies to|reaches).{0,30}(total )?(after|post).{0,10}coupon"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "A 55.00 cart with a 10 percent coupon pays no shipping.",
+      "verdict": "confirmed",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "shipping_cents is called on the subtotal before the coupon is applied",
+        "verdict": "confirmed",
+        "evidence": "cart.py quote computes shipping_cents(subtotal) and only then apply_coupon; the README claim about after-coupon totals is not what the code does."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "The subtotal 5500 cents reaches the free-shipping threshold, so shipping is 0",
+        "verdict": "confirmed",
+        "evidence": "shipping.py: FREE_FROM_CENTS = 5000 and >=; running main.py prints shipping 0 for 5500."
+      }
+    ]
+  }
+}

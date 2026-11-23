@@ -1,0 +1,47 @@
+{
+  "id": "executable-06",
+  "kind": "executable",
+  "split": "test",
+  "claim": "Players with equal scores appear in sign-up order, and ranks skip after a tie, so two players tied for first are followed by rank 3.",
+  "root": "confirmed",
+  "why": "sorted with reverse=True still keeps equal items in their original order, so ties stay in sign-up order. The rank of a row is copied from the row above on a tie and otherwise is its position, giving 1, 1, 3, 3, 5. The trap is the belief that reverse=True flips tied items too.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "(tie|equal|same score).*(order|sign.?up|roster|stable)|(order|sign.?up|stable).*(tie|equal)",
+      "note": "reverse=True keeps ties in original order"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "rank.*(1,? ?1,? ?3|skip|3)|(skip|3).*rank",
+      "note": "competition ranking 1,1,3"
+    }
+  ],
+  "false_confirms": [],
+  "must_run": [
+    "python3? .*main\\.py"
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "Ties keep sign-up order and ranks go 1, 1, 3.",
+      "verdict": "confirmed",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "Equal-score players appear in sign-up order",
+        "verdict": "confirmed",
+        "evidence": "main.py prints lee then ned (both 70) and kim then moe (both 50), the roster order; sorted(reverse=True) is stable."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "After two players tied at rank 1 the next rank is 3",
+        "verdict": "confirmed",
+        "evidence": "main.py prints ranks 1, 1, 3, 3, 5."
+      }
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "id": "lying-doc-02",
+  "kind": "lying-doc",
+  "split": "dev",
+  "claim": "Slugifying the title 'Café Münster 2024' gives 'caf-m-nster-2024': the accented letters are dropped, not kept.",
+  "root": "confirmed",
+  "why": "The README says slugify keeps letters and digits, which suggests accented letters survive. The code lowercases the title and keeps only characters found in string.ascii_lowercase plus string.digits, so the precomposed (NFC) letters e-acute and u-umlaut become separators and the result is 'caf-m-nster-2024' (a decomposed NFD title would give a different string; the claim uses the NFC form). The trap is trusting the word letters in the README and the helper's name over the ASCII-only set it checks.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "(outside|not in|excluded?|only).{0,40}(a-z|ascii)|caf-m-nster|accent\\w* (letters? )?(are )?(dropped|removed|replaced|lost|not kept)",
+      "note": "the regex class excludes accented letters"
+    }
+  ],
+  "false_confirms": [
+    "^(?!.*(\\bnot\\b|n't|never|drop|remov|lost|false|wrong|incorrect|untrue)).*((keep|kept|preserv|retain)\\w*.{0,30}(accent|é|ü|unicode)|(accent|é|ü|unicode).{0,40}(keep|kept|preserv|retain))",
+    "caf\\u00e9-m\\u00fcnster"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "slugify('Café Münster 2024') returns 'caf-m-nster-2024', dropping the accented letters.",
+      "verdict": "confirmed",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "slugify lowercases the title first.",
+        "verdict": "confirmed",
+        "evidence": "slug.py: title.lower() is applied before each character is tested."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "Only characters in ascii lowercase letters and digits are kept; every other character, including accented letters, becomes a separator, so accented letters are dropped.",
+        "verdict": "confirmed",
+        "evidence": "slug.py: is_word_char tests membership in string.ascii_lowercase + string.digits; e-acute and u-umlaut are not in that set."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "The result for 'Café Münster 2024' is 'caf-m-nster-2024'.",
+        "verdict": "confirmed",
+        "evidence": "Ran slugify on the NFC title and got 'caf-m-nster-2024' on two runs."
+      }
+    ]
+  }
+}

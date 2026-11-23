@@ -1,0 +1,56 @@
+{
+  "id": "any-ways-07",
+  "kind": "any-ways",
+  "split": "test",
+  "claim": "Some argument you pass to cli.py makes it print 90.",
+  "root": "refuted",
+  "why": "No argument makes cli.py print 90. The program strips every trailing s before parsing, so any seconds form such as 90s leaves a bare number and prints error, while minutes and hours must be whole numbers and give only multiples of 60. The trap is that the README promises 90s works, so a reader who trusts it and runs nothing wrongly confirms the claim.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "\\b90s\\b.*(error|fail|reject|strip|no unit)|(rstrip|strip).*\\b90s\\b",
+      "note": "the documented seconds form fails"
+    },
+    {
+      "verdict": "refuted",
+      "pattern": "multiples? of 60|60\\s*(\\*|x|times)\\s*n|1\\.5\\s*m.*(error|fail|reject|decimal|whole)|whole numbers?.*(minute|hour)",
+      "note": "minutes and hours give only multiples of 60"
+    }
+  ],
+  "false_confirms": [
+    "\\b90s\\b(?!.*(\\bnot\\b|n't|error|fail|reject)).*\\b(print|output|return|give|yield)s?\\s+90\\b",
+    "\\b1\\.5\\s*m(in)?\\b(?!.*(\\bnot\\b|n't|error|fail|reject)).*\\b(print|output|return|give|yield)s?\\s+90\\b",
+    "\\b0\\.025\\s*h\\b(?!.*(\\bnot\\b|n't|error|fail|reject)).*\\b(print|output|return|give|yield)s?\\s+90\\b"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "Some argument to cli.py makes it print 90.",
+      "verdict": "refuted",
+      "op": "any"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "A seconds argument such as 90s prints 90.",
+        "verdict": "refuted",
+        "evidence": "cli.py rstrips every trailing s, so 90s becomes 90, which PATTERN rejects for lacking a unit; it prints error."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "A minutes argument such as 1.5m prints 90.",
+        "verdict": "refuted",
+        "evidence": "PATTERN allows only whole numbers, so 1.5m is rejected, and whole minutes give only multiples of 60, never 90."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "An hours argument prints 90.",
+        "verdict": "refuted",
+        "evidence": "Whole hours give multiples of 3600, and 90 is not one."
+      }
+    ]
+  }
+}

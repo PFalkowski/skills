@@ -1,0 +1,56 @@
+{
+  "id": "compound-07",
+  "kind": "compound",
+  "split": "test",
+  "claim": "The import skips the header line, rejects rows for unknown customers and counts them, sums the amounts per customer, and prints the report with the biggest total first.",
+  "root": "refuted",
+  "why": "Header skipping, rejection with a count and per-customer sums all work. The report sorts totals that totals() already formatted as strings, so 95.50 sorts above 1200.00 and the order is wrong. The trap is that sorted(..., reverse=True) on the totals looks right and the string conversion happens one function earlier.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "(biggest|largest|highest|descending|size|numeric).*(first|order)|(string|text|lexicograph|alphabetic).*(sort|order)|sort.*(string|text|formatted)",
+      "note": "sorting is on formatted strings, so 95.50 precedes 1200.00"
+    }
+  ],
+  "false_confirms": [
+    "(biggest|largest|highest).*(first|total)"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "Import: skip header, reject unknown customers with count, sum per customer, biggest total first",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "The header line is skipped",
+        "verdict": "confirmed",
+        "evidence": "read() iterates lines[1:]."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "Rows for unknown customers are rejected and counted",
+        "verdict": "confirmed",
+        "evidence": "totals() increments rejected for names not in KNOWN. Run prints rejected 1."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "Amounts are summed per customer",
+        "verdict": "confirmed",
+        "evidence": "totals() adds float(amount or 0) per customer. Run: ana 95.50, bo 1200.00, cy 300.00."
+      },
+      {
+        "id": "A4",
+        "parent": "root",
+        "claim": "The report lists the biggest total first",
+        "verdict": "refuted",
+        "evidence": "totals() returns strings via '%.2f', and report() sorts those strings, so the run prints ana 95.50, cy 300.00, bo 1200.00."
+      }
+    ]
+  }
+}

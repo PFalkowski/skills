@@ -1,0 +1,48 @@
+{
+  "id": "any-ways-04",
+  "kind": "any-ways",
+  "split": "test",
+  "claim": "A session created and last touched at time 0 is dropped by purge when it runs 45 minutes later (time 2700, in seconds), either by the idle limit or by the maximum age.",
+  "root": "refuted",
+  "why": "The idle limit is stored in milliseconds but compared with a gap in seconds, so it is about 1.8 million seconds and never trips here. The maximum age is eight hours, so it does not apply after 45 minutes. Running the program keeps the session at time 2700, and it drops only after eight hours.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "idle|IDLE_MS|milli|1[,_ ]?800[,_ ]?000|ms",
+      "note": "limit in ms compared with seconds, never trips at 2700"
+    },
+    {
+      "verdict": "refuted",
+      "pattern": "max(imum)? age|MAX_AGE|8 ?\\*? ?3600|8 hours|28[,_ ]?800",
+      "note": "8 hours exceeds 45 minutes"
+    }
+  ],
+  "false_confirms": [
+    "^(?!.*\\b(not|never|no)\\b|.*n't\\b)\\W*(the )?(idle|max(imum)? age)\\b[^.]*\\b(trip|expire|drop|purg)\\w*",
+    "^(?!.*\\b(not|never|no)\\b|.*n't\\b).*\\b(dropped|purged|expired|removed)\\b.*\\b(idle|max(imum)? age|2700|45 min)"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "The session at time 0 is purged at time 2700, by idle limit or maximum age",
+      "verdict": "refuted",
+      "op": "any"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "the idle limit expires it",
+        "verdict": "refuted",
+        "evidence": "IDLE_MS is 1,800,000 but now - seen is 2700 seconds, so 2700 > 1800000 is False; python3 main.py prints 1 (kept)."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "the maximum age expires it",
+        "verdict": "refuted",
+        "evidence": "MAX_AGE_S is 28800 seconds; 2700 - 0 is below it. Only the second purge at 28801 returns 0."
+      }
+    ]
+  }
+}

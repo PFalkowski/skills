@@ -1,0 +1,44 @@
+{
+  "id": "executable-02",
+  "kind": "executable",
+  "split": "dev",
+  "claim": "Calling trail() with no arguments twice in a row gives the same output both times, with nothing carried over from the first call.",
+  "root": "confirmed",
+  "why": "The default is ROOT_PAGES, which settings.py builds with tuple(), so it is an immutable tuple. The += on a tuple builds a new tuple and rebinds the local name, so every no-argument call returns 'home|end'. The trap is that a default named like a shared collection and extended with += looks like a mutable default that carries state, which is true for a list but not for a tuple.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "(no[- ]arguments?|without arguments?|default|trail\\(\\)).*(same|identical|home\\|end)",
+      "note": "both no-argument calls print home|end"
+    }
+  ],
+  "false_confirms": [
+    "(caller'?s?|passed[- ]in|given) list.*(not|never|unchanged).*(mutat|chang|modif)"
+  ],
+  "must_run": [
+    "python3 .*main(\\.py)?"
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "trail() with no arguments gives the same output twice",
+      "verdict": "confirmed",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "The default argument ROOT_PAGES is built by tuple() in settings.py, so it is an immutable tuple",
+        "verdict": "confirmed",
+        "evidence": "settings.py: ROOT_PAGES = tuple(sorted({'home'})); trail.py uses it as the default."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "Two calls to trail() with no arguments print the same text, home|end",
+        "verdict": "confirmed",
+        "evidence": "Ran python3 main.py: the first two lines are both 'home|end'."
+      }
+    ]
+  }
+}

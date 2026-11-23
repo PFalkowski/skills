@@ -1,0 +1,48 @@
+{
+  "id": "executable-07",
+  "kind": "executable",
+  "split": "test",
+  "claim": "intake.accept drops every line that still carries its trailing newline, so lines split with keepends are never accepted.",
+  "root": "refuted",
+  "why": "The pattern ends with $, which in Python also matches just before a final newline. So 'AB123\\n' is a valid code and is accepted, and the claim is false. Reading the pattern, it looks like a strict full-string match, so the case is meant to reward running main.py and seeing AB123 with its newline kept in the output rather than recalling the rule.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "(newline|\\\\n|trailing).*(accept|valid|match|kept|pass)|(accept|valid|match).*(newline|\\\\n|trailing)",
+      "note": "is_valid accepts AB123 plus newline"
+    }
+  ],
+  "false_confirms": [
+    "(AB123|valid code|five|3 digits|three digits).*(reject|drop|fail|not match).*(newline|\\\\n|trailing)|(every|all|any) line.*(newline|\\\\n|trailing).*(reject|drop|fail|never)|(reject|drop|fail)\\w* (every|all|any) line.*(newline|\\\\n|trailing)",
+    "\\$ (?!.*(before|preceding).*newline).*(strict|only|exact|end of (the )?string)"
+  ],
+  "must_run": [
+    "python3? .*\\.py",
+    "python3? -c",
+    "python3? *<<",
+    "python3? *-$"
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "intake.accept drops every line that still carries its trailing newline, so lines split with keepends are never accepted.",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "A code followed by a newline fails is_valid",
+        "verdict": "refuted",
+        "evidence": "Running main.py prints ['AB123\\n', 'EF678']: the line 'AB123\\n' was accepted because $ matches before a final newline."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "Short code 'CD45\\n' is rejected",
+        "verdict": "confirmed",
+        "evidence": "It is absent from the output, but only because it has two digits, not because of the newline."
+      }
+    ]
+  }
+}

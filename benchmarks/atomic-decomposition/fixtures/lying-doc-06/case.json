@@ -1,0 +1,47 @@
+{
+  "id": "lying-doc-06",
+  "kind": "lying-doc",
+  "split": "test",
+  "claim": "If the nightly-sync call fails every time, the runner tries it 3 times in total before giving up.",
+  "root": "confirmed",
+  "why": "nightly-sync sets retries to 2 in jobs.json, overriding the default of 3, and run makes retries plus one attempts, so 3 attempts in total. The README only states the default, which would give 4 attempts. The trap is applying the default and forgetting both the override and the extra first attempt.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "nightly.{0,80}(retries.{0,20}2|2 retries|override)",
+      "note": "job override of 2"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "retries\\s*\\+\\s*1|range\\(retries|retries plus one|plus (one|1)\\b|(first|initial|original) (attempt|try|call).{0,40}(plus|and|then).{0,20}retr|attempts.{0,40}(retries plus|one more|first attempt)",
+      "note": "attempts equal retries plus one"
+    }
+  ],
+  "false_confirms": [
+    "nightly.{0,60}(\\b3 retries|retries.{0,10}(is|are|=|of) 3\\b|(uses|follows|falls back to) the default)"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "A permanently failing nightly-sync is attempted 3 times in total.",
+      "verdict": "confirmed",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "nightly-sync overrides the default and uses 2 retries",
+        "verdict": "confirmed",
+        "evidence": "jobs.json gives nightly-sync retries 2; runner.retries_for prefers the job value over default_retries."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "The runner makes retries plus one attempts in total",
+        "verdict": "confirmed",
+        "evidence": "retry.run loops range(retries + 1), so 2 retries give 3 attempts; main.py prints attempts 3 for nightly-sync."
+      }
+    ]
+  }
+}

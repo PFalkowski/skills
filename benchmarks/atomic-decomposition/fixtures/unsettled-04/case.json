@@ -1,0 +1,54 @@
+{
+  "id": "unsettled-04",
+  "kind": "unsettled",
+  "split": "gate",
+  "claim": "The nightly customer import finishes inside the job time limit at our production volume.",
+  "root": "unsettled",
+  "why": "The dedupe step compares each row with every kept row, so comparisons grow with the square of the row count, and the limit of 300 seconds is in limits.py. The production row count and the time per comparison are not in the repo. The trap is reading the README's 5,000 customers as the real production volume, or the passing small run as proof.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "quadratic|n\\s*(\\^|\\*\\*)\\s*2|n\u00b2|o\\(n\\s*\\^?\\s*2\\)|n\\*\\(n|square|4950|19900|79800",
+      "note": "comparisons grow quadratically"
+    },
+    {
+      "verdict": "unsettled",
+      "pattern": "(production|prod\\b|real|actual|live).*(volume|rows?|customers?|count|size)|(volume|rows?|customers?|count|size).*(production|prod\\b|real|actual|live)",
+      "note": "production volume is outside the repo"
+    }
+  ],
+  "false_confirms": [
+    "^(?!.*\\b(not|unknown|cannot|can't|isn't|unverified|unsettled|sized|sizing|documented|readme)\\b)(?:.*production.*(finish|within|under|fast|inside|complete)|.*(finish|within|under|fast|inside|complete).*production)"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "The nightly customer import finishes inside the job time limit at our production volume.",
+      "verdict": "unsettled",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "the dedupe step does quadratic work",
+        "verdict": "confirmed",
+        "evidence": "importer.py compares each row with all kept rows; measure.py prints 4950, 19900 and 79800 comparisons for 100, 200 and 400 rows."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "the job limit in the repo is 300 seconds",
+        "verdict": "confirmed",
+        "evidence": "limits.py sets JOB_TIMEOUT_SECONDS = 300."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "the production row count and per-comparison time keep the import inside 300 seconds",
+        "verdict": "unsettled",
+        "evidence": "The README only says sized for about 5,000; the real volume and speed are not in the repo."
+      }
+    ]
+  }
+}

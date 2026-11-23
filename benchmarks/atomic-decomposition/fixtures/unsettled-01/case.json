@@ -1,0 +1,59 @@
+{
+  "id": "unsettled-01",
+  "kind": "unsettled",
+  "split": "dev",
+  "claim": "In production the nightly cleanup job deletes every record older than 30 days.",
+  "root": "unsettled",
+  "why": "The code deletes records older than the retention window and defaults the window to 30 days, so those parts hold. The window is read from the RETENTION_DAYS environment variable, and the cron line fills it from a file on the job host that the repo does not contain. The trap is to read the default of 30 as the production value.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "default.*30|30.*default|RETENTION_DAYS.*(30|default)|fall(s)? ?back[^.]*30|30[^.]*(unset|missing|not set)|(unset|missing|not set)[^.]*30",
+      "note": "code default is 30"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "(purge|delet|remov|drop|filter|discard)[^.]*(older|cutoff|before|window|retention)|(older|before)[^.]*(remov|delet|drop|purg)",
+      "note": "purge drops records older than the window"
+    },
+    {
+      "verdict": "unsettled",
+      "pattern": "production.*(retention|RETENTION_DAYS|value|30)|/etc/job/retention|deployed|job host|not in the repo|outside the repo|host file",
+      "note": "deployed value is outside the repo"
+    }
+  ],
+  "false_confirms": [
+    "^(?!.*\\b(not|unknown|cannot|can't|unverified|unsettled)\\b).*production.*(RETENTION_DAYS|retention)[^.]*\\b(is|equals|=|of)\\s*30\\b"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "In production the nightly cleanup job deletes every record older than 30 days.",
+      "verdict": "unsettled",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "purge deletes records older than the retention window and keeps newer ones",
+        "verdict": "confirmed",
+        "evidence": "cleanup.py keeps records with created >= today - days and writes them back to the store file; running it on a copy of sample.json with date 2026-01-31 prints 2 deleted, 3 kept."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "the code default for RETENTION_DAYS is 30",
+        "verdict": "confirmed",
+        "evidence": "settings.py reads RETENTION_DAYS from the environment with default 30."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "the production RETENTION_DAYS value is 30",
+        "verdict": "unsettled",
+        "evidence": "deploy/cron.txt sets it from /etc/job/retention on the job host; that file is not in the repo."
+      }
+    ]
+  }
+}

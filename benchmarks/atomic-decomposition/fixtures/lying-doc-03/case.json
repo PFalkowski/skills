@@ -1,0 +1,43 @@
+{
+  "id": "lying-doc-03",
+  "kind": "lying-doc",
+  "split": "test",
+  "claim": "With the defaults and a function that always fails, retry waits 1, 2 and then 4 seconds before it raises the error.",
+  "root": "refuted",
+  "why": "The README says it sleeps after every failed try, but the wait list built by delays() has one entry fewer than attempts, so nothing is slept after the last failure. With the defaults the waits are 1 and 2, and the error is raised at once after the third try. Running demo.py prints [1, 2], never 4.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "(third|last|final|fourth|4 seconds|wait of 4|waits? 4|\\[1, 2\\]|1 and 2|only (two|2) waits|between (tries|attempts)|raises (at once|immediately)|no (wait|sleep))",
+      "note": "no sleep after the final failed try"
+    }
+  ],
+  "false_confirms": [
+    "(waits?|sleeps?)\\s+(three|3)\\s+times",
+    "(waits?|sleeps?|delays?)[^.]{0,20}1,? 2,?,? (and )?(then )?4"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "With defaults and an always-failing function, retry waits 1, 2 and then 4 seconds before raising.",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "By default retry makes 3 tries and the waits come from delays(), base * 2**n for n below attempts - 1.",
+        "verdict": "confirmed",
+        "evidence": "retry.py: attempts=3, base=1; delays(3, 1) is [1, 2]."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "A wait of 4 seconds happens after the third failed try.",
+        "verdict": "refuted",
+        "evidence": "delays() has attempts - 1 entries, so no sleep after the last try; demo.py prints [1, 2]."
+      }
+    ]
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "id": "compound-04",
+  "kind": "compound",
+  "split": "test",
+  "claim": "The cache can be shared between threads: every public method takes the lock, it never holds more than max_size entries, and hits plus misses always equals the number of lookups.",
+  "root": "confirmed",
+  "why": "get, get_many, put, stats, clear and __len__ all run under the lock, and the lock is an RLock, so get_many calling get does not deadlock. Eviction runs only from put while the lock is held and trims to max_size, even for max_size 0, and each lookup increments exactly one counter under the lock. The traps are the unlocked-looking private _evict and the nested lock use in get_many.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "(every|all|each) public method.{0,40}lock|lock.{0,40}(every|all|each) public method",
+      "note": "all public methods lock"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "(never|not).{0,30}(more than|exceed).{0,20}max_size|max_size.{0,30}(bound|limit)",
+      "note": "size bound holds"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "hits?.{0,15}(plus|\\+|and).{0,15}miss",
+      "note": "counts exact"
+    }
+  ],
+  "false_confirms": [],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "The cache is safe to share between threads.",
+      "verdict": "confirmed",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "Every public method takes the lock.",
+        "verdict": "confirmed",
+        "evidence": "get, get_many, put, stats, clear and __len__ each use `with self._lock`; only the private _evict does not and put calls it under the lock. The lock is an RLock so get_many calling get cannot deadlock."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "It never holds more than max_size entries.",
+        "verdict": "confirmed",
+        "evidence": "put calls _evict under the lock, which pops the oldest while len > max; main.py prints True for size <= max_size at sizes 0, 8 and 100."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "Hits plus misses equals the number of lookups.",
+        "verdict": "confirmed",
+        "evidence": "get increments exactly one of _hits or _misses under the lock; get_many goes through get; main.py prints True for lookups == counted at all three sizes."
+      }
+    ]
+  }
+}

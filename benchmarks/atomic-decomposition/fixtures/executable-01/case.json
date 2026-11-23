@@ -1,0 +1,38 @@
+{
+  "id": "executable-01",
+  "kind": "executable",
+  "split": "dev",
+  "claim": "The receipt that main.py prints bills three spoons at 3.02, because 1.005 times 3 is 3.015 and that rounds up.",
+  "root": "refuted",
+  "why": "The price 1.005 is stored as a binary float slightly below 1.005, so three of them multiply to 3.0149999999999997. round() then gives 3.01, not 3.02. A reader who does the arithmetic in decimal expects 3.02, and only running the program shows the line is 'spoon x3 3.01'.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "spoon.*3\\.0[12]|3\\.0[12].*spoon|three spoons.*3\\.0[12]",
+      "note": "the printed line is 3.01"
+    }
+  ],
+  "false_confirms": [
+    "^(?!.*(\\bnot\\b|rather than|instead of|n't|differs|isn)).*spoon.*3\\.02",
+    "1\\.005.*(times|\\*|x).*3.*(is|=|equals) ?3\\.015(?![0-9])"
+  ],
+  "must_run": [
+    "python3 .*main\\.py|python3 -c .*1\\.005"
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "main.py bills three spoons at 3.02",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "The program prints a line for three spoons billed at 3.02",
+        "verdict": "refuted",
+        "evidence": "Ran python3 main.py: the line is 'spoon x3 3.01'."
+      }
+    ]
+  }
+}

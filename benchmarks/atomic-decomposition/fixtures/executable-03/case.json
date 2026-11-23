@@ -1,0 +1,50 @@
+{
+  "id": "executable-03",
+  "kind": "executable",
+  "split": "test",
+  "claim": "latest() in releases.py picks 1.10.0 as the newest version in data.py, since its key compares the version numbers part by part as numbers.",
+  "root": "refuted",
+  "why": "numeric_key converts only the major part to an int; the remaining parts stay text. So the minor parts compare as strings, and '9' sorts after '10', so 1.9.2 beats 1.10.0. Running main.py prints 1.9.2, though the key's name suggests numeric comparison.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "1\\.9\\.2|(latest|newest).{0,40}1\\.10\\.0",
+      "note": "latest() yields 1.9.2, not 1.10.0"
+    },
+    {
+      "verdict": "refuted",
+      "pattern": "compar\\w*.{0,60}(part|component|segment|number|numer|int|string)|numeric_key|only the (major|first)|minor",
+      "note": "only the major part is numeric; the rest compare as strings"
+    }
+  ],
+  "false_confirms": [
+    "^(?!.*\\b(not|never|n't|1\\.9\\.2)\\b)(latest|newest).{0,40}(returns?|picks?|is|selects?|chooses?|gives?|yields?)\\s+(version\\s+)?1\\.10\\.0",
+    "^(?!.*\\b(not|never|n't|strings?|text)\\b).*(compar\\w*.{0,40}(parts?|components?|segments?).{0,30}(as )?(numbers|integers|ints|numerically|numeric)|(parts?|components?|segments?).{0,20}(are )?compared (as )?(numbers|integers|numerically))"
+  ],
+  "must_run": [
+    "python3\\b.*main\\.py"
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "latest() returns 1.10.0",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "latest(VERSIONS) returns 1.10.0",
+        "verdict": "refuted",
+        "evidence": "Ran python3 main.py: it prints 1.9.2."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "numeric_key compares all the parts as numbers",
+        "verdict": "refuted",
+        "evidence": "It applies int() to the major part only; the rest stay strings, so '9' > '10'."
+      }
+    ]
+  }
+}

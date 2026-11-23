@@ -1,0 +1,66 @@
+{
+  "id": "compound-08",
+  "kind": "compound",
+  "split": "test",
+  "claim": "In the room calendar no two bookings in the same room can overlap: a booking that starts exactly when another ends is accepted, a true overlap is rejected, different rooms do not block each other, and cancelling frees the time.",
+  "root": "confirmed",
+  "why": "overlaps() uses strict comparisons, so intervals are half-open: back-to-back bookings are accepted and real overlaps rejected, and it compares rooms first. cancel() removes the item from the list, so the slot can be booked again. The README says the ends are inclusive and that back-to-back bookings are blocked, but the code does not do that.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "(back-to-back|adjacent|touching|half-open|strict(ly)? less|start\\w* (exactly )?(when|at|after)|end\\w* at).*(accept|allow|succe|book|not (blocked|rejected|refused)|half-open|strict)|(accept|allow).*(back-to-back|adjacent|touching)|half-open|strict(ly)? less",
+      "note": "strict < comparisons"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "cancel.*(free|re-?book|book again|remove)",
+      "note": "cancel removes the item"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "(overlap).*(reject|none|refus)|reject.*overlap",
+      "note": "overlapping booking returns None"
+    }
+  ],
+  "false_confirms": [
+    "^(?!.*\\b(not|never|no longer)\\b|.*n't).*(back-to-back|ends at|starts (exactly )?when).*(block|reject|inclusive)"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "Room calendar never double-books and behaves as described",
+      "verdict": "confirmed",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "A booking starting exactly when another ends is accepted",
+        "verdict": "confirmed",
+        "evidence": "overlaps() uses a.start < b.end and b.start < a.end, so touching ends do not overlap. Run: blue 9-10 then 10-11 gives ids 1, 2. README saying inclusive is wrong."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "A true overlap in the same room is rejected",
+        "verdict": "confirmed",
+        "evidence": "Run: blue 9-11 after those returns None."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "Different rooms do not block each other",
+        "verdict": "confirmed",
+        "evidence": "overlaps() requires equal rooms. Run: red 9-10 gets id 3."
+      },
+      {
+        "id": "A4",
+        "parent": "root",
+        "claim": "Cancelling frees the time",
+        "verdict": "confirmed",
+        "evidence": "cancel() filters the item out. Run: cancel(1) then blue 9-10 gets id 4."
+      }
+    ]
+  }
+}

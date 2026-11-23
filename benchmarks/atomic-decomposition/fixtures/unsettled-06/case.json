@@ -1,0 +1,61 @@
+{
+  "id": "unsettled-06",
+  "kind": "unsettled",
+  "split": "gate",
+  "claim": "The nightly export will not trip its row limit on the full orders table.",
+  "root": "unsettled",
+  "why": "The limit is 10000 rows and the sample has 20, so the sample passes easily. The stats.json figure of 8200 rows is from an old audit and says nothing about the table today, and the repo never states how many rows the production orders table has now. That size is a fact outside the sandbox, so a confident confirmation overreaches.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "(MAX_ROWS|10000|row limit).*(rais|ValueError|reject|fail)|(rais|ValueError).*(MAX_ROWS|10000)",
+      "note": "limit is 10000 rows, raises ValueError above it"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "sample.*(20|under|below|within)|20 rows",
+      "note": "sample has 20 rows and passes"
+    },
+    {
+      "verdict": "unsettled",
+      "pattern": "full.*(table|row count|size)|production.*(rows|size|count)|how many rows|(size|row count|number of rows|how many rows).*(full|production)",
+      "note": "current production table size unknown"
+    }
+  ],
+  "false_confirms": [
+    "(?i)(full|production|whole|entire).*(orders )?table.*(at most|no more than|under|below|within|fewer|less than|not exceed|<=)|orders table in production.*(at most|no more than|under|below|fewer|less than)|(at most|no more than|fewer than|under|below).*(full|production|whole|entire).*table",
+    "(?i)(full|production|nightly).*will not trip|will not trip.*(full|production)",
+    "(?i)8200.*(current|now|today|still)"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "The nightly export will not trip its row limit on the full orders table.",
+      "verdict": "unsettled",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "export() raises ValueError when the table has more than 10000 rows.",
+        "verdict": "confirmed",
+        "evidence": "limits.py MAX_ROWS = 10000; export.py raises when len(rows) > MAX_ROWS."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "The 20-row sample is within the limit.",
+        "verdict": "confirmed",
+        "evidence": "python3 main.py prints (20, 1470) without error."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "The full orders table has at most 10000 rows.",
+        "verdict": "unsettled",
+        "evidence": "stats.json gives 8200 rows from a 2022 audit, which does not show today's size; the production table size is not in the repo."
+      }
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "id": "any-ways-02",
+  "kind": "any-ways",
+  "split": "dev",
+  "claim": "Running the nightly export on the data in load.py writes no duplicate customer line, because either the merge step or the dedupe in write() removes the repeated customer.",
+  "root": "refuted",
+  "why": "Customer 7 is in both the main and the late list. The main loader turns the id into an integer and the late loader leaves it as text, so 7 and \"7\" are different keys in both the merge dictionary and the seen set. Both safeguards look right on a read, and running the export prints customer 7 twice.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "merge\\w*|by_id|dict",
+      "note": "merge keys differ by type, 7 versus \"7\""
+    },
+    {
+      "verdict": "refuted",
+      "pattern": "dedupe|seen|write\\(",
+      "note": "seen set also treats 7 and \"7\" as different"
+    }
+  ],
+  "false_confirms": [
+    "^\\W*(the )?(merge\\w*|dedupe\\w*|write\\w*|seen[- ]set\\w*)\\b[^.]*\\b(remov|dedup|drop|collaps|unique|no duplicate)\\w*\\b[^.]*(customer 7|\\b7\\b|repeated|duplicate customer|second)"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "The export writes no duplicate line, through merge or through dedupe",
+      "verdict": "refuted",
+      "op": "any"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "merged() collapses the repeated customer 7",
+        "verdict": "refuted",
+        "evidence": "main_rows gives id int 7, late_rows gives id str \"7\"; the by_id dict holds both keys. Running python3 export.py lists 7,Ann twice."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "the seen-set dedupe in write() drops the second customer 7",
+        "verdict": "refuted",
+        "evidence": "seen holds int 7 and the second row has str \"7\", which is not in the set, so both lines are written; output confirms 7,Ann twice."
+      }
+    ]
+  }
+}

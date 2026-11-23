@@ -1,0 +1,21 @@
+{
+  "id": "any-ways-08",
+  "kind": "any-ways",
+  "split": "test",
+  "claim": "If a CSV lists the same invoice reference twice, the table still ends up with one row for it, because the importer skips repeats or the unique constraint stops the second one.",
+  "root": "refuted",
+  "why": "The importer reads the stored references once before the loop and never adds new ones, so it skips only references that were stored before the run, not repeats inside the file. The unique constraint exists only in schema.sql, which no code reads; store.py creates the table without it. Running the importer on the sample file prints INV-2 twice.",
+  "deciding": [
+    {"verdict": "refuted", "pattern": "(importer|skip|existing).*(once|before|snapshot|not updated|never (add|updat)|only.*(stored|prior|already))|(repeat|twice|duplicate).*(same|within).*(file|csv).*(insert|both|two)", "note": "the skip does not cover repeats inside one file"},
+    {"verdict": "refuted", "pattern": "(unique|constraint|schema\\.sql).*(not|never|unused|no).*(appl|creat|read|load|exist|used)|store\\.py.*(without|no).*unique", "note": "the constraint is never applied"}
+  ],
+  "false_confirms": ["(unique|constraint).*(stop|prevent|reject|enforc).*(duplicate|second|repeat)", "importer.*skip.*(repeat|duplicate).*(within|inside|same file)"],
+  "must_run": [],
+  "exemplar": {
+    "root": {"claim": "A CSV with a repeated reference yields one row for it.", "verdict": "refuted", "op": "any"},
+    "atoms": [
+      {"id": "A1", "parent": "root", "claim": "The importer skips the repeat within the file.", "verdict": "refuted", "evidence": "existing is built once before the loop and never updated; ran python3 importer.py invoices.csv: INV-2 printed twice."},
+      {"id": "A2", "parent": "root", "claim": "The unique constraint rejects the second insert.", "verdict": "refuted", "evidence": "store.py creates the table without UNIQUE; schema.sql is not read by any code, and the run inserted both INV-2 rows without error."}
+    ]
+  }
+}

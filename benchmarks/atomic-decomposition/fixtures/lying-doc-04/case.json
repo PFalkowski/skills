@@ -1,0 +1,42 @@
+{
+  "id": "lying-doc-04",
+  "kind": "lying-doc",
+  "split": "test",
+  "claim": "Calling available() for a SKU that was never stocked raises KeyError.",
+  "root": "refuted",
+  "why": "The README says available() raises KeyError for an unknown SKU, like stock_of. But available() gets its stock figure from lookup.on_hand, which catches the KeyError from stock_of and returns 0. So available() returns 0 for a never-stocked SKU and never raises; the trap is that the README sentence is false and the handling sits one module away from available().",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "(on_hand.*(catch|swallow|handl|return\\w*\\s+(0|zero))|(catch\\w*|swallow\\w*|handl\\w*).*KeyError|(returns?|yields?|gives?|prints?)\\s+(0|zero)|(unknown|missing|unstocked|never.stocked)\\s+sku.*(0|zero))",
+      "note": "available does not raise: lookup.on_hand swallows KeyError and returns 0"
+    }
+  ],
+  "false_confirms": [
+    "available\\S*\\s+(still\\s+)?(raises|propagates|throws|lets)\\b.*KeyError"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "available() raises KeyError for a never-stocked SKU.",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "Store.stock_of raises KeyError for an unstocked SKU.",
+        "verdict": "confirmed",
+        "evidence": "store.py: return self._levels[sku] on a plain dict."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "available() lets the KeyError from an unstocked SKU propagate.",
+        "verdict": "refuted",
+        "evidence": "api.py calls lookup.on_hand, which catches KeyError and returns 0, so available() returns 0 and does not raise. The README sentence is wrong."
+      }
+    ]
+  }
+}

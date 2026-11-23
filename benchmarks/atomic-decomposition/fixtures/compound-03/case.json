@@ -1,0 +1,50 @@
+{
+  "id": "compound-03",
+  "kind": "compound",
+  "split": "test",
+  "claim": "The new order parser still accepts the old messages: item and qty are renamed to sku and quantity, a missing unit becomes each, and every message in samples_v1.py parses.",
+  "root": "refuted",
+  "why": "The first two parts hold: ALIASES renames both keys and setdefault supplies the unit. The third part is false because the third sample has qty as the string \"2.0\", and int(\"2.0\") raises ValueError, so parse_order rejects it. The README repeats that version 2 accepts every version 1 message, and the other three samples parse, which hides the one that fails.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "(every|all).{0,40}(sample|message|v1|old).{0,60}(pars|accept)|2\\.0|C-90|int\\(|third (sample|message)|decimal|float|ValueError|(fails?|not) (to )?pars|reject",
+      "note": "the sample with qty '2.0' is rejected"
+    }
+  ],
+  "false_confirms": [
+    "^(?!.*\\b(other|three|rest|except|but|keys?|aliases)\\b).*(every|all).{0,40}(sample|message|v1|old).{0,60}(pars|accept)",
+    "accept\\w*\\s+(every|all)\\b.{0,30}(old|v1|version 1|message|sample)"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "The parser still accepts the old messages: renames, unit default and every sample parses.",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "item and qty are renamed to sku and quantity.",
+        "verdict": "confirmed",
+        "evidence": "orders.ALIASES maps both and normalize applies it; check.py output shows sku and quantity keys."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "A missing unit becomes each.",
+        "verdict": "confirmed",
+        "evidence": "parse_order calls fields.setdefault('unit', 'each'); the ok lines show unit each."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "Every message in samples_v1.py parses.",
+        "verdict": "refuted",
+        "evidence": "check.py prints rejected C-90 ValueError: its qty is the string '2.0' and int('2.0') raises. The other three parse."
+      }
+    ]
+  }
+}

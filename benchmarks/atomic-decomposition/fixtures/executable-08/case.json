@@ -1,0 +1,52 @@
+{
+  "id": "executable-08",
+  "kind": "executable",
+  "split": "test",
+  "claim": "The histogram counts the readings 0.2 and 0.3 in the same bucket, and it does the same for 0.4 and 0.5.",
+  "root": "confirmed",
+  "why": "Floor division by the float 0.1 is not the same as dividing by ten: 0.3 // 0.1 is 2.0 and 0.5 // 0.1 is 4.0, because 0.1 is stored slightly above one tenth. So 0.2 and 0.3 both land in bucket 2, and 0.4 and 0.5 both land in bucket 4. The trap is reading the code as putting each reading in bucket value times ten, which would give 2, 3, 4 and 5.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "(0\\.2.*0\\.3|0\\.3.*0\\.2).*(same|share|bucket 2|\\b2\\b)",
+      "note": "0.2 and 0.3 both in bucket 2"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "(0\\.4.*0\\.5|0\\.5.*0\\.4).*(same|share|bucket 4|\\b4\\b)",
+      "note": "0.4 and 0.5 both in bucket 4"
+    }
+  ],
+  "false_confirms": [
+    "0\\.3.*bucket 3\\b",
+    "0\\.5.*bucket 5\\b",
+    "(0\\.2.*0\\.3|0\\.3.*0\\.2).*(different|separate)",
+    "(0\\.4.*0\\.5|0\\.5.*0\\.4).*(different|separate)"
+  ],
+  "must_run": [
+    "python3?\\b.*(main\\.py|buckets|bucket|histogram)"
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "0.2 and 0.3 share a bucket, and 0.4 and 0.5 share a bucket.",
+      "verdict": "confirmed",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "0.2 and 0.3 are counted in the same bucket",
+        "verdict": "confirmed",
+        "evidence": "Running main.py prints {1: 1, 2: 2, 4: 2, 5: 1, 6: 1}; bucket 2 holds two readings, and bucket(0.3) is 2 because 0.3 // 0.1 is 2.0."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "0.4 and 0.5 are counted in the same bucket",
+        "verdict": "confirmed",
+        "evidence": "The same run shows bucket 4 holds two readings, and bucket(0.5) is 4 because 0.5 // 0.1 is 4.0."
+      }
+    ]
+  }
+}

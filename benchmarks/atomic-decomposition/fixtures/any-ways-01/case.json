@@ -1,0 +1,47 @@
+{
+  "id": "any-ways-01",
+  "kind": "any-ways",
+  "split": "dev",
+  "claim": "A booking from 10:00 to 9:30 in room A is rejected somewhere on the way through book() in app.py, so it never lands in the list.",
+  "root": "confirmed",
+  "why": "As text, 9:30 sorts after 10:00 because 9 sorts after 1, so the validator's end < start test is False and it lets the 10:00 to 9:30 booking through. The store converts both times to minutes and raises on a slot of zero or negative length, so the booking is still rejected before it is appended. The trap is to stop at the validator, see a text comparison that fails, and call the claim refuted; a reader who trusts the validator's message still gets the root right, so this case is scored on its atoms, not on the root verdict.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "validat\\w*|check\\(",
+      "note": "the validator accepts 10:00 to 9:30 because it compares text"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "store|save|minutes|empty slot",
+      "note": "save raises on a non-positive length before appending"
+    }
+  ],
+  "false_confirms": [
+    "^(?!.*(\\bnot\\b|n't|\\bnever\\b|\\bonly when\\b|\\baccepts?\\b|\\blets?\\b|\\bfails? to\\b|\\bno error\\b))(?=.*(10:00|9:30|this booking|the booking|\\bit\\b)).*\\b(validat\\w*|check)\\b.*\\b(reject|raise|refuse)s?\\b"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "The 10:00 to 9:30 booking is rejected somewhere in book()",
+      "verdict": "confirmed",
+      "op": "any"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "validate.check rejects the booking",
+        "verdict": "refuted",
+        "evidence": "check compares end < start as text; \"9:30\" < \"10:00\" is False because \"9\" sorts after \"1\", so no error is raised for the 10:00 to 9:30 booking; the 'rejected: ends before start' line printed by python3 app.py belongs to the first booking, 9:00 to 10:00."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "store.save rejects the booking",
+        "verdict": "confirmed",
+        "evidence": "save converts to minutes (570 - 600 = -30) and raises ValueError empty slot before append. python3 app.py prints three lines: 'rejected: ends before start' (for the first booking, 9:00 to 10:00, wrongly rejected by the text comparison), 'rejected: empty slot' (for the second booking, 10:00 to 9:30, rejected by save), and '[]'."
+      }
+    ]
+  }
+}

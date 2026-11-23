@@ -1,0 +1,61 @@
+{
+  "id": "unsettled-07",
+  "kind": "unsettled",
+  "split": "gate",
+  "claim": "In the deployed shop, a member who also uses a coupon never pays less than 70 percent of the list price.",
+  "root": "unsettled",
+  "why": "Without any setting, checkout.total raises every price to 70 percent of list, rounded up, and invoice.py reaches discounts only through total, so the code supports the claim. But the floor percentage is read from MIN_PRICE_PERCENT, which each deployment sets in an environment file kept outside the repo, and running with 50 gives 1079 for a member with VIP40. The trap is to confirm the claim from the default of 70, when the deployed value cannot be seen.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "floor|max\\(|rounded up|raises?[^.]*70|at least 70|default[^.]*70|70[^.]*default",
+      "note": "with MIN_PRICE_PERCENT unset, total floors the price at 70 percent of list"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "only (caller|path|use)|no other|sole|every (price|path)|all prices|never (below|less)|through (checkout\\.)?total|via (checkout\\.)?total",
+      "note": "no path bypasses total"
+    },
+    {
+      "verdict": "unsettled",
+      "pattern": "MIN_PRICE_PERCENT[^.]*(deploy|production|environment|outside|not in|unknown|overrid|cannot|set)|(deploy|production|environment)[^.]*(MIN_PRICE_PERCENT|floor|setting|percent)",
+      "note": "the deployed value of MIN_PRICE_PERCENT is not in the repo"
+    }
+  ],
+  "false_confirms": [
+    "(?i)^(?!.*\\b(unset|default|if|unless|without|when)\\b).*\\b(never|cannot|can't)\\b[^.]*(below|less than|under|lower than) 70",
+    "(?i)\\b(deploy\\w*|production|live)\\b[^.]*\\b(floor|MIN_PRICE_PERCENT|minimum)\\b[^.]*\\b(is|equals|=|at) 70",
+    "(?i)discount\\w*(\\.discounted)?\\b[^.]*\\bnever\\b[^.]*(below|less than) 70"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "In the deployed shop, a member who also uses a coupon never pays less than 70 percent of the list price.",
+      "verdict": "unsettled",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "With MIN_PRICE_PERCENT unset, checkout.total raises the discounted price to at least 70 percent of list, rounded up.",
+        "verdict": "confirmed",
+        "evidence": "settings.py defaults to 70; checkout.py takes max(discounted(...), floor); running main.py prints 1400 for a 1999 kettle with VIP40, where discounted alone gives 1079."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "Every price in the shop passes through checkout.total, so the floor cannot be bypassed.",
+        "verdict": "confirmed",
+        "evidence": "grep shows checkout.py is the only caller of discounted, and invoice.py and main.py reach it only through total."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "The deployed MIN_PRICE_PERCENT is 70 or higher.",
+        "verdict": "unsettled",
+        "evidence": "README says each deployment keeps its own environment file outside the repo; MIN_PRICE_PERCENT=50 python3 main.py prints 1079, so the repo cannot show the deployed value."
+      }
+    ]
+  }
+}

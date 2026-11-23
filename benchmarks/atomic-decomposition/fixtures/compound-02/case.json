@@ -1,0 +1,61 @@
+{
+  "id": "compound-02",
+  "kind": "compound",
+  "split": "dev",
+  "claim": "The log summarizer is safe to point at very large files, meaning memory use only: it reads one line at a time, its memory does not grow with the number of lines, and summarizing two files that each end in a newline and merging gives the same figures as summarizing the two files joined together.",
+  "root": "refuted",
+  "why": "Reading is a generator over the file handle and the counters are fixed-size, so the first two parts hold. The merge part fails: the mean is kept as a running average, and merge averages the two means without weighting by count. The two sample files have five valid lines each, so they match, which hides the fault; files of different sizes give a different mean than the joined file.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "(one line at a time|line by line|generator|stream)",
+      "note": "reading is streaming"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "(memory|bounded|does not grow|constant)",
+      "note": "state is bounded"
+    },
+    {
+      "verdict": "refuted",
+      "pattern": "(concatenat|joined|merg\\w* .*(equal|same|mean|average))",
+      "note": "merge averages means without weights"
+    }
+  ],
+  "false_confirms": [
+    "(merg|concatenat|joined).*(same|equal|identical|exact)"
+  ],
+  "must_run": [
+    "python3 .*main\\.py"
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "The summarizer is safe for very large files in the three stated ways.",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "It reads one line at a time.",
+        "verdict": "confirmed",
+        "evidence": "reader.load_all is a generator over `for line in handle`; summarize adds each record and keeps none."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "Its memory does not grow with the number of lines.",
+        "verdict": "confirmed",
+        "evidence": "Summary holds two Counters with at most 6 and 4 keys (status class clamped to 0 through 5, bucket index 0 to 3) and three numbers."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "Merging per-file summaries gives the same figures as summarizing the two files joined together.",
+        "verdict": "refuted",
+        "evidence": "merge sets mean_ms to the plain average of the two means, ignoring counts. part1.log plus an 8-line file gives mean 477.46 when merged and 495.82 when joined; the two sample files match only because both have 5 valid lines."
+      }
+    ]
+  }
+}

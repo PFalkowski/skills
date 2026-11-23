@@ -1,0 +1,49 @@
+{
+  "id": "any-ways-03",
+  "kind": "any-ways",
+  "split": "test",
+  "claim": "A 31 kg parcel sent with the standard service is refused somewhere before make_label returns a label.",
+  "root": "confirmed",
+  "why": "The weight rule looks up the limit by the key std, but the parcel uses the service name standard, so the lookup finds nothing and the rule lets the parcel pass. The rate table stops at 30 kg and quote raises when no band fits, which refuses the parcel inside make_label. The trap is to read the 30 kg limit in rules.py as the refusal, or to see that it does not apply and miss the rate table.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "check_weight|weight (rule|limit|check)|\\bLIMITS\\b|\\bstd\\b|rules\\.py",
+      "note": "limit key std does not match standard, so the rule is skipped"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "no (rate )?band|\\bBANDS\\b|rate (table|bands?)|quote[^.]*(rais|refus)",
+      "note": "quote raises no rate band above 30 kg"
+    }
+  ],
+  "false_confirms": [
+    "\\b(rules?(\\.py)?|check_weight|weight (rule|limit|check))\\b(?![^.,;]*\\b(not|never|n't|skip|pass|lets|ignor))[^.,;]*\\b(refus|reject|raise|block|stop)",
+    "\\b(rejected|refused|blocked|stopped) by (the )?(weight (rule|check|limit)|check_weight|rules)",
+    "30 ?kg limit\\b.{0,40}\\b(refus|reject|block|stop)"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "The 31 kg standard parcel is refused somewhere in make_label",
+      "verdict": "confirmed",
+      "op": "any"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "check_weight refuses it as too heavy",
+        "verdict": "refuted",
+        "evidence": "LIMITS has keys std and express; the service is standard, so get returns None and no check is made."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "quote refuses it because no rate band fits",
+        "verdict": "confirmed",
+        "evidence": "BANDS tops out at 30, so 31 falls through the loop and raises ValueError no rate band; main.py prints refused: no rate band."
+      }
+    ]
+  }
+}

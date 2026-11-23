@@ -1,0 +1,45 @@
+{
+  "id": "executable-05",
+  "kind": "executable",
+  "split": "test",
+  "claim": "Each Basket keeps its own list of lines, so adding something to Ana's basket never changes Ben's total.",
+  "root": "refuted",
+  "why": "Basket.__init__ gets its list from new_lines(\"basket\"), which reads like a factory that returns a fresh list. It is wrapped in lru_cache, so every call with the same argument returns the same list object. Running main.py shows Ben's basket holding Ana's pens and a total of 1040 instead of 800.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "(share|same|cache|memoi[sz]|one).*(list|lines|object)|(list|lines).*(share|same|cache)|ben.*1040|1040.*ben|(ana|pen).*ben.*(total|lines)|(alter|affect|change).*ben",
+      "note": "the lines list is shared across baskets"
+    }
+  ],
+  "false_confirms": [
+    "never changes.*(ben|total)|(ben|total).*(unaffected|unchanged|never changes)",
+    "(each|every).*(basket|instance).*(own|separate|independent|fresh).*(list|lines)"
+  ],
+  "must_run": [
+    "python3? .*main\\.py"
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "Adding to Ana's basket never changes Ben's total.",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "Each Basket gets its own list of lines",
+        "verdict": "refuted",
+        "evidence": "new_lines is decorated with lru_cache, so new_lines(\"basket\") returns the same list every time. main.py prints ben's lines as [('pen', 2), ('ink', 1)]: Ben sees Ana's pen line."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "Ben's total is unaffected by Ana's add",
+        "verdict": "refuted",
+        "evidence": "main.py prints ben total 1040 instead of 800 after only ana.add('pen', 2) and ben.add('ink')."
+      }
+    ]
+  }
+}

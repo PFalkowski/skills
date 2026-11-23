@@ -1,0 +1,66 @@
+{
+  "id": "compound-06",
+  "kind": "compound",
+  "split": "test",
+  "claim": "After the version 2 change, old v1 settings files still load: the old timeout key becomes timeout_s, a missing retries value gets 3, and verbose set to the string yes still turns verbose on.",
+  "root": "confirmed",
+  "why": "The README says v1 files are no longer read, but that text is stale: loader.load calls migrate.upgrade, which treats a missing version as 1, renames timeout to timeout_s and stamps version 2. Defaults supply retries=3 and to_bool accepts the word yes. The trap is trusting the README and refuting the whole claim.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "timeout.*timeout_s|timeout_s.*timeout",
+      "note": "rename in migrate.py"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "retries.*(default|3|missing)",
+      "note": "DEFAULTS supply retries 3"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "verbose.*yes|yes.*verbose",
+      "note": "to_bool accepts yes"
+    }
+  ],
+  "false_confirms": [
+    "(v1|version 1|old)[^.]*\\b(are|is)\\s+(no longer|not)\\s+(read|loaded|supported)\\b"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "Old v1 settings files still load with the right values",
+      "verdict": "confirmed",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "A v1 file's timeout key becomes timeout_s",
+        "verdict": "confirmed",
+        "evidence": "migrate.upgrade treats a missing version as 1 and renames timeout via RENAMES. Run: {'timeout':10} -> timeout_s 10."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "A v1 file without retries gets 3",
+        "verdict": "confirmed",
+        "evidence": "load() starts from DEFAULTS, which has retries 3. Run output shows retries 3."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "verbose: 'yes' turns verbose on",
+        "verdict": "confirmed",
+        "evidence": "to_bool lowercases strings and accepts yes. Run output shows verbose True."
+      },
+      {
+        "id": "A4",
+        "parent": "root",
+        "claim": "The README note about v1 is outdated",
+        "verdict": "confirmed",
+        "evidence": "The code path above loads v1; the README is contradicted by a run."
+      }
+    ]
+  }
+}

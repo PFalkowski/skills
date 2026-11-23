@@ -1,0 +1,60 @@
+{
+  "id": "unsettled-08",
+  "kind": "unsettled",
+  "split": "gate",
+  "claim": "The weekly summary counts every event in exactly one week.",
+  "root": "unsettled",
+  "why": "The week windows are half-open, so no event is counted twice, and the default local run counts all 5 events once. But the first week and the number of weeks come from SUMMARY_START and SUMMARY_WEEKS, which the deployed job sets and the repo does not show. Whether every event falls inside the deployed window cannot be settled from the repo, so a confirmation on the strength of the default run overreaches.",
+  "deciding": [
+    {
+      "verdict": "confirmed",
+      "pattern": "(half[- ]open|< ?end|exclusive|not (counted )?(twice|in two|in both)|no (event|date)[^.]*(two|both|twice))",
+      "note": "no event can land in two windows"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "(\\[2, 2, 1\\]|sum[^.]*\\b5\\b|\\b5\\b[^.]*\\b5\\b|default[^.]*(all|every)[^.]*events?)",
+      "note": "the default local run counts all 5 events once"
+    },
+    {
+      "verdict": "unsettled",
+      "pattern": "(SUMMARY_(START|WEEKS)|environment variable|deployed|production)",
+      "note": "the deployed window is outside the repo"
+    }
+  ],
+  "false_confirms": [
+    "(?i)^(?!.*(default|local|sample|readme)).*(deployed|production|job)[^.]*(covers|includes|counts|spans)[^.]*(all|every) (the )?events?",
+    "(?i)^(?!.*(default|local|sample|readme)).*window[^.]*(covers|includes|contains)[^.]*(all|every) (the )?events?"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "The weekly summary counts every event in exactly one week.",
+      "verdict": "unsettled",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "No event is counted in two weeks.",
+        "verdict": "confirmed",
+        "evidence": "weekly.py uses start <= d < end, so the windows are half-open and a Monday belongs only to the week it starts."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "With the default settings every event is counted exactly once.",
+        "verdict": "confirmed",
+        "evidence": "python3 main.py prints [2, 2, 1] 5 5, so the sum equals the number of events."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "The deployed window set by SUMMARY_START and SUMMARY_WEEKS covers every event.",
+        "verdict": "unsettled",
+        "evidence": "settings.py reads both values from the environment and the README says the deployed job sets its own; those values are not in the repo. SUMMARY_WEEKS=2 drops the 2025-01-20 event."
+      }
+    ]
+  }
+}

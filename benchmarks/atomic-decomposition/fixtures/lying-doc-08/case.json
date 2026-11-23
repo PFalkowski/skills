@@ -1,0 +1,43 @@
+{
+  "id": "lying-doc-08",
+  "kind": "lying-doc",
+  "split": "test",
+  "claim": "On an invoice line of 10.50 at a 5 percent rate, the tax charged is 0.53.",
+  "root": "refuted",
+  "why": "The code uses Python round on 52.5 cents, which rounds halves to the nearest even number and gives 52, so the tax is 0.52. The README promises halves rounded up, which would give 53. The trap is trusting the README and not knowing how round treats halves.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "\\bround\\b.{0,80}(half.{0,15}even|even|banker|\\b52\\b(?!\\.5))|\\b52\\b(?!\\.5).{0,40}(not|rather than|instead of).{0,10}53|0\\.52|\\b53\\b.{0,20}(up|half)",
+      "note": "round gives 52 cents"
+    }
+  ],
+  "false_confirms": [
+    "^(?!.*(readme|docs?\\b|says|promis|claims|\\bnot\\b|rather|instead)).*(tax|round|tax_cents).{0,60}\\b(0\\.53|53)\\b(?!\\.)",
+    "^(?!.*(readme|docs?\\b|says|promis|claims|\\bnot\\b|rather|instead)).*52\\.5.{0,30}(up to|becomes|gives|returns|to) 53"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "A 10.50 line at 5 percent is charged 0.53 tax.",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "The unrounded tax on 1050 cents at 500 basis points is 52.5 cents",
+        "verdict": "confirmed",
+        "evidence": "1050 * 500 / 10000 = 52.5."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "The code rounds 52.5 up to 53",
+        "verdict": "refuted",
+        "evidence": "tax.py uses round(), which rounds halves to even, so the result is 52; running tax_cents(1050, 500) prints 52 and main.py shows tax 82 for the sample."
+      }
+    ]
+  }
+}

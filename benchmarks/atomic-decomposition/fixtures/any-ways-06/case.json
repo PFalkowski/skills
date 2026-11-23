@@ -1,0 +1,49 @@
+{
+  "id": "any-ways-06",
+  "kind": "any-ways",
+  "split": "test",
+  "claim": "An order for pens with quantity -3 placed with orders.place gets rejected somewhere, either by the quantity rule or by the warehouse.",
+  "root": "refuted",
+  "why": "The single-order path place calls only has_fields and then warehouse.reserve. The positive rule is used only by place_bulk, and reserve only rejects when the result would go below zero, which a negative quantity never does; it adds 3 to stock. The trap is the README and the existence of rules.positive, which suggest the check covers every order.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "\\bplace\\b(?!_).*(positive|quantity rule|rules)|(positive|quantity rule).*(place\\b(?!_)|single)",
+      "note": "place never calls positive; only place_bulk does"
+    },
+    {
+      "verdict": "refuted",
+      "pattern": "(reserv|warehouse).*(negative|-3|below zero|left).*(not|never|no |accept|add|13|rais|error)|(negative|-3).*(reserv|warehouse).*(accept|pass|not reject|13|no error|raises no)",
+      "note": "reserve accepts a negative quantity"
+    }
+  ],
+  "false_confirms": [
+    "\\bplace\\b(?!_)(?!.*\\b(not|never|only|no)\\b).*(call|use|appl|enforc).*positive",
+    "(quantity rule|positive) (rejects|catches) (the |a )?single",
+    "every order.*(positive|validated|checked)"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "A single order with qty -3 is rejected by the quantity rule or the warehouse.",
+      "verdict": "refuted",
+      "op": "any"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "The quantity rule rejects it on the single-order path.",
+        "verdict": "refuted",
+        "evidence": "orders.place calls rules.has_fields then warehouse.reserve; rules.positive is called only in place_bulk."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "The warehouse rejects the negative quantity.",
+        "verdict": "refuted",
+        "evidence": "reserve computes left = 10 - (-3) = 13, which is not below zero, so it stores 13 and returns it."
+      }
+    ]
+  }
+}

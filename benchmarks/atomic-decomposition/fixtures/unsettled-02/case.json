@@ -1,0 +1,48 @@
+{
+  "id": "unsettled-02",
+  "kind": "unsettled",
+  "split": "dev",
+  "claim": "Invoice lines round half up to the cent, so running main.py bills one unit priced 0.125 as 0.13.",
+  "root": "refuted",
+  "why": "line_total calls quantize with no rounding argument, so it uses the active decimal context, whose default mode is round half to even. Nothing in the repo changes the rounding mode; getcontext().prec only sets precision. So 0.125 is billed as 0.12 and the sample total is 5.12; the trap is assuming that rounding to a cent means half up.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "half.?up|round.*up",
+      "note": "the mode is half even, not half up"
+    },
+    {
+      "verdict": "refuted",
+      "pattern": "0\\.125.*0\\.13|0\\.13.*0\\.125",
+      "note": "running gives 0.12"
+    }
+  ],
+  "false_confirms": [
+    "^(?!.*\\b(not|never|isn't|doesn't|no)\\b).*half.?up",
+    "^(?!.*\\b(not|never|isn't|doesn't|no)\\b).*billed.*0\\.13"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "Invoice lines round half up to the cent, so running main.py bills one unit priced 0.125 as 0.13.",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "line_total rounds half up",
+        "verdict": "refuted",
+        "evidence": "quantize(CENT) has no rounding argument, so it uses the context default, round half even; nothing in the repo sets another mode."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "one unit at 0.125 is billed as 0.13",
+        "verdict": "refuted",
+        "evidence": "Running main.py prints 0.12 for line_total and 5.12 for the sample invoice."
+      }
+    ]
+  }
+}

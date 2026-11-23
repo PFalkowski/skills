@@ -1,0 +1,43 @@
+{
+  "id": "lying-doc-07",
+  "kind": "lying-doc",
+  "split": "test",
+  "claim": "With a capacity of 2, after put a, put b, put a again and put c, the key a is still in the cache.",
+  "root": "refuted",
+  "why": "Putting an existing key only reassigns its value: the helper moves a key to the end only when the key is new, so a keeps its oldest position and is evicted when c arrives. The README says both get and put mark a key as most recently used, which is true of get and of put for new keys only. The trap is believing the README and seeing move_to_end on the put path, which does not run for an existing key.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "put.{0,80}(existing|again|re-?put|same key|update).{0,80}(refresh|recent|move|end|position|order)|only (new|fresh) keys?.{0,60}(move|end)|stays in (its )?(old|original) position|keeps (its )?(insertion )?(order|position)",
+      "note": "put of an existing key does not refresh it"
+    }
+  ],
+  "false_confirms": [
+    "put.{0,60}(existing|again|re-?put)(?!.{0,60}\\b(not|never|doesn.t|without)\\b).{0,60}(mark|refresh|move|make).{0,30}(most recent|end|recently used)",
+    "\\b(makes|refreshes) (an existing key|it).{0,30}(most recent|recently used)"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "After put a, put b, put a, put c at capacity 2, a is still cached.",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "Re-putting an existing key makes it most recently used",
+        "verdict": "refuted",
+        "evidence": "put calls _store, which calls move_to_end only when the key is new; an existing key is only reassigned and keeps its old position, so a stays oldest."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "Putting c at capacity evicts the oldest key, which is a",
+        "verdict": "confirmed",
+        "evidence": "popitem(last=False) removes the first item; a run gives keys b and c after the sequence."
+      }
+    ]
+  }
+}

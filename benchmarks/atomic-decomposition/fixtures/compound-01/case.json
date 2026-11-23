@@ -1,0 +1,51 @@
+{
+  "id": "compound-01",
+  "kind": "compound",
+  "split": "dev",
+  "claim": "Every item in the catalog is charged 25 cents a day when it is late, no fee goes above 10.00, and an item returned on its due date costs nothing.",
+  "root": "refuted",
+  "why": "The README says 25 cents a day for everything, but rates.py doubles the base rate for the disc format, and D300 is the only disc, so it is charged 50 cents a day and the first part is false. The cap and the on-time rule both hold, which makes the claim look right to anyone who trusts the README and the base rate. The false part sits in a small multiplier table in a helper, not in the catalog or the fee function.",
+  "deciding": [
+    {
+      "verdict": "refuted",
+      "pattern": "(d300|harbour|disc|dvd|multiplier|50 cents|0\\.50|5\\.00).*(50 cents|0\\.50|double|2x|twice|multipl|5\\.00|not 2\\.50|disc)|(rate|multiplier|disc|d300|dvd).*(d300|harbour|disc|dvd|50 cents|0\\.50)",
+      "note": "D300 is a disc and is charged 50 cents a day through the multiplier in rates.py"
+    }
+  ],
+  "false_confirms": [
+    "^(?!.*\\b(except|other than|but|books?|magazines?|besides|print)\\b)(every|each|all)\\b.{0,40}(item|catalog).{0,80}(25 cents|0\\.25)",
+    "^(?!.*\\b(except|other than|but|books?|magazines?|besides|print)\\b)(the )?(late )?(rate|fee|charge)\\b.{0,60}(25 cents|0\\.25).{0,40}(every|each|all)\\b",
+    "(25 cents|0\\.25).{0,40}(regardless|flat|same for (every|all|each))"
+  ],
+  "must_run": [],
+  "exemplar": {
+    "root": {
+      "claim": "Every item is charged 25 cents a day, the fee is capped at 10.00, and an on-time return costs nothing.",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "Every item in the catalog is charged 25 cents a day when late.",
+        "verdict": "refuted",
+        "evidence": "rates.py daily_rate multiplies BASE_RATE 0.25 by MULTIPLIER for the disc format, and catalog.py marks D300 as disc, so D300 is charged 50 cents a day; report.py shows D300 ten days late costs 5.00, not 2.50."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "No fee goes above 10.00.",
+        "verdict": "confirmed",
+        "evidence": "fees.py late_fee takes min(days * rate, MAX_FEE) with MAX_FEE 10.00; M200 two months late prints 10.00."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "An item returned on its due date costs nothing.",
+        "verdict": "confirmed",
+        "evidence": "days_late returns max(0, 0) = 0; B100 returned on its due date prints 0.00."
+      }
+    ]
+  }
+}

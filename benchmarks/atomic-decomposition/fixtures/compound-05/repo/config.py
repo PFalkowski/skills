@@ -1,0 +1,3 @@
+GRACE_DAYS = 3
+RATE_PER_DAY = 0.5
+CAP = 10.0
