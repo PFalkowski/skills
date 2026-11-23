@@ -21,7 +21,7 @@ passages than A, but the interval is too wide to call that an improvement.
 | Sensitivity gate | Control against A: +0.30, above the 0.20 margin. The suite sees the skill. |
 | Ceiling and floor | Neither: A's rate 0.533 is between 0.20 and 0.80. |
 | Critical regressions | 1: the rule and fact gate on `r1g13`. Pattern-loss gate: none. Gate cases A passed and B failed: none. |
-| Suites run | 1 (rung 1, sections of 120 to 250 words). Rung 2 was declared but not needed: rung 1 met its calibration target. |
+| Suites run | 1 (rung 1, sections of 120 to 250 words). Rung 2 was declared but not needed: rung 1 met its calibration target. Rung 2 could have supplied only 22 test clusters of the 30 planned. |
 | Cost | $3.34 for the run, $0.41 for calibration. Authoring subagents not counted. |
 | Evidence | `~/.agent-state/skills/benchmark-skill/unslop-real-2026-11-23/` (`run1/`, `cal-r1/`, `authoring/`, `skills/`). |
 
@@ -38,7 +38,10 @@ body says to give "the property and the harm in one plain sentence each", and on
 name says the check must be readable without the tool. B's rewrite loses that
 requirement. I read B's output and transcript against the source: the key holds, and
 the rule is not a grader artifact. A kept the names (and failed the case on residual
-bold), so A kept the rule.
+bold), so A kept the rule. A kept it by barely editing the passage, not by understanding
+it, and A also failed the case. The verdict rests on this one case and one trial: a rerun
+of B on it could pass. The key accepts one word order of the requirement; six of eight
+faithful paraphrases fail it (carried to a ticket, not changed after the freeze).
 
 ## Primary and secondary results
 
@@ -74,7 +77,7 @@ patterns seen in a source or an output are listed; the rest had 0 everywhere.
 
 The real prose of this repo is dominated by two patterns: em dashes (22 of 30 sources)
 and bold (26 of 30). Most of the difference between A and B is bold: B removes more of
-it. Neither arm leaves em dashes. No test source contains patterns 1, 3 to 8, 20, 22 to
+it. A leaves no em dash and B leaves one (`r1t03`). No test source contains patterns 1, 3 to 8, 20, 22 to
 30, so the suite says nothing about them.
 
 ## Patterns 9, 13, 15, 23 and 27
@@ -92,8 +95,10 @@ The wordings changed after review in the current skill. What this run shows for 
   freeze, so removing it costs nothing under the key.
 - **15, honesty prefaces.** One test passage (all arms removed it) and two gate passages:
   B removed it in one and left it in the other; A left it in both.
-- **23, punchy fragments.** No test passage. Two gate passages: every arm, B included,
-  left one fragment in each. B's run on `r1g13` is also the critical case above.
+- **23, punchy fragments.** Unmeasured. No test passage has one, and both gate passages
+  were drawn on false hits of the detector: `r1g13` hits on "Every check keeps all seven.",
+  a complete sentence, and `r1g14` on the rule line `---`. Every arm "left" the same
+  string. B's run on `r1g13` is still the critical case above, for a different reason.
 - **27, next-step narration.** No passage in the repo contains it. Untested.
 
 ## Gate cases
@@ -113,8 +118,11 @@ over-applied its rules where there was nothing to fix. On the pattern cases B pa
   the grader counts as boldface; the key holds in all eight. `r1t01` is a grader fault: the source uses the
   emoji ⛏️ as a functional marker for a "nit" comment, every arm rightly kept it, and the
   emoji detector counts it twice (the symbol and its variation selector). No faithful
-  rewrite can pass `r1t01`. It fails all arms equally, so it does not move the paired
-  effect.
+  rewrite can pass `r1t01`. Every arm fails it for this fault alone, so it does not move the
+  paired effect (B alone 6, A alone 1 either way). Counted as a pass for every arm, the
+  rates would be control 7, A 17 and B 22 of 30. METHOD.md says a grader fault found after
+  the run means fixing it and running anew. That was not done here, because the fault
+  changes no outcome and no verdict; this is a deviation from that rule.
 - Only one arm passed: B alone on `r1t09`, `r1t10`, `r1t18`, `r1t22`, `r1t28`, `r1t29`;
   A alone on `r1t13`.
 
