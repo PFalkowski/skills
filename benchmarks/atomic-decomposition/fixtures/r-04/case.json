@@ -3,7 +3,7 @@
   "kind": "any-ways",
   "split": "dev",
   "repo_ref": "dc6a0af7b309c77d8aef164208595abbe6c506f8",
-  "claim": "benchmark-skill/scripts/run.py can be made to send its model requests to a server on another machine.",
+  "claim": "benchmark-skill/scripts/run.py can be made to open its model connections straight to a server on another machine, with no tunnel or relay on this machine forwarding them.",
   "root": "refuted",
   "why": "Each way fails for its own reason: a remote IP, a DNS name, localhost and an IPv4-mapped remote address in the config host are refused by _local_url as not a loopback IP literal, HTTP_PROXY is ignored because the Ollama opener is built with ProxyHandler({}), a redirect from a loopback server is refused by NoRedirect, and a host such as http://127.0.0.1:PORT#@10.0.0.5 passes the check but its request still lands on 127.0.0.1 (a python3 script with two loopback test servers printed, twice on fresh exports of the pin, 'RunError: host must be a loopback IP literal' for each refused host, hits [('target', '/api/tags')] with HTTP_PROXY pointing at the other server while plain urllib with the same environment hit the proxy, and 'RunError: refusing HTTP redirect to http://10.0.0.5:11434/api/tags'). The obvious check searches for loopback, reads _local_url and the unit test that expects a loopback RunError, and stops at the config route. That gives the right verdict on too narrow a base: the proxy and redirect routes are separate ways, and only checking them shows that none of them works.",
   "evidence_tokens": [

@@ -30,7 +30,7 @@
         "parent": "root",
         "claim": "CI runs every *.test.js and *.test.mjs file",
         "verdict": "confirmed",
-        "evidence": "The for-loop globs tests/workflows/*.test.js clean-room/*.test.mjs auto-mode-setup/scripts/*.test.mjs statusline/scripts/*.test.js worktree-guard/scripts/*.test.js merge-guard/scripts/*.test.js memory-palace/scripts/*.test.js cover all 25 such files found by find."
+        "evidence": "The for-loop globs tests/workflows/*.test.js clean-room/*.test.mjs auto-mode-setup/scripts/*.test.mjs statusline/scripts/*.test.js worktree-guard/scripts/*.test.js merge-guard/scripts/*.test.js memory-palace/scripts/*.test.js cover all 21 such files found by find."
       },
       {
         "id": "A3",
