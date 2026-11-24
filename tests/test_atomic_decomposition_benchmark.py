@@ -38,7 +38,7 @@ class ExemplarTests(unittest.TestCase):
             self.assertEqual(grade.self_test(), 0)
 
     def test_every_exemplar_passes(self):
-        self.assertEqual(len(CASES), 6)
+        self.assertEqual(len(CASES), 12)
         for cid, case in CASES.items():
             with self.subTest(cid):
                 self.assertTrue(score(case, case["exemplar"])["success"])
@@ -243,6 +243,14 @@ class HarnessTests(unittest.TestCase):
             record = json.loads((run_dir / "grades/a.jsonl").read_text(encoding="utf-8"))
             self.assertTrue(record["valid"] and record["success"])
             self.assertEqual(record["cost_usd"], 0.5)
+
+    def test_export_mode_leaves_out_the_excluded_paths(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = pathlib.Path(tmp)
+            harness.fill(scratch, {"id": "no-such-fixture", "repo_ref": "HEAD"})
+            self.assertTrue((scratch / "workflows/hunt.js").is_file())
+            for excluded in harness.EXCLUDED:
+                self.assertFalse((scratch / excluded).exists(), excluded)
 
     def test_arm_b_never_runs_on_dev(self):
         with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):

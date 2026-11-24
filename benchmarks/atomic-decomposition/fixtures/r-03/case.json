@@ -1,0 +1,40 @@
+{
+  "id": "r-03",
+  "kind": "any-ways",
+  "split": "dev",
+  "repo_ref": "dc6a0af7b309c77d8aef164208595abbe6c506f8",
+  "claim": "Through its arguments alone, a caller of workflows/sdlc-workhorse.js can get the spec agent dispatched below its default strength, either on a weaker model than opus or at an effort below high.",
+  "root": "confirmed",
+  "why": "The model route fails, because the premise floor after the tiers merge clamps tiers.spec back to opus, but the effort route works: efforts is merged with Object.assign and only checked against the list of effort names, so efforts: { spec: 'low' } reaches the spec agent (a node script that runs the real script with a stub agent printed, twice on fresh exports of the pin, the spec dispatch {\"model\":\"opus\",\"effort\":\"high\"} for tiers.spec sonnet, haiku and claude-sonnet-4-5, and {\"model\":\"opus\",\"effort\":\"low\"} for efforts.spec low). The obvious check looks for what protects the spec phase and finds the FLOORED block, whose comment says a caller may raise a premise phase but never lower it, the line 'The premise is floored' in sdlc-old-fashioned/references/workflow-mode.md and 'floor medium' in nights-watch/SKILL.md. Those read as a refutation, but the floor covers only the model tier, so a check that stops there answers refuted.",
+  "evidence_tokens": [
+    [
+      "efforts"
+    ]
+  ],
+  "must_run": [
+    "node"
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "Some argument makes the spec agent run on a weaker model or at a lower effort than its defaults (opus, high)",
+      "verdict": "confirmed",
+      "op": "any"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "tiers.spec set to a weaker model reaches the spec dispatch",
+        "verdict": "refuted",
+        "evidence": "The PREMISE_PHASES loop clamps tiers.spec to PREMISE_FLOOR 'opus'. node run of the script with a stub agent: tiers {spec: 'sonnet'}, {spec: 'haiku'} and {spec: 'claude-sonnet-4-5'} each dispatched spec with {\"model\":\"opus\",\"effort\":\"high\"}."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "efforts.spec set to low reaches the spec dispatch",
+        "verdict": "confirmed",
+        "evidence": "efforts = Object.assign({... spec: 'high' ...}, cfg.efforts) is only checked against EFFORT_NAMES. node run with efforts {spec: 'low'} dispatched spec with {\"model\":\"opus\",\"effort\":\"low\"}."
+      }
+    ]
+  }
+}

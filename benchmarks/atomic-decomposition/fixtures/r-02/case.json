@@ -1,0 +1,54 @@
+{
+  "id": "r-02",
+  "kind": "universal",
+  "split": "dev",
+  "repo_ref": "dc6a0af7b309c77d8aef164208595abbe6c506f8",
+  "claim": "The status line in statusline/scripts/statusline.js never shows a context token count with more than three digits before its k or M suffix, for any count from 0 to 10,000,000 tokens.",
+  "root": "refuted",
+  "why": "Rendering every count from 0 to 10,000,000 through render() finds 500 counts, 999,500 to 999,999, that show as 1000k, because compact() takes the k branch for any n below 1e6 and toFixed(0) then rounds 999.5 and above up to 1000 (a node loop over render({context_window: {total_input_tokens: n}}) printed, twice on fresh exports of the pin: \"500 counts over three digits; first 999500=1000k last 999999=1000k\"). The obvious check reads compact(), whose thresholds at 1e3 and 1e6 look tight, and tries a few counts: 1500 renders 1.5k, 250000 renders 250k, 999499 renders 999k and 1000000 renders 1M. The overflow is a band of 500 counts just under one million, which a 1M context window reaches but no sample a reader would pick does.",
+  "evidence_tokens": [
+    [
+      "1000k"
+    ]
+  ],
+  "must_run": [
+    "node"
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "For every n in 0..10,000,000 the rendered token count has at most three digits before k or M",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "Counts below 1000 print with no suffix and at most three digits",
+        "verdict": "confirmed",
+        "evidence": "compact() returns String(n) for n < 1e3; the exhaustive node loop flagged none of them."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "Counts from 1000 to 999,499 print at most three digits before k",
+        "verdict": "confirmed",
+        "evidence": "node: render of 1500 is '1.5k', of 250000 is '250k', of 999499 is '999k'; the loop flagged none below 999500."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "Counts from 999,500 to 999,999 print at most three digits before k",
+        "verdict": "refuted",
+        "evidence": "CLAUDE_STATUSLINE_ICONS=0 node loop over render() for n = 0..10000000 printed: 500 counts over three digits; first 999500=1000k last 999999=1000k. (999500/1e3).toFixed(0) is '1000'."
+      },
+      {
+        "id": "A4",
+        "parent": "root",
+        "claim": "Counts from 1,000,000 to 10,000,000 print at most three digits before M",
+        "verdict": "confirmed",
+        "evidence": "1000000 renders '1M'; 10000000 renders '10M'; the loop flagged none at or above 1e6."
+      }
+    ]
+  }
+}

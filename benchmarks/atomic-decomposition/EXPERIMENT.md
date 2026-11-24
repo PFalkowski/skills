@@ -1,5 +1,22 @@
 # Frozen plan: atomic-decomposition against no skill, on the real task
 
+## Pilot 2: real-repository claims
+
+The first pilot put the no-skill baseline at 6 of 6, because each invented repository
+was small enough to read whole. Pilot 2 asks whether claims about this repository, with
+about 480 files, get the baseline off that ceiling.
+
+- A fixture with no `repo/` folder and a `repo_ref` in `case.json` gets
+  `git archive <repo_ref>` of this repository as its scratch directory. The pin is
+  `dc6a0af7b309c77d8aef164208595abbe6c506f8`.
+- The export leaves out `atomic-decomposition/`,
+  `benchmarks/skill-context/RESULTS-atomic-decomposition.md`,
+  `benchmarks/skill-context/cases-atomic-decomposition.json` and `.claude/`. It has no
+  `.git`, so the agent sees no history.
+- Both arms get the same tools: Read, Grep, Glob, Write and a shell limited to
+  `python3`, `node`, `ls`, `cat`, `grep`, `head`, `tail`, `find` and `wc`.
+- `r-01` to `r-06` are development cases. Only the baseline arm (arm A) may run on them.
+
 ## Redesign v2
 
 ### Why v1 failed

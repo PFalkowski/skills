@@ -1,0 +1,56 @@
+{
+  "id": "r-04",
+  "kind": "any-ways",
+  "split": "dev",
+  "repo_ref": "dc6a0af7b309c77d8aef164208595abbe6c506f8",
+  "claim": "benchmark-skill/scripts/run.py can be made to send its model requests to a server on another machine.",
+  "root": "refuted",
+  "why": "Each way fails for its own reason: a remote IP, a DNS name, localhost and an IPv4-mapped remote address in the config host are refused by _local_url as not a loopback IP literal, HTTP_PROXY is ignored because the Ollama opener is built with ProxyHandler({}), a redirect from a loopback server is refused by NoRedirect, and a host such as http://127.0.0.1:PORT#@10.0.0.5 passes the check but its request still lands on 127.0.0.1 (a python3 script with two loopback test servers printed, twice on fresh exports of the pin, 'RunError: host must be a loopback IP literal' for each refused host, hits [('target', '/api/tags')] with HTTP_PROXY pointing at the other server while plain urllib with the same environment hit the proxy, and 'RunError: refusing HTTP redirect to http://10.0.0.5:11434/api/tags'). The obvious check searches for loopback, reads _local_url and the unit test that expects a loopback RunError, and stops at the config route. That gives the right verdict on too narrow a base: the proxy and redirect routes are separate ways, and only checking them shows that none of them works.",
+  "evidence_tokens": [
+    [
+      "_local_url",
+      "is_loopback",
+      "loopback ip literal"
+    ],
+    [
+      "proxy"
+    ]
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "Some config value, environment setting or server response makes run.py send model requests off the machine",
+      "verdict": "refuted",
+      "op": "any"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "A non-loopback address or host name in the config host is accepted",
+        "verdict": "refuted",
+        "evidence": "python3: run._local_url('http://10.0.0.5:11434'), ('http://ollama.example.com:11434'), ('http://localhost:11434') and ('http://[::ffff:10.0.0.5]:11434') each raise RunError: host must be a loopback IP literal."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "A proxy in the environment carries the requests elsewhere",
+        "verdict": "refuted",
+        "evidence": "Ollama builds its opener with urllib.request.ProxyHandler({}). With HTTP_PROXY set to a second loopback server, run.Ollama(target).request('/api/tags') hit [('target', '/api/tags')]; plain urllib with the same environment hit the proxy."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "A redirect from the loopback server is followed to another machine",
+        "verdict": "refuted",
+        "evidence": "NoRedirect.redirect_request raises. A loopback server answering 302 to http://10.0.0.5:11434/api/tags gave RunError: refusing HTTP redirect to http://10.0.0.5:11434/api/tags."
+      },
+      {
+        "id": "A4",
+        "parent": "root",
+        "claim": "A host that passes the check but names another machine in its URL",
+        "verdict": "refuted",
+        "evidence": "_local_url accepts http://127.0.0.1:PORT#@10.0.0.5, but urllib drops the fragment and the request hit the loopback target: hits [('target', '/')]."
+      }
+    ]
+  }
+}

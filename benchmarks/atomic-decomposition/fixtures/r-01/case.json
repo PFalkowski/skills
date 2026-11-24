@@ -1,0 +1,44 @@
+{
+  "id": "r-01",
+  "kind": "universal",
+  "split": "dev",
+  "repo_ref": "dc6a0af7b309c77d8aef164208595abbe6c506f8",
+  "claim": "Every test file in this repository, meaning each *.test.sh, *.test.js and *.test.mjs file and each tests/test_*.py, is run by the CI workflow.",
+  "root": "refuted",
+  "why": "Matching every such file on disk against the commands in .github/workflows/checks.yml finds 42 test files, and exactly one of them, scripts/check-sdlc-run-state-docs.test.sh, is named by no bash line, for-loop glob or unittest discover pattern (a python3 script that globs the files and fnmatches each against those commands printed, twice on fresh exports of the pin: \"42 test files; 1 not run by CI: ['scripts/check-sdlc-run-state-docs.test.sh']\"). The obvious check reads checks.yml, which runs a long list of bash test scripts, node globs over every other test folder and a discover pattern for every tests/test_*.py, and CONTRIBUTING.md, which says CI runs the checks and the Node tests on every push and pull request. Both read as full coverage, and only an exhaustive comparison of the files on disk with the CI commands finds the one script left out.",
+  "evidence_tokens": [
+    [
+      "check-sdlc-run-state-docs"
+    ]
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "CI runs every *.test.sh, *.test.js, *.test.mjs and tests/test_*.py file",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "CI runs every *.test.sh file",
+        "verdict": "refuted",
+        "evidence": "find . -name '*.test.sh' lists 16 files; checks.yml has 15 'bash <path>.test.sh' lines. scripts/check-sdlc-run-state-docs.test.sh appears in no line of checks.yml (grep -c check-sdlc-run-state-docs .github/workflows/checks.yml prints 0)."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "CI runs every *.test.js and *.test.mjs file",
+        "verdict": "confirmed",
+        "evidence": "The for-loop globs tests/workflows/*.test.js clean-room/*.test.mjs auto-mode-setup/scripts/*.test.mjs statusline/scripts/*.test.js worktree-guard/scripts/*.test.js merge-guard/scripts/*.test.js memory-palace/scripts/*.test.js cover all 25 such files found by find."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "CI runs every tests/test_*.py file",
+        "verdict": "confirmed",
+        "evidence": "The discover patterns test_skill_context_benchmark.py, test_benchmark_skill*.py, test_attention_rewrite_benchmark.py and test_unslop_real_prose.py cover all 5 files in tests/. Script output: 42 test files; 1 not run by CI: ['scripts/check-sdlc-run-state-docs.test.sh']."
+      }
+    ]
+  }
+}

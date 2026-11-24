@@ -31,8 +31,8 @@ import grade as grader  # noqa: E402
 MODEL = "claude-sonnet-5-5"
 SKILL_SHA = "c38164d4432ee2a49b612c3f0cdfd3463b56f06416ed2dd56bdbb304664653b9"
 TOOLS = ("Read", "Grep", "Glob", "Write", "Bash")
-ALLOWED = ("Read", "Grep", "Glob", "Write", "Bash(python3:*)", "Bash(ls:*)", "Bash(cat:*)",
-           "Bash(grep:*)", "Bash(head:*)")
+ALLOWED = ("Read", "Grep", "Glob", "Write", "Bash(python3:*)", "Bash(node:*)", "Bash(ls:*)",
+           "Bash(cat:*)", "Bash(grep:*)", "Bash(head:*)", "Bash(tail:*)", "Bash(find:*)", "Bash(wc:*)")
 COMMAND = ["claude", "-p", "--model", MODEL, "--tools", ",".join(TOOLS), "--allowedTools",
            *ALLOWED, "--strict-mcp-config", "--setting-sources", "", "--permission-mode",
            "acceptEdits", "--no-session-persistence", "--output-format", "stream-json", "--verbose"]
@@ -47,11 +47,28 @@ Write your answer as JSON to report.json in the current directory, and nothing e
 "parent" is "root" or the id of another atom. "op" says how the children of that node combine; give it on the root and on every atom that has children, and leave it out on a leaf. A parent verdict must follow from its children: an all-parent is refuted if any child is refuted, confirmed if every child is confirmed, otherwise unsettled; an any-parent is confirmed if any child is confirmed, refuted if every child is refuted, otherwise unsettled; children marked not_checked are ignored. Use unsettled when the evidence needed is not available here."""
 KEY_MARKERS = ("case.json", "atomic-decomposition/fixtures")
 IGNORE = shutil.ignore_patterns("__pycache__")
+EXCLUDED = ("atomic-decomposition", "benchmarks/skill-context/RESULTS-atomic-decomposition.md",
+            "benchmarks/skill-context/cases-atomic-decomposition.json", ".claude")
 
 
 def build(case, skill=None):
     task = TASK.replace("{claim}", case["claim"])
     return task if skill is None else PREAMBLE + skill + "\n</skill>\n\n" + task
+
+
+def fill(scratch, case):
+    repo = grader.FIXTURES / case["id"] / "repo"
+    if repo.is_dir() or "repo_ref" not in case:
+        shutil.copytree(repo, scratch, dirs_exist_ok=True, ignore=IGNORE)
+        return
+    archive = subprocess.run(["git", "-C", str(HERE.parents[1]), "archive", case["repo_ref"]],
+                             stdout=subprocess.PIPE, check=True).stdout
+    subprocess.run(["tar", "-x", "-C", str(scratch)], input=archive, check=True)
+    for excluded in map(scratch.joinpath, EXCLUDED):
+        if excluded.is_dir():
+            shutil.rmtree(excluded)
+        elif excluded.exists():
+            excluded.unlink()
 
 
 def sha256(data):
@@ -76,7 +93,7 @@ def call(run_dir, arm, case, stop):
     if stop.is_set():
         return {"arm": arm, "id": case["id"], "exit": None}
     scratch = Path(tempfile.mkdtemp(prefix="atomic-"))
-    shutil.copytree(grader.FIXTURES / case["id"] / "repo", scratch, dirs_exist_ok=True, ignore=IGNORE)
+    fill(scratch, case)
     base = run_dir / "transcripts" / arm / case["id"]
     with (run_dir / "prompts" / arm / f"{case['id']}.txt").open("rb") as stdin, \
             base.with_suffix(".jsonl").open("wb") as stdout, \

@@ -1,0 +1,47 @@
+{
+  "id": "r-05",
+  "kind": "unsettled",
+  "split": "dev",
+  "repo_ref": "dc6a0af7b309c77d8aef164208595abbe6c506f8",
+  "claim": "When the Workflow tool runs workflows/hunt.js, a call to Date.now() inside the script throws an error.",
+  "root": "unsettled",
+  "why": "The deciding fact is how the Workflow runtime that executes the script treats Date.now(), and the export holds no copy of that runtime: the only code here that executes workflows/*.js is the test harness in tests/workflows, which wraps the source in new Function and stubs only agent, parallel, pipeline, phase and log, so Date.now() there is plain Node (node -e with the same new Function shape printed 'number', twice on fresh exports of the pin). The obvious check greps for Date.now and finds eight files that say it throws (workflows/hunt.js, grill.js and sdlc-workhorse.js, their three test files, nights-watch/WATCH.md and nights-watch/HUNT.md), which reads as confirmed, while running it under node reads as refuted. Neither the documents nor plain Node show the real host's behaviour, so the claim stays unsettled.",
+  "evidence_tokens": [
+    [
+      "not in the export",
+      "not in this repo",
+      "not in the repo",
+      "not part of",
+      "not included",
+      "not present",
+      "not available",
+      "outside the repo",
+      "outside this repo",
+      "no implementation",
+      "not implemented here",
+      "not shipped",
+      "external",
+      "cannot be run here",
+      "can't be run here",
+      "cannot be observed",
+      "no copy",
+      "absent"
+    ]
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "The Workflow runtime makes Date.now() throw inside workflows/hunt.js",
+      "verdict": "unsettled",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "The runtime that the Workflow tool uses to execute workflows/hunt.js makes Date.now() throw",
+        "verdict": "unsettled",
+        "evidence": "The runtime is not in the export: grep -rln 'new Function' finds only the six tests/workflows/*.test.js files, which stub agent, parallel, pipeline, phase and log and run under plain node, where node -e \"new Function('log', 'return (async () => { log(typeof Date.now()) })()')(console.log)\" prints number. Eight files (workflows/hunt.js:16, grill.js, sdlc-workhorse.js, three tests, nights-watch/WATCH.md, HUNT.md) only state that it throws."
+      }
+    ]
+  }
+}

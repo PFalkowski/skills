@@ -16,7 +16,7 @@ SPLITS = ("dev", "test", "gate")
 ROOT_VERDICTS = {"confirmed", "refuted", "unsettled"}
 ATOM_VERDICTS = ROOT_VERDICTS | {"not_checked"}
 OPS = {"all", "any"}
-EXEMPLAR_COMMANDS = ["python3 main.py"]
+EXEMPLAR_COMMANDS = ["python3 main.py", "node main.js"]
 
 
 def load_cases(root=FIXTURES):
@@ -140,7 +140,10 @@ def key_problems(case, fixture_dir):
     if "must_run" in case and not lowercase_strings(case["must_run"]):
         problems.append("must_run")
     repo = fixture_dir / "repo"
-    if not repo.is_dir() or (repo / "report.json").exists():
+    if "repo_ref" in case:
+        if repo.exists():
+            problems.append("repo_ref fixture also has a repo folder")
+    elif not repo.is_dir() or (repo / "report.json").exists():
         problems.append("repo missing or holds report.json")
     if not problems:
         result = grade(case, json.dumps(case["exemplar"]), EXEMPLAR_COMMANDS)
