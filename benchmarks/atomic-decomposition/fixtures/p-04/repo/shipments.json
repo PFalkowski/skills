@@ -1,0 +1,5 @@
+[
+  {"id": "S-1001", "recipient": "Joel Barre", "address": "3 Mill Lane", "postcode": "4401", "weight": 1.2, "status": "labelled", "service": "standard", "label": "L-1001-STA", "events": ["accepted at depot 44"], "extra": {}},
+  {"id": "S-1002", "recipient": "Ines Moya", "address": "88 Long Road", "postcode": "4630", "weight": 6.0, "status": "labelled", "service": "economy", "label": "L-1002-ECO", "events": [], "extra": {"reference": "PO-5120"}},
+  {"id": "S-1003", "recipient": "Mira Holt", "address": "14 Quay Street", "postcode": "4512", "weight": 2.5, "status": "draft", "service": null, "label": null, "events": [], "extra": {}}
+]

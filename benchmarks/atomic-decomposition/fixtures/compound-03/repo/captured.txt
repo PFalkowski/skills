@@ -1,7 +1,0 @@
-Store a 1
-Fetch a
-read a
-get a
-SAVE b 2
-Remove a
-del b

@@ -1,0 +1,50 @@
+{
+  "id": "p-04",
+  "kind": "any-ways",
+  "split": "dev",
+  "claim": "Through the shipctl command line, a shipment that already has a label can still have its delivery address changed.",
+  "root": "refuted",
+  "why": "Every shipctl route to the address of a labelled shipment fails, each for a different reason: address refuses it outright, edit refuses address and postcode as LOCKED_WHEN_LABELLED and puts any other key such as delivery_address into extra, relabel reprints the stored address, and amend skips labelled rows in amend.apply_row. The obvious check is the documented bulk path: amend prints 'imported ...: 1 row(s)' and exits 0 for a labelled shipment, and edit --set delivery_address=... prints 'set'. Only show afterwards, or reading amend.py, reveals that the address did not change.",
+  "evidence_tokens": [
+    [
+      "amend"
+    ]
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "Some shipctl command changes the delivery address of a labelled shipment",
+      "verdict": "refuted",
+      "op": "any"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "address changes it",
+        "verdict": "refuted",
+        "evidence": "python3 shipctl.py address S-1001 '5 Mill Lane' 4401 -> error: S-1001 is labelled; the address on the label cannot change"
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "amend changes it",
+        "verdict": "refuted",
+        "evidence": "amend prints 'imported fix.csv: 1 row(s)' but apply_row appends labelled shipments to result.skipped; show S-1001 still says 3 Mill Lane."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "edit changes it",
+        "verdict": "refuted",
+        "evidence": "edit --set address=... is refused (LOCKED_WHEN_LABELLED); edit --set delivery_address=... only adds an extra field, the address stays 3 Mill Lane."
+      },
+      {
+        "id": "A4",
+        "parent": "root",
+        "claim": "relabel changes it",
+        "verdict": "refuted",
+        "evidence": "labels.reprint takes only a service and reprints the stored address."
+      }
+    ]
+  }
+}

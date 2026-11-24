@@ -29,7 +29,7 @@ FLOOR_RATE = MARGIN
 QUALITY_FLOOR = 0.60
 CALIBRATION = (0.20, 0.60)
 ARMS = ("a", "b")
-CHECKS = ("shape", "root", "deciding", "no_false_confirm", "consistent", "ran")
+CHECKS = ("shape", "root", "evidence", "consistent", "ran")
 CODES = {"IMPROVEMENT": 0, "NO_MEANINGFUL_CHANGE": 0, "REGRESSION": 1, "INCONCLUSIVE": 2,
          "INVALID": 3}
 
@@ -95,9 +95,7 @@ def decide(rows, audit, cases):
     report.update(describe(arms, test, gate, kinds))
     a, b = arms["a"], arms["b"]
     report["critical"] = {
-        "gate_a_passed_b_failed": sorted(i for i in gate if a[i]["success"] and not b[i]["success"]),
-        "false_confirm": sorted(i for i in test + gate if a[i]["checks"]["no_false_confirm"]
-                                and not b[i]["checks"]["no_false_confirm"])}
+        "gate_a_passed_b_failed": sorted(i for i in gate if a[i]["success"] and not b[i]["success"])}
     if any(report["critical"].values()):
         return dict(report, verdict="REGRESSION", step=2, reason="critical gate")
     if len(test) < N_TEST:

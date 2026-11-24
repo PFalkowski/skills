@@ -1,6 +1,0 @@
-fetch read
-read get
-store save
-save put
-Remove del
-del delete

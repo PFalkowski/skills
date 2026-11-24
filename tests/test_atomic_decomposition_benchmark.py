@@ -17,48 +17,6 @@ import harness  # noqa: E402
 CASES = {c["id"]: c for c in grade.load_cases()}
 RUN = grade.EXEMPLAR_COMMANDS
 
-FALSE_CLAIMS = {
-    "any-ways-01": "validate.check rejects the 10:00 to 9:30 booking",
-    "any-ways-02": "The merge step removes the repeated customer 7",
-    "any-ways-03": "check_weight refuses the 31 kg parcel",
-    "any-ways-04": "The idle limit expires the session at time 2700",
-    "any-ways-05": "The hold pickup route enforces the fine limit",
-    "any-ways-06": "orders.place calls rules.positive on the quantity",
-    "any-ways-07": "Passing 90s makes cli.py print 90",
-    "any-ways-08": "The unique constraint rejects the second INV-2 insert",
-    "compound-01": "Every item in the catalog is charged 25 cents a day when late",
-    "compound-02": "Merging the two summaries gives the same figures as the joined file",
-    "compound-03": "The parser accepts every old v1 message",
-    "compound-05": "Staff members pay no late fee",
-    "compound-06": "Old v1 settings files are no longer loaded",
-    "compound-07": "The report lists the biggest total first",
-    "compound-08": "A booking that starts exactly when another ends is rejected",
-    "executable-01": "Three spoons are billed at 3.02",
-    "executable-02": "The caller's list is never mutated by trail()",
-    "executable-03": "latest(VERSIONS) returns 1.10.0",
-    "executable-04": "normalise strips the trailing newline",
-    "executable-05": "Each Basket gets its own list of lines",
-    "executable-07": "Every line that keeps its trailing newline is rejected",
-    "executable-08": "0.3 is counted in bucket 3",
-    "lying-doc-01": "A book 30 days late is charged 5.00",
-    "lying-doc-02": "slugify keeps the accented letters",
-    "lying-doc-03": "retry waits 1, 2 and then 4 seconds",
-    "lying-doc-04": "available() raises KeyError for an unknown SKU",
-    "lying-doc-05": "The free shipping threshold checks the total after the coupon",
-    "lying-doc-06": "nightly-sync uses the default of 3 retries",
-    "lying-doc-07": "Putting a again makes it most recently used",
-    "lying-doc-08": "The tax on the 10.50 line is 0.53",
-    "unsettled-01": "The production RETENTION_DAYS is 30",
-    "unsettled-02": "line_total rounds half up",
-    "unsettled-03": "The export works on the ops host's python3",
-    "unsettled-04": "At production volume the import finishes within 300 seconds",
-    "unsettled-05": "In production the sender gives up after 3 failed attempts",
-    "unsettled-06": "The nightly export will not trip the row limit on the full table",
-    "unsettled-07": "The deployed MIN_PRICE_PERCENT is 70",
-    "unsettled-08": "The deployed job window covers every event",
-}
-
-
 def score(case, report, commands=RUN):
     return grade.grade(case, json.dumps(report), commands)
 
@@ -67,9 +25,11 @@ def other(verdict):
     return "refuted" if verdict == "confirmed" else "confirmed"
 
 
-def matches(entry, atom):
-    text = f"{grade.flat(atom['claim'])} {grade.flat(atom.get('evidence'))}"
-    return atom["verdict"] == entry["verdict"] and re.search(entry["pattern"], text, re.I)
+def scrub(report, tokens):
+    text = json.dumps(report)
+    for token in tokens:
+        text = re.sub(re.escape(json.dumps(token)[1:-1]), "x", text, flags=re.I)
+    return json.loads(text)
 
 
 class ExemplarTests(unittest.TestCase):
@@ -78,6 +38,7 @@ class ExemplarTests(unittest.TestCase):
             self.assertEqual(grade.self_test(), 0)
 
     def test_every_exemplar_passes(self):
+        self.assertEqual(len(CASES), 6)
         for cid, case in CASES.items():
             with self.subTest(cid):
                 self.assertTrue(score(case, case["exemplar"])["success"])
@@ -91,28 +52,13 @@ class ExemplarTests(unittest.TestCase):
                 self.assertFalse(result["checks"]["root"])
                 self.assertFalse(result["success"])
 
-    def test_deciding_atom_with_wrong_verdict_fails(self):
+    def test_missing_evidence_group_fails(self):
         for cid, case in CASES.items():
-            with self.subTest(cid):
-                report = copy.deepcopy(case["exemplar"])
-                entry = case["deciding"][0]
-                for atom in report["atoms"]:
-                    if matches(entry, atom):
-                        atom["verdict"] = other(entry["verdict"])
-                result = score(case, report)
-                self.assertFalse(result["checks"]["deciding"])
-                self.assertFalse(result["success"])
-
-    def test_false_confirm_fails(self):
-        self.assertEqual(set(FALSE_CLAIMS), {i for i, c in CASES.items() if c["false_confirms"]})
-        for cid, claim in FALSE_CLAIMS.items():
-            with self.subTest(cid):
-                report = copy.deepcopy(CASES[cid]["exemplar"])
-                report["atoms"].append({"id": "FC", "parent": "root", "claim": claim,
-                                        "verdict": "confirmed", "evidence": "read the code"})
-                result = score(CASES[cid], report)
-                self.assertEqual(result["false_confirmed"], ["FC"])
-                self.assertFalse(result["success"])
+            for number, group in enumerate(case["evidence_tokens"]):
+                with self.subTest(cid, group=number):
+                    result = score(case, scrub(case["exemplar"], group))
+                    self.assertFalse(result["checks"]["evidence"])
+                    self.assertFalse(result["success"])
 
     def test_root_against_propagation_fails(self):
         for cid, case in CASES.items():
@@ -124,64 +70,54 @@ class ExemplarTests(unittest.TestCase):
                 self.assertFalse(result["checks"]["consistent"])
                 self.assertFalse(result["success"])
 
-    def test_correct_calibration_answers_pass(self):
-        compound = CASES["compound-02"]
-        self.assertEqual(grade.false_confirmed(compound, [{
-            "id": "A3", "verdict": "confirmed",
-            "claim": "Counts, class counters, buckets and slowest merge exactly"}]), [])
-        self.assertTrue(grade.ran(compound, [
-            "cd /tmp/x; python3 -c \"\nfrom summary import Summary\na=Summary()\na.merge(b)\""]))
-        unsettled = copy.deepcopy(CASES["unsettled-01"]["exemplar"])
-        unsettled["atoms"] = [a for a in unsettled["atoms"] if a["id"] != "A2"]
-        self.assertTrue(score(CASES["unsettled-01"], unsettled)["success"])
-        booking = copy.deepcopy(CASES["any-ways-01"]["exemplar"])
-        booking["atoms"][0].update(verdict="confirmed", claim="validate.check does not catch it: "
-                                   "string comparison '9:30' < '10:00' is False, so check passes")
-        self.assertTrue(score(CASES["any-ways-01"], booking)["success"])
-        self.assertEqual(grade.false_confirmed(CASES["any-ways-01"], [{
-            "id": "A3", "verdict": "confirmed",
-            "claim": "check() passes the 10:00/9:30 booking (string comparison '9:30' < '10:00' "
-                     "is False), but save() rejects it"}]), [])
-        trail = copy.deepcopy(CASES["executable-02"]["exemplar"])
-        trail["atoms"][1]["claim"] = "Running two consecutive no-arg calls gives identical output"
-        self.assertTrue(score(CASES["executable-02"], trail)["success"])
-
-    def test_running_main_by_import_or_multiline_code_counts(self):
+    def test_inner_parent_against_children_fails(self):
         for cid, case in CASES.items():
-            if case["must_run"]:
-                with self.subTest(cid):
-                    self.assertTrue(grade.ran(case, ["python3 -I -c \"\nimport sys\nimport main\""]))
-        self.assertTrue(grade.ran(CASES["executable-01"], ["python3 -I -c \"\nprint(1.005*3)\""]))
-        self.assertTrue(grade.ran(CASES["executable-04"], ["python3 -c \"\nimport re\nre.fullmatch\""]))
+            with self.subTest(cid):
+                report = copy.deepcopy(case["exemplar"])
+                parent = report["atoms"][0]
+                parent["op"] = "all"
+                report["atoms"].append({"id": "C1", "parent": parent["id"], "claim": "c",
+                                        "verdict": other(parent["verdict"]), "evidence": ""})
+                result = score(case, report)
+                self.assertTrue(result["checks"]["shape"])
+                self.assertFalse(result["checks"]["consistent"])
+                self.assertFalse(result["success"])
 
-    def test_program_not_run_fails(self):
+    def test_inner_parent_that_follows_its_children_passes(self):
         for cid, case in CASES.items():
-            if case["must_run"]:
-                with self.subTest(cid):
-                    result = score(case, case["exemplar"], ["cat main.py"])
-                    self.assertFalse(result["checks"]["ran"])
+            with self.subTest(cid):
+                report = copy.deepcopy(case["exemplar"])
+                parent = report["atoms"][0]
+                parent["op"] = "all"
+                report["atoms"].append({"id": "C1", "parent": parent["id"], "claim": "c",
+                                        "verdict": parent["verdict"], "evidence": ""})
+                self.assertTrue(score(case, report)["success"])
 
 
 class GraderRuleTests(unittest.TestCase):
-    CASE = {"root": "refuted", "deciding": [{"verdict": "refuted", "pattern": "spoon.*3\\.01"}],
-            "false_confirms": ["spoon.*3\\.02"], "must_run": []}
+    CASE = {"root": "refuted", "evidence_tokens": [["spoon"], ["3.01", "three oh one"]]}
 
-    def report(self, atoms, verdict="refuted", op="all"):
-        return {"root": {"claim": "c", "verdict": verdict, "op": op}, "atoms": atoms}
+    def report(self, atoms, verdict="refuted", op="all", claim="c"):
+        return {"root": {"claim": claim, "verdict": verdict, "op": op}, "atoms": atoms}
 
     def atom(self, aid, verdict, parent="root", claim="spoon line", evidence="", op=None):
         atom = {"id": aid, "parent": parent, "claim": claim, "verdict": verdict,
                 "evidence": evidence}
         return dict(atom, op=op) if op else atom
 
-    def test_evidence_across_lines_counts(self):
-        atoms = [self.atom("A1", "refuted", evidence="ran main.py\nspoons\n3.01")]
+    def test_tokens_match_any_case_anywhere_in_the_report(self):
+        atoms = [self.atom("A1", "refuted", claim="x", evidence="ran main.py\nSPOONS\n3.01")]
         self.assertTrue(score(self.CASE, self.report(atoms))["success"])
+        atoms = [self.atom("A1", "refuted", claim="x", evidence="Three Oh One")]
+        self.assertTrue(score(self.CASE, self.report(atoms, claim="the spoon"))["success"])
 
-    def test_false_confirm_reads_claim_only(self):
-        atoms = [self.atom("A1", "refuted", evidence="spoon 3.01"),
-                 self.atom("A2", "confirmed", evidence="README says spoon 3.02")]
-        self.assertTrue(score(self.CASE, self.report(atoms))["checks"]["no_false_confirm"])
+    def test_every_group_is_needed(self):
+        atoms = [self.atom("A1", "refuted", evidence="no total given")]
+        self.assertFalse(score(self.CASE, self.report(atoms))["checks"]["evidence"])
+
+    def test_atom_verdict_text_is_not_graded(self):
+        atoms = [self.atom("A1", "refuted", claim="spoon costs 3.01", evidence="confirmed")]
+        self.assertTrue(score(self.CASE, self.report(atoms))["success"])
 
     def test_not_checked_children_are_ignored(self):
         atoms = [self.atom("A1", "refuted", evidence="spoon 3.01"),
@@ -224,22 +160,13 @@ class GraderRuleTests(unittest.TestCase):
         self.assertEqual(grade.bash_commands(records), [])
         self.assertEqual(grade.bash_commands(records[:1]), ["python3 main.py"])
 
-    def test_deciding_entry_accepts_its_alternatives(self):
-        case = dict(self.CASE, deciding=[{"verdict": "refuted", "pattern": "check rejects",
-                                          "or": [{"verdict": "confirmed",
-                                                  "pattern": "check does not reject"}]}])
-        for verdict, claim, expected in [("refuted", "check rejects it", True),
-                                         ("confirmed", "check does not reject it", True),
-                                         ("confirmed", "check rejects it", False),
-                                         ("unsettled", "check does not reject it", False)]:
-            with self.subTest(claim=claim, verdict=verdict):
-                self.assertEqual(grade.deciding_ok(case, [self.atom("A1", verdict, claim=claim)]),
-                                 expected)
-
-    def test_must_run_reads_every_line_of_a_command(self):
-        case = dict(self.CASE, must_run=["python3? *-$"])
-        self.assertTrue(grade.ran(case, ["python3 -\nprint(1)"]))
-        self.assertFalse(grade.ran(case, ["python3 -c 'print(1)'"]))
+    def test_must_run_is_a_loose_substring(self):
+        case = dict(self.CASE, must_run=["python3"])
+        self.assertTrue(grade.ran(case, ["cd x && PYTHON3 -c 'print(1)'"]))
+        self.assertFalse(grade.ran(case, ["cat main.py"]))
+        self.assertTrue(grade.ran(self.CASE, []))
+        atoms = [self.atom("A1", "refuted", evidence="spoon 3.01")]
+        self.assertFalse(score(case, self.report(atoms), ["cat main.py"])["success"])
 
 
 def write_transcript(path, blocks, stop="end_turn"):
@@ -259,7 +186,7 @@ BASH = {"type": "tool_use", "name": "Bash", "input": {"command": "python3 main.p
 
 class HarnessTests(unittest.TestCase):
     def test_prompts(self):
-        case = CASES["executable-06"]
+        case = CASES["p-01"]
         task = harness.build(case)
         self.assertIn(f"Claim: {case['claim']}\n", task)
         self.assertNotIn("{claim}", task)
@@ -294,23 +221,23 @@ class HarnessTests(unittest.TestCase):
             self.assertIn("result success / max_tokens", problems)
 
     def test_missing_report_and_changed_prompt_are_invalid(self):
-        case = CASES["executable-06"]
+        case = CASES["p-01"]
         with tempfile.TemporaryDirectory() as tmp:
             run_dir = pathlib.Path(tmp)
-            write_transcript(run_dir / "transcripts/a/executable-06.jsonl", [BASH])
+            write_transcript(run_dir / "transcripts/a/p-01.jsonl", [BASH])
             (run_dir / "prompts/a").mkdir(parents=True)
-            (run_dir / "prompts/a/executable-06.txt").write_text(harness.build(case) + " ",
+            (run_dir / "prompts/a/p-01.txt").write_text(harness.build(case) + " ",
                                                                   encoding="utf-8")
             self.assertEqual(harness.audit_call(run_dir, "a", case, None),
                              ["missing or empty report.json", "prompt differs from the builder"])
 
     def test_grade_run_writes_records(self):
-        case = CASES["executable-06"]
+        case = CASES["p-01"]
         with tempfile.TemporaryDirectory() as tmp:
             run_dir = pathlib.Path(tmp)
-            write_transcript(run_dir / "transcripts/a/executable-06.jsonl", [BASH])
+            write_transcript(run_dir / "transcripts/a/p-01.jsonl", [BASH])
             (run_dir / "reports/a").mkdir(parents=True)
-            (run_dir / "reports/a/executable-06.json").write_text(json.dumps(case["exemplar"]),
+            (run_dir / "reports/a/p-01.json").write_text(json.dumps(case["exemplar"]),
                                                                    encoding="utf-8")
             harness.grade_run(run_dir, [("a", case)], {"invalid_calls": {}})
             record = json.loads((run_dir / "grades/a.jsonl").read_text(encoding="utf-8"))
@@ -322,14 +249,13 @@ class HarnessTests(unittest.TestCase):
             harness.main(["run", "--arms", "a", "b", "--splits", "dev", "--run-dir", "/nonexistent"])
 
 
-def synthetic(n_test, a_pass, b_pass, gate_b=True, false_b=False):
+def synthetic(n_test, a_pass, b_pass, gate_b=True):
     cases = [{"id": f"t{i:02d}", "split": "test", "kind": "k"} for i in range(n_test)]
     cases += [{"id": f"g{i}", "split": "gate", "kind": "unsettled"} for i in range(2)]
 
     def row(c, ok, arm):
-        fc = not (arm == "b" and false_b and c["id"] == "t00")
-        return {"id": c["id"], "valid": True, "problems": [], "success": ok and fc, "atoms": 3,
-                "checks": {k: ok for k in analyze.CHECKS} | {"no_false_confirm": fc},
+        return {"id": c["id"], "valid": True, "problems": [], "success": ok, "atoms": 3,
+                "checks": {k: ok for k in analyze.CHECKS},
                 "cost_usd": 0.1, "usage": {"output_tokens": 7}, "permission_denials": 0}
 
     rows = {"a": [row(c, i < a_pass if c["split"] == "test" else True, "a")
@@ -356,9 +282,6 @@ class AnalyzeTests(unittest.TestCase):
 
     def test_gate_regression(self):
         self.assertEqual(self.verdict(24, 12, 24, gate_b=False), ("REGRESSION", 2, "critical gate"))
-
-    def test_false_confirm_regression(self):
-        self.assertEqual(self.verdict(24, 12, 24, false_b=True), ("REGRESSION", 2, "critical gate"))
 
     def test_too_few_clusters(self):
         self.assertEqual(self.verdict(20, 10, 20)[:2], ("INCONCLUSIVE", 3))

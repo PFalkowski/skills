@@ -1,1 +1,0 @@
-0 2 * * * RETENTION_DAYS=$(cat /etc/job/retention) python3 /opt/cleanup/cleanup.py /var/lib/cleanup/store.json $(date +%F)

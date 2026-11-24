@@ -1,5 +1,73 @@
 # Frozen plan: atomic-decomposition against no skill, on the real task
 
+## Redesign v2
+
+### Why v1 failed
+
+The v1 fixtures were too easy. They had 3 to 8 files each, and the no-skill baseline
+passed 10 of 10 dev fixtures by reading the relevant file and running the obvious
+command, so the suite could not tell the arms apart.
+
+The v1 answer keys graded wording. They used regular expressions on atom text, both to
+find a deciding atom and to catch false confirmations, and they marked correct answers
+wrong when an agent phrased a finding in words the pattern did not expect.
+
+### What changed
+
+Every v1 fixture is gone. A v2 fixture is a repository of 12 to 20 files and 500 to
+900 lines, Python standard library only, deterministic, with its own README and a test
+suite that passes. Each one is built so that the obvious check (run the tests, try the
+README example, read the salient file) gives a wrong or incomplete answer. Four kinds:
+
+| Kind | Root | How the obvious check misleads |
+|---|---|---|
+| `universal` | refuted | A claim over every member of a set; the one member that fails is reached only through a registry, dynamic dispatch, config or an edge input the README and tests never use. |
+| `any-ways` | confirmed or refuted | The obvious way fails but another works, or several plausible ways each fail for a different reason, one of them looking like success. |
+| `unsettled` | unsettled | The deciding fact lives outside the sandbox, while the in-repo default makes one answer look right. |
+| `looks-false` | confirmed | A scary code path or a document suggests the claim is false, but the path is guarded elsewhere. |
+
+### Fixture format
+
+`fixtures/<id>/repo/` is what the agent sees. `fixtures/<id>/case.json` is never shown
+to it and holds:
+
+- `id`, `kind`, `split` (`dev`, `test` or `gate`);
+- `claim`: one or two plain sentences, as a colleague would say them;
+- `root`: the correct verdict for the claim as asked (`confirmed`, `refuted` or `unsettled`);
+- `why`: why that verdict is right, what the obvious check shows, and why it misleads;
+- `evidence_tokens`: 1 to 3 groups, each a list of lowercase literal strings (not
+  regular expressions) that any correct investigation must mention;
+- `must_run` (optional): lowercase literal substrings of a shell command, used only
+  when the truth must be executed rather than read;
+- `exemplar`: a complete correct report.
+
+### Grade rule v2
+
+A run succeeds only if all of these hold:
+
+1. `report.json` parses and has the required shape.
+2. `root.verdict` equals the key's `root`.
+3. Every `evidence_tokens` group is found: at least one of its strings is a substring of
+   the lowercased text of the report (the root claim plus every atom claim and evidence).
+4. Recomputing every parent bottom up by the propagation rule gives the reported verdict
+   at every atom with children and at the root. An all-parent is refuted if any child is
+   refuted, confirmed if every child is confirmed, else unsettled; an any-parent is
+   confirmed if any child is confirmed, refuted if every child is refuted, else
+   unsettled; `not_checked` children are ignored.
+5. `must_run`, when given, matches some shell command the agent ran.
+
+Nothing else is graded: no pattern on wording, and no check of an atom verdict against
+its text. `grade.py --self-test` checks every key and that every exemplar passes.
+
+### Pilot fixtures
+
+Six pilot fixtures, `p-01` to `p-06`, are in the `dev` split: two `universal`, two
+`any-ways` (one confirmed, one refuted), one `unsettled` and one `looks-false`. They are
+development cases for checking difficulty. Only the baseline arm (A) may run on them;
+arm B never does.
+
+The sections below are the v1 plan, superseded by this section and due for a rewrite.
+
 This plan follows [METHOD.md](../../benchmark-skill/METHOD.md). Its author built the
 harness, grader and analysis without reading the skill under test, the skills it names,
 or their history. Every setting below is frozen in one commit before arm B runs on

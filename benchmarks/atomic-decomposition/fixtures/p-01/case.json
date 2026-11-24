@@ -1,0 +1,54 @@
+{
+  "id": "p-01",
+  "kind": "universal",
+  "split": "dev",
+  "claim": "No channel ever sends a body longer than the max_length set for that channel in channels.json. Long text is always cut to fit.",
+  "root": "refuted",
+  "why": "The pager channel overrides send: it cuts the text to max_length and then puts the 9-character URGENT_TAG in front, so a long critical alert reaches the pager as 89 characters against a max_length of 80. The README examples, the tests and Channel.send in base.py all show text cut to fit, and chat, email and sms really do stay within their limits. The pager is reached only through the registry and the critical route, and its own test sends a short text, so running the obvious examples never shows an over-long body.",
+  "evidence_tokens": [
+    [
+      "pager"
+    ],
+    [
+      "urgent",
+      "89"
+    ]
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "Every channel (chat, email, sms, pager) sends bodies no longer than its max_length",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "chat bodies stay within 400",
+        "verdict": "confirmed",
+        "evidence": "ChatChannel uses Channel.send, which applies fit() after decorate(); a 2000-character alert gives a 400-character body."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "email bodies stay within 1200",
+        "verdict": "confirmed",
+        "evidence": "EmailChannel adds the signature in decorate(), then fit() cuts the whole body."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "sms bodies stay within 140",
+        "verdict": "confirmed",
+        "evidence": "python3 main.py send --severity critical with 200 x's prints an sms body of 140 characters."
+      },
+      {
+        "id": "A4",
+        "parent": "root",
+        "claim": "pager bodies stay within 80",
+        "verdict": "refuted",
+        "evidence": "PagerChannel.send cuts to 80 and then prepends URGENT_TAG '[URGENT] '; the same critical alert prints three pager bodies of 89 characters."
+      }
+    ]
+  }
+}
