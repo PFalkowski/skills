@@ -1,9 +1,13 @@
-from runner import run_job
+from runner import run
+
+calls = []
 
 
-def always_down():
-    raise ConnectionError("down")
+def never(attempt):
+    calls.append(attempt)
+    return False
 
 
-for name in ("nightly-sync", "hourly-ping"):
-    print(name, run_job(name, always_down))
+print(run(never))
+print(calls)
+print(run(lambda a: a == 2))

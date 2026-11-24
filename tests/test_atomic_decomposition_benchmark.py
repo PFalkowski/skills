@@ -124,6 +124,36 @@ class ExemplarTests(unittest.TestCase):
                 self.assertFalse(result["checks"]["consistent"])
                 self.assertFalse(result["success"])
 
+    def test_correct_calibration_answers_pass(self):
+        compound = CASES["compound-02"]
+        self.assertEqual(grade.false_confirmed(compound, [{
+            "id": "A3", "verdict": "confirmed",
+            "claim": "Counts, class counters, buckets and slowest merge exactly"}]), [])
+        self.assertTrue(grade.ran(compound, [
+            "cd /tmp/x; python3 -c \"\nfrom summary import Summary\na=Summary()\na.merge(b)\""]))
+        unsettled = copy.deepcopy(CASES["unsettled-01"]["exemplar"])
+        unsettled["atoms"] = [a for a in unsettled["atoms"] if a["id"] != "A2"]
+        self.assertTrue(score(CASES["unsettled-01"], unsettled)["success"])
+        booking = copy.deepcopy(CASES["any-ways-01"]["exemplar"])
+        booking["atoms"][0].update(verdict="confirmed", claim="validate.check does not catch it: "
+                                   "string comparison '9:30' < '10:00' is False, so check passes")
+        self.assertTrue(score(CASES["any-ways-01"], booking)["success"])
+        self.assertEqual(grade.false_confirmed(CASES["any-ways-01"], [{
+            "id": "A3", "verdict": "confirmed",
+            "claim": "check() passes the 10:00/9:30 booking (string comparison '9:30' < '10:00' "
+                     "is False), but save() rejects it"}]), [])
+        trail = copy.deepcopy(CASES["executable-02"]["exemplar"])
+        trail["atoms"][1]["claim"] = "Running two consecutive no-arg calls gives identical output"
+        self.assertTrue(score(CASES["executable-02"], trail)["success"])
+
+    def test_running_main_by_import_or_multiline_code_counts(self):
+        for cid, case in CASES.items():
+            if case["must_run"]:
+                with self.subTest(cid):
+                    self.assertTrue(grade.ran(case, ["python3 -I -c \"\nimport sys\nimport main\""]))
+        self.assertTrue(grade.ran(CASES["executable-01"], ["python3 -I -c \"\nprint(1.005*3)\""]))
+        self.assertTrue(grade.ran(CASES["executable-04"], ["python3 -c \"\nimport re\nre.fullmatch\""]))
+
     def test_program_not_run_fails(self):
         for cid, case in CASES.items():
             if case["must_run"]:
@@ -193,6 +223,18 @@ class GraderRuleTests(unittest.TestCase):
                    {"type": "system", "subtype": "permission_denied", "tool_use_id": "t1"}]
         self.assertEqual(grade.bash_commands(records), [])
         self.assertEqual(grade.bash_commands(records[:1]), ["python3 main.py"])
+
+    def test_deciding_entry_accepts_its_alternatives(self):
+        case = dict(self.CASE, deciding=[{"verdict": "refuted", "pattern": "check rejects",
+                                          "or": [{"verdict": "confirmed",
+                                                  "pattern": "check does not reject"}]}])
+        for verdict, claim, expected in [("refuted", "check rejects it", True),
+                                         ("confirmed", "check does not reject it", True),
+                                         ("confirmed", "check rejects it", False),
+                                         ("unsettled", "check does not reject it", False)]:
+            with self.subTest(claim=claim, verdict=verdict):
+                self.assertEqual(grade.deciding_ok(case, [self.atom("A1", verdict, claim=claim)]),
+                                 expected)
 
     def test_must_run_reads_every_line_of_a_command(self):
         case = dict(self.CASE, must_run=["python3? *-$"])

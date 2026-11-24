@@ -2,28 +2,29 @@
   "id": "any-ways-02",
   "kind": "any-ways",
   "split": "dev",
-  "claim": "Running the nightly export on the data in load.py writes no duplicate customer line, because either the merge step or the dedupe in write() removes the repeated customer.",
+  "claim": "The nightly export never writes the same order id twice, even when the feed repeats one. Either the dedupe step or the writer's seen-check catches it.",
   "root": "refuted",
-  "why": "Customer 7 is in both the main and the late list. The main loader turns the id into an integer and the late loader leaves it as text, so 7 and \"7\" are different keys in both the merge dictionary and the seen set. Both safeguards look right on a read, and running the export prints customer 7 twice.",
+  "why": "With the checked-in feed, main.py sorts by timestamp, so the two rows for order 7 end up with order 9 between them. The dedupe step only compares a row with the one just before it, so it keeps both. The writer's seen set is cleared after every batch of two, and the two copies fall into different batches, so it writes both and the output is [7, 9, 7].",
   "deciding": [
     {
       "verdict": "refuted",
-      "pattern": "merge\\w*|by_id|dict",
-      "note": "merge keys differ by type, 7 versus \"7\""
+      "pattern": "(?is)(?=.*(dedupe|drop_repeats))(?=.*(\\bsort\\w*|timestamp|\\bts\\b|non-adjacent|\\bbetween\\b|\\bprevious\\b|\\badjacent\\b|consecutive|just before|last kept|neighbou?r))",
+      "note": "adjacent-only dedupe misses the repeat"
     },
     {
       "verdict": "refuted",
-      "pattern": "dedupe|seen|write\\(",
-      "note": "seen set also treats 7 and \"7\" as different"
+      "pattern": "(?is)(?=.*(writer|seen|batch|commit))(?=.*(\\bresets?\\b|\\bclear(s|ed)?\\b|per.batch|across|different batch|each batch|every batch|after every|after each))",
+      "note": "seen set is cleared per batch"
     }
   ],
   "false_confirms": [
-    "^\\W*(the )?(merge\\w*|dedupe\\w*|write\\w*|seen[- ]set\\w*)\\b[^.]*\\b(remov|dedup|drop|collaps|unique|no duplicate)\\w*\\b[^.]*(customer 7|\\b7\\b|repeated|duplicate customer|second)"
+    "(?is)^(?!.*\\b(not|n't|fails?|misses?|only|cannot|resets?|clears?|adjacent|consecutive|neighbou?r\\w*|same batch|within|previous|last|just before|current batch|per batch|each batch|every batch|between)\\b).*\\b(dedupe(\\.drop_repeats)?|drop_repeats|writer|seen)\\b[^.;]{0,60}\\b(drops?|catch(es)?|removes?|prevents?|skips?)\\b",
+    "(?is)^(?!.*\\b(not|n't|fails?|misses?)\\b).*\\bnever (writes?|emits?|outputs?)\\b.*\\btwice\\b"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "The export writes no duplicate line, through merge or through dedupe",
+      "claim": "The export never writes the same order id twice when the feed repeats one",
       "verdict": "refuted",
       "op": "any"
     },
@@ -31,16 +32,16 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "merged() collapses the repeated customer 7",
+        "claim": "dedupe.drop_repeats removes the repeated order",
         "verdict": "refuted",
-        "evidence": "main_rows gives id int 7, late_rows gives id str \"7\"; the by_id dict holds both keys. Running python3 export.py lists 7,Ann twice."
+        "evidence": "It only compares a row with the previous kept row. main.py sorts by ts, which gives ids 7, 9, 7, so the repeats are not adjacent and both stay."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "the seen-set dedupe in write() drops the second customer 7",
+        "claim": "The writer's seen set catches the repeated order",
         "verdict": "refuted",
-        "evidence": "seen holds int 7 and the second row has str \"7\", which is not in the set, so both lines are written; output confirms 7,Ann twice."
+        "evidence": "commit() clears the seen set after every batch of 2. The rows 7, 9 and 7 split into batches [7, 9] and [7], so the second 7 is written. main.py prints [7, 9, 7]."
       }
     ]
   }

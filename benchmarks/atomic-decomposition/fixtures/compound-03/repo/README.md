@@ -1,4 +1,5 @@
-# orders
+# kvserver
 
-Version 2 messages use `sku`, `quantity` and `unit`. Version 2 accepts every
-version 1 message. `samples_v1.py` holds messages that old clients send.
+Line protocol for a small key-value store. The command set is `put`, `get` and `delete`.
+`legacy.txt` maps the earlier command names to current ones.
+`captured.txt` holds requests recorded from clients before the command set was renamed.

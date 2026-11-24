@@ -1,6 +1,4 @@
-from session import Session
-from sweep import purge
+import booking
 
-s = Session(0)
-print(len(purge([s], 2700)))
-print(len(purge([s], 8 * 3600 + 1)))
+print(booking.book("2024-03-30", "2024-04-02"))
+print(booking.book("2024-05-01", "2024-05-04"))

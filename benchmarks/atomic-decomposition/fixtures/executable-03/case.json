@@ -2,31 +2,28 @@
   "id": "executable-03",
   "kind": "executable",
   "split": "test",
-  "claim": "latest() in releases.py picks 1.10.0 as the newest version in data.py, since its key compares the version numbers part by part as numbers.",
+  "claim": "A voucher code with a trailing newline, such as 'QRS-5678' followed by a newline, is rejected as invalid and cannot be redeemed.",
   "root": "refuted",
-  "why": "numeric_key converts only the major part to an int; the remaining parts stay text. So the minor parts compare as strings, and '9' sorts after '10', so 1.9.2 beats 1.10.0. Running main.py prints 1.9.2, though the key's name suggests numeric comparison.",
+  "why": "The pattern ends in $ and is applied with match, and in Python $ also matches just before a final newline, so the code with the trailing newline passes is_valid and redeems with ok. The README says anything extra is rejected, which is the lie a reader is tempted to repeat. The documentation of re states the $ rule, but this kind of case is settled by running main.py, so the run is required.",
   "deciding": [
     {
       "verdict": "refuted",
-      "pattern": "1\\.9\\.2|(latest|newest).{0,40}1\\.10\\.0",
-      "note": "latest() yields 1.9.2, not 1.10.0"
-    },
-    {
-      "verdict": "refuted",
-      "pattern": "compar\\w*.{0,60}(part|component|segment|number|numer|int|string)|numeric_key|only the (major|first)|minor",
-      "note": "only the major part is numeric; the rest compare as strings"
+      "pattern": "(?s)(newline|\\\\n|trailing).*(accept|valid|\\bok\\b|redeem|reject)",
+      "note": "the trailing newline code is accepted and redeemed"
     }
   ],
   "false_confirms": [
-    "^(?!.*\\b(not|never|n't|1\\.9\\.2)\\b)(latest|newest).{0,40}(returns?|picks?|is|selects?|chooses?|gives?|yields?)\\s+(version\\s+)?1\\.10\\.0",
-    "^(?!.*\\b(not|never|n't|strings?|text)\\b).*(compar\\w*.{0,40}(parts?|components?|segments?).{0,30}(as )?(numbers|integers|ints|numerically|numeric)|(parts?|components?|segments?).{0,20}(are )?compared (as )?(numbers|integers|numerically))"
+    "(?is)^(?!.*\\b(not|never|accepts?|accepted|passes|ok|actually|redeems|redeemed|says|claims|readme|but)\\b).*(newline|\\\\n|trailing).*(reject|invalid)",
+    "(?is)(newline|\\\\n|trailing).*\\b(returns?|gives?)\\s*false",
+    "(?is)\\breturns?\\s*false\\b.*(newline|\\\\n|trailing)",
+    "(?is)^(?!.*\\b(actually|but|says|claims|readme)\\b).*(newline|\\\\n|trailing).*(cannot|can't|can not|not|never) be redeemed"
   ],
   "must_run": [
-    "python3\\b.*main\\.py"
+    "python3?\\b"
   ],
   "exemplar": {
     "root": {
-      "claim": "latest() returns 1.10.0",
+      "claim": "A voucher code with a trailing newline, such as 'QRS-5678' followed by a newline, is rejected as invalid and cannot be redeemed.",
       "verdict": "refuted",
       "op": "all"
     },
@@ -34,16 +31,16 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "latest(VERSIONS) returns 1.10.0",
+        "claim": "A code with a trailing newline is rejected as invalid",
         "verdict": "refuted",
-        "evidence": "Ran python3 main.py: it prints 1.9.2."
+        "evidence": "Ran main.py: 'QRS-5678\\n' prints ok. The $ in the pattern matches before a final newline."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "numeric_key compares all the parts as numbers",
+        "claim": "A code with a trailing newline cannot be redeemed",
         "verdict": "refuted",
-        "evidence": "It applies int() to the major part only; the rest stay strings, so '9' > '10'."
+        "evidence": "redeem returns ok for it and adds it to used as a separate entry."
       }
     ]
   }

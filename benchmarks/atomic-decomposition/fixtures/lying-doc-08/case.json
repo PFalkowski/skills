@@ -2,41 +2,46 @@
   "id": "lying-doc-08",
   "kind": "lying-doc",
   "split": "test",
-  "claim": "On an invoice line of 10.50 at a 5 percent rate, the tax charged is 0.53.",
-  "root": "refuted",
-  "why": "The code uses Python round on 52.5 cents, which rounds halves to the nearest even number and gives 52, so the tax is 0.52. The README promises halves rounded up, which would give 53. The trap is trusting the README and not knowing how round treats halves.",
+  "claim": "Slugifying the title 'Crème Brûlée' gives 'cr-me-br-l-e', and 'Tom & Jerry' gives 'tom-jerry'.",
+  "root": "confirmed",
+  "why": "The regex replaces every run of characters outside a-z and 0-9 with one hyphen, so each accented letter becomes a hyphen and does not vanish. The README says such characters are dropped, which would give 'crme-brle'. Both examples in the claim match what the code prints.",
   "deciding": [
     {
-      "verdict": "refuted",
-      "pattern": "\\bround\\b.{0,80}(half.{0,15}even|even|banker|\\b52\\b(?!\\.5))|\\b52\\b(?!\\.5).{0,40}(not|rather than|instead of).{0,10}53|0\\.52|\\b53\\b.{0,20}(up|half)",
-      "note": "round gives 52 cents"
+      "verdict": "confirmed",
+      "pattern": "(?i)cr-me-br-l-e",
+      "note": "accents become hyphens"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "(?i)\\btom-jerry\\b",
+      "note": "tom-jerry"
     }
   ],
   "false_confirms": [
-    "^(?!.*(readme|docs?\\b|says|promis|claims|\\bnot\\b|rather|instead)).*(tax|round|tax_cents).{0,60}\\b(0\\.53|53)\\b(?!\\.)",
-    "^(?!.*(readme|docs?\\b|says|promis|claims|\\bnot\\b|rather|instead)).*52\\.5.{0,30}(up to|becomes|gives|returns|to) 53"
+    "(?is)\\A(?!.*(\\bnot\\b|n't|\\bnever\\b|\\bbut\\b|\\binstead\\b|\\bdocs?\\b|\\breadme\\b|\\bsays?\\b|\\bclaims?\\b|\\bstates?\\b)).*(returns?|gives?|produces?|yields?|outputs?|prints?|is|=).{0,30}crme-?brle",
+    "(?is)\\A(?!.*(\\bnot\\b|n't|\\bnever\\b|\\bbut\\b|\\binstead\\b|\\bdocs?\\b|\\breadme\\b|\\bsays?\\b|\\bclaims?\\b|\\bstates?\\b|replac|hyphen)).*(drop|remov|delet|strip).{0,40}(non-?ascii|accent)"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "A 10.50 line at 5 percent is charged 0.53 tax.",
-      "verdict": "refuted",
+      "claim": "Slugifying 'Crème Brûlée' gives 'cr-me-br-l-e' and 'Tom & Jerry' gives 'tom-jerry'.",
+      "verdict": "confirmed",
       "op": "all"
     },
     "atoms": [
       {
         "id": "A1",
         "parent": "root",
-        "claim": "The unrounded tax on 1050 cents at 500 basis points is 52.5 cents",
+        "claim": "slugify('Crème Brûlée') returns 'cr-me-br-l-e'.",
         "verdict": "confirmed",
-        "evidence": "1050 * 500 / 10000 = 52.5."
+        "evidence": "slug.py replaces each run of non a-z0-9 characters with a hyphen, so è, û and é each become a hyphen; main.py prints 'cr-me-br-l-e'. The README's 'drops' is wrong."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "The code rounds 52.5 up to 53",
-        "verdict": "refuted",
-        "evidence": "tax.py uses round(), which rounds halves to even, so the result is 52; running tax_cents(1050, 500) prints 52 and main.py shows tax 82 for the sample."
+        "claim": "slugify('Tom & Jerry') returns 'tom-jerry'.",
+        "verdict": "confirmed",
+        "evidence": "The run ' & ' is one non-alphanumeric run and becomes a single hyphen; main.py prints 'tom-jerry'."
       }
     ]
   }

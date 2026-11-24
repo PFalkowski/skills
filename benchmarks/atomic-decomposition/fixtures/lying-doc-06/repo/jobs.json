@@ -1,1 +1,0 @@
-{"default_retries": 3, "jobs": {"nightly-sync": {"retries": 2}, "hourly-ping": {}}}

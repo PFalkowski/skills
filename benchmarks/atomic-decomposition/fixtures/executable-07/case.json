@@ -2,26 +2,25 @@
   "id": "executable-07",
   "kind": "executable",
   "split": "test",
-  "claim": "intake.accept drops every line that still carries its trailing newline, so lines split with keepends are never accepted.",
+  "claim": "Each profile is signed up for one channel chosen from its owner's name, on top of email. So bob's profile, created after alice's, ends up with exactly two channels: email and the one his name maps to.",
   "root": "refuted",
-  "why": "The pattern ends with $, which in Python also matches just before a final newline. So 'AB123\\n' is a valid code and is accepted, and the claim is false. Reading the pattern, it looks like a strict full-string match, so the case is meant to reward running main.py and seeing AB123 with its newline kept in the output rather than recalling the rule.",
+  "why": "Profile copies DEFAULTS one level deep, so every profile shares one channels list, and += in enable extends that list in place. Which channel a name maps to comes from a SHA-256 digest, so only a run shows it: alice maps to push and bob to sms. Bob therefore ends with email, push and sms, three channels, not two.",
   "deciding": [
     {
       "verdict": "refuted",
-      "pattern": "(newline|\\\\n|trailing).*(accept|valid|match|kept|pass)|(accept|valid|match).*(newline|\\\\n|trailing)",
-      "note": "is_valid accepts AB123 plus newline"
+      "pattern": "bob.*(push|three|3|alice|shared|share|exactly two|only)|(push|three|alice).*bob",
+      "note": "bob also has push from alice, so not exactly two channels"
     }
   ],
   "false_confirms": [
-    "(AB123|valid code|five|3 digits|three digits).*(reject|drop|fail|not match).*(newline|\\\\n|trailing)|(every|all|any) line.*(newline|\\\\n|trailing).*(reject|drop|fail|never)|(reject|drop|fail)\\w* (every|all|any) line.*(newline|\\\\n|trailing)",
-    "\\$ (?!.*(before|preceding).*newline).*(strict|only|exact|end of (the )?string)"
+    "^(?!.*(not|never|n't|shared|share|same|mutat|leak|push|three|alice)).*\\bbob\\b.*\\b(exactly two|two channels|email and sms)\\b"
   ],
   "must_run": [
-    "python3? .*\\.py|python3? -c|python3? *<<|python3? *-$"
+    "python3?\\s.*(main\\.py|\\s-c\\s|<<)"
   ],
   "exemplar": {
     "root": {
-      "claim": "intake.accept drops every line that still carries its trailing newline, so lines split with keepends are never accepted.",
+      "claim": "Bob's profile has exactly two channels: email and the one his name maps to.",
       "verdict": "refuted",
       "op": "all"
     },
@@ -29,16 +28,16 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "A code followed by a newline fails is_valid",
+        "claim": "Bob's profile has exactly two channels, email and sms",
         "verdict": "refuted",
-        "evidence": "Running main.py prints ['AB123\\n', 'EF678']: the line 'AB123\\n' was accepted because $ matches before a final newline."
+        "evidence": "Ran python3 main.py: it prints \"bob light ['email', 'push', 'sms']\". The channels list is shared across profiles, so alice's push is in bob's list."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "Short code 'CD45\\n' is rejected",
+        "claim": "Bob's name maps to sms",
         "verdict": "confirmed",
-        "evidence": "It is absent from the output, but only because it has two digits, not because of the newline."
+        "evidence": "Ran python3 -c with the SHA-256 digest of bob modulo 3: index 1, which is sms."
       }
     ]
   }

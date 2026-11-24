@@ -1,4 +1,4 @@
-# Cart quotes
+# Till
 
-Shipping is a flat 6.95. It is free when the order total after coupons reaches 50.00.
-Amounts are in cents. Run `python3 main.py` to print a sample quote.
+Prices are held in whole cents. A dollar amount typed by the clerk is
+converted by rounding half up to the nearest cent.

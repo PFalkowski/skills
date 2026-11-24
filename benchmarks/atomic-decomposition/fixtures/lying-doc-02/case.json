@@ -2,24 +2,35 @@
   "id": "lying-doc-02",
   "kind": "lying-doc",
   "split": "dev",
-  "claim": "Slugifying the title 'Café Münster 2024' gives 'caf-m-nster-2024': the accented letters are dropped, not kept.",
+  "claim": "A job that always raises ValueError is run 3 times in total, with pauses of 1 and 2 seconds between the runs. A job that raises KeyError is run once.",
   "root": "confirmed",
-  "why": "The README says slugify keeps letters and digits, which suggests accented letters survive. The code lowercases the title and keeps only characters found in string.ascii_lowercase plus string.digits, so the precomposed (NFC) letters e-acute and u-umlaut become separators and the result is 'caf-m-nster-2024' (a decomposed NFD title would give a different string; the claim uses the NFC form). The trap is trusting the word letters in the README and the helper's name over the ASCII-only set it checks.",
+  "why": "The README says up to 3 retries with pauses 1, 2 and 4, but the loop makes 3 attempts in total and sleeps only between attempts, so the pauses are 1 and 2. Only ValueError is caught, so a KeyError escapes on the first run. The trap is a reader who trusts the README (4 runs, 3 pauses) and rejects a claim that the code supports.",
   "deciding": [
     {
       "verdict": "confirmed",
-      "pattern": "(outside|not in|excluded?|only).{0,40}(a-z|ascii)|caf-m-nster|accent\\w* (letters? )?(are )?(dropped|removed|replaced|lost|not kept)",
-      "note": "the regex class excludes accented letters"
+      "pattern": "\\b3\\b.{0,40}(times|calls|attempts|runs|tries)|three (times|calls|attempts|runs|tries)|(attempts|tries).{0,20}\\b3\\b",
+      "note": "3 runs in total"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "(pauses?|sleeps?|delays?|waits?).{0,30}\\b1\\b.{0,10}\\b2\\b(?![,\\s]*(and\\s*)?4)|\\[1, ?2\\](?![,\\s]*(and\\s*)?4)",
+      "note": "pauses are 1 and 2, not 1, 2 and 4"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "keyerror.{0,60}(once|one (call|run|time|attempt)|1 (call|run|time|attempt)|not (caught|retried)|propagat|escapes)",
+      "note": "KeyError is not caught, so one run"
     }
   ],
   "false_confirms": [
-    "^(?!.*(\\bnot\\b|n't|never|drop|remov|lost|false|wrong|incorrect|untrue)).*((keep|kept|preserv|retain)\\w*.{0,30}(accent|é|ü|unicode)|(accent|é|ü|unicode).{0,40}(keep|kept|preserv|retain))",
-    "caf\\u00e9-m\\u00fcnster"
+    "(?is)^(?!.*\\b(not|never|wrong|false|incorrect|readme|says?|claims?|states?|docs?)\\b).*(runs?|called|attempted|attempts?)\\s+(\\w+\\s+){0,3}(4|four) times",
+    "(?is)^(?!.*\\b(not|never|wrong|false|incorrect|readme|says?|claims?|states?|docs?)\\b).*\\b(4|four) (total )?(calls|attempts|runs)\\b",
+    "(?is)^(?!.*\\b(not|never|wrong|false|incorrect|readme|says?|claims?|states?|docs?)\\b).*pauses? (are|of|were) 1, ?2,? (and )?4"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "slugify('Café Münster 2024') returns 'caf-m-nster-2024', dropping the accented letters.",
+      "claim": "A job that always raises ValueError runs 3 times with pauses 1 and 2; a KeyError job runs once.",
       "verdict": "confirmed",
       "op": "all"
     },
@@ -27,23 +38,23 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "slugify lowercases the title first.",
+        "claim": "An always-failing ValueError job is run 3 times in total.",
         "verdict": "confirmed",
-        "evidence": "slug.py: title.lower() is applied before each character is tested."
+        "evidence": "retry.run loops range(3) and catches ValueError; main.py prints calls: 3."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "Only characters in ascii lowercase letters and digits are kept; every other character, including accented letters, becomes a separator, so accented letters are dropped.",
+        "claim": "The pauses between the runs are 1 and 2 seconds.",
         "verdict": "confirmed",
-        "evidence": "slug.py: is_word_char tests membership in string.ascii_lowercase + string.digits; e-acute and u-umlaut are not in that set."
+        "evidence": "sleep is called only when n < attempts - 1 with base * 2**n; main.py prints pauses: [1, 2]."
       },
       {
         "id": "A3",
         "parent": "root",
-        "claim": "The result for 'Café Münster 2024' is 'caf-m-nster-2024'.",
+        "claim": "A job that raises KeyError is run once.",
         "verdict": "confirmed",
-        "evidence": "Ran slugify on the NFC title and got 'caf-m-nster-2024' on two runs."
+        "evidence": "Only ValueError is caught, so a KeyError propagates from the first call."
       }
     ]
   }

@@ -1,11 +1,7 @@
-from workload import run
+from datetime import date
 
+from calendar_data import HOLIDAYS
+from workdays import add_workdays
 
-def main():
-    for max_size in (0, 8, 100):
-        lookups, counted, size = run(max_size)
-        print(max_size, lookups == counted, size <= max_size)
-
-
-if __name__ == "__main__":
-    main()
+for start, count in [(date(2026, 12, 24), 1), (date(2026, 12, 26), 0), (date(2026, 12, 23), 2)]:
+    print(start, count, add_workdays(start, count, HOLIDAYS))

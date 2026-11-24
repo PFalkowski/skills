@@ -2,32 +2,31 @@
   "id": "executable-04",
   "kind": "executable",
   "split": "test",
-  "claim": "Running main.py reports every code in codes.txt as invalid, including the well-formed ones.",
+  "claim": "In the task list, write docs comes before update deps, because tasks of equal priority keep the order they were added.",
   "root": "confirmed",
-  "why": "load keeps the newline at the end of each line, and normalise removes only spaces, so the newline reaches is_valid. fullmatch needs the whole string to match, and the pattern has no way to consume a newline, so every line fails. The trap is that normalise sounds like it cleans the line, and that $ is known to match before a final newline.",
+  "why": "sorted with reverse=True keeps equal items in their original order, so it does not flip ties, and running main.py prints write docs before update deps. The run is the expected route here: many careful readers assume reverse=True also reverses ties, and the README says the newest comes first among equals. That README claim is wrong, and it is the trap.",
   "deciding": [
     {
       "verdict": "confirmed",
-      "pattern": "(every|all|three).*(invalid|false|rejected)|ab-12.*(invalid|false|rejected)|(trailing )?newline.*(reject|invalid|false|fail)|(reject|fail).*newline",
-      "note": "all three lines print False"
+      "pattern": "write docs.*update deps",
+      "note": "output order"
     },
     {
       "verdict": "confirmed",
-      "pattern": "normalis\\w*.*(only|just).*(space|blank)|rstrip\\(\" \"\\).*newline",
-      "note": "normalise leaves the newline in place"
+      "pattern": "(equal|same|tie\\w*).*(order|stable|added|insertion)",
+      "note": "ties keep insertion order"
     }
   ],
   "false_confirms": [
-    "(main\\.py|is_valid).*(accept|pass|print\\w* true|return\\w* true|reported as valid).*ab-12|ab-12.*(is accepted|passes|prints? true|returns? true|reported as valid)",
-    "normalis\\w+ (strips|removes) (the )?(trailing )?(newline|whitespace)",
-    "\\$.*matches.*newline.*so.*valid"
+    "^(?!.*\\b(not|never|wrong|false|incorrect|readme)\\b).*(newest|latest|most recent).*(first|before)",
+    "update deps.*(comes?|listed|printed|appears?)\\s*before\\s*write docs"
   ],
   "must_run": [
-    "python3 .*main\\.py|python3 -c .*fullmatch"
+    "python3?\\s+(\\S*/)?main\\.py"
   ],
   "exemplar": {
     "root": {
-      "claim": "main.py reports every code as invalid",
+      "claim": "In the task list, write docs comes before update deps, because tasks of equal priority keep the order they were added.",
       "verdict": "confirmed",
       "op": "all"
     },
@@ -35,23 +34,16 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "load keeps the trailing newline on each line",
+        "claim": "Write docs is listed before update deps",
         "verdict": "confirmed",
-        "evidence": "codes.py load returns lines unstripped; repr shows '\\n'."
+        "evidence": "Ran main.py: output is 3 write docs, then 3 update deps."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "normalise removes only spaces, so the newline survives",
+        "claim": "Tasks of equal priority keep the order they were added",
         "verdict": "confirmed",
-        "evidence": "normalise calls rstrip with a single space; the repr output still ends in a newline."
-      },
-      {
-        "id": "A3",
-        "parent": "root",
-        "claim": "is_valid rejects a code that ends in a newline",
-        "verdict": "confirmed",
-        "evidence": "fullmatch must consume the whole string; ran python3 main.py and all three print False."
+        "evidence": "Ran main.py: 2 fix login precedes 2 rotate keys, as in data.py. sorted with reverse=True is stable."
       }
     ]
   }

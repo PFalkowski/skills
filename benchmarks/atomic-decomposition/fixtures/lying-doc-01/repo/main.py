@@ -1,4 +1,9 @@
-from fees import format_cents, late_fee_cents
+from receipt import render
 
-for kind, days in [("book", 5), ("dvd", 30), ("game", 12)]:
-    print(kind, days, format_cents(late_fee_cents(kind, days)))
+ITEMS = [
+    ("bread", "1.20", 1),
+    ("tea bag", "0.125", 2),
+    ("candy", "0.375", 4),
+]
+
+print(render(ITEMS))

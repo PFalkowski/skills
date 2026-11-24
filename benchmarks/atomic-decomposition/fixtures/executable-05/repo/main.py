@@ -1,8 +1,7 @@
-from basket import Basket
+import loader
+import registry
+import sources
 
-ana = Basket("ana")
-ben = Basket("ben")
-ana.add("pen", 2)
-ben.add("ink")
-print(ana.owner, ana.lines, ana.total())
-print(ben.owner, ben.lines, ben.total())
+for filename, text in sources.FILES.items():
+    name = registry.register(filename, loader.parse(text))
+    print(name, sum(n for _, n in registry.DATASETS[name]))

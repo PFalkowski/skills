@@ -1,4 +1,4 @@
-# cache
+# workdays
 
-A small least-recently-used cache. `python3 main.py` hammers it from four
-threads at three sizes and prints whether the counts and the size held.
+Adds working days to a date. Saturdays, Sundays and listed holidays do not count.
+A holiday that falls on a weekend is observed on the following Monday, so that Monday is skipped too.

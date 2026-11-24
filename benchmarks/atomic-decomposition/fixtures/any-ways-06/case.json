@@ -2,30 +2,34 @@
   "id": "any-ways-06",
   "kind": "any-ways",
   "split": "test",
-  "claim": "An order for pens with quantity -3 placed with orders.place gets rejected somewhere, either by the quantity rule or by the warehouse.",
+  "claim": "A crafted file name can make an upload land outside /srv/uploads.",
   "root": "refuted",
-  "why": "The single-order path place calls only has_fields and then warehouse.reserve. The positive rule is used only by place_bulk, and reserve only rejects when the result would go below zero, which a negative quantity never does; it adds 3 to stock. The trap is the README and the existence of rules.positive, which suggest the check covers every order.",
+  "why": "Every write path, including save, rename and save_many, resolves the name through target. Target uses a real common-path test, not a string prefix, so a sibling folder such as /srv/uploads2 is refused along with dot-dot names and absolute names. The traps are the README's wording about 'starts with', which suggests a prefix bug the code does not have, and save_many, which normalizes and then strips leading slashes so that names like /../etc/x look like an escape but only land inside the folder.",
   "deciding": [
     {
       "verdict": "refuted",
-      "pattern": "\\bplace\\b(?!_).*(positive|quantity rule|rules)|(positive|quantity rule).*(place\\b(?!_)|single)",
-      "note": "place never calls positive; only place_bulk does"
+      "pattern": "(?is)(sibling|uploads2|prefix|startswith|commonpath|common path)",
+      "note": "prefix trick blocked by commonpath"
     },
     {
       "verdict": "refuted",
-      "pattern": "(reserv|warehouse).*(negative|-3|below zero|left).*(not|never|no |accept|add|13|rais|error)|(negative|-3).*(reserv|warehouse).*(accept|pass|not reject|13|no error|raises no)",
-      "note": "reserve accepts a negative quantity"
+      "pattern": "(?is)(dot-dot|traversal|parent dir|\\.\\./x\\b|a/\\.\\./\\.\\./|\\.\\./\\.\\./)",
+      "note": "dot-dot names blocked"
+    },
+    {
+      "verdict": "refuted",
+      "pattern": "(?is)(save_many|lstrip|absolute|leading slash|/etc)",
+      "note": "absolute names blocked or made relative"
     }
   ],
   "false_confirms": [
-    "\\bplace\\b(?!_)(?!.*\\b(not|never|only|no)\\b).*(call|use|appl|enforc).*positive",
-    "(quantity rule|positive) (rejects|catches) (the |a )?single",
-    "every order.*(positive|validated|checked)"
+    "(?i)(sibling|uploads2|prefix)(?!.*\\b(cannot|can't|not|never|blocked|refused|rejected)\\b).*(escapes?|bypass(es)?|lands? outside)",
+    "(?i)save_many (skips|bypasses)(?!.*\\b(not|never|cannot)\\b)"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "A single order with qty -3 is rejected by the quantity rule or the warehouse.",
+      "claim": "A crafted file name can place an upload outside /srv/uploads",
       "verdict": "refuted",
       "op": "any"
     },
@@ -33,16 +37,23 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "The quantity rule rejects it on the single-order path.",
+        "claim": "A name with dot-dot parts escapes the folder",
         "verdict": "refuted",
-        "evidence": "orders.place calls rules.has_fields then warehouse.reserve; rules.positive is called only in place_bulk."
+        "evidence": "target normalizes the joined path and raises PermissionError for ../x and a/../../b."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "The warehouse rejects the negative quantity.",
+        "claim": "A sibling folder name such as ../uploads2/x passes the check",
         "verdict": "refuted",
-        "evidence": "reserve computes left = 10 - (-3) = 13, which is not below zero, so it stores 13 and returns it."
+        "evidence": "target uses posixpath.commonpath, not a string prefix; ../uploads2/x raises PermissionError."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "An absolute name through save_many escapes the folder",
+        "verdict": "refuted",
+        "evidence": "save_many normalizes then strips leading slashes, so /etc/x and /../etc/x land at /srv/uploads/etc/x; a/../../../etc/x is refused by target."
       }
     ]
   }

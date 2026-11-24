@@ -1,8 +1,9 @@
-from cache import Cache
+import json
 
-cache = Cache(2)
-cache.put("a", 1)
-cache.put("b", 2)
-cache.get("a")
-cache.put("c", 3)
-print(cache.keys())
+from settings import load
+
+with open("sample.json") as f:
+    file_values = json.load(f)
+
+print(load(file_values, {}))
+print(load(file_values, {"APP_PORT": "9000"}))

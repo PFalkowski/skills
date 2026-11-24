@@ -1,6 +1,6 @@
-# Library fees
+# Corner Shop Receipts
 
-Late fees are 0.25 per day late, never more than 5.00 per item.
-The first 3 days after the due date are free.
+Prices are rounded half up to the nearest cent. Each line total is
+rounded once, after multiplying the price by the quantity.
 
-Run `python3 main.py` to print sample fees.
+Run `python3 main.py` to print a sample receipt.

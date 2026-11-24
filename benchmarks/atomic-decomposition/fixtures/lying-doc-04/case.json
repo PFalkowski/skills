@@ -2,40 +2,47 @@
   "id": "lying-doc-04",
   "kind": "lying-doc",
   "split": "test",
-  "claim": "Calling available() for a SKU that was never stocked raises KeyError.",
-  "root": "refuted",
-  "why": "The README says available() raises KeyError for an unknown SKU, like stock_of. But available() gets its stock figure from lookup.on_hand, which catches the KeyError from stock_of and returns 0. So available() returns 0 for a never-stocked SKU and never raises; the trap is that the README sentence is false and the handling sits one module away from available().",
+  "claim": "With APP_PORT=9090 and APP_DEBUG=0 set in the environment, the settings come out with port 9090 as a number and debug off, although settings.json has port 8080 and debug true.",
+  "root": "confirmed",
+  "why": "The README says environment values fill in only missing keys, are plain text, and any non-empty flag turns a flag on. The code lets the environment override the file, casts to the type of the file value, and treats 0 as off. The trap is a reader who trusts the README and rejects a claim the code supports.",
   "deciding": [
     {
-      "verdict": "refuted",
-      "pattern": "(on_hand.*(catch|swallow|handl|return\\w*\\s+(0|zero))|(catch\\w*|swallow\\w*|handl\\w*).*KeyError|(returns?|yields?|gives?|prints?)\\s+(0|zero)|(unknown|missing|unstocked|never.stocked)\\s+sku.*(0|zero))",
-      "note": "available does not raise: lookup.on_hand swallows KeyError and returns 0"
+      "verdict": "confirmed",
+      "pattern": "port.{0,80}(9090|overrid)|9090",
+      "note": "env overrides port as an int"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "debug.{0,80}(off|false|0)|(off|false).{0,40}debug",
+      "note": "APP_DEBUG=0 turns debug off"
     }
   ],
   "false_confirms": [
-    "available\\S*\\s+(still\\s+)?(raises|propagates|throws|lets)\\b.*KeyError"
+    "port[^.]{0,40}(is|stays|remains|comes out as)\\s+(a\\s+)?(string|text|\\\"9090\\\")",
+    "(?<!without )APP_PORT(?![^.]{0,30}(unset|not set|absent|missing))[^.]{0,60}(is|stays|remains)\\s+8080|(ignor|does not overrid|only fills?)[^.]{0,40}port",
+    "APP_DEBUG\\s*=\\s*0[^.]{0,40}(stays|remains|is|turns)\\s+(on|true)|non-empty[^.]{0,40}(turns|is)[^.]{0,20}on"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "available() raises KeyError for a never-stocked SKU.",
-      "verdict": "refuted",
+      "claim": "APP_PORT=9090 and APP_DEBUG=0 override the file: port is the number 9090 and debug is off.",
+      "verdict": "confirmed",
       "op": "all"
     },
     "atoms": [
       {
         "id": "A1",
         "parent": "root",
-        "claim": "Store.stock_of raises KeyError for an unstocked SKU.",
+        "claim": "APP_PORT=9090 overrides port 8080 from the file and the value is the integer 9090.",
         "verdict": "confirmed",
-        "evidence": "store.py: return self._levels[sku] on a plain dict."
+        "evidence": "settings.load replaces every key found as APP_<KEY> and casts with int for an int sample; python3 main.py with the env prints 'port': 9090."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "available() lets the KeyError from an unstocked SKU propagate.",
-        "verdict": "refuted",
-        "evidence": "api.py calls lookup.on_hand, which catches KeyError and returns 0, so available() returns 0 and does not raise. The README sentence is wrong."
+        "claim": "APP_DEBUG=0 turns debug off although the file says true.",
+        "verdict": "confirmed",
+        "evidence": "convert returns False for 0 because it is in OFF; main.py prints 'debug': False."
       }
     ]
   }

@@ -1,10 +1,17 @@
-from label import make_label
+import handler
+import inbox
 
-for p in [
-    {"to": "Oslo", "service": "standard", "kg": 12},
-    {"to": "Oslo", "service": "standard", "kg": 31},
-]:
-    try:
-        print(make_label(p))
-    except ValueError as e:
-        print("refused:", e)
+calls = []
+
+
+def flaky(msg):
+    calls.append(msg)
+    if len(calls) == 1:
+        raise ConnectionError("down")
+
+
+box = inbox.Inbox(3)
+box.put("order-5")
+box.drain(lambda m: handler.deliver(m, flaky))
+print(calls)
+print(box.log)

@@ -1,9 +1,7 @@
-from schedule import Calendar
+from invoice import render
+from pricing import total
 
-cal = Calendar()
-print(cal.book("blue", 9, 10))
-print(cal.book("blue", 10, 11))
-print(cal.book("blue", 9, 11))
-print(cal.book("red", 9, 10))
-cal.cancel(1)
-print(cal.book("blue", 9, 10))
+print(render([("33.335", 3)]))
+print(render([("50.00", 2)]))
+print(render([("40.005", 1), ("40.005", 1), ("20.003", 1)]))
+print(total([("100.01", 1)]))

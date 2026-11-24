@@ -72,6 +72,39 @@ the grader (`grade.py --self-test`). One key was fixed before the freeze:
 rule would have read as four commands all required. They are now one regex joined by
 `|`.
 
+Calibration attempt 1 (`cal1/dev-a-1`, arm A on dev, audit clean) scored 7 of 10. A
+reading by hand found all three failures correct answers marked wrong by the key, so
+these keys were fixed before the freeze, each with a unit test on the agent's own text:
+
+- `any-ways-01`: the agent confirmed "validate.check does not catch it", the same fact
+  as the key's refuted "the validator rejects it". The `deciding` entry gained an `or`
+  alternative for the negated statement, and the grader learned `or`.
+- `compound-02`: the `false_confirms` regex caught the true atom "counts, class
+  counters, buckets and slowest merge exactly"; it now exempts claims about those
+  fields that do not name the mean. `must_run` required `main.py`, but the agent ran
+  the merge through `python3 -c` on `Summary` and got real numbers; that now counts.
+- `unsettled-01`: an entry required a confirmed atom stating the code default of 30.
+  The root does not depend on it, since the cron line always sets the variable, so the
+  entry was removed.
+
+Calibration attempt 2 (`cal1/dev-a-2`, audit clean) scored 8 of 10. Both failures were
+again correct answers that the key's wording missed, so both were fixed with a test:
+
+- `any-ways-01`: the `false_confirms` regex caught the true atom "check() passes the
+  booking ... but save() rejects it"; "passes" now exempts a claim, as "lets" did.
+- `executable-02`: the `deciding` pattern knew "no argument" but not "no-arg".
+
+Calibration attempt 3 (`cal1/dev-a-3`, audit clean) scored 9 of 10. In `executable-01`
+the agent ran the program as `python3 -I -c "...import main"`, and the output it quoted
+is in the transcript, but `must_run` knew only `python3 ... main.py` and a one-line
+`python3 -c`. Every key whose `must_run` names `main.py` (`compound-02`, `executable-01`
+to `-06` and `-08`) now also accepts a `python3` command that imports `main`, and the
+`-c` alternatives (`executable-01`, `-04`, `-07`) accept flags before `-c` and code on
+later lines. A test checks this for every key with `must_run`. Under the final keys,
+all 30 dev reports from attempts 1 to 3 pass.
+
+Calibration was rerun into `cal1/dev-a-4`.
+
 Arm B never runs on dev. No A-against-B result is looked at before the freeze.
 
 ## Model and harness
@@ -133,6 +166,8 @@ that changed after the run. `harness.py audit` exits 3 on any of these.
 2. `root`: the root verdict equals the key's `root`.
 3. `deciding`: for every entry of the key's `deciding`, some atom has the entry's
    verdict and its claim and evidence, joined by a space, match the entry's pattern.
+   An entry may list alternatives under `or`, each with its own verdict and pattern, for
+   the same fact stated the other way round; any one of them satisfies the entry.
 4. `no_false_confirm`: no atom whose claim matches a regex in `false_confirms` has the
    verdict confirmed. Only the claim is read, not the evidence.
 5. `consistent`: at the root and at every atom that has children, the propagation rule

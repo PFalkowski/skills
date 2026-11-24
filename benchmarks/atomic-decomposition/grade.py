@@ -92,10 +92,11 @@ def false_confirmed(case, atoms):
 
 
 def deciding_ok(case, atoms):
-    return all(any(a.get("verdict") == entry["verdict"]
-                   and re.search(entry["pattern"], f"{flat(a.get('claim'))} {flat(a.get('evidence'))}",
-                                 re.I)
-                   for a in atoms) for entry in case["deciding"])
+    return all(any(a.get("verdict") == option["verdict"]
+                   and re.search(option["pattern"],
+                                 f"{flat(a.get('claim'))} {flat(a.get('evidence'))}", re.I)
+                   for option in [entry, *entry.get("or", [])] for a in atoms)
+               for entry in case["deciding"])
 
 
 def ran(case, commands):
@@ -139,10 +140,11 @@ def key_problems(case, fixture_dir):
         problems.append("id or kind")
     if case["split"] != expected_split:
         problems.append(f"split {case['split']}, expected {expected_split}")
+    options = [o for e in case["deciding"] for o in [e, *e.get("or", [])]]
     if case["root"] not in ROOT_VERDICTS or not case["deciding"] \
-            or any(e["verdict"] not in ROOT_VERDICTS for e in case["deciding"]):
+            or any(o["verdict"] not in ROOT_VERDICTS for o in options):
         problems.append("verdicts")
-    for pattern in [e["pattern"] for e in case["deciding"]] + case["false_confirms"] + case["must_run"]:
+    for pattern in [o["pattern"] for o in options] + case["false_confirms"] + case["must_run"]:
         try:
             re.compile(pattern)
         except re.error as exc:

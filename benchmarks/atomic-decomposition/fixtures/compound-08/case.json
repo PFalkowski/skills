@@ -2,33 +2,33 @@
   "id": "compound-08",
   "kind": "compound",
   "split": "test",
-  "claim": "In the room calendar no two bookings in the same room can overlap: a booking that starts exactly when another ends is accepted, a true overlap is rejected, different rooms do not block each other, and cancelling frees the time.",
+  "claim": "An order over 100 gets 10% off, and the discount comes off before tax is added. The total is rounded to the cent once, at the end, not line by line.",
   "root": "confirmed",
-  "why": "overlaps() uses strict comparisons, so intervals are half-open: back-to-back bookings are accepted and real overlaps rejected, and it compares rooms first. cancel() removes the item from the list, so the slot can be booked again. The README says the ends are inclusive and that back-to-back bookings are blocked, but the code does not do that.",
+  "why": "discount tests sub > THRESHOLD with THRESHOLD 100, so only orders strictly over 100 are discounted, which matches the claim. total subtracts the discount, then multiplies by 1 plus tax, then rounds once. The README says 100 or more get the discount, which is wrong, and invoice.py rounds each line, but only for display, so a reader can wrongly refute on either.",
   "deciding": [
     {
       "verdict": "confirmed",
-      "pattern": "(back-to-back|adjacent|touching|half-open|strict(ly)? less|start\\w* (exactly )?(when|at|after)|end\\w* at).*(accept|allow|succe|book|not (blocked|rejected|refused)|half-open|strict)|(accept|allow).*(back-to-back|adjacent|touching)|half-open|strict(ly)? less",
-      "note": "strict < comparisons"
+      "pattern": "(over|above|exceed\\w*|(more|greater)\\s+than|strictly|>)\\W*(100|threshold)",
+      "note": "strictly over 100"
     },
     {
       "verdict": "confirmed",
-      "pattern": "cancel.*(free|re-?book|book again|remove)",
-      "note": "cancel removes the item"
+      "pattern": "(before|prior).{0,20}tax|tax.{0,30}(after|applied after).{0,20}discount|discount.{0,30}(precede|first|then).{0,20}tax|sub\\s*-\\s*discount",
+      "note": "discount first"
     },
     {
       "verdict": "confirmed",
-      "pattern": "(overlap).*(reject|none|refus)|reject.*overlap",
-      "note": "overlapping booking returns None"
+      "pattern": "(round|quantize|cents?).{0,40}(once|single|end|final)",
+      "note": "one rounding at the end"
     }
   ],
   "false_confirms": [
-    "^(?!.*\\b(not|never|no longer)\\b|.*n't).*(back-to-back|ends at|starts (exactly )?when).*(block|reject|inclusive)"
+    "(100 or more|100 and (over|above)|at least 100|>= ?100)\\W.{0,40}(get|gets|receive|earn)"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "Room calendar never double-books and behaves as described",
+      "claim": "An order over 100 gets 10% off before tax, and the total is rounded once at the end.",
       "verdict": "confirmed",
       "op": "all"
     },
@@ -36,30 +36,26 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "A booking starting exactly when another ends is accepted",
+        "op": "all",
+        "claim": "An order strictly over 100 gets 10% off",
         "verdict": "confirmed",
-        "evidence": "overlaps() uses a.start < b.end and b.start < a.end, so touching ends do not overlap. Run: blue 9-10 then 10-11 gives ids 1, 2. README saying inclusive is wrong."
+        "evidence": "pricing.discount uses sub > THRESHOLD with THRESHOLD = 100; run.py shows 100.00 gets none (123.00) and 100.005 gets it. The README's 'or more' is wrong."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "A true overlap in the same room is rejected",
+        "op": "all",
+        "claim": "The discount is taken off before tax is added",
         "verdict": "confirmed",
-        "evidence": "Run: blue 9-11 after those returns None."
+        "evidence": "total computes (sub - discount(sub)) * (1 + TAX)."
       },
       {
         "id": "A3",
         "parent": "root",
-        "claim": "Different rooms do not block each other",
+        "op": "all",
+        "claim": "The total is rounded once, at the end",
         "verdict": "confirmed",
-        "evidence": "overlaps() requires equal rooms. Run: red 9-10 gets id 3."
-      },
-      {
-        "id": "A4",
-        "parent": "root",
-        "claim": "Cancelling frees the time",
-        "verdict": "confirmed",
-        "evidence": "cancel() filters the item out. Run: cancel(1) then blue 9-10 gets id 4."
+        "evidence": "total calls cents once on the final amount; the per-line cents in invoice.render are display only and do not feed total."
       }
     ]
   }

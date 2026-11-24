@@ -2,29 +2,28 @@
   "id": "any-ways-04",
   "kind": "any-ways",
   "split": "test",
-  "claim": "A session created and last touched at time 0 is dropped by purge when it runs 45 minutes later (time 2700, in seconds), either by the idle limit or by the maximum age.",
+  "claim": "A booking that starts on 2024-02-30 is rejected. Either the date parser or something later in the booking flow refuses it.",
   "root": "refuted",
-  "why": "The idle limit is stored in milliseconds but compared with a gap in seconds, so it is about 1.8 million seconds and never trips here. The maximum age is eight hours, so it does not apply after 45 minutes. Running the program keeps the session at time 2700, and it drops only after eight hours.",
+  "why": "Booking 2024-02-30 to 2024-03-03 comes back booked, so the claim is refuted. The parser looks month-aware, but its table is read one month early (mo - 1), so February gets the January limit of 31 and the day passes. The later calendar check, month_ends.fits, looks like a real date check but booking.book applies it only to the end date, and the sample run in main.py rejects a different date, which makes both layers look correct.",
   "deciding": [
     {
       "verdict": "refuted",
-      "pattern": "idle|IDLE_MS|milli|1[,_ ]?800[,_ ]?000|ms",
-      "note": "limit in ms compared with seconds, never trips at 2700"
+      "pattern": "(?is)(?=.*(dates\\.parse|\\bparse(r)?\\b|\\bLIMITS\\b|month table|day table))(?=.*(accept|passes|not reject|does not|doesn't|off.by.one|wrong month|one month|january|31|any day))",
+      "note": "the parser lets February 30 through because of the shifted table lookup"
     },
     {
       "verdict": "refuted",
-      "pattern": "max(imum)? age|MAX_AGE|8 ?\\*? ?3600|8 hours|28[,_ ]?800",
-      "note": "8 hours exceeds 45 minutes"
+      "pattern": "(?is)(?=.*(fits|month_ends|monthrange|booking\\.book|\\bbook\\b|later))(?=.*(only (the )?(end|second)|end date|second date|end only|never (checks?|validates?) (the )?(start|first)|(start|first).{0,40}(not|never|unchecked|skipped|no check)))",
+      "note": "the later calendar check covers only the end date"
     }
   ],
   "false_confirms": [
-    "^(?!.*\\b(not|never|no)\\b|.*n't\\b)\\W*(the )?(idle|max(imum)? age)\\b[^.]*\\b(trip|expire|drop|purg)\\w*",
-    "^(?!.*\\b(not|never|no)\\b|.*n't\\b).*\\b(dropped|purged|expired|removed)\\b.*\\b(idle|max(imum)? age|2700|45 min)"
+    "(?is)^(?!.*\\b(not|n't|never|fail|fails|no|without|cannot|only|but)\\b)[^\\n]*?(dates\\.parse|parser|\\bparse\\b|month_ends(\\.\\w+)?|(calendar\\.)?monthrange|\\bfits\\b|booking(\\.book)?|\\bbook\\b|later (step|check))\\b[^;]{0,40}?\\b(rejects?|refuses|raises|catches|validates|blocks)\\b.{0,60}(2024-02-30|feb(ruary)? 30|day 30|invalid day|impossible date|start date|start|the booking|\\bit\\b)"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "The session at time 0 is purged at time 2700, by idle limit or maximum age",
+      "claim": "A booking starting on 2024-02-30 is rejected",
       "verdict": "refuted",
       "op": "any"
     },
@@ -32,16 +31,16 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "the idle limit expires it",
+        "claim": "dates.parse rejects 2024-02-30",
         "verdict": "refuted",
-        "evidence": "IDLE_MS is 1,800,000 but now - seen is 2700 seconds, so 2700 > 1800000 is False; python3 main.py prints 1 (kept)."
+        "evidence": "LIMITS is read with mo - 1, so February gets the January limit of 31 and 2024-02-30 passes."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "the maximum age expires it",
+        "claim": "A later step in booking.book rejects 2024-02-30",
         "verdict": "refuted",
-        "evidence": "MAX_AGE_S is 28800 seconds; 2700 - 0 is below it. Only the second purge at 28801 returns 0."
+        "evidence": "booking.book calls month_ends.fits only on the end date b, never on a. The other checks compare day numbers and the taken set. calendar.monthrange is also used for the invoice day."
       }
     ]
   }

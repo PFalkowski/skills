@@ -1,3 +1,4 @@
-from invoice import invoice
+from slug import slugify
 
-print(invoice([(1050, 1), (300, 2)], 500))
+for title in ["Hello World", "Crème Brûlée", "Tom & Jerry", "  Q&A  "]:
+    print(repr(slugify(title)))

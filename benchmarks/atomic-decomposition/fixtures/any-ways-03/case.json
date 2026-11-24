@@ -2,30 +2,33 @@
   "id": "any-ways-03",
   "kind": "any-ways",
   "split": "test",
-  "claim": "A 31 kg parcel sent with the standard service is refused somewhere before make_label returns a label.",
+  "claim": "If only the first send of a webhook fails with a connection error, the message still gets delivered in the end.",
   "root": "confirmed",
-  "why": "The weight rule looks up the limit by the key std, but the parcel uses the service name standard, so the lookup finds nothing and the rule lets the parcel pass. The rate table stops at 30 kg and quote raises when no band fits, which refuses the parcel inside make_label. The trap is to read the 30 kg limit in rules.py as the refusal, or to see that it does not apply and miss the rate table.",
+  "why": "The handler loops range(RETRIES) with RETRIES set to 1, which is a single attempt and no retry, so the handler alone gives up. The inbox puts a message back when the handler returns False, up to three deliveries, and the second delivery succeeds. The trap is reading RETRIES = 1 as one retry and so, or reading the handler's failure as the end of the story.",
   "deciding": [
     {
       "verdict": "refuted",
-      "pattern": "check_weight|weight (rule|limit|check)|\\bLIMITS\\b|\\bstd\\b|rules\\.py",
-      "note": "limit key std does not match standard, so the rule is skipped"
+      "pattern": "(?is)(handler|deliver|RETRIES).{0,60}retr",
+      "note": "the handler retries the send; refuted, it makes one attempt. The scorer must also accept the confirmed negated form below."
     },
     {
       "verdict": "confirmed",
-      "pattern": "no (rate )?band|\\bBANDS\\b|rate (table|bands?)|quote[^.]*(rais|refus)",
-      "note": "quote raises no rate band above 30 kg"
+      "pattern": "(?is)(handler|deliver|RETRIES).{0,80}(only one|single|one attempt|1 attempt|once|no retr|not retr|does not retry|doesn't retry|never retr)",
+      "note": "the handler makes one attempt only; the positive form of the refuted retry atom"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "(?is)^(?!.*\\b(not|never|no|drops?)\\b)(?=.*(inbox|drain)).*(redeliver|requeue|re-queue|put(s)? (it |the message )?back|second deliver|again)",
+      "note": "the inbox redelivers after the handler returns False"
     }
   ],
   "false_confirms": [
-    "\\b(rules?(\\.py)?|check_weight|weight (rule|limit|check))\\b(?![^.,;]*\\b(not|never|n't|skip|pass|lets|ignor))[^.,;]*\\b(refus|reject|raise|block|stop)",
-    "\\b(rejected|refused|blocked|stopped) by (the )?(weight (rule|check|limit)|check_weight|rules)",
-    "30 ?kg limit\\b.{0,40}\\b(refus|reject|block|stop)"
+    "(?is)^(?!.*\\b(not|n't|never|no|single|only|without)\\b).*\\b(handler|deliver|RETRIES)\\b.{0,40}\\bretr(y|ies)\\b"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "The 31 kg standard parcel is refused somewhere in make_label",
+      "claim": "A webhook whose first send fails with a connection error is still delivered",
       "verdict": "confirmed",
       "op": "any"
     },
@@ -33,16 +36,16 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "check_weight refuses it as too heavy",
+        "claim": "handler.deliver retries the send after the failure",
         "verdict": "refuted",
-        "evidence": "LIMITS has keys std and express; the service is standard, so get returns None and no check is made."
+        "evidence": "RETRIES is 1, so range(RETRIES) runs one attempt only. After the ConnectionError it returns False without a second send."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "quote refuses it because no rate band fits",
+        "claim": "The inbox redelivers the message after the handler returns False",
         "verdict": "confirmed",
-        "evidence": "BANDS tops out at 30, so 31 falls through the loop and raises ValueError no rate band; main.py prints refused: no rate band."
+        "evidence": "drain puts the message back while n is below max_deliveries (3). main.py prints calls twice for order-5 and a log of delivery 1 False, delivery 2 True."
       }
     ]
   }

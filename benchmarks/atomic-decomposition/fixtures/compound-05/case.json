@@ -2,23 +2,24 @@
   "id": "compound-05",
   "kind": "compound",
   "split": "test",
-  "claim": "The late-fee calculator charges 0.50 a day after a 3-day grace period, stops at 10.00, and waives the fee for staff members.",
+  "claim": "The retry helper tries a call at most four times and waits 1, 2, then 4 seconds between the tries. A 404 or a 401 fails at once without a retry.",
   "root": "refuted",
-  "why": "Three parts hold: the grace period, the daily rate and the cap all come from config.py and are applied in the right order. The staff waiver compares the role to lowercase staff, but the loader capitalizes every role to Staff, so the waiver never fires. A reader of fees.py alone sees the check and trusts it; only the loader or a run shows Boris is charged 3.50.",
+  "why": "The helper does make at most four tries and does fail at once on 404 and 401, so two of the three parts hold. The waits come from backoff.py, which caps each wait at MAX_DELAY, set to 3 in settings.py, so the third wait is 3 seconds, not 4. The README says the wait doubles and never mentions the cap, so a reader who trusts it confirms the claim.",
   "deciding": [
     {
       "verdict": "refuted",
-      "pattern": "staff.*(waiv|exempt|free|zero|no (late )?fee|not charged|pay no|\\b0\\.00?\\b)|(waiv|zero|exempt).*staff",
-      "note": "loader capitalizes role so the check never matches"
+      "pattern": "(wait|delay|backoff|sleep|seconds).*(1.{0,8}2.{0,8}4|third|cap|max|3)",
+      "note": "third wait is capped at 3"
     }
   ],
   "false_confirms": [
-    "^(?!.*\\b(never|fails?|broken|does ?n.t|is ?n.t|are ?n.t|not (waived|exempt|applied))\\b).*staff.*(waiv|exempt|free|no (late )?fee|not charged|pay no)"
+    "1\\D{1,6}2\\D{1,6}4\\s*(s\\b|sec)",
+    "(wait|delay|backoff)\\w*\\W+(doubl\\w+)\\W+(without|no)\\W+cap"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "Late-fee calculator: 0.50/day after 3 days grace, cap 10.00, staff waived",
+      "claim": "The retry helper tries at most four times, waits 1, 2, then 4 seconds between tries, and fails at once on 404 or 401.",
       "verdict": "refuted",
       "op": "all"
     },
@@ -26,23 +27,23 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "Fee is 0.50 per day after a 3-day grace period",
+        "claim": "The helper makes at most four tries",
         "verdict": "confirmed",
-        "evidence": "config.py sets GRACE_DAYS=3, RATE_PER_DAY=0.5; fees.py bills days_late-3. Run: Ana 5 days -> 1.00, 3 days -> 0.00."
+        "evidence": "settings.py ATTEMPTS = 4; run.py shows four calls when every call returns 503."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "The fee never exceeds 10.00",
-        "verdict": "confirmed",
-        "evidence": "fees.py applies min(..., CAP) with CAP=10.0; Cleo 30 days -> 10.00."
+        "claim": "The waits between tries are 1, 2 and 4 seconds",
+        "verdict": "refuted",
+        "evidence": "backoff.wait_for returns min(1 * 2**n, MAX_DELAY) with MAX_DELAY = 3, so the waits are 1, 2, 3; run.py prints [1, 2, 3]."
       },
       {
         "id": "A3",
         "parent": "root",
-        "claim": "Staff members pay no late fee",
-        "verdict": "refuted",
-        "evidence": "fees.py tests role == 'staff' but members.load() capitalizes roles to 'Staff', so the test never matches. Run: Boris (staff) 10 days -> 3.50."
+        "claim": "A 404 or a 401 fails at once without a retry",
+        "verdict": "confirmed",
+        "evidence": "FATAL contains 404 and 401; run.py shows one call and no waits for each."
       }
     ]
   }

@@ -1,5 +1,4 @@
-# Timer CLI
+# Voucher vault
 
-Prints a length of time in whole seconds.
-Accepted forms: a number followed by s, m or h, such as `90s` or `2h`.
-Run `python3 cli.py 90s`.
+A voucher code needs at least 8 characters. `Vault.add` enforces this
+and `loader.load` applies the same rule to bulk files.

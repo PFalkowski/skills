@@ -2,20 +2,55 @@
   "id": "any-ways-08",
   "kind": "any-ways",
   "split": "test",
-  "claim": "If a CSV lists the same invoice reference twice, the table still ends up with one row for it, because the importer skips repeats or the unique constraint stops the second one.",
-  "root": "refuted",
-  "why": "The importer reads the stored references once before the loop and never adds new ones, so it skips only references that were stored before the run, not repeats inside the file. The unique constraint exists only in schema.sql, which no code reads; store.py creates the table without it. Running the importer on the sample file prints INV-2 twice.",
+  "claim": "Two different users can both end up booked on the same seat, for example by typing the label a different way.",
+  "root": "confirmed",
+  "why": "Booking and holding normalize every label through canon, so a1 and A01 are refused as taken, and the README is right about that. The loader for saved bookings does not use canon: it only strips and upper-cases the label, so a saved line for A01 is stored under a different key than A1 and both users are booked on seat 1 of row A. The trap is that the obvious route is safe and the README promises the loader raises on a taken seat.",
   "deciding": [
-    {"verdict": "refuted", "pattern": "(importer|skip|existing).*(once|before|snapshot|not updated|never (add|updat)|only.*(stored|prior|already))|(repeat|twice|duplicate).*(same|within).*(file|csv).*(insert|both|two)", "note": "the skip does not cover repeats inside one file"},
-    {"verdict": "refuted", "pattern": "(unique|constraint|schema\\.sql).*(not|never|unused|no).*(appl|creat|read|load|exist|used)|store\\.py.*(without|no).*unique", "note": "the constraint is never applied"}
+    {
+      "verdict": "confirmed",
+      "pattern": "(?is)((load|restore|saved|store).*(a01|zero|pad|canon|normali[sz]|upper|strip|bypass)|(a01|zero|pad|canon|normali[sz]|bypass).*(load|restore|saved|store))",
+      "note": "store.load keys the seat without canon, so A01 differs from A1"
+    },
+    {
+      "verdict": "refuted",
+      "pattern": "(?is)((book|hold).*(canon|normali[sz]|taken|same key)|(canon|normali[sz]).*(book|hold))",
+      "note": "the book and hold routes normalize the label and refuse it"
+    }
   ],
-  "false_confirms": ["(unique|constraint).*(stop|prevent|reject|enforc).*(duplicate|second|repeat)", "importer.*skip.*(repeat|duplicate).*(within|inside|same file)"],
+  "false_confirms": [
+    "(?is)^(?!.*(reject|raise|refus|cannot|fails|taken)).*\\b(book|hold)\\b.*(a01|a1|spelling|case).*(succeed|accept|double|second booking)",
+    "(?is)^(?!.*\\bnot\\b).*(labels? (are|is) )?compared (exactly )?as typed"
+  ],
   "must_run": [],
   "exemplar": {
-    "root": {"claim": "A CSV with a repeated reference yields one row for it.", "verdict": "refuted", "op": "any"},
+    "root": {
+      "claim": "Two users can both be booked on one seat",
+      "verdict": "confirmed",
+      "op": "any"
+    },
     "atoms": [
-      {"id": "A1", "parent": "root", "claim": "The importer skips the repeat within the file.", "verdict": "refuted", "evidence": "existing is built once before the loop and never updated; ran python3 importer.py invoices.csv: INV-2 printed twice."},
-      {"id": "A2", "parent": "root", "claim": "The unique constraint rejects the second insert.", "verdict": "refuted", "evidence": "store.py creates the table without UNIQUE; schema.sql is not read by any code, and the run inserted both INV-2 rows without error."}
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "Booking a different spelling of the label (a1, A01) lets a second user book the seat",
+        "verdict": "refuted",
+        "evidence": "book calls canon, which gives 'A1' for a1 and A01. After ann booked A1, book('bob','a1') and book('bob','A01') both raise ValueError('taken').",
+        "op": "all"
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "The hold path lets a second user book a seat that is booked or held",
+        "verdict": "refuted",
+        "evidence": "hold and book both reject a canon key in booked, and book rejects a seat held by another user."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "store.load books a second user on a seat through a zero-padded label",
+        "verdict": "confirmed",
+        "evidence": "load keys the seat with label.strip().upper() and skips canon, so A01 is a new key beside A1. After ann booked A1, load(h, ['bob,A01']) succeeds and booked is {'A1': 'ann', 'A01': 'bob'}."
+      }
     ]
   }
 }

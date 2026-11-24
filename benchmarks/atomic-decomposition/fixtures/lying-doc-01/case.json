@@ -2,24 +2,23 @@
   "id": "lying-doc-01",
   "kind": "lying-doc",
   "split": "dev",
-  "claim": "A book that comes back 30 days late is charged the 5.00 maximum fee.",
+  "claim": "On the sample receipt, the two tea bags at 0.125 each come to 0.25.",
   "root": "refuted",
-  "why": "The README says 0.25 per day, but fees.py keeps a per-kind rate table and books cost 10 cents a day. After the 3 free days, 27 billable days at 10 cents give 2.70, far under the 5.00 cap. The trap is that the README rate and cap are right for dvd and game, so 5.00 looks natural for a long overdue item.",
+  "why": "The README says each line total is rounded once after multiplying, but line_cents rounds the unit price to whole cents first and then multiplies. Python's round() uses half-even rounding, so 12.5 cents becomes 12 and two tea bags cost 24 cents, so the receipt prints 0.24. The trap is that the README rule and half-up rounding both give 0.25, and the code shows the rounding order plainly, so only a reader who trusts the README without reading the code is caught.",
   "deciding": [
     {
       "verdict": "refuted",
-      "pattern": "(?=.*book)(?=.*(rate|per day|0\\.10|10 cents|2\\.70|270))",
-      "note": "book rate is 10 cents, not 0.25"
+      "pattern": "0\\.24|24 cents|round\\w*.{0,40}(unit|price).{0,40}(before|first)|banker|half.{0,4}even|12\\.5.{0,20}\\b12\\b",
+      "note": "the tea bag line prints 0.24, not 0.25"
     }
   ],
   "false_confirms": [
-    "(?is)^(?!.*(\\bnot\\b|n't|instead|rather than)).*book (rate|fee|late fee)s? (is|are|of) 0\\.25",
-    "(?is)^(?!.*\\b(never|not|under|below|n't)\\b).*(book.*(reach|hit)e?s? the (5\\.00 )?cap|book.*(charged|pays?) (the )?5\\.00)"
+    "^(?!.*(readme|says?|rule|0\\.24|24 cents|instead|\\bnot\\b|rather|than)).*(tea ?bags?|total|receipt|line).{0,40}\\b(is|=|of|shows?|prints?|costs?|comes?(?: out)? to|totals?|equals?)\\s*0\\.25\\b"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "A book 30 days late is charged the 5.00 maximum fee.",
+      "claim": "Two tea bags at 0.125 each total 0.25 on the sample receipt.",
       "verdict": "refuted",
       "op": "all"
     },
@@ -27,23 +26,16 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "The first 3 days are free, so 27 of the 30 days are billable.",
-        "verdict": "confirmed",
-        "evidence": "fees.py: GRACE_DAYS = 3; billable = max(0, days_late - GRACE_DAYS)."
+        "claim": "The line total is rounded once after multiplying price by quantity, as the README says.",
+        "verdict": "refuted",
+        "evidence": "pricing.line_cents returns to_cents(price) * quantity, so the unit price is rounded to whole cents first."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "The book rate is 0.25 per day, as the README says.",
+        "claim": "The receipt prints 0.25 for the tea bag line.",
         "verdict": "refuted",
-        "evidence": "fees.py: RATES['book'] is 10 cents per day; only dvd and game are 25."
-      },
-      {
-        "id": "A3",
-        "parent": "root",
-        "claim": "The fee for a book 30 days late reaches the 5.00 cap.",
-        "verdict": "refuted",
-        "evidence": "27 * 10 = 270 cents, so 2.70; fees.py: min(270, CAP_CENTS = 500) is 270."
+        "evidence": "to_cents(0.125) is round(12.5) = 12, times 2 is 24; python3 main.py prints 0.24 for tea bag."
       }
     ]
   }

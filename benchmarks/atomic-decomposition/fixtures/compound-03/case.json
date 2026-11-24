@@ -2,24 +2,33 @@
   "id": "compound-03",
   "kind": "compound",
   "split": "test",
-  "claim": "The new order parser still accepts the old messages: item and qty are renamed to sku and quantity, a missing unit becomes each, and every message in samples_v1.py parses.",
+  "claim": "The command rename did not break old clients. Every request recorded in captured.txt still gets a successful reply, an unknown command gets an error reply instead of an exception, and a request for a missing key gets an error reply too.",
   "root": "refuted",
-  "why": "The first two parts hold: ALIASES renames both keys and setdefault supplies the unit. The third part is false because the third sample has qty as the string \"2.0\", and int(\"2.0\") raises ValueError, so parse_order rejects it. The README repeats that version 2 accepts every version 1 message, and the other three samples parse, which hides the one that fails.",
+  "why": "The Remove request in captured.txt fails with unknown command. canonical() lowercases the incoming name, but legacy.txt is loaded without lowercasing and holds the key Remove with a capital R, so the lowercased remove never matches it. The other captured requests, unknown commands and missing keys all behave as claimed, so a reader who skims the alias table and assumes names are matched alike on both sides confirms the claim wrongly.",
   "deciding": [
     {
       "verdict": "refuted",
-      "pattern": "(every|all).{0,40}(sample|message|v1|old).{0,60}(pars|accept)|2\\.0|C-90|int\\(|third (sample|message)|decimal|float|ValueError|(fails?|not) (to )?pars|reject",
-      "note": "the sample with qty '2.0' is rejected"
+      "pattern": "(captured|recorded|old|legacy|alias).{0,80}(succe|ok|work|fail|unknown)|remove.{0,80}(case|capital|lower|unknown|fail|succe|ok)",
+      "note": "the captured Remove request gets unknown command"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "unknown",
+      "note": "unknown command gets an error reply"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "missing key|keyerror|does not exist|absent key",
+      "note": "missing key gets an error reply"
     }
   ],
   "false_confirms": [
-    "^(?!.*\\b(other|three|rest|except|but|keys?|aliases)\\b).*(every|all).{0,40}(sample|message|v1|old).{0,60}(pars|accept)",
-    "accept\\w*\\s+(every|all)\\b.{0,30}(old|v1|version 1|message|sample)"
+    "(?i)\\b(remove|every captured|all captured|every recorded|all recorded|each captured)\\b.{0,80}(succe|work|ok true|resolves|still)"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "The parser still accepts the old messages: renames, unit default and every sample parses.",
+      "claim": "The command rename did not break old clients. Every request recorded in captured.txt still gets a successful reply, an unknown command gets an error reply instead of an exception, and a request for a missing key gets an error reply too.",
       "verdict": "refuted",
       "op": "all"
     },
@@ -27,23 +36,23 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "item and qty are renamed to sku and quantity.",
-        "verdict": "confirmed",
-        "evidence": "orders.ALIASES maps both and normalize applies it; check.py output shows sku and quantity keys."
+        "claim": "Every request recorded in captured.txt still gets a successful reply",
+        "verdict": "refuted",
+        "evidence": "main.py prints ok False, unknown command Remove, for the line Remove a. legacy.txt keys Remove with a capital R and canonical() lowercases the request name, so it never matches."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "A missing unit becomes each.",
+        "claim": "An unknown command gets an error reply instead of an exception",
         "verdict": "confirmed",
-        "evidence": "parse_order calls fields.setdefault('unit', 'each'); the ok lines show unit each."
+        "evidence": "handle('Frobnicate x') returned ok False, unknown command Frobnicate."
       },
       {
         "id": "A3",
         "parent": "root",
-        "claim": "Every message in samples_v1.py parses.",
-        "verdict": "refuted",
-        "evidence": "check.py prints rejected C-90 ValueError: its qty is the string '2.0' and int('2.0') raises. The other three parse."
+        "claim": "A request for a missing key gets an error reply",
+        "verdict": "confirmed",
+        "evidence": "handle('get zz') returned ok False, missing key; the KeyError is caught in handle()."
       }
     ]
   }

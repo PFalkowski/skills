@@ -1,4 +1,5 @@
-# Order intake
+# Upload store
 
-Orders go through `place`. Quantities must be positive; the check lives in `rules.py`.
-Run `python3 shop.py` for a sample session.
+Files live under /srv/uploads. `target` rejects any name whose resolved
+path does not start with the uploads folder, and every write goes
+through it.

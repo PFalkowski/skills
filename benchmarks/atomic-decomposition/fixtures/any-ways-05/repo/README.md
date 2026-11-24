@@ -1,5 +1,6 @@
-# Branch desk
+# Library desk
 
-Members owing more than 5 in fines cannot borrow books.
-Reserved books wait on the hold shelf until the member picks them up.
-Run `python3 desk.py` to see what the desk does for each member.
+Members borrow up to four books at a time. The limit is checked on every
+route a book can take to a member, so nobody holds more than four.
+
+Run `python3 test_library.py` to check the desk.

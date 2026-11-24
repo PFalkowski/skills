@@ -1,4 +1,5 @@
-from buckets import histogram
-from readings import READINGS
+import board
+import scores
 
-print(histogram(READINGS))
+for rank, name, pts in board.ranking(scores.SCORES):
+    print(rank, name, pts)

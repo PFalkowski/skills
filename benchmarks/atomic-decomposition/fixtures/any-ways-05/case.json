@@ -2,23 +2,47 @@
   "id": "any-ways-05",
   "kind": "any-ways",
   "split": "test",
-  "claim": "A member whose fines are over the limit can still leave the desk with a book, by one route or another.",
+  "claim": "A member can end up holding more than four books at the same time, even though the limit is four.",
   "root": "confirmed",
-  "why": "Borrowing checks the fine limit and refuses, but picking up a reserved hold goes through the shelf module, whose only check reads the late_fees field against its own cap, never the fines field. Ana owes 12 in fines, over the limit of 5, has 0 late fees and has book b2 waiting on the hold shelf, so she can pick it up. The trap is that the README and the visible borrow path say fines block borrowing, the demo only exercises borrow, and the shelf check looks like a fine check.",
+  "why": "The limit check runs only when a member asks to borrow, so borrowing a fifth book directly is refused. When a returned book goes to the next member in the queue, give_back adds it to that member's loans without any check. A member with three loans can queue for a taken book, borrow a fourth, and then receive the queued book as a fifth; the README's claim that every route is checked is false.",
   "deciding": [
-    {"verdict": "refuted", "pattern": "borrow.*(fine|limit|refus|block|PermissionError)|(fine|limit).*borrow", "note": "the obvious route, borrow, is blocked"},
-    {"verdict": "confirmed", "pattern": "pickup.*(no|not|never|without|skip|ignor|late_fees|different).*(fine|limit|check|field)|(collect|hold|shelf).*(no|not|never|without|skip|ignor).*(fine|limit|check)|(fine|limit).*(not|never).*(collect|hold|shelf|pickup)", "note": "the hold pickup route has no fines check; its check reads late_fees"},
-    {"verdict": "confirmed", "pattern": "ana.*(12|over|above|exceed).*(hold|b2)|(hold|b2).*ana", "note": "a member over the limit has a hold to pick up"}
+    {
+      "verdict": "refuted",
+      "pattern": "(?is)^(?!.*give_back).*borrow.*(limit|refus|reject|ValueError|raise)",
+      "note": "direct borrow of a fifth book is refused"
+    },
+    {
+      "verdict": "confirmed",
+      "pattern": "(?is)(give_back|return|hand|queue|waiting|next).*(limit|bypass|no check|unchecked|without|skip|not checked|fifth|five|5|more than)",
+      "note": "queue hand-over in give_back adds a loan with no limit check"
+    }
   ],
-  "false_confirms": ["borrow.*(blocked|refus|rejected).*(all|every|any) (route|path|way)", "no (route|path|way).*(leave|take|get|obtain|walk out).*book|cannot (leave|get|take).*book.*(any|every) (route|path|way)", "pickup.*(checks|enforces|blocks).*(fine|limit)"],
+  "false_confirms": [
+    "(?i)(every|all) (path|route|way)s?.*(check|enforce)",
+    "(?i)\\b(no ?(one|body|member)|never)\\b.*(hold|have|end up).*(more than|exceed|above).*(four|4|limit)"
+  ],
   "must_run": [],
   "exemplar": {
-    "root": {"claim": "A member over the fine limit can leave with a book by some route.", "verdict": "confirmed", "op": "any"},
+    "root": {
+      "claim": "A member can hold more than four books at once",
+      "verdict": "confirmed",
+      "op": "any"
+    },
     "atoms": [
-      {"id": "A1", "parent": "root", "claim": "Borrowing a book works for a member over the fine limit.", "verdict": "refuted", "evidence": "loans.borrow raises PermissionError when fines exceed FINE_LIMIT = 5."},
-      {"id": "A2", "parent": "root", "op": "all", "claim": "Picking up a hold works for a member over the fine limit.", "verdict": "confirmed", "evidence": "desk.ROUTES maps pickup to shelf.pickup, which only checks late_fees against LATE_FEE_CAP and that the book is in the member's holds."},
-      {"id": "A3", "parent": "A2", "claim": "shelf.pickup has no fines check; its limit check reads late_fees, a different field.", "verdict": "confirmed", "evidence": "shelf.py: member[\"late_fees\"] > LATE_FEE_CAP; fines is never read."},
-      {"id": "A4", "parent": "A2", "claim": "A member over the fine limit has a hold waiting and passes the pickup check: ana owes 12 in fines, has 0 late fees and holds b2.", "verdict": "confirmed", "evidence": "members.py: ana fines 12, late_fees 0, holds [b2]. Running desk.serve('pickup','ana','b2') returns ok."}
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "Borrowing a fifth book directly is accepted",
+        "verdict": "refuted",
+        "evidence": "borrow raises ValueError when len(held) >= LIMIT; test_library.py shows it."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "A returned book handed to a queued member can push that member past four loans",
+        "verdict": "confirmed",
+        "evidence": "give_back adds to loans with no limit check; run: bob holds 3, queues x, borrows d, ann returns x, count is 5."
+      }
     ]
   }
 }

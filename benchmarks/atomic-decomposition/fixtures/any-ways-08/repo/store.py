@@ -1,8 +1,7 @@
-import sqlite3
-
-
-def open_db():
-    db = sqlite3.connect(":memory:")
-    db.execute("CREATE TABLE invoices (ref TEXT, amount INTEGER)")
-    db.execute("INSERT INTO invoices VALUES ('INV-1', 100)")
-    return db
+def load(hall, lines):
+    for line in lines:
+        user, label = line.split(",")
+        seat = label.strip().upper()
+        if seat in hall.booked:
+            raise ValueError("taken")
+        hall.booked[seat] = user

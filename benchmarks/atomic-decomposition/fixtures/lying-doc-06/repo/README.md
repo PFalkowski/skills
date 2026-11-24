@@ -1,4 +1,4 @@
-# Job runner
+# Retry runner
 
-Calls are retried up to 3 times by default. A job can set its own number of retries in jobs.json.
-Run `python3 main.py` to simulate a call that always fails.
+`run` gives up after 3 attempts. Between attempts it waits 1, 2, then 4
+seconds: the wait doubles each time and never exceeds 10 seconds.

@@ -2,33 +2,31 @@
   "id": "executable-08",
   "kind": "executable",
   "split": "test",
-  "claim": "The histogram counts the readings 0.2 and 0.3 in the same bucket, and it does the same for 0.4 and 0.5.",
+  "claim": "The leaderboard that main.py prints lists the three players tied on 30 points in the order Zoe, ana, ben, all at rank 2, and eli is at rank 5.",
   "root": "confirmed",
-  "why": "Floor division by the float 0.1 is not the same as dividing by ten: 0.3 // 0.1 is 2.0 and 0.5 // 0.1 is 4.0, because 0.1 is stored slightly above one tenth. So 0.2 and 0.3 both land in bucket 2, and 0.4 and 0.5 both land in bucket 4. The trap is reading the code as putting each reading in bucket value times ten, which would give 2, 3, 4 and 5.",
+  "why": "The scores are sorted by name first, and plain string order puts the capital Zoe before ana and ben. The second sort with reverse=True keeps equal items in their existing order, so the ties stay Zoe, ana, ben. Ranks are shared on ties and skip after them, so eli is 5.",
   "deciding": [
     {
       "verdict": "confirmed",
-      "pattern": "(0\\.2.*0\\.3|0\\.3.*0\\.2).*(same|share|bucket 2|\\b2\\b)",
-      "note": "0.2 and 0.3 both in bucket 2"
+      "pattern": "zoe.*ana.*ben",
+      "note": "tie order"
     },
     {
       "verdict": "confirmed",
-      "pattern": "(0\\.4.*0\\.5|0\\.5.*0\\.4).*(same|share|bucket 4|\\b4\\b)",
-      "note": "0.4 and 0.5 both in bucket 4"
+      "pattern": "eli.*(rank)?.*\\b5\\b|\\b5\\b.*eli",
+      "note": "eli rank 5"
     }
   ],
   "false_confirms": [
-    "0\\.3.*bucket 3\\b",
-    "0\\.5.*bucket 5\\b",
-    "(0\\.2.*0\\.3|0\\.3.*0\\.2).*(different|separate)",
-    "(0\\.4.*0\\.5|0\\.5.*0\\.4).*(different|separate)"
+    "(order|print|list)\\w*[^.]*\\bana\\W+(and\\W+)?ben\\W+(and\\W+)?zoe",
+    "(order|print|list)\\w*[^.]*\\bben\\W+(and\\W+)?ana\\W+(and\\W+)?zoe"
   ],
   "must_run": [
-    "python3?\\b.*(main\\.py|buckets|bucket|histogram)"
+    "python3?\\s.*(main\\.py|-c\\b|<<)"
   ],
   "exemplar": {
     "root": {
-      "claim": "0.2 and 0.3 share a bucket, and 0.4 and 0.5 share a bucket.",
+      "claim": "The leaderboard lists the three tied on 30 as Zoe, ana, ben at rank 2, and eli is at rank 5.",
       "verdict": "confirmed",
       "op": "all"
     },
@@ -36,16 +34,23 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "0.2 and 0.3 are counted in the same bucket",
+        "claim": "The three players tied on 30 points print in the order Zoe, ana, ben",
         "verdict": "confirmed",
-        "evidence": "Running main.py prints {1: 1, 2: 2, 4: 2, 5: 1, 6: 1}; bucket 2 holds two readings, and bucket(0.3) is 2 because 0.3 // 0.1 is 2.0."
+        "evidence": "Ran python3 main.py: lines '2 Zoe 30', '2 ana 30', '2 ben 30' in that order."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "0.4 and 0.5 are counted in the same bucket",
+        "claim": "All three tied players are at rank 2",
         "verdict": "confirmed",
-        "evidence": "The same run shows bucket 4 holds two readings, and bucket(0.5) is 4 because 0.5 // 0.1 is 4.0."
+        "evidence": "Ran python3 main.py: each of the three lines starts with 2."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "eli is at rank 5",
+        "verdict": "confirmed",
+        "evidence": "Ran python3 main.py: '5 eli 12'."
       }
     ]
   }

@@ -2,33 +2,33 @@
   "id": "compound-06",
   "kind": "compound",
   "split": "test",
-  "claim": "After the version 2 change, old v1 settings files still load: the old timeout key becomes timeout_s, a missing retries value gets 3, and verbose set to the string yes still turns verbose on.",
+  "claim": "The cache is safe to share between threads. It never holds more entries than its limit, its hit and miss counts always add up to the number of get calls, and no caller is ever handed another key's value.",
   "root": "confirmed",
-  "why": "The README says v1 files are no longer read, but that text is stale: loader.load calls migrate.upgrade, which treats a missing version as 1, renames timeout to timeout_s and stamps version 2. Defaults supply retries=3 and to_bool accepts the word yes. The trap is trusting the README and refuting the whole claim.",
+  "why": "Every change to the items and to the counters happens inside the lock, and each get counts exactly one hit or one miss. The loader runs outside the lock, so two threads can load the same key twice, which looks like a race but only costs a repeat load. Eviction runs under the lock right after each insert, so the size bound holds, and each loaded value is stored under the key it was loaded for.",
   "deciding": [
     {
       "verdict": "confirmed",
-      "pattern": "timeout.*timeout_s|timeout_s.*timeout",
-      "note": "rename in migrate.py"
+      "pattern": "(size|limit|evict|exceed|capacity|more entries)",
+      "note": "size bound holds under the lock"
     },
     {
       "verdict": "confirmed",
-      "pattern": "retries.*(default|3|missing)",
-      "note": "DEFAULTS supply retries 3"
+      "pattern": "\\b(hits?|miss(es)?)\\b.{0,60}(get|call|sum|add|equal|total)|(get|call).{0,60}\\b(hits?|miss(es)?)\\b",
+      "note": "counters updated under the lock, one per get"
     },
     {
       "verdict": "confirmed",
-      "pattern": "verbose.*yes|yes.*verbose",
-      "note": "to_bool accepts yes"
+      "pattern": "(wrong|other|another|different|right|correct|own).{0,30}(key|value)|(key|value).{0,30}(wrong|mismatch|correct|right)",
+      "note": "values stay with their own key"
     }
   ],
   "false_confirms": [
-    "(v1|version 1|old)[^.]*\\b(are|is)\\s+(no longer|not)\\s+(read|loaded|supported)\\b"
+    "(load|loader|loaded)\\b.{0,40}(at most once|only once|exactly once|never (called|run|invoked) (twice|more than once))|no duplicate load"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "Old v1 settings files still load with the right values",
+      "claim": "The cache is safe to share between threads: size bound, exact hit and miss counts, and no wrong values.",
       "verdict": "confirmed",
       "op": "all"
     },
@@ -36,30 +36,23 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "A v1 file's timeout key becomes timeout_s",
+        "claim": "The cache never holds more entries than its limit",
         "verdict": "confirmed",
-        "evidence": "migrate.upgrade treats a missing version as 1 and renames timeout via RENAMES. Run: {'timeout':10} -> timeout_s 10."
+        "evidence": "Inserts and the eviction loop are in one with self.lock block."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "A v1 file without retries gets 3",
+        "claim": "Hits plus misses equals the number of get calls",
         "verdict": "confirmed",
-        "evidence": "load() starts from DEFAULTS, which has retries 3. Run output shows retries 3."
+        "evidence": "Each get increments exactly one of hits or misses inside the lock."
       },
       {
         "id": "A3",
         "parent": "root",
-        "claim": "verbose: 'yes' turns verbose on",
+        "claim": "No caller gets another key's value",
         "verdict": "confirmed",
-        "evidence": "to_bool lowercases strings and accepts yes. Run output shows verbose True."
-      },
-      {
-        "id": "A4",
-        "parent": "root",
-        "claim": "The README note about v1 is outdated",
-        "verdict": "confirmed",
-        "evidence": "The code path above loads v1; the README is contradicted by a run."
+        "evidence": "The loader result is stored under the key it was called with; each key maps to its own loaded value. Two threads may load the same key twice, which is harmless."
       }
     ]
   }

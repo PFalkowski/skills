@@ -2,28 +2,28 @@
   "id": "lying-doc-06",
   "kind": "lying-doc",
   "split": "test",
-  "claim": "If the nightly-sync call fails every time, the runner tries it 3 times in total before giving up.",
+  "claim": "A job that never succeeds is run 4 times in all, and the delays the runner schedules between those runs are 1, 2 and 4 seconds.",
   "root": "confirmed",
-  "why": "nightly-sync sets retries to 2 in jobs.json, overriding the default of 3, and run makes retries plus one attempts, so 3 attempts in total. The README only states the default, which would give 4 attempts. The trap is applying the default and forgetting both the override and the extra first attempt.",
+  "why": "The loop runs from 1 to retries plus 1, so with the default of 3 retries a failing job is run 4 times, and the three delays it schedules are 1, 2 and 4 seconds. The README says the runner gives up after 3 attempts, which is the count of retries, not of runs. Trusting the README makes the claim look off by one.",
   "deciding": [
     {
       "verdict": "confirmed",
-      "pattern": "nightly.{0,80}(retries.{0,20}2|2 retries|override)",
-      "note": "job override of 2"
+      "pattern": "(?is)\\b(4|four)\\s+(times|attempts|runs|calls|tries)\\b|(runs?|attempts?|called|tried)\\s+(4|four)\\s+times|\\b(4|four)\\b.{0,20}\\b(in (all|total)|total)\\b",
+      "note": "four runs in total"
     },
     {
       "verdict": "confirmed",
-      "pattern": "retries\\s*\\+\\s*1|range\\(retries|retries plus one|plus (one|1)\\b|(first|initial|original) (attempt|try|call).{0,40}(plus|and|then).{0,20}retr|attempts.{0,40}(retries plus|one more|first attempt)",
-      "note": "attempts equal retries plus one"
+      "pattern": "(?is)(?<!\\d)1(?!\\d)\\D{1,15}(?<!\\d)2(?!\\d)\\D{1,15}(?<!\\d)4(?!\\d)",
+      "note": "waits are 1, 2, 4"
     }
   ],
   "false_confirms": [
-    "nightly.{0,60}(\\b3 retries|retries.{0,10}(is|are|=|of) 3\\b|(uses|follows|falls back to) the default)"
+    "(?is)\\A(?!.*(\\bnot\\b|n't|\\bbut\\b|\\bhowever\\b|\\bactually\\b|\\breadme\\b|\\bdocs?\\b|\\bsays?\\b|\\bstates?\\b|\\bplus\\b|\\bafter the first\\b|\\bthen\\b|\\bfourth\\b|\\bretr(y|ied|ies)\\b|\\bbetween\\b)).*\\b(gives? up|stops?|runs?|attempted|tried)\\b.{0,30}\\b(3|three) (total )?(attempts|runs|tries|times)\\b"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "A permanently failing nightly-sync is attempted 3 times in total.",
+      "claim": "A job that never succeeds is run 4 times and the delays the runner schedules between runs are 1, 2 and 4 seconds.",
       "verdict": "confirmed",
       "op": "all"
     },
@@ -31,16 +31,16 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "nightly-sync overrides the default and uses 2 retries",
+        "claim": "A never-succeeding job is run 4 times in total.",
         "verdict": "confirmed",
-        "evidence": "jobs.json gives nightly-sync retries 2; runner.retries_for prefers the job value over default_retries."
+        "evidence": "runner.py loops range(1, retries + 2), which is attempts 1 to 4 for retries=3; main.py records calls [1, 2, 3, 4]. The README's 'gives up after 3 attempts' counts retries."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "The runner makes retries plus one attempts in total",
+        "claim": "The delays scheduled between runs are 1, 2 and 4 seconds.",
         "verdict": "confirmed",
-        "evidence": "retry.run loops range(retries + 1), so 2 retries give 3 attempts; main.py prints attempts 3 for nightly-sync."
+        "evidence": "A delay min(base * 2 ** (attempt - 1), cap) is appended after attempts 1 to 3, giving 1, 2, 4, all under the cap of 10; main.py prints the list [1, 2, 4]. The runner only records the delays and never sleeps."
       }
     ]
   }

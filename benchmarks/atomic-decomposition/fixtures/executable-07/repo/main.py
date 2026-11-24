@@ -1,4 +1,6 @@
-from intake import accept
+from accounts import Profile
 
-raw = "AB123\nCD45\nEF678"
-print(accept(raw.splitlines(True)))
+alice = Profile("alice", theme="dark")
+bob = Profile("bob")
+print(alice.user, alice.opts["theme"], alice.opts["channels"])
+print(bob.user, bob.opts["theme"], bob.opts["channels"])

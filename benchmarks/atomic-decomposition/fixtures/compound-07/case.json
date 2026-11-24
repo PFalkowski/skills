@@ -2,23 +2,25 @@
   "id": "compound-07",
   "kind": "compound",
   "split": "test",
-  "claim": "The import skips the header line, rejects rows for unknown customers and counts them, sums the amounts per customer, and prints the report with the biggest total first.",
+  "claim": "After the version 2 change, our old version 1 settings files still work. They load without errors, renamed keys are picked up, missing keys fall back to defaults, and every value means the same as before.",
   "root": "refuted",
-  "why": "Header skipping, rejection with a count and per-customer sums all work. The report sorts totals that totals() already formatted as strings, so 95.50 sorts above 1200.00 and the order is wrong. The trap is that sorted(..., reverse=True) on the totals looks right and the string conversion happens one function earlier.",
+  "why": "Loading old.cfg gives no error, the three renamed keys are mapped by RENAMES, and missing keys keep their defaults. But old.cfg says its timeout is in seconds, while the version 2 key timeout_ms is in milliseconds, and the loader only renames the key. So timeout = 30 becomes 30 milliseconds, not 30 seconds, and the line in CHANGES.md that old files load as before is true only for loading, not for meaning.",
   "deciding": [
     {
       "verdict": "refuted",
-      "pattern": "(biggest|largest|highest|descending|size|numeric).*(first|order)|(string|text|lexicograph|alphabetic).*(sort|order)|sort.*(string|text|formatted)",
-      "note": "sorting is on formatted strings, so 95.50 precedes 1200.00"
+      "pattern": "timeout.{0,80}(unit|second|millisecond|\\bms\\b|scal|meaning)|(unit|second|millisecond).{0,80}timeout",
+      "note": "timeout is renamed but not converted from seconds to milliseconds"
     }
   ],
   "false_confirms": [
-    "(biggest|largest|highest).*(first|total)"
+    "(units?|seconds?|values?|timeout)\\W.{0,50}(preserved|kept|unchanged|the same|same meaning|means the same|keeps?|keep|retains?)\\b.{0,20}(meaning|unit|same|as before)?(?!.{0,20}\\bnot\\b)",
+    "timeout.{0,40}(still|remains?).{0,20}seconds",
+    "(keeps?|keep|retains?) (its|their) meaning"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "Import: skip header, reject unknown customers with count, sum per customer, biggest total first",
+      "claim": "Version 1 settings files still load and mean the same after the version 2 change.",
       "verdict": "refuted",
       "op": "all"
     },
@@ -26,30 +28,26 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "The header line is skipped",
+        "op": "all",
+        "claim": "Version 1 files load without errors",
         "verdict": "confirmed",
-        "evidence": "read() iterates lines[1:]."
+        "evidence": "run.py loads old.cfg and prints a dict."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "Rows for unknown customers are rejected and counted",
+        "op": "all",
+        "claim": "Renamed keys are picked up and missing keys fall back to defaults",
         "verdict": "confirmed",
-        "evidence": "totals() increments rejected for names not in KNOWN. Run prints rejected 1."
+        "evidence": "RENAMES maps timeout, retry and debug; run.py shows retries 3 from the defaults."
       },
       {
         "id": "A3",
         "parent": "root",
-        "claim": "Amounts are summed per customer",
-        "verdict": "confirmed",
-        "evidence": "totals() adds float(amount or 0) per customer. Run: ana 95.50, bo 1200.00, cy 300.00."
-      },
-      {
-        "id": "A4",
-        "parent": "root",
-        "claim": "The report lists the biggest total first",
+        "op": "all",
+        "claim": "Every value keeps its meaning, including timeout units",
         "verdict": "refuted",
-        "evidence": "totals() returns strings via '%.2f', and report() sorts those strings, so the run prints ana 95.50, cy 300.00, bo 1200.00."
+        "evidence": "old.cfg says its timeout is a whole number of seconds; loader.py names the version 2 key timeout_ms and only renames the key, so timeout = 30 loads as timeout_ms 30, which is 30 milliseconds."
       }
     ]
   }

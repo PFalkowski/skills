@@ -1,4 +1,5 @@
-from codes import is_valid, load
+from data import TASKS
+from tasks import next_up
 
-for raw in load("codes.txt"):
-    print(repr(raw), is_valid(raw))
+for task in next_up(TASKS):
+    print(task["priority"], task["name"])

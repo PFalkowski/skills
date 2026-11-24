@@ -1,9 +1,31 @@
-from fees import late_fee
-from members import load
+from retry import HttpError, call_with_retry
 
-LOANS = [(1, 5), (2, 10), (3, 30), (1, 3)]
 
-members = load()
-for member_id, days_late in LOANS:
-    member = members[member_id]
-    print(member.name, days_late, "%.2f" % late_fee(member, days_late))
+def scripted(statuses):
+    queue = list(statuses)
+    calls = []
+
+    def fn():
+        calls.append(1)
+        status = queue.pop(0)
+        if status != 200:
+            raise HttpError(status)
+        return "ok"
+
+    return fn, calls
+
+
+def scenario(statuses):
+    fn, calls = scripted(statuses)
+    waits = []
+    try:
+        result = call_with_retry(fn, waits.append)
+    except HttpError as e:
+        result = "error %d" % e.status
+    print(statuses, result, len(calls), waits)
+
+
+scenario([503, 503, 503, 200])
+scenario([503, 503, 503, 503])
+scenario([404, 200])
+scenario([401, 200])

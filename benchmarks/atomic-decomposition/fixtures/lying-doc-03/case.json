@@ -2,24 +2,23 @@
   "id": "lying-doc-03",
   "kind": "lying-doc",
   "split": "test",
-  "claim": "With the defaults and a function that always fails, retry waits 1, 2 and then 4 seconds before it raises the error.",
+  "claim": "If you publish 'Año Nuevo' twice, the slugs are 'año-nuevo' and then 'año-nuevo-2'.",
   "root": "refuted",
-  "why": "The README says it sleeps after every failed try, but the wait list built by delays() has one entry fewer than attempts, so nothing is slept after the last failure. With the defaults the waits are 1 and 2, and the error is raised at once after the third try. Running demo.py prints [1, 2], never 4.",
+  "why": "The README says only non-letters and non-digits become hyphens, which suggests accented letters survive. The regex keeps only a-z and 0-9, so ñ becomes a hyphen and the slug is a-o-nuevo. The second-publish suffix works as described, so the claim is half right, which is the trap.",
   "deciding": [
     {
       "verdict": "refuted",
-      "pattern": "(third|last|final|fourth|4 seconds|wait of 4|waits? 4|\\[1, 2\\]|1 and 2|only (two|2) waits|between (tries|attempts)|raises (at once|immediately)|no (wait|sleep))",
-      "note": "no sleep after the final failed try"
+      "pattern": "a-o-nuevo|ñ[^.]{0,40}(hyphen|dash)|(hyphen|dash)[^.]{0,40}ñ|non-?ascii[^.]{0,40}(drop|strip|replac|hyphen)",
+      "note": "the slug is a-o-nuevo"
     }
   ],
   "false_confirms": [
-    "(waits?|sleeps?)\\s+(three|3)\\s+times",
-    "(waits?|sleeps?|delays?)[^.]{0,20}1,? 2,?,? (and )?(then )?4"
+    "(slug|becomes|gives|yields|produces)[^.]{0,20}['\"]?a[ñn]o-nuevo(?!\\w)"
   ],
   "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "With defaults and an always-failing function, retry waits 1, 2 and then 4 seconds before raising.",
+      "claim": "Publishing 'Año Nuevo' twice gives 'año-nuevo' then 'año-nuevo-2'.",
       "verdict": "refuted",
       "op": "all"
     },
@@ -27,16 +26,16 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "By default retry makes 3 tries and the waits come from delays(), base * 2**n for n below attempts - 1.",
-        "verdict": "confirmed",
-        "evidence": "retry.py: attempts=3, base=1; delays(3, 1) is [1, 2]."
+        "claim": "The first slug for 'Año Nuevo' is 'año-nuevo'.",
+        "verdict": "refuted",
+        "evidence": "slug.make keeps only [a-z0-9] after lowercasing, so ñ becomes a hyphen; main.py prints a-o-nuevo."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "A wait of 4 seconds happens after the third failed try.",
-        "verdict": "refuted",
-        "evidence": "delays() has attempts - 1 entries, so no sleep after the last try; demo.py prints [1, 2]."
+        "claim": "The second publish of the same title gets the suffix -2.",
+        "verdict": "confirmed",
+        "evidence": "Blog.publish appends -n starting at 2 while the slug is taken; main.py prints the repeated slug with -2 added."
       }
     ]
   }

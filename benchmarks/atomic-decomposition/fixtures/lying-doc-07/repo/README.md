@@ -1,6 +1,6 @@
-# Small cache
+# Settings
 
-A least-recently-used cache with a fixed capacity.
-Both `get` and `put` mark a key as most recently used.
-When the cache is full, `put` of a new key drops the least recently used key.
-Run `python3 main.py` for a demo.
+Values come from built-in defaults, then the JSON config file, then the
+environment. A variable named `APP_<KEY>` overrides the file and is
+converted to the type of that key's default. For yes/no keys, `APP_DEBUG=0`
+or `APP_DEBUG=false` turns the key off.

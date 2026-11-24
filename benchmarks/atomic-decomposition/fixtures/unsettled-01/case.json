@@ -8,11 +8,6 @@
   "deciding": [
     {
       "verdict": "confirmed",
-      "pattern": "default.*30|30.*default|RETENTION_DAYS.*(30|default)|fall(s)? ?back[^.]*30|30[^.]*(unset|missing|not set)|(unset|missing|not set)[^.]*30",
-      "note": "code default is 30"
-    },
-    {
-      "verdict": "confirmed",
       "pattern": "(purge|delet|remov|drop|filter|discard)[^.]*(older|cutoff|before|window|retention)|(older|before)[^.]*(remov|delet|drop|purg)",
       "note": "purge drops records older than the window"
     },

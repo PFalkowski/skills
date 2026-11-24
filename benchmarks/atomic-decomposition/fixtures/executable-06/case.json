@@ -2,28 +2,30 @@
   "id": "executable-06",
   "kind": "executable",
   "split": "test",
-  "claim": "Players with equal scores appear in sign-up order, and ranks skip after a tie, so two players tied for first are followed by rank 3.",
+  "claim": "Splitting 100.00 three ways gives 33.33, 33.33 and 33.34, and splitting a refund of -100.00 gives -33.34, -33.34 and -33.32. Both sets of shares add back up to the original amount.",
   "root": "confirmed",
-  "why": "sorted with reverse=True still keeps equal items in their original order, so ties stay in sign-up order. The rank of a row is copied from the row above on a tie and otherwise is its position, giving 1, 1, 3, 3, 5. The trap is the belief that reverse=True flips tied items too.",
+  "why": "split.shares uses floor division, which rounds toward minus infinity, so the base share of -10000 cents is -3334 and the last share takes the remainder -3332. Running main.py prints exactly these shares and both sums. The trap is expecting the refund to mirror the charge, as truncation toward zero would give.",
   "deciding": [
     {
       "verdict": "confirmed",
-      "pattern": "(tie|equal|same score).*(order|sign.?up|roster|stable)|(order|sign.?up|stable).*(tie|equal)",
-      "note": "reverse=True keeps ties in original order"
+      "pattern": "-100(\\.00)?.*(-33\\.34|-3334).*(-33\\.32|-3332)|(-33\\.34|-3334).*(-33\\.32|-3332)",
+      "note": "refund shares"
     },
     {
       "verdict": "confirmed",
-      "pattern": "rank.*(1,? ?1,? ?3|skip|3)|(skip|3).*rank",
-      "note": "competition ranking 1,1,3"
+      "pattern": "(?<!-)\\b100(\\.00)?\\b.*33\\.33.*33\\.34|33\\.33.*33\\.34.*\\b100(\\.00)?\\b",
+      "note": "charge shares"
     }
   ],
-  "false_confirms": [],
+  "false_confirms": [
+    "-33\\.33.*-33\\.33.*-33\\.34"
+  ],
   "must_run": [
-    "python3? .*main\\.py"
+    "python3?\\s.*(main\\.py|-c\\s|<<)"
   ],
   "exemplar": {
     "root": {
-      "claim": "Ties keep sign-up order and ranks go 1, 1, 3.",
+      "claim": "Splitting 100.00 three ways gives 33.33, 33.33 and 33.34, and splitting -100.00 gives -33.34, -33.34 and -33.32; both add up to the original.",
       "verdict": "confirmed",
       "op": "all"
     },
@@ -31,16 +33,23 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "Equal-score players appear in sign-up order",
+        "claim": "Splitting 100.00 three ways gives 33.33, 33.33 and 33.34",
         "verdict": "confirmed",
-        "evidence": "main.py prints lee then ned (both 70) and kim then moe (both 50), the roster order; sorted(reverse=True) is stable."
+        "evidence": "Ran python3 main.py: ['33.33', '33.33', '33.34']."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "After two players tied at rank 1 the next rank is 3",
+        "claim": "Splitting -100.00 three ways gives -33.34, -33.34 and -33.32",
         "verdict": "confirmed",
-        "evidence": "main.py prints ranks 1, 1, 3, 3, 5."
+        "evidence": "Ran python3 main.py: ['-33.34', '-33.34', '-33.32']; -10000 // 3 is -3334 by floor division."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "Both sets of shares sum back to the original amount",
+        "verdict": "confirmed",
+        "evidence": "Ran python3 main.py: printed sums are 100.00 and -100.00."
       }
     ]
   }

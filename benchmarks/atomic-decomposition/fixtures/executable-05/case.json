@@ -2,26 +2,24 @@
   "id": "executable-05",
   "kind": "executable",
   "split": "test",
-  "claim": "Each Basket keeps its own list of lines, so adding something to Ana's basket never changes Ben's total.",
+  "claim": "main.py registers every .txt source under its file name minus the extension, so tax_2024.txt is stored as tax_2024 and its rows total 15.",
   "root": "refuted",
-  "why": "Basket.__init__ gets its list from new_lines(\"basket\"), which reads like a factory that returns a fresh list. It is wrapped in lru_cache, so every call with the same argument returns the same list object. Running main.py shows Ben's basket holding Ana's pens and a total of 1040 instead of 800.",
+  "why": "strip(\".txt\") removes any of the characters dot, t and x from both ends, not the suffix. tax_2024.txt therefore loses its leading t and is stored as ax_2024, and Sales.txt becomes sales. The README and the plain look of the call invite trusting it; a careful reader can settle it by hand from the documented str.strip rule, so no run is required.",
   "deciding": [
     {
       "verdict": "refuted",
-      "pattern": "(share|same|cache|memoi[sz]|one).*(list|lines|object)|(list|lines).*(share|same|cache)|ben.*1040|1040.*ben|(ana|pen).*ben.*(total|lines)|(alter|affect|change).*ben",
-      "note": "the lines list is shared across baskets"
+      "pattern": "tax_2024.*(stor|regist|nam|slug|dataset|key)|(stor|regist|nam|slug|dataset|key).*tax_2024",
+      "note": "stored as ax_2024, not tax_2024"
     }
   ],
   "false_confirms": [
-    "never changes.*(ben|total)|(ben|total).*(unaffected|unchanged|never changes)",
-    "(each|every).*(basket|instance).*(own|separate|independent|fresh).*(list|lines)"
+    "^(?!.*(not|never|n't|ax_2024\\b.*instead|differ|wrong)).*\\btax_2024\\.txt\\b.*\\b(as|under|name[d]?|called)\\b\\s*['\"`]?tax_2024\\b(?!\\.)",
+    "^(?!.*(not|never|n't|except|but|README|docs?|says|claims|states|documented)).*\\b(every|each|all)\\b.*(file|source).*\\b(minus|without|drops?|strips?|stripp\\w+|removes?)\\b.*(extension|\\.txt)"
   ],
-  "must_run": [
-    "python3? .*main\\.py"
-  ],
+  "must_run": [],
   "exemplar": {
     "root": {
-      "claim": "Adding to Ana's basket never changes Ben's total.",
+      "claim": "main.py registers every .txt source under its file name minus the extension, so tax_2024.txt is stored as tax_2024 and its rows total 15.",
       "verdict": "refuted",
       "op": "all"
     },
@@ -29,16 +27,16 @@
       {
         "id": "A1",
         "parent": "root",
-        "claim": "Each Basket gets its own list of lines",
+        "claim": "tax_2024.txt is stored under the dataset name tax_2024",
         "verdict": "refuted",
-        "evidence": "new_lines is decorated with lru_cache, so new_lines(\"basket\") returns the same list every time. main.py prints ben's lines as [('pen', 2), ('ink', 1)]: Ben sees Ana's pen line."
+        "evidence": "Ran python3 main.py: the line printed for it is 'ax_2024 15'. registry.slug uses filename.strip(\".txt\"), which strips the characters . t x from both ends."
       },
       {
         "id": "A2",
         "parent": "root",
-        "claim": "Ben's total is unaffected by Ana's add",
-        "verdict": "refuted",
-        "evidence": "main.py prints ben total 1040 instead of 800 after only ana.add('pen', 2) and ben.add('ink')."
+        "claim": "The rows of tax_2024.txt total 15",
+        "verdict": "confirmed",
+        "evidence": "Ran python3 main.py: 10 + 5 = 15 is printed."
       }
     ]
   }
