@@ -2,7 +2,7 @@
   "id": "p-04",
   "kind": "any-ways",
   "split": "dev",
-  "claim": "Through the shipctl command line, a shipment that already has a label can still have its delivery address changed.",
+  "claim": "Through the shipctl command line, a shipment that already has a label can still have the delivery address on its label changed.",
   "root": "refuted",
   "why": "Every shipctl route to the address of a labelled shipment fails, each for a different reason: address refuses it outright, edit refuses address and postcode as LOCKED_WHEN_LABELLED and puts any other key such as delivery_address into extra, relabel reprints the stored address, and amend skips labelled rows in amend.apply_row. The obvious check is the documented bulk path: amend prints 'imported ...: 1 row(s)' and exits 0 for a labelled shipment, and edit --set delivery_address=... prints 'set'. Only show afterwards, or reading amend.py, reveals that the address did not change.",
   "evidence_tokens": [

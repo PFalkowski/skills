@@ -2,7 +2,7 @@
   "id": "p-05",
   "kind": "unsettled",
   "split": "dev",
-  "claim": "In production, the nightly cleanup removes uploads older than 30 days.",
+  "claim": "In production, the nightly cleanup removes uploads from the index once they are older than 30 days.",
   "root": "unsettled",
   "why": "The production service in deploy/mediahub-cleanup.service sets MEDIAHUB_CONFIG=/etc/mediahub/production.ini, and settings.load lets that file override retention_days, but the file is not in the repository, so the production retention cannot be known here. The obvious checks all say 30: config/defaults.ini, the README table, settings_dump.py, the tests and a cleanup run all show retention 30 days. They describe the in-repo default, not the server, which reads a file this sandbox does not have.",
   "evidence_tokens": [
