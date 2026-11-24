@@ -1,0 +1,5 @@
+[
+  {"name": "card-reminder", "action": "remind", "filter": "card_expiring", "text": "Your card expires soon.", "day": 1},
+  {"name": "late-fee", "action": "charge", "filter": "overdue", "fee": "4.50", "day": 5},
+  {"name": "overdue-reminder", "action": "remind", "filter": "overdue", "text": "Your membership is overdue."}
+]

@@ -1,0 +1,51 @@
+{
+  "id": "p-06",
+  "kind": "looks-false",
+  "split": "dev",
+  "claim": "No listkeeper command can put a subscriber with an empty email address into the subscriber list.",
+  "root": "confirmed",
+  "why": "The two writes that skip validation are both guarded upstream: importer.group drops every row whose cleaned address is empty (clean.clean_row returns None) before merge_duplicates runs, and groups by that non-empty address, while restore runs backup.read, which calls schema.check_record on every record before bulk_load. The obvious check finds store.insert(..., validate=False) in merge_duplicates and in bulk_load, and CHANGELOG 0.3.0 lists a known issue that a merged subscriber with a blank address could reach the list. Feeding blank and whitespace addresses, duplicated or not, to import, add and restore never stores an empty address; the merge path can store a malformed address such as 'not-an-address', but never an empty one.",
+  "evidence_tokens": [
+    [
+      "clean_row",
+      "clean.py",
+      "group"
+    ],
+    [
+      "check_record",
+      "backup.read",
+      "backup.py",
+      "restore"
+    ]
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "Every listkeeper command that writes subscribers rejects an empty email",
+      "verdict": "confirmed",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "add rejects an empty email",
+        "verdict": "confirmed",
+        "evidence": "cmd_add calls store.insert with validate=True; python3 lk.py add '' -> error: bad email address ''"
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "import never stores an empty email, including through merge_duplicates (validate=False)",
+        "verdict": "confirmed",
+        "evidence": "importer.group drops rows where clean.clean_row returns None (empty address) and groups by the non-empty address, so merge.merge always gets a non-empty email. Importing blank, whitespace and duplicated blank rows gives 'rejected 4' and no empty email in subscribers.json."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "restore never stores an empty email, although bulk_load skips validation",
+        "verdict": "confirmed",
+        "evidence": "cmd_restore calls backup.read first, which runs schema.check_record on each record; a backup with email '' fails with 'subscriber 1: bad email address'."
+      }
+    ]
+  }
+}

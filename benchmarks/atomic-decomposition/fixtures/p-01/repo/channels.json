@@ -1,0 +1,6 @@
+{
+  "chat": {"recipient": "#ops", "max_length": 400},
+  "email": {"recipient": "ops@example.com", "max_length": 1200, "signature": "-- relay"},
+  "sms": {"recipient": "+15550100", "max_length": 140},
+  "pager": {"recipient": "pager:oncall", "max_length": 80, "repeat": 3}
+}

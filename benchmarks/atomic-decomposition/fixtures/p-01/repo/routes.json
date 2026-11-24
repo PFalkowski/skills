@@ -1,0 +1,6 @@
+{
+  "low": ["chat"],
+  "normal": ["chat", "email"],
+  "high": ["email", "sms"],
+  "critical": ["sms", "pager"]
+}

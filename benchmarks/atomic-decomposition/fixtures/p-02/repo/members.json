@@ -1,0 +1,6 @@
+[
+  {"id": "M-101", "name": "Rosa Vint", "plan": "monthly", "paid_until": "2026-03-31", "card_expires": "2026-04", "overdue": false},
+  {"id": "M-102", "name": "Tom Achebe", "plan": "student", "paid_until": "2026-02-28", "card_expires": "2027-01", "overdue": true},
+  {"id": "M-103", "name": "Lena Oduya", "plan": "off-peak", "paid_until": "2026-03-31", "card_expires": "2026-03", "overdue": false},
+  {"id": "M-104", "name": "Piet Varga", "plan": "monthly", "paid_until": "2026-01-31", "card_expires": "2028-09", "overdue": true}
+]

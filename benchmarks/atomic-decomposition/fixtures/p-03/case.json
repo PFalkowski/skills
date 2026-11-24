@@ -1,0 +1,37 @@
+{
+  "id": "p-03",
+  "kind": "any-ways",
+  "split": "dev",
+  "claim": "Without changing any .py file or projects.csv, there is a way to make python3 report.py leave the archived projects out of its listing.",
+  "root": "confirmed",
+  "why": "The board view in views.ini has 'statuses = active, paused, proposed', and views.apply passes it to filters.only_statuses, so python3 report.py --view board lists 7 projects and no archived one; a new views.ini section with a statuses line works the same way. The obvious way, the documented --exclude-archived flag, still lists all 10 projects, because filters.exclude_statuses compares the name 'archived' with status codes such as 'ARC'. The README presents views as a choice of columns, so an agent that tries the flag, sees it fail and finds the bug is led to call the claim false.",
+  "evidence_tokens": [
+    [
+      "board",
+      "statuses"
+    ]
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "Some option or non-Python setting makes report.py omit archived projects",
+      "verdict": "confirmed",
+      "op": "any"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "--exclude-archived omits archived projects",
+        "verdict": "refuted",
+        "evidence": "python3 report.py --exclude-archived still prints 10 projects including P-03 archived: exclude_statuses compares 'archived' with status_code 'ARC'."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "--view board omits archived projects",
+        "verdict": "confirmed",
+        "evidence": "views.ini [board] has statuses = active, paused, proposed; views.apply calls only_statuses. python3 report.py --view board prints 7 projects, none archived."
+      }
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+id,name,owner,status,budget,spent
+P-01,Harbour lights,M. Ilic,ACT,42000,18350
+P-02,Library app,S. Noor,ACT,15000,14920
+P-03,Old intranet,M. Ilic,ARC,30000,29870
+P-04,Bike racks,J. Kowal,PAU,8000,1200
+P-05,Tram stop signs,S. Noor,PRO,22000,0
+P-06,Paper archive scan,J. Kowal,ARC,12000,12000
+P-07,Park benches,M. Ilic,ACT,9500,4100
+P-08,Night bus survey,A. Brandt,PRO,6000,0
+P-09,School meals pilot,A. Brandt,ARC,18000,17100
+P-10,River clean-up,S. Noor,ACT,26000,9800
