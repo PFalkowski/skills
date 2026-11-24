@@ -25,7 +25,9 @@
       "can't be run here",
       "cannot be observed",
       "no copy",
-      "absent"
+      "absent",
+      "not in this directory",
+      "outside this directory"
     ]
   ],
   "exemplar": {

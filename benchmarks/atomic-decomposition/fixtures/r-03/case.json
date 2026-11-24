@@ -11,9 +11,6 @@
       "efforts"
     ]
   ],
-  "must_run": [
-    "node"
-  ],
   "exemplar": {
     "root": {
       "claim": "Some argument makes the spec agent run on a weaker model or at a lower effort than its defaults (opus, high)",
