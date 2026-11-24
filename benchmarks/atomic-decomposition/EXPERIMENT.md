@@ -71,7 +71,9 @@ Two formats exist:
 - Real-repository export (`r-01` to `r-06`): no `repo/` folder, and `case.json` has a
   `repo_ref`. The scratch folder is `git archive <repo_ref>` of this repository, pinned
   at `dc6a0af7b309c77d8aef164208595abbe6c506f8`, without `atomic-decomposition/`, the two
-  `benchmarks/skill-context/` files named after it, `.claude/` or any git history.
+  `benchmarks/skill-context/` files named after it, `.claude/` or any git history. The
+  export still names the skill in `README.md` (a summary of its method) and four other
+  files; see RESULTS.md. A run with both arms must redact or audit those first.
 
 All twelve fixtures are in the `dev` split. They are development cases for checking
 difficulty, not held-out cases.
@@ -126,7 +128,7 @@ grader fault, fixed before the next pass, never an agent fault. The v1 keys matc
 regular expressions against atom wording, so a correct answer phrased in other words
 failed. A harder re-authoring round then failed independent key validation: regexes too
 broad or too narrow, and cases still shallow. The run stopped on a usage limit after
-about 13 million subagent tokens. The v1 fixtures were deleted.
+about 13 million subagent tokens, as the workflow run reported. The v1 fixtures were deleted.
 
 ### Attempt 2: v2 keys on larger invented repositories (`pilot-v2/`)
 
@@ -134,7 +136,8 @@ Six fixtures, `p-01` to `p-06`: two `universal`, two `any-ways`, one `unsettled`
 `looks-false`. An independent validator checked every key and repaired three ambiguous
 claims. Arm A passed 6 of 6, and every grade was fair. Three passes rested on reading
 alone, with no program run. The allow list refused 16 commands. Cost: about 0.4 million
-subagent tokens and $0.38 of headless calls.
+tokens for the three authoring agents and $0.38 of headless calls (about 0.5 million
+tokens).
 
 ### Attempt 3: claims about this repository (`pilot-real/`)
 
@@ -147,5 +150,6 @@ root verdict on 6 of 6, but the grader scored 4 of 6. Both failures were key fau
   gained "not in this directory" and "outside this directory".
 
 Re-graded without any model call under the corrected keys, the recorded reports score 6
-of 6. Five of the six passes rested on reading alone. The allow list refused 6 commands.
-Cost: about 0.4 million subagent tokens and $0.33 of headless calls.
+of 6. Three of the six passes rested on reading alone. The allow list refused 6 commands.
+Cost: about 0.4 million tokens for the three authoring agents and $0.33 of headless calls
+(about 0.4 million tokens).
