@@ -20,10 +20,14 @@ const removesLaunchFolder = (command, cwd, transcriptPath) => {
   const launchKey = projectKey(path.basename(path.dirname(transcriptPath)));
   return [...command.matchAll(REMOVE)].some(([, globals, args]) => {
     const dir = [...globals.matchAll(/-C\s+(\S+)/g)].map(([, d]) => unquote(d));
-    const target = args.replace(/\s\d+$/, '').trim().split(/\s+/).filter((a) => a && !a.startsWith('-')).pop();
+    const target = args.replace(/^([^(){}]*)[)}].*/, '$1').replace(/\s\d+$/, '').trim().split(/\s+/)
+      .filter((a) => /[\p{L}\p{N}_.]/u.test(a) && !a.startsWith('-')).pop();
     if (!target) return false;
-    const key = projectKey(path.resolve(cwd, ...dir, unquote(target)));
-    return launchKey === key || launchKey.startsWith(`${key}-${WORKTREES}`) ||
+    const parts = [...dir, unquote(/[({]/.test(target) ? target : target.replace(/[)}]+(?=["']?$)/, ''))];
+    const key = projectKey(path.resolve(cwd, ...parts));
+    const tail = path.join('/', parts.at(-1), '.');
+    return (tail.length > 1 && !parts.some(path.isAbsolute) && launchKey.endsWith(projectKey(tail))) ||
+      launchKey === key || launchKey.startsWith(`${key}-${WORKTREES}`) ||
       (key.endsWith(WORKTREES.slice(0, -1)) && launchKey.startsWith(`${key}-`));
   });
 };
@@ -46,6 +50,8 @@ process.stdin.on('end', () => {
   if (removesLaunch) {
     deny(
       'This session was launched in that worktree, and its transcript is filed under that folder: removing it ' +
-      'leaves the session impossible to resume or message. Leave the worktree for the next session\'s wrap-up sweep.');
+      'leaves the session impossible to resume or message. Leave the worktree for the next session\'s wrap-up sweep. ' +
+      'If the target is a different folder, write out its absolute path, with no `~` or variable. ' +
+      'If this text is prose rather than a command, pass it through a file instead.');
   }
 });
