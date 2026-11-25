@@ -13,7 +13,7 @@ metadata:
 
 ## Hook behavior
 
-A `PreToolUse` hook on the Bash and PowerShell tools. It denies any `git worktree add` (including `git.exe`, `git -C <dir>` and `git -c <key>=<value>`) whose arguments contain no `.claude/worktrees/` or `.claude\worktrees\` path, and tells the agent where to put the worktree instead. It also denies a `git worktree remove` whose target is the folder the session was launched in, or holds it: the session's transcript is filed under that folder's name (the parent folder of the hook input's `transcript_path`), so removing it leaves the session impossible to resume or message. Other commands pass untouched. Unreadable input fails open.
+A `PreToolUse` hook on the Bash and PowerShell tools. It denies any `git worktree add` (including `git.exe`, `git -C <dir>` and `git -c <key>=<value>`) whose arguments contain no `.claude/worktrees/` or `.claude\worktrees\` path, and tells the agent where to put the worktree instead. It also denies a `git worktree remove` whose target is the folder the session was launched in, or holds it: the session's transcript is filed under that folder's name (the parent folder of the hook input's `transcript_path`), so removing it leaves the session impossible to resume or message. After a `cd` or `pushd` in the same command the hook cannot tell which folder a relative target is in, so it denies one whose path matches the end of the launch folder's; an absolute path settles it. Other commands pass untouched. Unreadable input fails open.
 
 It reads command text, so prose that quotes `git worktree add ../x` (a PR body, say) is denied too; the deny reason tells the agent to pass such text through a file.
 
