@@ -66,7 +66,9 @@ for (const command of [
   '(cd /src/repo && git worktree remove .claude/worktrees/feature)',
   '( cd /src/repo && git worktree remove .claude/worktrees/feature )',
   'Set-Location C:\\src\\repo; git worktree remove .claude\\worktrees\\feature',
+  'out="$(git worktree remove .claude/worktrees/feature)"',
   'if ($merged) { git worktree remove .claude/worktrees/feature }',
+  'try { git worktree remove .claude/worktrees/feature } catch { Write-Host failed }',
   'git worktree remove .claude/worktrees/feature *> $null',
   'git -C "$ROOT" worktree remove .claude/worktrees/feature',
 ]) test(`denies a relative target that ends like the launch folder: ${command}`, () =>
@@ -91,9 +93,13 @@ for (const command of [
 ]) test(`allows that sibling by an absolute path: ${command}`, () =>
   assert.strictEqual(decide(command, besideMyFeature), 'allow'));
 
-test('denies the launch worktree when its path holds a parenthesis', () =>
-  assert.strictEqual(decide('git worktree remove "/src/dev(old)/repo/.claude/worktrees/feature"',
-    launchedIn('/src/dev(old)/repo/.claude/worktrees/feature')), 'deny'));
+for (const dir of ['/src/dev(old)/repo/.claude/worktrees/feature', '/src/repo/.claude/worktrees/fix(1)'])
+  test(`denies the launch worktree named ${dir}`, () =>
+    assert.strictEqual(decide(`git worktree remove "${dir}"`, launchedIn(dir)), 'deny'));
+
+test('denies the launch worktree by a bare name in a non-Latin script', () =>
+  assert.strictEqual(decide('git worktree remove 修复',
+    { ...launchedIn('/src/repo/.claude/worktrees/修复'), cwd: '/src/repo/.claude/worktrees' }), 'deny'));
 
 test('allows a target with no name when the launch folder name ends in a separator', () =>
   assert.strictEqual(decide('git worktree remove .',
