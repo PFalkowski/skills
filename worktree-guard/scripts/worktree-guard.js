@@ -5,7 +5,7 @@
 const path = require('node:path');
 
 const ADD = /\bgit(?:\.exe)?(?:\s+-[cC]\s+\S+)*\s+worktree\s+add\b([^;&|\n]*)/g;
-const REMOVE = /\bgit(?:\.exe)?((?:\s+-[cC]\s+\S+)*)\s+worktree\s+remove\b([^;&|<>)\n]*)/g;
+const REMOVE = /\bgit(?:\.exe)?((?:\s+-[cC]\s+\S+)*)\s+worktree\s+remove\b([^;&|<>\n]*)/g;
 const INSIDE = /\.claude[\\/]worktrees[\\/]/;
 const WORKTREES = '-claude-worktrees-';
 const projectKey = (dir) => dir.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
@@ -20,11 +20,12 @@ const removesLaunchFolder = (command, cwd, transcriptPath) => {
   const launchKey = projectKey(path.basename(path.dirname(transcriptPath)));
   return [...command.matchAll(REMOVE)].some(([, globals, args]) => {
     const dir = [...globals.matchAll(/-C\s+(\S+)/g)].map(([, d]) => unquote(d));
-    const target = args.replace(/\s\d+$/, '').trim().split(/\s+/).filter((a) => a && !a.startsWith('-')).pop();
+    const target = args.replace(/\s\d+$/, '').trim().split(/\s+/).filter((a) => /[\w.]/.test(a) && !a.startsWith('-')).pop();
     if (!target) return false;
-    const parts = [...dir, unquote(target)];
+    const parts = [...dir, unquote(target.includes('(') ? target : target.replace(/\)+$/, ''))];
     const key = projectKey(path.resolve(cwd, ...parts));
-    return (!parts.some(path.isAbsolute) && launchKey.endsWith(projectKey(path.join('/', parts.at(-1), '.')))) ||
+    const tail = path.join('/', parts.at(-1), '.');
+    return (tail.length > 1 && !parts.some(path.isAbsolute) && launchKey.endsWith(projectKey(tail))) ||
       launchKey === key || launchKey.startsWith(`${key}-${WORKTREES}`) ||
       (key.endsWith(WORKTREES.slice(0, -1)) && launchKey.startsWith(`${key}-`));
   });
@@ -49,6 +50,7 @@ process.stdin.on('end', () => {
     deny(
       'This session was launched in that worktree, and its transcript is filed under that folder: removing it ' +
       'leaves the session impossible to resume or message. Leave the worktree for the next session\'s wrap-up sweep. ' +
-      'If the target is a different folder, write out its absolute path, with no `~` or variable.');
+      'If the target is a different folder, write out its absolute path, with no `~` or variable. ' +
+      'If this text is prose rather than a command, pass it through a file instead.');
   }
 });
