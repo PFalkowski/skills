@@ -20,10 +20,10 @@ const removesLaunchFolder = (command, cwd, transcriptPath) => {
   const launchKey = projectKey(path.basename(path.dirname(transcriptPath)));
   return [...command.matchAll(REMOVE)].some(([, globals, args]) => {
     const dir = [...globals.matchAll(/-C\s+(\S+)/g)].map(([, d]) => unquote(d));
-    const target = args.replace(/^([^(){}]*)[)}].*/, '$1').replace(/\s(?:\d+|\*)$/, '').trim().split(/\s+/)
-      .filter((a) => a && !a.startsWith('-')).pop();
+    const target = args.replace(/^([^(){}]*)[)}].*/, '$1').replace(/\s\d+$/, '').trim().split(/\s+/)
+      .filter((a) => /[\p{L}\p{N}_.]/u.test(a) && !a.startsWith('-')).pop();
     if (!target) return false;
-    const parts = [...dir, unquote(target)];
+    const parts = [...dir, unquote(/[({]/.test(target) ? target : target.replace(/[)}]+(?=["']?$)/, ''))];
     const key = projectKey(path.resolve(cwd, ...parts));
     const tail = path.join('/', parts.at(-1), '.');
     return (tail.length > 1 && !parts.some(path.isAbsolute) && launchKey.endsWith(projectKey(tail))) ||
