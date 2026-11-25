@@ -63,19 +63,27 @@ for (const command of [
   'cd /src/repo && git worktree remove .claude/worktrees/feature',
   'cd "$ROOT"; git worktree remove --force .claude/worktrees/feature/',
   'pushd ~/src/repo && git -C .claude worktree remove worktrees/feature',
-]) test(`denies removing the launch worktree after a directory change: ${command}`, () =>
+  '(cd /src/repo && git worktree remove .claude/worktrees/feature)',
+  'Set-Location C:\\src\\repo; git worktree remove .claude\\worktrees\\feature',
+  'git -C "$ROOT" worktree remove .claude/worktrees/feature',
+]) test(`denies a relative target that ends like the launch folder: ${command}`, () =>
   assert.strictEqual(decide(command, standingInLaunchFolder), 'deny'));
 
 for (const command of [
   'cd /src/repo && git worktree remove .claude/worktrees/other',
   'cd /src/repo && git worktree remove .claude/worktrees/feature-two',
   'cd /src/other && git worktree remove /src/other/.claude/worktrees/feature',
-]) test(`allows removing another worktree after a directory change: ${command}`, () =>
+  'git -C /src/repo worktree remove \\\n  /src/repo/.claude/worktrees/other',
+]) test(`allows another worktree while standing in the launch folder: ${command}`, () =>
   assert.strictEqual(decide(command, standingInLaunchFolder), 'allow'));
 
-test('resolves against the working directory when the directory change comes after the removal', () =>
-  assert.strictEqual(decide('git worktree remove feature; cd /src/repo',
-    { ...launchedIn('/src/repo/.claude/worktrees/my-feature'), cwd: '/src/repo/.claude/worktrees' }), 'allow'));
+const besideMyFeature = { ...launchedIn('/src/repo/.claude/worktrees/my-feature'), cwd: '/src/repo/.claude/worktrees' };
+
+test('denies a relative sibling whose name ends the launch folder name', () =>
+  assert.strictEqual(decide('git worktree remove feature', besideMyFeature), 'deny'));
+
+test('allows that sibling by its absolute path', () =>
+  assert.strictEqual(decide('git worktree remove /src/repo/.claude/worktrees/feature', besideMyFeature), 'allow'));
 
 for (const input of ['null', '{"cwd":5,"transcript_path":"/a/b/c.jsonl","tool_input":{"command":"git worktree remove x"}}'])
   test(`fails open silently on ${input}`, () => assert.strictEqual(execFileSync('node', [hook], { input }).toString(), ''));
