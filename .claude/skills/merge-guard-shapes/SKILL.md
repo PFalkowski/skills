@@ -64,7 +64,7 @@ because the guard reads commands for both shells without knowing which one it ha
 `unquote` and `target`, and the first two lines of the loop in `reason`. The check itself is
 `merge-guard/scripts/merge-shapes.test.js`.
 
-Sync commit: 7e8e1d06c0c4fb2a9b649d2edc211b6b2623a01a
+Sync commit: 294453ec40b68d2f40734ce9f762bbeda584048a
 
 The sync commit moves only after the check is rerun against the new commit, never in a
 documentation-only pass. [MAINTAIN](../../../formal-check/MAINTAIN.md) says how to bring the check
