@@ -4,7 +4,7 @@ const { execFileSync } = require('node:child_process');
 
 const GAP = String.raw`(?:\s|[\\\x60]\r?\n)+`;
 const REPO = String.raw`((?:${GAP}(?:--repo|-R)\s*\S+)*)`;
-const MERGE = new RegExp(String.raw`\bgh(?:\.exe)?${REPO}${GAP}pr${REPO}${GAP}merge\b([^;&|\n]*)`, 'g');
+const MERGE = new RegExp(String.raw`(?=(\bgh(?:\.exe)?${REPO}${GAP}pr${REPO}${GAP}merge\b([^;&|\n]*)))`, 'g');
 const SPLIT = /[\\`]\r?(?:\n|$)/;
 const VALUED = new Set(['-A', '--author-email', '-b', '--body', '-F', '--body-file', '--match-head-commit', '-t', '--subject']);
 const REVIEWED = /^[#>*\s]*Reviewed at\s+`?([0-9a-f]{7,40})\b/im;
@@ -25,7 +25,7 @@ function target(args) {
 }
 
 function reason(command, view) {
-  for (const [text, ...parts] of command.matchAll(MERGE)) {
+  for (const [, text, ...parts] of command.matchAll(MERGE)) {
     if (SPLIT.test(text)) return 'merge-guard: write `gh pr merge` on one line. The guard does not read a merge command with a line that ends in a backslash or a backtick.' + PROSE;
     const { number, repo, auto } = target(parts.join(''));
     if (!number || number.startsWith('$')) return 'merge-guard: name the PR literally (`gh pr merge <number|url>`), so the guard can check that its head was reviewed.' + PROSE;

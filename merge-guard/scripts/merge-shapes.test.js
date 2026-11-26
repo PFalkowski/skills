@@ -8,7 +8,7 @@ const REPO_FLAGS = ['-R o/r', '--repo o/r', '--repo=o/r', '--repo="o/r"', '-R=o/
 const REPO_SLOTS = ['before pr', 'before merge', 'before the PR', 'after the PR'];
 const PLAIN_GAPS = [' ', '  ', '\t'];
 const SPLIT_GAPS = [' \\\n  ', ' `\n  ', ' `\r\n  '];
-const GAPS = [...[...PLAIN_GAPS, ...SPLIT_GAPS].map((gap) => [gap, gap]), ...SPLIT_GAPS.map((gap) => [' ', gap])];
+const GAPS = [...[...PLAIN_GAPS, ...SPLIT_GAPS].map((gap) => [gap, gap]), ...SPLIT_GAPS.flatMap((gap) => [[' ', gap], [gap, ' ']])];
 const OPTIONS = ['', '--squash', '--subject "fix 7"', '--match-head-commit a1b2c3d'];
 const PULL_REQUESTS = ['42', 'https://github.com/o/r/pull/42'];
 const TAILS = ['', '--delete-branch'];
@@ -20,7 +20,7 @@ function* shapes() {
       const head = [executable, placement['before pr'], 'pr', placement['before merge'], 'merge'].filter(Boolean).join(upToMerge);
       const rest = [option, placement['before the PR'], pullRequest, placement['after the PR'], tail].filter(Boolean);
       const repo = Object.keys(placement).length ? 'o/r' : undefined;
-      yield { command: before + [head, ...rest].join(afterMerge), split: SPLIT_GAPS.includes(afterMerge), lookup: { number: pullRequest, repo } };
+      yield { command: before + [head, ...rest].join(afterMerge), split: SPLIT_GAPS.includes(upToMerge) || SPLIT_GAPS.includes(afterMerge), lookup: { number: pullRequest, repo } };
     }
 }
 
@@ -56,6 +56,13 @@ test('a PR number split by a continuation is not read as its first half', () => 
   }
 });
 
-test('a second merge is not hidden behind a first one whose line only looks continued', () => {
-  assert.match(reason('gh pr merge 42 # note \\\ngh pr merge 43', reviewed), /on one line/);
+const FIRST_MERGES = ['gh pr merge 42', 'gh -R o/r pr merge 42', 'gh pr -R o/r merge 42', 'gh pr merge -R o/r 42'];
+const BETWEEN = [' ', '; ', ' && ', ' | ', '\n', ' \\\n', ' # note \\\n', ' `\n', ' $(', ' (', ' `'];
+
+test('a second merge is refused wherever it stands after a first one that was reviewed', () => {
+  const onlyTheFirst = (number) => (number === '42' ? reviewed() : { ...reviewed(), comments: [] });
+  const commands = FIRST_MERGES.flatMap((first) => BETWEEN.map((between) => `${first}${between}gh pr merge 43`));
+  const allowed = commands.filter((command) => !reason(command, onlyTheFirst));
+  console.log(`bound: ${commands.length} pairs of commands`);
+  assert.deepStrictEqual(allowed, []);
 });
