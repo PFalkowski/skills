@@ -6536,7 +6536,8 @@
      "id": "R13",
      "rule": "The check can be read without the tool.",
      "patterns": [
-      "(?:(readable|understand\\w*|follow\\w*|read|legible|comprehensible)\\W+(?:\\w+\\W+){0,4}without\\W+(?:\\w+\\W+){0,2}(the )?(tool|checker|model))"
+      "(?:\\b(read\\w*|understand\\w*|follow\\w*|legible|comprehensib\\w+|make\\w*\\W+sense)\\W+(?:\\w+\\W+){0,8}(without|no|not|never|lack\\w*|\\w+n't)\\W+(?:\\w+\\W+){0,4}(tool|checker)\\b)",
+      "(?:\\b(without|no|not|never|lack\\w*|\\w+n't)\\W+(?:\\w+\\W+){0,4}(tool|checker)\\W+(?:\\w+\\W+){0,8}(read\\w*|understand\\w*|follow\\w*|legible|comprehensib\\w+|make\\w*\\W+sense))"
      ]
     },
     {
