@@ -43,17 +43,24 @@ this grammar builds, 3 × 2 × 25 × 6 × 4 × 2 × 2 = 14400:
 For each command the guard must ask for exactly that PR in exactly that repository, once, and must
 refuse the merge when the PR has no review summary.
 
+A second test in the same file pins one case outside the grammar: a PR number split in two by a
+continuation mark is not read as its first half.
+
 **Assumption.** `gh` accepts every one of these shapes. That was checked by hand on `gh` 2.106.0
 with `pr view`, which only reads, in place of `pr merge`: the flag before `pr`, between `pr` and
 the next word, attached as `-Ro/r`, and written with `=`. A backslash before a new line continues a
 command only in bash, and a backtick only in PowerShell; the grammar builds both in every shape,
-because the guard reads commands for both shells without knowing which one it has.
+because the guard reads commands for both shells and does not look at which one it has.
 
 **Left out.** The check says nothing about:
 
 - two repo flags in one command;
 - short flags written as one group, such as `-sR o/r`: the guard does not read the repository
   from a group;
+- a continuation mark attached to the end of a word, such as `--squash\` at a line end: the guard
+  joins lines only at a mark that follows a space and leaves any other line break in place, so it
+  refuses such a command when the mark sticks to the PR, and does not see the merge when the mark
+  sticks to `gh` or `pr`;
 - a quoted or escaped word, a variable, an alias, a wrapper script, or a merge through `gh api`;
 - what the guard decides once it has the PR: `merge-guard/scripts/merge-guard.test.js` covers
   that with examples.
@@ -64,7 +71,7 @@ because the guard reads commands for both shells without knowing which one it ha
 `unquote` and `target`, and the first two lines of the loop in `reason`. The check itself is
 `merge-guard/scripts/merge-shapes.test.js`.
 
-Sync commit: 294453ec40b68d2f40734ce9f762bbeda584048a
+Sync commit: ede5067e48fa594b06332b285507eacba3d366ff
 
 The sync commit moves only after the check is rerun against the new commit, never in a
 documentation-only pass. [MAINTAIN](../../../formal-check/MAINTAIN.md) says how to bring the check
@@ -80,12 +87,12 @@ fix the grammar in the test, not the guard.
 ## Shown able to fail
 
 On 2026-11-27, in a scratch copy, each of seven broken variants of the guard failed the check.
-The count is the commands misread:
+The count is the commands of the grammar misread:
 
 - no repo flag accepted before `pr`: 3456;
 - no repo flag accepted between `pr` and `merge`: 3456;
 - line continuations not joined: 7200;
-- line continuations joined with nothing in place of a space: 9600;
+- a continuation mark attached to a word joined as well: the split-number test fails;
 - no Windows line ending accepted in a continuation: 2400;
 - an attached `-R` value not read: 2304;
 - a repo value left in its quotes: 2304.
