@@ -172,5 +172,47 @@ class DecideTests(unittest.TestCase):
         self.assertFalse(analyze.calibrate(control, a)["met"])
 
 
+R1G13_B = """## Seven guards
+
+Every check keeps all seven.
+
+1. Every part of a model or check points at code a reviewer can open, and one indivisible step in the code is one step in the check.
+2. Each property is shown failing on a broken variant of the real code, because a check never seen to fail proves nothing.
+3. A failing property is reported as a finding, with its counterexample in the code's terms. Never weaken the property or the model to make it pass, and never change product code unless asked.
+4. State the bounds, the assumptions and what is left out. A pass covers the model or the bound, nothing more.
+5. {guard5}Give the property and the harm in one plain sentence each, and write a counterexample as a short list of steps in the code's words.
+6. Rerunning takes one command and a pinned tool version, and a run is short enough to repeat on every relevant change.
+7. The coverage record and the sync commit are written down, and the sync commit moves only after the check is rerun against the new code.
+"""
+
+
+class R1g13KeyTests(unittest.TestCase):
+    faithful = ["Readable without the tool. ",
+                "Understandable without the checker. ",
+                "Without the tool, anyone can read it. ",
+                "Someone who lacks the tool can still follow the check. ",
+                "A reader needs no tool to understand it. ",
+                "No tool should be needed to read the check. ",
+                "It must make sense to a reader who never runs the checker. ",
+                "Without running the tool, a reviewer understands the result. "]
+    wrong = ["",
+             "Readable with the tool. ",
+             "Run the tool to read the result. ",
+             "Only readable with the tool installed. "]
+
+    def kept(self, guard5):
+        case = next(c for c in grade_real.load_cases(HERE / "cases.json") if c["id"] == "r1g13")
+        record = grade_real.grade(case, R1G13_B.format(guard5=guard5))
+        return "R13" not in record["rules_missing"]
+
+    def test_faithful_paraphrases_keep_the_rule(self):
+        for guard5 in self.faithful:
+            self.assertTrue(self.kept(guard5), guard5)
+
+    def test_rewrites_that_drop_the_rule_fail(self):
+        for guard5 in self.wrong:
+            self.assertFalse(self.kept(guard5), guard5)
+
+
 if __name__ == "__main__":
     unittest.main()
