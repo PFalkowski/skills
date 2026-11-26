@@ -19,13 +19,14 @@ When the head moved after the newest review, it denies and names the delta to re
 - a merge with no review summary;
 - a merge that does not name its PR literally;
 - `--auto`, which would also merge commits pushed after the review;
+- a merge command with a line that ends in a backslash or a backtick: it does not read a command split over lines, so write the merge on one line;
 - a PR that `gh` cannot read.
 
 Other commands pass untouched, and unreadable hook input fails open.
 
 It checks that the head was reviewed, not what the review found: the blocking findings still decide whether the PR is ready. It trusts whoever posted the summary line, so it catches an honest slip, not a forger.
 
-It sees only `gh pr merge` on GitHub. A merge through `gh api` (as in [merge-stack](../merge-stack/SKILL.md)) or a push to the base branch passes it, and those still need the review rule by hand. It reads command text, so prose that quotes `gh pr merge` is checked too; the deny reason tells the agent to pass such text through a file.
+It sees only `gh pr merge` on GitHub, with `-R` or `--repo` anywhere in the command. The file `.claude/skills/merge-guard-shapes/SKILL.md` in this skill's repository lists the shapes it is tested on and those it is not. A merge through `gh api` (as in [merge-stack](../merge-stack/SKILL.md)) or a push to the base branch passes it, and those still need the review rule by hand. It reads command text, so prose that quotes `gh pr merge` is checked too; the deny reason tells the agent to pass such text through a file.
 
 ## Install
 
@@ -44,5 +45,5 @@ It needs `gh` signed in to every repository the agent merges in.
 ## Test
 
 ```bash
-node --test <skill-dir>/scripts/merge-guard.test.js
+node --test <skill-dir>/scripts/
 ```

@@ -2,17 +2,22 @@
 // code-review-grill opens each summary with `Reviewed at <sha>`; a commit after it needs a re-review of its delta.
 const { execFileSync } = require('node:child_process');
 
-const MERGE = /\bgh(?:\.exe)?\s+pr\s+merge\b([^;&|\n]*)/g;
+const GAP = String.raw`(?:\s|[\\\x60]\r?\n)+`;
+const REPO = String.raw`((?:${GAP}(?:--repo|-R)\s*\S+)*)`;
+const MERGE = new RegExp(String.raw`(?=(\bgh(?:\.exe)?${REPO}${GAP}pr${REPO}${GAP}merge\b([^;&|\n]*)))`, 'g');
+const SPLIT = /[\\`]\r?(?:\n|$)/;
 const VALUED = new Set(['-A', '--author-email', '-b', '--body', '-F', '--body-file', '--match-head-commit', '-t', '--subject']);
 const REVIEWED = /^[#>*\s]*Reviewed at\s+`?([0-9a-f]{7,40})\b/im;
 const PROSE = ' If this text is prose rather than a command, pass it through a file instead.';
 
+const unquote = (word) => word.replace(/^(["'])(.*)\1$/s, '$2');
+
 function target(args) {
-  const words = (args.match(/"[^"]*"|'[^']*'|\S+/g) ?? []).map((word) => word.replace(/^(["'])(.*)\1$/s, '$2'));
+  const words = (args.match(/"[^"]*"|'[^']*'|\S+/g) ?? []).map(unquote);
   let number, repo;
   for (let i = 0; i < words.length; i++) {
-    const [flag, value] = words[i].split(/=(.*)/s);
-    if (flag === '-R' || flag === '--repo') repo = value ?? words[++i];
+    const [flag, value] = words[i].replace(/^-R(?=[^=])/, '-R=').split(/=(.*)/s);
+    if (flag === '-R' || flag === '--repo') repo = unquote(value ?? words[++i] ?? '');
     else if (VALUED.has(flag)) { if (value === undefined) i++; }
     else if (!flag.startsWith('-') && !/^\d*[<>]/.test(flag)) number ??= words[i].replace(/[)"']+$/, '');
   }
@@ -20,8 +25,9 @@ function target(args) {
 }
 
 function reason(command, view) {
-  for (const [, args] of command.matchAll(MERGE)) {
-    const { number, repo, auto } = target(args);
+  for (const [, text, ...parts] of command.matchAll(MERGE)) {
+    if (SPLIT.test(text)) return 'merge-guard: write `gh pr merge` on one line. The guard does not read a merge command with a line that ends in a backslash or a backtick.' + PROSE;
+    const { number, repo, auto } = target(parts.join(''));
     if (!number || number.startsWith('$')) return 'merge-guard: name the PR literally (`gh pr merge <number|url>`), so the guard can check that its head was reviewed.' + PROSE;
     if (auto) return 'merge-guard: `--auto` would also merge commits pushed after the review. Merge without it once the review of the final head is in.' + PROSE;
     let pr;
