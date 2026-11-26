@@ -43,3 +43,11 @@ test('every shape of gh pr merge is checked against the PR and repo it names', (
   console.log(`bound: ${count} commands, the longest ${longest} characters`);
   assert.strictEqual(missed.length, 0, `${missed.length} of ${count} commands were not checked, the first: ${missed[0]}`);
 });
+
+test('a PR number split by a continuation is not read as its first half', () => {
+  for (const mark of ['\\', '`']) {
+    const calls = [];
+    reason(`gh pr merge 4${mark}\n2`, (number) => { calls.push(number); throw new Error('no such PR'); });
+    assert.deepStrictEqual(calls, [`4${mark}`]);
+  }
+});

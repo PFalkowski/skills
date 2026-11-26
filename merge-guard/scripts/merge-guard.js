@@ -4,7 +4,7 @@ const { execFileSync } = require('node:child_process');
 
 const REPO = String.raw`((?:\s+(?:--repo|-R)\s*\S+)*)`;
 const MERGE = new RegExp(String.raw`\bgh(?:\.exe)?${REPO}\s+pr${REPO}\s+merge\b([^;&|\n]*)`, 'g');
-const CONTINUATION = /[\\`]\r?\n/g;
+const CONTINUATION = /(?<=\s)[\\`]\r?\n/g;
 const VALUED = new Set(['-A', '--author-email', '-b', '--body', '-F', '--body-file', '--match-head-commit', '-t', '--subject']);
 const REVIEWED = /^[#>*\s]*Reviewed at\s+`?([0-9a-f]{7,40})\b/im;
 const PROSE = ' If this text is prose rather than a command, pass it through a file instead.';
