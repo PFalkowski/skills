@@ -25,7 +25,7 @@ Other commands pass untouched, and unreadable hook input fails open.
 
 It checks that the head was reviewed, not what the review found: the blocking findings still decide whether the PR is ready. It trusts whoever posted the summary line, so it catches an honest slip, not a forger.
 
-It sees only `gh pr merge` on GitHub, with `-R` or `--repo` anywhere in the command and across line continuations; [its check](../.claude/skills/merge-guard-shapes/SKILL.md) lists the shapes it is tested on and those it is not. A merge through `gh api` (as in [merge-stack](../merge-stack/SKILL.md)) or a push to the base branch passes it, and those still need the review rule by hand. It reads command text, so prose that quotes `gh pr merge` is checked too; the deny reason tells the agent to pass such text through a file.
+It sees only `gh pr merge` on GitHub, with `-R` or `--repo` anywhere in the command and across line continuations. The file `.claude/skills/merge-guard-shapes/SKILL.md` in this skill's repository lists the shapes it is tested on and those it is not. A merge through `gh api` (as in [merge-stack](../merge-stack/SKILL.md)) or a push to the base branch passes it, and those still need the review rule by hand. It reads command text, so prose that quotes `gh pr merge` is checked too; the deny reason tells the agent to pass such text through a file.
 
 ## Install
 
