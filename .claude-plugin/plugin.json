@@ -41,6 +41,7 @@
     "./runbook",
     "./save-tokens",
     "./sdlc-old-fashioned",
+    "./sdlc-old-fashioned-v2",
     "./signal-verdict",
     "./snapshot-terminal-sessions",
     "./statusline",
