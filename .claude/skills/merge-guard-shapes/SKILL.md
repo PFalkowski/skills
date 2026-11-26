@@ -1,0 +1,81 @@
+---
+name: merge-guard-shapes
+description: 'Rerun or update the every-shape check of merge-guard after changing how it reads a command.'
+---
+
+# merge-guard shapes: one check for how the guard reads a merge command
+
+Built with [formal-check](../../../formal-check/SKILL.md) CREATE. Use it when you change
+`merge-guard/scripts/merge-guard.js`, or when a newer `gh` accepts a new way to write the command.
+
+- **Promise.** For every shape in which `gh pr merge` can name a literal pull request (PR),
+  merge-guard looks up the PR and the repository that `gh` would merge.
+- **Harm.** A shape the guard misreads merges a PR whose head no review saw, or is judged by the
+  reviews of the same PR number in another repository.
+
+## Run it
+
+From the top folder of the repo:
+
+```bash
+node --test merge-guard/scripts/merge-shapes.test.js
+```
+
+It prints its bound, `bound: 3360 commands, the longest 125 characters`, and passes. On a failure
+it says how many commands were misread and prints the first one.
+
+## What a pass covers
+
+It is an every-input check by bounded exhaustive enumeration. It runs the real `reason` function
+with a stub in place of the `gh pr view` call, and no model. A pass covers exactly the commands
+this grammar builds, 2 × 21 × 5 × 4 × 2 × 2 = 3360:
+
+| Part | Values |
+|---|---|
+| Executable | `gh`, `gh.exe` |
+| Repo flag | none, or one of `-R o/r`, `--repo o/r`, `--repo=o/r`, `-R=o/r`, `-Ro/r` in one of four places: before `pr`, before `merge`, before the PR, after the PR |
+| Gap between words | one space, two spaces, a tab, a backslash and a new line, a backtick and a new line |
+| Option before the PR | none, `--squash`, `--subject "fix 7"`, `--match-head-commit a1b2c3d` |
+| PR | `42`, `https://github.com/o/r/pull/42` |
+| Tail | none, `--delete-branch` |
+
+For each command the guard must ask for exactly that PR in exactly that repository, once, and must
+refuse the merge when the PR has no review summary.
+
+**Assumption.** `gh` accepts every one of these shapes. That was checked by hand on `gh` 2.106.0
+with `pr view`, which only reads, in place of `pr merge`: the flag before `pr`, between `pr` and
+the next word, attached as `-Ro/r`, and written with `=`.
+
+**Left out.** The check says nothing about:
+
+- two repo flags in one command;
+- short flags written as one group, such as `-sR o/r`: the guard does not read the repository
+  from a group;
+- a quoted or escaped word, a variable, an alias, a wrapper script, or a merge through `gh api`;
+- what the guard decides once it has the PR: `merge-guard/scripts/merge-guard.test.js` covers
+  that with examples.
+
+## Coverage record
+
+`merge-guard/scripts/merge-guard.js`: the patterns `REPO`, `MERGE` and `CONTINUATION`, the function
+`target`, and the first two lines of the loop in `reason`. The check itself is
+`merge-guard/scripts/merge-shapes.test.js`.
+
+Sync commit: 7e8e1d06c0c4fb2a9b649d2edc211b6b2623a01a
+
+The sync commit moves only after the check is rerun against the new commit, never in a
+documentation-only pass. [MAINTAIN](../../../formal-check/MAINTAIN.md) says how to bring the check
+back in line after the code changed.
+
+## A failure: real bug or wrong grammar
+
+A failure names one command. Write the same shape with `pr view` in place of `pr merge` and a real
+repository and PR, and run it. If `gh` accepts the shape, the guard misreads a command an agent can
+write: that is a bug in the guard. If `gh` rejects it, the grammar builds a command nobody can run:
+fix the grammar in the test, not the guard.
+
+## Shown able to fail
+
+On 2026-11-27, in a scratch copy, each of three broken variants of the guard failed the check:
+no repo flag accepted between `pr` and `merge` (800 commands misread), line continuations not
+joined (1344), and an attached `-R` value not read (640). The code before the fix failed on 2496.
