@@ -121,21 +121,48 @@ export const meta = {
 EOF
 expect_status "a concatenated whenToUse fails" 1 bash "$CHECK"
 
-printed_total() { bash "$CHECK" 2>&1 | sed -n 's/^total across all descriptions: \([0-9]*\) chars$/\1/p'; }
-rm "$FIXTURE/workflows/shape.js"
-before=$(printed_total)
+write_shape <<EOF
+export const meta = {
+  name: 'shape',
+  description: 'short ' +
+    '$LONG',
+  phases: [{
+    description: 'nested',
+  }],
+}
+EOF
+expect_status "a concatenated description with a nested description line fails" 1 bash "$CHECK"
 write_shape <<'EOF'
 export const meta = {
   name: 'shape',
+  description: 'a' + 'b',
+}
+EOF
+expect_status "a description that holds its own quote character fails" 1 bash "$CHECK"
+write_shape <<'EOF'
+export const meta = {
+  name: 'shape',
+  description: 'One.',
+  description: 'Two.',
+}
+EOF
+expect_status "two description lines in one meta block fail" 1 bash "$CHECK"
+
+printed_total() { bash "$CHECK" 2>&1 | sed -n 's/^total across all descriptions: \([0-9]*\) chars$/\1/p'; }
+rm "$FIXTURE/workflows/shape.js"
+before=$(printed_total)
+write_shape <<EOF
+export const meta = {
+  name: 'shape',
   description: 'Short.',
-  whenToUse: 'abcdefghij',
+  whenToUse: '$LONG',
 }
 EOF
 expect_status "a whenToUse longer than the description cap is not capped" 0 bash "$CHECK"
 after=$(printed_total)
 total=$((total + 1))
-if [ "$((after - before))" -ne 16 ]; then
-  echo "FAIL: a workflow's description and whenToUse count in the printed totals -- expected +16 chars, got $((after - before))"
+if [ "$((after - before))" -ne 127 ]; then
+  echo "FAIL: a workflow's description and whenToUse count in the printed totals -- expected +127 chars, got $((after - before))"
   fail=$((fail + 1))
 fi
 rm "$FIXTURE/workflows/shape.js"

@@ -35,7 +35,12 @@ done
 # Its meta.whenToUse is appended to that text, so it counts in the totals but has no limit of its own.
 # Each field must be one quoted string on its own line; any other shape cannot be measured and fails.
 meta_field() {
-  sed -nE "s/^[[:space:]]+$2:[[:space:]]*(['\"\`])(.*)\1,?[[:space:]]*\$/\2/p" <<<"$1" | head -n 1
+  local line q text
+  line=$(grep -E "^[[:space:]]+$2:" <<<"$1" | head -n 1)
+  text=$(sed -nE "s/^[[:space:]]+$2:[[:space:]]*(['\"\`])(.*)\1,?[[:space:]]*\$/\2/p" <<<"$line")
+  q=$(sed -nE "s/^[[:space:]]+$2:[[:space:]]*(['\"\`]).*/\1/p" <<<"$line")
+  case "$text" in *"$q"*) return ;; esac
+  printf '%s\n' "$text"
 }
 for f in workflows/*.js; do
   [ -f "$f" ] || continue
@@ -43,6 +48,10 @@ for f in workflows/*.js; do
   for field in description whenToUse; do
     if ! grep -qE "^[[:space:]]+$field:" <<<"$meta"; then
       [ "$field" = description ] && { echo "FAIL $f: no meta.description line (put each meta field on its own line)"; status=1; }
+      continue
+    fi
+    if [ "$(grep -cE "^  $field:" <<<"$meta")" -gt 1 ]; then
+      echo "FAIL $f: meta has more than one $field line"; status=1
       continue
     fi
     text=$(meta_field "$meta" "$field")
