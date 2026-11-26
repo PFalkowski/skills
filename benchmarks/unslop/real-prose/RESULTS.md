@@ -144,3 +144,68 @@ fault, which is why the one that decides the verdict was read by hand.
 - The trailing contrast of pattern 9 and pattern 27: no case contains them.
 - Meaning beyond the listed facts and rules, and facts a rewrite adds.
 - Repeatability (one trial), other models, other harnesses, and prose outside this repo.
+
+## Addendum: r1g13 key (#397), 2026-11-26
+
+Everything above this section is the published result of the frozen run. It is unchanged.
+This addendum reports one key change, a regrade and a small rerun on `r1g13` only.
+
+**Key change.** The key for `r1g13` rule R13 ("the check can be read without the tool")
+was one regex. It needed a reading word, then "without", then "tool", in that order. It
+accepted 2 of 8 faithful paraphrases written for the test, such as "Readable without the
+tool." It rejected the other 6, such as "Without the tool, anyone can read it." and "A
+reader needs no tool to understand it." A rerun could therefore fire the critical gate on
+a correct rewrite. The new key has two regexes: a reading word ("read", "understand",
+"follow", "legible", "make sense") within 8 words of a negation ("without", "no", "not",
+"never", "lack", "-n't") followed within 4 words by "tool" or "checker", in either order.
+`tests/test_unslop_real_prose.py` shows it accepts all 8 paraphrases and fails 4 rewrites
+that drop the rule: B's actual output from the frozen run, "Readable with the tool.", "Run
+the tool to read the result." and "Only readable with the tool installed." No other
+case's source matches the new regexes. `grade_real.py --self-test` still passes.
+
+**New freeze.** The key change is commit `1c49610`, made before the regrade and the rerun.
+`cases.json` SHA-256 is now `3f75e445…fcb766` (it was `8b13c72c…070661`). Only R13 of
+`r1g13` changed. The rerun used a one-case copy of it (`cases-r1g13.json`).
+
+**Regrade of the frozen outputs.** Under the new key, no outcome on `r1g13` changes. B's
+frozen output still misses R13: it removed the bold name "Readable without the tool." and
+no other sentence says it, so the new key rightly fails it. A and the control still keep
+R13, and every arm still fails the case (A and the control on 7 residual bold hits, B on
+R13). The independent faithful rewrite in `authoring/alt/` still passes. The published
+gate failure is not a key artifact.
+
+**Rerun.** Arms A and B on `r1g13` only, 5 trials each, with `harness.py` unchanged
+(`claude-sonnet-5-5`, same flags, same skill files by hash, prompts byte-identical to the
+frozen run apart from the output folder). Audit clean on all 10 calls. Cost $0.32. One
+deviation: the CLI was 2.1.332, not 2.1.330.
+
+| | A | B |
+|---|---|---|
+| Kept R13 | 5 of 5 | 5 of 5 |
+| Kept the bold guard names | 5 of 5 | 5 of 5 |
+| Success, primary endpoint | 0 of 5 (7 residual bold hits each) | 0 of 5 (7 residual bold hits each) |
+| Rule and fact gate fired | | 0 of 5 |
+| Gate-case gate (A passed, B failed) fired | | 0 of 5 |
+
+In all 5 trials B behaved like A: it kept the seven bold names, edited lightly, and kept
+the requirement. The frozen run's B output, which removed every name, did not recur. So B
+dropped R13 in 1 of 6 trials in all.
+
+Every rerun output also missed R10 ("a pass covers the model or the bound, nothing
+more"). Each one wrote "A pass covers only the model or the bound." That is a faithful
+rewrite, and the key misses it because it wants "only" after "model". It is a second
+word-order key fault of the same kind. It hits A and B alike, so it cannot fire the rule
+and fact gate, and it was left as is: only R13 was in scope. A t3 output missed R5 the
+same way ("A check nobody has seen fail proves nothing."). With both faults ignored, A and
+B keep every rule in every trial, and the gate still fires 0 times.
+
+**Does the verdict stand?** Weakened. Under the frozen rule the published REGRESSION
+stands as recorded: the gate failure was real, not a key artifact, and the plan fires on
+one observed case. But it does not reproduce. In 5 more trials of the same case, B never
+dropped the rule and neither gate fired. The regression is a rare outcome on this case (1
+of 6 trials), not a stable property of B. A firmer verdict needs a new run with several
+trials per gate case.
+
+Evidence: `~/.agent-state/skills/benchmark-skill/unslop-real-2026-11-23/r1g13-rerun/`
+(`t1/` to `t5/`, each with prompts, transcripts, outputs, `manifest.json` and
+`audit.json`; grades in `summary.json`).
