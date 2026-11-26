@@ -100,18 +100,18 @@ const goal = 'Add a lease that two workers cannot both hold.\n\n' + block
 const a = await runWorkhorse({ args: { goal, chronicleDir: '/c' }, agentFn: mkAgent({ blockLines, grillWritesCriteria: true }) })
 
 console.log('\nscenario A, the grill writes acceptance criteria:')
-await t('goal is put into the baseline, spec and document prompts',
-  () => ['baseline', 'spec', 'document'].every(l => prompt(a, l).includes(block)))
+await t('goal is put into the baseline, spec and document prompts, and into no other',
+  () => ['baseline', 'spec', 'document'].every(l => prompt(a, l).includes(block)) &&
+    a.calls.every(c => ['baseline', 'spec', 'document'].includes(c.opts.label) || !header.some(h => c.prompt.includes(h))))
 await t('the rules the Spec agent copies travel in the spec to the grill, the plan and the plan review',
   () => ['grill:r1', 'plan:r1', 'plan-review:r1'].every(l => holdsAll(prompt(a, l), rules)))
-await t('...but the header does not', () => !header.some(h => prompt(a, 'plan:r1').includes(h)))
 await t("the grill's acceptance criteria reach the plan and the slicer",
   () => prompt(a, 'plan:r1').includes(GRILL_AC) && prompt(a, 'slice').includes(GRILL_AC))
 await t("...and replace the spec's success criteria: no rule reaches the slicer",
   () => !rules.some(r => prompt(a, 'slice').includes(r)))
 await t("the plan's testStrategy reaches the plan review, the slicer, RED, GREEN and document",
   () => ['plan-review:r1', 'slice', 'red:s1', 'green:s1', 'document'].every(l => prompt(a, l).includes(TEST_STRATEGY)))
-await t("the plan's claim-checkers see only the start of the plan, so a late testStrategy misses them",
+await t("the refuters of the plan's claims see only the start of the plan, so a late testStrategy misses them",
   () => refutes(a, 'Plan review').length > 0 &&
     refutes(a, 'Plan review').every(c => c.prompt.includes('"approach"') && !c.prompt.includes(TEST_STRATEGY)))
 await t("a slice's acceptanceCriterion reaches RED, the RED check and the review",
