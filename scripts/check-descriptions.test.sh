@@ -148,6 +148,32 @@ export const meta = {
 EOF
 expect_status "two description lines in one meta block fail" 1 bash "$CHECK"
 
+write_shape <<EOF
+export const meta = {
+  name: 'shape',
+  phases: [
+    { title: 'x', description: 'Six.' },
+    {
+      description: 'Six.',
+    },
+  ],
+  description: '$LONG',
+}
+EOF
+expect_status "a nested phase description before an over-long top-level one does not hide it" 1 bash "$CHECK"
+write_shape <<'EOF'
+export const meta = {
+  name: 'shape',
+  description: 'Don\'t stop.',
+}
+EOF
+total=$((total + 1))
+out=$(bash "$CHECK" 2>&1)
+if ! grep -q "quote character" <<<"$out"; then
+  echo "FAIL: an escaped quote in a description is not reported by naming the quote character"
+  fail=$((fail + 1))
+fi
+
 printed_total() { bash "$CHECK" 2>&1 | sed -n 's/^total across all descriptions: \([0-9]*\) chars$/\1/p'; }
 rm "$FIXTURE/workflows/shape.js"
 before=$(printed_total)

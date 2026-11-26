@@ -1148,7 +1148,8 @@ const sliced = await agent(
 if (!sliced || !sliced.slices.length) throw new Error('sdlc-workhorse: slicing produced no slices.')
 
 const testOf = s => plannedTests.find(p => p.id === s.claimTest)
-// Built first, with every slice they depend on. The cap can still drop a claim slice when a claim's dependencies alone exceed it; the merge then stays blocked.
+// Built first, with every slice they depend on. The cap keeps the first maxSlices slices in build order, so a claim
+// whose dependencies do not fit in what is left is dropped; the merge then stays blocked.
 const claimFirst = [...sliced.slices.filter(testOf), ...sliced.slices.filter(s => !testOf(s))]
 // A slice builds after every slice it dependsOn. The sort is stable, so slices with no dependency between
 // them keep the order above. A duplicate id, an unknown id or a cycle stops the run before anything is built, because a
