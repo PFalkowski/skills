@@ -31,7 +31,7 @@ Decide the stance yourself and state it in one line; asking only stalls the revi
 - **Re-review** (the PR was grilled before) — single, one fresh reviewer, briefed with what survives of the previous round and only the delta since the last reviewed head. It scores each previous fix fixed / partial / regressed and grills only the delta (REFERENCE, § Re-review). A verdict covers only the head it reviewed: after any later commit, even a fix the reviewer asked for, the PR is not merge-ready until a re-review of that delta finds nothing blocking.
 
 > **Azure DevOps PRs:** delegate the whole resolve → diff → post pipeline to
-> [AZURE-DEVOPS.md](AZURE-DEVOPS.md) (its steps 1–5) from the start, not
+> [AZURE-DEVOPS.md](AZURE-DEVOPS.md) (its steps 1–4) from the start, not
 > just Step 7's posting — it already solves PR-metadata lookup, the diffs-API workaround, and
 > full-context file reading, so Steps 1–3 below are for the generic/GitHub-or-local case.
 
@@ -76,7 +76,7 @@ Attach a short **house-rules brief** to every reviewer: documented patterns, arc
 Spawn via the **Agent tool** — never review from the calling context. Each reviewer applies the **grilling stance** above and judges the diff against the **Step-4 house rules**.
 - **No `Agent` tool** (the caller is itself a subagent): a caller that did not write the diff and holds none of its authoring context is the fresh reviewer; it runs the chosen stance itself, Quorum one concern at a time. Any other caller stops and reports that no fresh reviewer could run.
 - **Single:** one fresh reviewer; brief = the whole diff + full-file context + the Step-3 ripple set + the Step-4 house rules; stance = find correctness bugs, risks, omissions, **and deviations from the documented conventions/architecture**, assume guilty until proven innocent.
-- **Quorum:** one fresh subagent **per chosen concern, in parallel (one message)**, each with a sharp objective / output / tools / boundaries brief (templates in REFERENCE). The **documentation/conventions concern is on by default** (see auto-pick in REFERENCE) — it owns the Step-4 house rules: it checks the diff for conformance to the project's ADRs, coding guidelines, and architectural style, *and* gets `WebSearch` + `WebFetch` to apply **[fact-check](../fact-check/SKILL.md)** on doc/API/version claims against ≥2 authoritative sources, handing back deep-linked evidence. Budget low (per orchestrate): one worker per concern, do not over-spawn.
+- **Quorum:** one fresh subagent **per chosen concern, in parallel (one message)**, each with a sharp objective / output / tools / boundaries brief (templates in REFERENCE). The **documentation/conventions concern is on by default** (see auto-pick in REFERENCE) — it owns the Step-4 house rules: it checks the diff for conformance to the project's ADRs, coding guidelines, and architectural style, *and* gets `WebSearch` + `WebFetch` to apply **[fact-check](../fact-check/SKILL.md)** on doc/API/version claims against ≥2 authoritative sources, handing back deep-linked evidence. Budget low: one worker per concern, do not over-spawn.
 
 - **Local session** (environment variable `CLAUDE_LOCAL=1`, the models run on this PC's GPUs, each serving one request at a time): never run reviewers in parallel. A load-bearing diff (the quorum triggers above) is not reviewed locally: stop and ask the user to rerun this skill from a normal session. Otherwise run one reviewer, the `code-reviewer` subagent when it exists, and wait for it before spawning anything else.
 

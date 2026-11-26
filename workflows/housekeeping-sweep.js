@@ -1,6 +1,6 @@
 export const meta = {
   name: 'housekeeping-sweep',
-  description: 'Sweep the code for what the now-true documentation says it should be: warnings, smells, bugs, test gaps, duplication, library and architecture drift — verified, then grouped into sized work items',
+  description: 'Sweep code for what the true docs say it should be: smells, bugs, test gaps, drift; verified and sized into work items',
   phases: [{ title: 'House rules' }, { title: 'Lenses' }, { title: 'Verify' }, { title: 'Plan' }],
 }
 // args: { startedAt: '08-15 21:04',
@@ -11,7 +11,7 @@ export const meta = {
 //         checks: { build: 'dotnet build -warnaserror', test: 'dotnet test', lint: null },
 //         scope: ['src/Billing/**'],             // null → the whole repo
 //         isolate: false,
-//         reserve: 40000, chronicleDir: '$HOME/.agent-state/<repo dir name>/housekeeping/chronicles', libraryIndex: null,
+//         reserve: 40000, chronicleDir: '$HOME/.agent-state/<repo-slug>/housekeeping/chronicles', libraryIndex: null,
 //         tiers: { rules: 'opus', lens: 'opus', verify: 'opus', plan: 'opus' } }
 //
 // WHY THIS RUNS AFTER THE DOC AUDIT, and not instead of it: half the lenses below judge the code

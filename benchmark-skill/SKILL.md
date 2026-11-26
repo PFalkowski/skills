@@ -39,6 +39,11 @@ question this skill does not answer; use the description loop in Anthropic's
    rewrite or compaction of a skill, also read METHOD.md § Rewrites and compactions
    before writing cases. For a skill that guides code writing, read JUDGING.md
    § Skills that guide code writing before writing cases.
+   Before authoring the held-out suite, pilot the no-instruction control and arm A on
+   about six development cases, read the transcripts, and record the pilot as a
+   calibration attempt. When it misses the calibration target in METHOD.md § Ceiling
+   and floor effects (a control at the ceiling, for one), or a key that marks correct
+   answers wrong shows up, stop and redesign the cases or keys first.
 
 ## Grade what matters
 
@@ -53,18 +58,21 @@ guides production work, such as writing code, the test task is the real task: th
 agent produces the artifact and checks grade it. Multiple choice measures
 recognition, not production; use it only as a smoke test, never to decide.
 
-The scorer does not check four gates. You apply them only when steps 1 to 4 of
-METHOD.md § Verdict precedence have not already decided the suite, and in its order,
-using § Ceiling and floor effects:
+The scorer applies four more gates, in the order of METHOD.md § Verdict precedence,
+when you give it the evidence in a context file (RUNNING.md § Gate evidence). A gate
+without its evidence is listed in the report's `unchecked_gates`; then apply that
+gate yourself from § Ceiling and floor effects before you trust the verdict.
 - Ceiling: if arm A's success rate on the test clusters reaches the frozen ceiling
-  rate, give no verdict from that suite, leave it unedited and run the next rung of
-  the frozen ladder on new held-out cases; on the last allowed suite follow step 5.
-- Floor effect: if A's rate is at or below the margin, or every arm fails, check the
-  graders and answer keys first, then step down the same way; on the last allowed
-  suite the verdict is **INCONCLUSIVE**, "floor effect" (step 5).
+  rate, the report says INCONCLUSIVE with `next_step` set, unless an earlier step
+  applies. Leave the suite unedited and run the next rung of the frozen ladder on new
+  held-out cases. On the last allowed suite the verdict follows steps 6 to 10, with
+  the reason "ceiling" when it is **INCONCLUSIVE**.
+- Floor effect: if A's rate is at or below the margin, check the graders and answer
+  keys first, then step down the same way. On the last allowed suite the verdict is
+  **INCONCLUSIVE**, "floor effect" (step 5).
 - Earlier loss: if an earlier suite of the ladder showed an observed paired effect
-  below the negative margin, the verdict is **INCONCLUSIVE** and the report states
-  that loss (step 6).
+  below the negative margin, the verdict is **INCONCLUSIVE**, "earlier loss"
+  (step 6).
 - Sensitivity: run a no-instruction or weakened control on the same frozen suite; if
   A does not beat it by more than the margin, the verdict is **INCONCLUSIVE**,
   "skill not visible" (step 7).

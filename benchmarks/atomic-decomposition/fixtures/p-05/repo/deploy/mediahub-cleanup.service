@@ -1,0 +1,10 @@
+[Unit]
+Description=Mediahub nightly upload cleanup
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=mediahub
+WorkingDirectory=/opt/mediahub
+Environment=MEDIAHUB_CONFIG=/etc/mediahub/production.ini
+ExecStart=/bin/sh -c '/usr/bin/python3 /opt/mediahub/cleanup.py --today "$(date +%%F)" --apply'

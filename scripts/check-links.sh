@@ -31,7 +31,7 @@ while IFS=: read -r f l t; do
     broken=1
   fi
 done < <(
-  find . -name '*.md' -not -path './archive/*' -print0 |
+  find . -name '*.md' -not -path './archive/*' -not -path './benchmarks/unslop/real-prose/dev/*' -print0 |
   while IFS= read -r -d '' f; do
     # Blank out fenced code blocks, keeping line numbers, so an illustrative path in an example
     # (`- [title](slug.md)`) is not mistaken for a link that ought to resolve.
@@ -50,7 +50,7 @@ while IFS=: read -r f l t a; do
     broken=1
   fi
 done < <(
-  find . -name '*.md' -not -path './archive/*' -print0 |
+  find . -name '*.md' -not -path './archive/*' -not -path './benchmarks/unslop/real-prose/dev/*' -print0 |
   while IFS= read -r -d '' f; do
     blank_fences "$f" |
     grep -noE "\]\(([A-Za-z0-9_./-]+\.md)?#[A-Za-z0-9_-]+\)" |

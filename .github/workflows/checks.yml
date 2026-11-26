@@ -20,8 +20,13 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_benchmark_skill*.py'
           python3 -m unittest discover -s tests -p 'test_attention_rewrite_benchmark.py'
           python3 benchmarks/unslop/grade.py --self-test > /dev/null
+          python3 -m unittest discover -s tests -p 'test_unslop_real_prose.py'
+          python3 benchmarks/unslop/real-prose/grade_real.py --self-test > /dev/null
+          python3 -m unittest discover -s tests -p 'test_atomic_decomposition_benchmark.py'
+          python3 benchmarks/atomic-decomposition/grade.py --self-test > /dev/null
           bash scripts/check-links.sh
           bash scripts/check-descriptions.sh
+          bash scripts/check-descriptions.test.sh
           bash scripts/check-template-skills.sh
           bash scripts/check-codex-policy.sh
           bash scripts/check-state-paths.sh
@@ -31,6 +36,7 @@ jobs:
           bash scripts/check-disclosure-gate.sh
           bash scripts/check-gh-paginate.sh
           bash scripts/check-finding-gate.test.sh
+          bash scripts/check-sdlc-run-state-docs.test.sh
           bash dead-branch-guard/scripts/pre-push.test.sh
           bash nights-watch/scripts/salvage-gate.test.sh
           bash omv-dev-server/scripts/skills-sync.test.sh
@@ -41,7 +47,7 @@ jobs:
           bash whats-next/scripts/wip.test.sh
           bash omv-dev-server/scripts/dev.test.sh
           bash omv-dev-server/scripts/migrate-claude-config.test.sh
-          for t in tests/workflows/*.test.js clean-room/*.test.mjs auto-mode-setup/scripts/*.test.mjs statusline/scripts/*.test.js worktree-guard/scripts/*.test.js merge-guard/scripts/*.test.js; do
+          for t in tests/workflows/*.test.js clean-room/*.test.mjs auto-mode-setup/scripts/*.test.mjs statusline/scripts/*.test.js worktree-guard/scripts/*.test.js merge-guard/scripts/*.test.js memory-palace/scripts/*.test.js; do
             node --test "$t"
           done
           bash formal-check/tlc-example.test.sh

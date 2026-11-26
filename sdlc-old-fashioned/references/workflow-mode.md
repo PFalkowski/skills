@@ -6,7 +6,10 @@ skill's; this file holds only what is particular to running them as [`workflows/
 ## When
 
 The conductor dispatches that script and **never authors its own**. It is autonomous by construction (Dial 1 is
-autonomous in this mode) and ends at a merge-ready report. Confirm first that this session has a `Workflow` tool; if it does not, say so and run
+autonomous in this mode) and ends at a merge-ready report. Dial 2 picks this mode when it weighs a wrong plan as costly (no revert can
+fix it, wide scope, large size), or when the human names the script, because it is the costliest mode: every load-bearing claim and every review finding faces three
+refuters. One 11-slice run that added about 1,700 lines used about 13 million subagent tokens (47% design phases, 30%
+refuting per-slice review findings, 16% building); budget about 1.2 million per slice. Confirm first that this session has a `Workflow` tool; if it does not, say so and run
 the lifecycle as fresh process per phase instead.
 
 ## Dispatch
@@ -31,12 +34,13 @@ Workflow({
     reviewConcerns: ['correctness', 'documentation'],   // quorum only; the script appends 'quality-standard'
     libraryIndex: null,                    // '.nights-watch/library/INDEX.md' if the repo keeps one
     tiers: { document: 'sonnet' },         // per-phase model; fable throws; spec, grill, plan and plan review never drop below opus
+    efforts: { review: 'xhigh' },          // per-phase effort over the defaults below; an unknown effort value throws
   },
 })
 ```
 
 Without `backlogPath` or `chronicleDir` the prompts carry the placeholder
-`$HOME/.agent-state/<repo dir name>/sdlc-workhorse/…` for the agents to resolve.
+`$HOME/.agent-state/<repo-slug>/sdlc-workhorse/<run-id>/…` for the agents to resolve. The run id comes from `startedAt` (or the goal's words) and a hash of the goal, so two different goals do not share a folder; pass both paths when a later dispatch must continue the same run.
 
 **If the name is not found**, dispatch by `scriptPath` instead, resolved rather than guessed:
 
@@ -58,9 +62,11 @@ as `script` instead ([WATCH.md § Dispatch](../../nights-watch/WATCH.md)).
 | No phase gets skipped | The phases are the script; documentation cannot be dropped for running long. |
 | The author never grades their own work | Every grill is a separate agent handed the artifact as text. |
 | No code before a real red test | A second agent confirms the RED failed on the asserted behaviour; a false red stops the slice. |
-| Unprovable = false | Load-bearing claims at each premise gate face three refuters; only survivors reach the next phase as `VERIFIED PREMISE`. |
+| Unprovable = false | Load-bearing claims at each premise gate, and review findings, face three refuters. Every refuter is even-handed: it answers refuted or confirmed only on a run, a quoted source or two sources, otherwise unverifiable. Only a confirmed majority reaches the next phase as `VERIFIED PREMISE`. |
 | The premise is floored | Spec, grill, plan and plan review run at opus or above whatever `tiers` says, and the clamp is logged. |
-| A reviewer "approved" with a refuted claim is still a block | The static-export run's round 4 verdict was approved yet the run reported the plan unapproved, because one claim stayed refuted. Fold or fix the refuted claim before the last round, or the run stops with nothing built. |
+| Effort is the script's, never the launching session's | Every agent names its effort, because one that does not inherits the session's. Defaults: `high` for spec, grill, plan, plan review, code review, refuters and the RED check; `medium` for slicing, claim extraction, docs and the retro; `low` for the baseline and the quote check; RED and GREEN at the slice's own effort. `efforts` overrides any of `baseline`, `spec`, `grill`, `plan` (also the plan claims' answer agent), `planReview`, `slice`, `review`, `verify` (refuters, the RED check, and the plan claims' decomposer and split checker), `claims`, `quotes`, `document`, `retro`. Efforts are not floored: unlike `tiers`, a caller can lower any phase, and nothing logs it. A test fails any dispatch without an explicit model and effort, and counts the `agent(` call sites in the script against the kinds its run reaches; the count relies on one call site per kind. |
+| A reviewer "approved" with a refuted claim is still a block | The static-export run's round 4 verdict was approved yet the run reported the plan unapproved, because one claim stayed refuted. Fold or fix the refuted claim before the last round, or the run stops with nothing built. (On an approved last round a claim refuted at its first check is deferred; a claim no refuter could settle blocks `mergeReady` unless the fallbacks below settle it.) |
+| A plan claim no refuter can settle is never lost | A claim with no majority either way is split into at most 3 checked atoms (per [atomic-decomposition](../../atomic-decomposition/SKILL.md); a refuted atom refutes its branch, an unsettled atom is kept). Atom checks and answer re-checks skip the verdicts the first checks cached. Whatever stays unsettled then gets exactly one answer round: the planner answers it with evidence, withdraws it, or marks it "settled by test X", a test that must fail before the change exists, as the last resort. An answer without its evidence, reason or test is no answer. Answers are re-checked by three fresh refuters, never trusted. A claim that is still unsettled or refuted is a blocker of its own, with every verifier's finding. A claim marked settled by test X reaches the build as the first test its slice runs. Only a claim that stayed unsettled may take that route. |
 | Deferred controls need a hook | When a control goes to the owner (approval check, variable group), the plan must create the hook the owner will attach it to (an `environment`, a named variable). |
 | Pipeline macros and cleaning are test-backed | Every `$(name)` in pipeline YAML is checked by a test against a declared variable, and every "folder is cleaned between runs" assumption is proven for the agent pool that runs it. |
 | invert in design | Plan and plan review read invert/SKILL.md; every failure mode names what blocks it. |
@@ -77,7 +83,8 @@ as `script` instead ([WATCH.md § Dispatch](../../nights-watch/WATCH.md)).
   quality-standard finding, baseline still green. When false, `mergeBlockedBy` says why; report it unsoftened.
 - `stoppedAt` — the design never cleared its gate; no code was written.
 - `slices[].verifiedFindings` — findings that survived refutation, each with its `rule`.
-- `blockers` / `deferred` — what needs a human, and what was parked in the backlog with a default chosen.
+- `planClaims` — plan claims settled after the plan review, in claim order: confirmed by its atoms, confirmed after the answer round (a rewording in its confirmed wording, with the claim it `replaces`), withdrawn, or to be settled by a test (with the slice that carries it and a `green` or `not green` result). They are never part of a `VERIFIED PREMISE`. A planned test no slice carries is named in `mergeBlockedBy`.
+- `blockers` / `deferred` — each plan claim left unsettled or refuted is its own blocker, `plan claim <status>: <claim>`, whose detail holds every vote, atom and answer. Otherwise, what needs a human, and what was parked in the backlog with a default chosen.
 - `retro`, `reproduction` — lessons, and enough to pick the run up cold.
 
 The script never commits, pushes or touches a PR. When it returns, the conductor, in order:

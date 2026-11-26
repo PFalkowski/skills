@@ -1,0 +1,61 @@
+{
+  "id": "p-02",
+  "kind": "universal",
+  "split": "dev",
+  "claim": "Everything that calls billing.charge passes the amount in whole cents, as an int, never in dollars.",
+  "root": "refuted",
+  "why": "The late-fee job in schedule.json reaches billing.charge through getattr in dues/jobs.py, and jobs.arguments passes money.parse('4.50'), which is Decimal('4.50') dollars, so each overdue member is charged $0.04 instead of $4.50. A search for direct calls finds guest_pass, signup.join and renewals.renew, which all pass int cents, and the tests and the README agree with the claim. The late fee runs only with jobs --day 5, so the README example of python3 main.py jobs and the tests never charge it.",
+  "evidence_tokens": [
+    [
+      "late-fee",
+      "late fee",
+      "schedule.json",
+      "jobs.py",
+      "run_all",
+      "jobs.run"
+    ],
+    [
+      "4.50",
+      "4.5",
+      "parse",
+      "0.04"
+    ]
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "Every caller of billing.charge passes an int number of cents",
+      "verdict": "refuted",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "billing.guest_pass passes int cents",
+        "verdict": "confirmed",
+        "evidence": "It passes plans.GUEST_PASS_CENTS = to_cents('12.00') = 1200."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "signup.join passes int cents",
+        "verdict": "confirmed",
+        "evidence": "plan.price_cents + JOINING_FEE_CENTS, both from to_cents; signup prints $84.00."
+      },
+      {
+        "id": "A3",
+        "parent": "root",
+        "claim": "renewals.renew passes int cents",
+        "verdict": "confirmed",
+        "evidence": "prorated() uses integer division on price_cents."
+      },
+      {
+        "id": "A4",
+        "parent": "root",
+        "claim": "the scheduled late-fee job passes int cents",
+        "verdict": "refuted",
+        "evidence": "jobs.run calls getattr(billing, 'charge') with money.parse('4.50') = Decimal('4.50'). python3 main.py jobs --day 5 prints 'M-102 charge $0.04 late-fee'."
+      }
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "id": "r-06",
+  "kind": "looks-false",
+  "split": "dev",
+  "repo_ref": "dc6a0af7b309c77d8aef164208595abbe6c506f8",
+  "claim": "merge-guard lets `gh pr merge 42` through when the only comment naming the PR's current head has its 'Reviewed at <sha>' line third, below two other lines of text.",
+  "root": "confirmed",
+  "why": "REVIEWED in merge-guard/scripts/merge-guard.js is /^[#>*\\s]*Reviewed at\\s+`?([0-9a-f]{7,40})\\b/im, and the m flag lets ^ match at the start of any line, so reason() returns null, which means allow, for the comment 'Thanks for the fixes.\\nAll threads answered.\\nReviewed at <head>' (a node script that calls reason() with a stub view printed '-> null' for that body and for the first-line form, and a deny for a stale sha and for 'LGTM', twice on fresh exports of the pin). The obvious check reads merge-guard/SKILL.md, which says the merge is allowed only when a comment or review opening with Reviewed at <sha> names the head, the header comment that code-review-grill opens each summary with that line, and the ^ anchor, and concludes that the line must come first. merge-guard.test.js uses only summaries whose first line is the Reviewed at line, so running it passes without touching this case.",
+  "evidence_tokens": [
+    [
+      "null",
+      "/im",
+      "multiline",
+      "multi-line",
+      "m flag"
+    ]
+  ],
+  "must_run": [
+    "node"
+  ],
+  "exemplar": {
+    "root": {
+      "claim": "reason() allows the merge when 'Reviewed at <head>' is the third line of the only matching comment",
+      "verdict": "confirmed",
+      "op": "all"
+    },
+    "atoms": [
+      {
+        "id": "A1",
+        "parent": "root",
+        "claim": "The REVIEWED pattern can match a line other than the first",
+        "verdict": "confirmed",
+        "evidence": "merge-guard.js line 7: const REVIEWED = /^[#>*\\s]*Reviewed at\\s+`?([0-9a-f]{7,40})\\b/im; the m flag makes ^ match after every newline."
+      },
+      {
+        "id": "A2",
+        "parent": "root",
+        "claim": "reason() returns null for that comment when its sha is the head",
+        "verdict": "confirmed",
+        "evidence": "node script calling reason() with view returning headRefOid a1b2c3d4e5f60718293a4b5c6d7e8f9012345678 and one comment 'Thanks for the fixes.\\nAll threads answered.\\nReviewed at a1b2c3d4e5f60718293a4b5c6d7e8f9012345678' printed -> null; with 'LGTM' it printed the deny 'PR 42 has no \"Reviewed at <sha>\" summary'."
+      }
+    ]
+  }
+}
