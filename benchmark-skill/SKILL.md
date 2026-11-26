@@ -39,9 +39,11 @@ question this skill does not answer; use the description loop in Anthropic's
    rewrite or compaction of a skill, also read METHOD.md § Rewrites and compactions
    before writing cases. For a skill that guides code writing, read JUDGING.md
    § Skills that guide code writing before writing cases.
-   Before authoring the held-out suite, run a pilot: the control and arm A on about six
-   development cases, and read the transcripts. A control at the ceiling, or a key that
-   marks correct answers wrong, stops the work: redesign the cases or keys first.
+   Before authoring the held-out suite, pilot the no-instruction control and arm A on
+   about six development cases, read the transcripts, and record the pilot as a
+   calibration attempt. When it misses the calibration target in METHOD.md § Ceiling
+   and floor effects (a control at the ceiling, for one), or a key that marks correct
+   answers wrong shows up, stop and redesign the cases or keys first.
 
 ## Grade what matters
 

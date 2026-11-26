@@ -11,7 +11,10 @@ class PilotGateTest(unittest.TestCase):
         self.assertIn("before authoring the held-out", text)
         self.assertIn("pilot", text)
         self.assertIn("about six development cases", text)
-        self.assertIn("control at the ceiling", text)
+        self.assertIn("no-instruction control and arm a", text)
+        self.assertIn("record the pilot as a calibration attempt", text)
+        self.assertIn("calibration target in method.md § ceiling and floor effects", text)
+        self.assertIn("a control at the ceiling", text)
         self.assertIn("a key that marks correct answers wrong", text)
 
 
