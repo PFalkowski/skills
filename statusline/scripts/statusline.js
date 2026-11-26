@@ -62,7 +62,7 @@ function modelIcon(model) {
 
 function compact(n) {
   if (!Number.isFinite(n)) return '?';
-  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
+  if (n >= 1e6 || Math.round(n / 1e3) >= 1000) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace(/\.0$/, '') + 'M';
   if (n >= 1e3) return (n / 1e3).toFixed(n >= 1e5 ? 0 : 1).replace(/\.0$/, '') + 'k';
   return String(n);
 }
@@ -292,7 +292,7 @@ function render(d) {
 }
 
 if (require.main !== module) {
-  module.exports = { place, render };
+  module.exports = { place, render, compact };
   return;
 }
 
