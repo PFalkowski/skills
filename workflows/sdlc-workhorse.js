@@ -1148,7 +1148,8 @@ const sliced = await agent(
 if (!sliced || !sliced.slices.length) throw new Error('sdlc-workhorse: slicing produced no slices.')
 
 const testOf = s => plannedTests.find(p => p.id === s.claimTest)
-// Built first, with every slice they depend on, so the cap cannot drop a slice the merge is waiting on.
+// Built first, with every slice they depend on. The cap keeps the first maxSlices slices in build order, so a claim
+// whose dependencies do not fit in what is left is dropped; the merge then stays blocked.
 const claimFirst = [...sliced.slices.filter(testOf), ...sliced.slices.filter(s => !testOf(s))]
 // A slice builds after every slice it dependsOn. The sort is stable, so slices with no dependency between
 // them keep the order above. A duplicate id, an unknown id or a cycle stops the run before anything is built, because a
@@ -1159,7 +1160,7 @@ const orderByDependsOn = (list) => {
   if (repeated.length) throw new Error(`sdlc-workhorse: duplicate slice id(s): ${repeated.map(id => JSON.stringify(id)).join(', ')}.`)
   for (const s of list) {
     const unknown = (s.dependsOn || []).filter(d => !ids.has(d))
-    if (unknown.length) throw new Error(`sdlc-workhorse: slice ${s.id} dependsOn unknown slice id(s): ${unknown.join(', ')}.`)
+    if (unknown.length) throw new Error(`sdlc-workhorse: slice ${s.id} dependsOn unknown slice id(s): ${unknown.map(id => JSON.stringify(id)).join(', ')}.`)
   }
   const needed = new Set()
   const need = s => {
@@ -1175,7 +1176,7 @@ const orderByDependsOn = (list) => {
     const next = ranked.find(s => !placed.has(s.id) && (s.dependsOn || []).every(d => placed.has(d)))
     if (!next) {
       const stuck = ranked.filter(s => !placed.has(s.id)).map(s => s.id)
-      throw new Error(`sdlc-workhorse: slices form a dependsOn cycle among ${stuck.join(', ')}.`)
+      throw new Error(`sdlc-workhorse: slices form a dependsOn cycle among ${stuck.map(id => JSON.stringify(id)).join(', ')}.`)
     }
     ordered.push(next)
     placed.add(next.id)

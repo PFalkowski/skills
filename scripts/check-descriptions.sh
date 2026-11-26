@@ -35,20 +35,29 @@ done
 # Its meta.whenToUse is appended to that text, so it counts in the totals but has no limit of its own.
 # Each field must be one quoted string on its own line; any other shape cannot be measured and fails.
 meta_field() {
-  sed -nE "s/^[[:space:]]+$2:[[:space:]]*(['\"\`])(.*)\1,?[[:space:]]*\$/\2/p" <<<"$1" | head -n 1
+  local line q text
+  line=$(grep -E "^  $2:" <<<"$1" | head -n 1)
+  text=$(sed -nE "s/^  $2:[[:space:]]*(['\"\`])(.*)\1,?[[:space:]]*\$/\2/p" <<<"$line")
+  q=$(sed -nE "s/^  $2:[[:space:]]*(['\"\`]).*/\1/p" <<<"$line")
+  case "$text" in *"$q"*) return ;; esac
+  printf '%s\n' "$text"
 }
 for f in workflows/*.js; do
   [ -f "$f" ] || continue
   meta=$(awk '/^export const meta = \{/ { on = 1; print; if (/\}/) exit; next } on { print } on && /^\}/ { exit }' "$f")
   for field in description whenToUse; do
-    if ! grep -qE "^[[:space:]]+$field:" <<<"$meta"; then
+    if ! grep -qE "^  $field:" <<<"$meta"; then
       [ "$field" = description ] && { echo "FAIL $f: no meta.description line (put each meta field on its own line)"; status=1; }
+      continue
+    fi
+    if [ "$(grep -cE "^  $field:" <<<"$meta")" -gt 1 ]; then
+      echo "FAIL $f: meta has more than one $field line"; status=1
       continue
     fi
     text=$(meta_field "$meta" "$field")
     n=$(printf '%s' "$text" | wc -m)
     if [ "$n" -eq 0 ]; then
-      echo "FAIL $f: meta.$field is empty or is not one quoted string on one line (a concatenation or a value on the next line cannot be measured)"; status=1
+      echo "FAIL $f: meta.$field is empty or is not one quoted string on one line (a concatenation, a value on the next line or a quote character inside the string cannot be measured)"; status=1
       continue
     fi
     total=$((total + n)); loaded=$((loaded + n))
