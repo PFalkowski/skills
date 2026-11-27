@@ -1,5 +1,7 @@
 # The principal brief — running other skills under the manager
 
+The manager runs in one of two modes. **Session mode:** the human-started manager session is the principal; it spawns every leg itself and talks to the human. **Subagent mode:** the manager is a fresh workflow subagent ([`workflows/manager.js`](../workflows/manager.js)) that did not write the work; it returns its follow-ups as briefs, because a workflow agent cannot spawn ([#46](https://github.com/PFalkowski/skills/issues/46)), and the calling session is the dispatcher: it runs an `agent`-kind brief as a subagent and a `workflow`-kind brief as a Workflow, then feeds the result into the next manager pass. The brief below is what the manager writes for each of those dispatches, in either mode.
+
 ## The brief — paste it into every dispatch
 
 ```
@@ -50,4 +52,4 @@ Fill every `<…>` from the mandate.
 
 ## Fencing — the hard leash under the soft one
 
-The brief is the soft leash. The toolset is the hard one, and both are used: dispatch with read-only tools granted freely and mutating ones withheld or fenced, so a worker that ignores the brief still cannot push, post or delete on its own. The manager's own session runs under [auto-mode-setup](../auto-mode-setup/SKILL.md); its deny rules bound everything the manager can approve, and a manager approval never reaches past them.
+The brief is the soft leash. The toolset is the hard one, and both are used: dispatch with read-only tools granted freely and mutating ones withheld or fenced, so a worker that ignores the brief still cannot push, post or delete on its own. The session that holds the spawn tool runs under [auto-mode-setup](../auto-mode-setup/SKILL.md); its deny rules bound everything the manager can approve, and the manager subagent inherits them. A manager approval never reaches past them.
