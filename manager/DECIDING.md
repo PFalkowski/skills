@@ -24,7 +24,7 @@ The mandate is the one paragraph every decision is checked against. It is writte
 
 **"Deleting" here means someone else's work, not the run's own scaffolding.** A worktree a managed run created, and the local branch of a PR that has merged, are neither data nor history — the commits are in the target branch and the tree is one `git worktree add` from existing again. What stays a hard line is anything reachable only from the thing being deleted: an unmerged branch, a stash, a worktree with uncommitted changes. Check that before deleting, not the label on the artifact.
 
-**The mandate cannot exceed the harness, and a mandate that assumes it is a bug.** Rule 6 makes the [auto-mode-setup](../auto-mode-setup/SKILL.md) deny list the outer boundary: `deny` is evaluated before `ask` and `allow`, and a tool denied at any scope cannot be allowed at another, so no per-repo grant and no manager verdict reaches past it. So **before the first verdict, confirm the commands your mandate implies are actually runnable** — `merge=allow` needs `gh pr merge`, `post=post` needs `gh issue comment` and `gh pr comment`, `tickets=file` needs `gh issue create`, `cleanup=allow` needs `git worktree remove` and `git branch -d`. Where one is denied or missing, say so in the opening report and treat that key as `ask` for the session.
+**The mandate cannot exceed the harness, and a mandate that assumes it is a bug.** Rule 6 makes the [auto-mode-setup](../auto-mode-setup/SKILL.md) deny list the outer boundary: `deny` is evaluated before `ask` and `allow`, and a tool denied at any scope cannot be allowed at another, so no per-repo grant and no manager verdict reaches past it. So **before the first verdict, the session that holds the spawn tool confirms the commands the mandate implies are actually runnable** — `merge=allow` needs `gh pr merge`, `post=post` needs `gh issue comment` and `gh pr comment`, `tickets=file` needs `gh issue create`, `cleanup=allow` needs `git worktree remove` and `git branch -d`. In session mode that is the manager session; in subagent mode it is the dispatcher, and the manager subagent inherits that boundary and returns a denied step as a dispatch. Where one is denied or missing, say so in the opening report and treat that key as `ask` for the session.
 
 ## The rubric — in this order, stop at the first that decides
 
@@ -67,7 +67,7 @@ Every line carries its reason and evidence so the agent can push back with facts
 
 ## The journal
 
-`journal.md` under the state root — `~/.agent-state/<repo-slug>/manager/` by default, `MANAGER_STATE` overriding it ([docs/agent-state.md](../docs/agent-state.md)). Append-only, and **one line per decision**:
+`journal.md` under the state root — `~/.agent-state/<repo-slug>/manager/` by default, `MANAGER_STATE` overriding it ([docs/agent-state.md](../docs/agent-state.md)). Append-only, and **one line per decision**; in subagent mode the manager returns them and the dispatcher appends them:
 
 ```
 [MM-DD HH:mm] <subject> <A#> <VERDICT> <ask in ≤12 words> — <reason> [<evidence>] → told <agent/channel>
@@ -79,7 +79,7 @@ It is operational state, not memory — an agent may correct a memory; nobody ed
 
 ## Telling the human
 
-The end-of-pass report is a few lines, not a story:
+The end-of-pass report is a few lines, not a story; in subagent mode the manager returns it and the dispatcher relays it:
 
 ```
 Managed: <subject>. Verdicts: <a> approved, <r> redirected, <d> deferred (<ticket refs>), <v> vetoed.
