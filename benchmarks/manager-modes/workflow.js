@@ -14,7 +14,7 @@ export const meta = {
 if (typeof args === 'string') args = JSON.parse(args)
 if (args.local) throw new Error('manager-modes-benchmark fans out; run it from a normal session, not a local-model one')
 const { root, arms, cases, trials = 2 } = args
-const model = args.model || 'sonnet'
+const model = 'sonnet'
 
 const PLAN = { type: 'object', properties: {
   actions: { type: 'array', items: { type: 'object', properties: {
@@ -65,7 +65,7 @@ const graderPrompt = (id, plans) => [
 
 const grade = async (id, trial, shift, byArm) => {
   const order = arms.map((_, k) => arms[(k + shift) % arms.length]).filter(arm => byArm[arm])
-  const named = order.map((arm, k) => ({ plan: `p${k + 1}`, ...byArm[arm] }))
+  const named = order.map((arm, k) => ({ ...byArm[arm], plan: `p${k + 1}` }))
   const out = named.length ? await agent(graderPrompt(id, named), { label: `g|${id}|${trial}`, phase: 'Grade', schema: GRADES, model }) : null
   return arms.map(arm => {
     const cell = `${id}|${arm}|${trial}|`
@@ -75,6 +75,8 @@ const grade = async (id, trial, shift, byArm) => {
   })
 }
 
+const said = plan => plan && (plan.actions.length || plan.message_to_human.trim() || plan.then.trim()) ? plan : null
+
 const groups = cases.flatMap(id => Array.from({ length: args.examples ? 1 : trials }, (_, trial) => ({ id, trial })))
 
 const rows = await pipeline(groups,
@@ -82,7 +84,7 @@ const rows = await pipeline(groups,
     if (args.examples) return args.examples[id]
     const plans = await parallel(arms.map(arm => () =>
       agent(subjectPrompt(arm, id), { label: `s|${id}|${arm}|${trial}`, phase: 'Subject', schema: PLAN, model })))
-    return Object.fromEntries(arms.map((arm, k) => [arm, plans[k]]))
+    return Object.fromEntries(arms.map((arm, k) => [arm, said(plans[k])]))
   },
   (byArm, { id, trial }, index) => grade(id, trial, index, byArm))
 

@@ -10,8 +10,9 @@ asks for when the subject is not a local text model.
 
 ## Frozen plan
 
-Everything in this section was fixed before the scored run. Changing any of it voids
-every earlier score.
+Everything in this section was fixed before the scored run, except the two rules named
+under [Departures from the method](#departures-from-the-method). Changing anything else
+voids every earlier score.
 
 - **Arms.** Six versions of the skill, pinned in [arms.json](arms.json): `main` (arm A
   of every comparison), four pull requests, and a control whose `SKILL.md` holds only
@@ -41,12 +42,12 @@ every earlier score.
 - **Ladder.** Rung 2 would combine several rules in one case; rung 3 would use longer,
   messier situations. This run stops at rung 1 whatever it shows, to bound its cost,
   so rung 1 is the last allowed suite.
-- **Missing results.** A subject or grader that returns nothing is an infrastructure
-  failure. The run is resumed once, before any grade is read, so that only the missing
-  agents run again. A cell still missing after that makes the run INVALID.
-- **Contamination.** A subject may read and list its own skill folder and its case
-  file, and nothing else. A subject that reads or lists anything else, or uses a tool
-  that can change something, makes the run INVALID.
+- **Missing results.** A subject or grader that returns nothing, or a plan with no
+  action, message or next step, makes the run INVALID. Fix the cause and run the whole
+  frozen experiment again.
+- **Contamination.** A subject may use only `Read`, on its own skill folder and its
+  case file. A grader may read only its own grader file. Anything else makes the run
+  INVALID.
 
 ## Calibration record
 
@@ -74,15 +75,39 @@ cases were written. No pull request's version ran on them.
   folder. The person who ran the benchmark wrote one of the arms and did not read the
   test cases before the scored run.
 
+## Departures from the method
+
+- **Sonnet subjects carry the launching session's house rules.** Every subject, the
+  control included, had that session's `CLAUDE.md` files in its context, among them
+  rules about when to use a manager and a workflow, and the live `manager` skill's
+  description. It is the same for every arm, and the prompt says to set it aside.
+- **An arm is the skill's own folder and its workflow script.** Edits a pull request
+  makes elsewhere, such as to `save-tokens` or the shared rule templates, are not in
+  the arm.
+- **The grader attestation is thin.** `grader_validated` rests on 18 example plans
+  written and keyed by the agent that wrote the development cases, not on outputs a
+  person rated. No test key was checked before the run, and two look faulty
+  ([RESULTS.md](RESULTS.md)).
+- **The last prompt change was not piloted.** The calibration figures come from pilot
+  3, before subjects were told which files their copy holds.
+- **Two rules were changed after the first run, on review.** The plan was frozen
+  with a rule to resume a run once when an agent returned nothing, which the method
+  does not allow; nothing was missing, so it was never used. The contamination rule
+  let a subject list its own folder; it is now `Read` only and covers graders. The
+  first run passes both rules as they now read.
+
 ## What this does not measure
 
 - What a session does, as opposed to what it plans. A workflow agent cannot spawn, so
   a hand-off can be stated but not carried out.
 - Whether the skill loads for the right requests.
 - Any model but Sonnet.
-- With 20 clusters the interval rule can call IMPROVEMENT only when about twelve
-  clusters change from fail to pass and none goes the other way. Smaller effects are
-  reported as observed and the verdict is INCONCLUSIVE.
+- Anything decisive. With 20 clusters and a margin of 0.10, the interval rule calls
+  IMPROVEMENT only at twelve clusters gained and none lost, REGRESSION only at twelve
+  lost, and never NO_MEANINGFUL_CHANGE. An arm A that passes nine of twenty, as `main`
+  did, leaves eleven to gain, so INCONCLUSIVE was the only verdict the first run could
+  reach against it. A gain of four clusters in ten with none lost needs 34 clusters; a
+  gain of three in ten needs 59; agreement on every cluster needs 42.
 
 ## Run it
 

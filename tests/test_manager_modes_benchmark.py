@@ -139,6 +139,20 @@ class Analyze(unittest.TestCase):
         self.assertIn("| main to new | 6 | 0 | +0.30 |", table)
         self.assertIn("| t00 | R1 | 0/2 | 2/2 | 0/2 |", table)
 
+    def test_a_criterion_answered_twice_makes_the_run_invalid(self):
+        parsed = cells(self.cases, {"main": self.ids, "new": self.ids, "control": set()})
+        parsed.update(score.parse_cells(["t03|new|1|c1=1,c2=0,c1=0"]))
+        report = score.analyze(CONFIG, self.cases, parsed)
+        self.assertEqual(report["verdict"], "INVALID")
+        self.assertIn("t03 new trial 1", report["invalid"][0])
+
+    def test_the_report_names_a_ceiling_whatever_step_decides(self):
+        passing = {"main": self.ids - {"t00"}, "new": self.ids, "control": set()}
+        comparison = score.analyze(CONFIG, self.cases, cells(self.cases, passing))["comparisons"][0]
+        self.assertIs(comparison["a_at_ceiling"], True)
+        passing["main"] = {"g01"}
+        self.assertIs(score.analyze(CONFIG, self.cases, cells(self.cases, passing))["comparisons"][0]["a_at_ceiling"], False)
+
     def test_parse_cells_reads_answers_and_missing(self):
         parsed = score.parse_cells(["t01|v1|0|c1=1,c2=0", "t01|v2|0|MISSING_GRADE"])
         self.assertEqual(parsed, {("t01", "v1", 0): {"c1": True, "c2": False}, ("t01", "v2", 0): None})
@@ -150,28 +164,26 @@ class Contamination(unittest.TestCase):
     def fault(self, name, **tool_input):
         return score.tool_fault(name, tool_input, self.ALLOWED)
 
-    def test_a_subject_may_read_and_list_its_own_files(self):
+    def test_an_agent_may_read_its_own_files(self):
         self.assertIsNone(self.fault("Read", file_path="/s/arms/v1/manager/SKILL.md"))
+        self.assertIsNone(self.fault("Read", file_path="/s/arms/v1/manager"))
         self.assertIsNone(self.fault("Read", file_path="/s/subject/cases/t01.md"))
-        self.assertIsNone(self.fault("Bash", command="ls -R /s/arms/v1 | head -80"))
-        self.assertIsNone(self.fault("Glob", path="/s/arms/v1", pattern="**/*.md"))
-        self.assertIsNone(self.fault("Bash"))
+        self.assertIsNone(self.fault("StructuredOutput"))
 
-    def test_reading_another_arm_the_key_or_a_sibling_folder_is_a_fault(self):
-        self.assertIn("outside", self.fault("Read", file_path="/s/arms/v10/manager/SKILL.md"))
-        self.assertIn("outside", self.fault("Read", file_path="/s/grader/t01.json"))
-        self.assertIn("outside", self.fault("Bash", command="ls /s/arms"))
-        self.assertIn("outside", self.fault("Bash", command="cat /s/arms/v1/manager/SKILL.md /s/private/arms.json"))
-        self.assertIn("outside", self.fault("Grep", pattern="manager"))
+    def test_reading_anything_else_is_a_fault_however_the_path_is_spelt(self):
+        self.assertEqual(self.fault("Read", file_path="/s/arms/v10/manager/SKILL.md"), "read /s/arms/v10/manager/SKILL.md")
+        self.assertEqual(self.fault("Read", file_path="/s/grader/t01.json"), "read /s/grader/t01.json")
+        self.assertEqual(self.fault("Read", file_path="/s/arms/v1/../v2/manager/SKILL.md"), "read /s/arms/v2/manager/SKILL.md")
+        self.assertEqual(self.fault("Read", file_path="/s/arms/v1/../../private/arms.json"), "read /s/private/arms.json")
 
-    def test_a_command_that_could_change_something_is_a_fault(self):
-        self.assertIn("ran", self.fault("Bash", command="touch /s/arms/v1/manager/SKILL.md"))
-        self.assertIn("ran", self.fault("Bash", command="ls /s/arms/v1; touch /s/arms/v1/x"))
-        self.assertIn("ran", self.fault("Bash", command="cat /s/arms/v1/manager/SKILL.md > /s/arms/v1/x"))
+    def test_any_other_tool_is_a_fault(self):
+        self.assertEqual(self.fault("Bash", command="ls /s/arms/v1"), "used Bash")
+        self.assertEqual(self.fault("Bash", command="find /s/arms/v1 -delete"), "used Bash")
+        self.assertEqual(self.fault("Glob", path="/s/arms/v1", pattern="**/*.md"), "used Glob")
         self.assertEqual(self.fault("Edit", file_path="/s/arms/v1/manager/SKILL.md"), "used Edit")
         self.assertEqual(self.fault("Skill", skill="manager"), "used Skill")
 
-    def test_the_journal_names_the_subjects_whose_transcripts_show_a_fault(self):
+    def test_the_journal_names_subjects_and_graders_outside_their_fence(self):
         import tempfile
         with tempfile.TemporaryDirectory() as tmp:
             run = Path(tmp)
@@ -179,6 +191,7 @@ class Contamination(unittest.TestCase):
             lines = [{"type": "started", "agentId": "a", "label": "s|t01|v1|0"},
                      {"type": "started", "agentId": "b", "label": "s|t01|v2|0"},
                      {"type": "started", "agentId": "g", "label": "g|t01|0"},
+                     {"type": "started", "agentId": "h", "label": "g|t02|0"},
                      {"type": "started", "agentId": "m", "label": "s|t01|v3|0"}]
             journal.write_text("\n".join(json.dumps(x) for x in lines), encoding="utf-8")
             use = lambda name, **tool_input: json.dumps({"message": {"content": [
@@ -188,8 +201,12 @@ class Contamination(unittest.TestCase):
                 encoding="utf-8")
             (run / "agent-b.jsonl").write_text(use("Read", file_path="/s/arms/v2/manager/SKILL.md"), encoding="utf-8")
             (run / "agent-g.jsonl").write_text(use("Read", file_path="/s/grader/t01.json"), encoding="utf-8")
+            (run / "agent-h.jsonl").write_text(
+                use("Read", file_path="/s/grader/t02.json") + "\n" + use("Read", file_path="/repo/cases/test/t02.json"),
+                encoding="utf-8")
             found = score.contamination(journal, "/s")
-        self.assertEqual(found, ["s|t01|v1|0: Read outside its own files: /s/grader/t01.json", "s|t01|v3|0: no transcript"])
+        self.assertEqual(found, ["s|t01|v1|0: read /s/grader/t01.json", "g|t02|0: read /repo/cases/test/t02.json",
+                                 "s|t01|v3|0: no transcript"])
 
 
 class Prepare(unittest.TestCase):

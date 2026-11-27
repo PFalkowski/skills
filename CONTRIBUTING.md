@@ -18,11 +18,11 @@ model's tokenizer. Before/after review must check behavior as well as size; use
 
 ## Benchmark behaviour changes
 
-A change to what a skill tells an agent to do is compared, old text against new, with
-[benchmark-skill](benchmark-skill/SKILL.md): freeze the cases before editing, run both
-versions before opening the PR, and report the verdict and what was not measured in it.
+A change to what a skill tells an agent to do is benchmarked while it is developed. The
+rule is in [CLAUDE.md](CLAUDE.md#changing-a-skill).
 [benchmarks/manager-modes](benchmarks/manager-modes/README.md) is a worked example for
-a skill whose subject is an agent session and not a text model.
+a skill whose subject is an agent session and not a text model. Its first run was too
+small to decide anything, and its README says how many cases a verdict needs.
 
 ## Checking sibling-skill links
 

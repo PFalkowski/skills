@@ -8,7 +8,7 @@ comparison and its verdict.
 import argparse
 import importlib.util
 import json
-import re
+import os
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -18,9 +18,6 @@ _method = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_method)
 paired_interval = _method.paired_interval
 
-LISTING = re.compile(r"^(ls|find|cat|head|wc|tree)\b")
-
-
 def parse_cells(cells):
     parsed = {}
     for cell in cells:
@@ -28,8 +25,14 @@ def parse_cells(cells):
         key = (case, arm, int(trial))
         if key in parsed:
             raise ValueError(f"duplicate cell {key}")
-        parsed[key] = None if answers.startswith("MISSING") else {
-            pair.split("=")[0]: pair.split("=")[1] == "1" for pair in answers.split(",") if pair}
+        pairs = [pair.split("=") for pair in answers.split(",") if pair]
+        ids = [criterion for criterion, _ in pairs] if not answers.startswith("MISSING") else []
+        if answers.startswith("MISSING"):
+            parsed[key] = None
+        elif len(set(ids)) != len(ids):
+            parsed[key] = {"answered twice": True}
+        else:
+            parsed[key] = {criterion: answer == "1" for criterion, answer in pairs}
     return parsed
 
 
@@ -53,42 +56,37 @@ def invalid_reasons(cases, arms, trials, parsed):
 
 
 def tool_fault(name, tool_input, allowed):
-    """Why one tool use breaks the subject's fence, or None. A subject may read and list its own files only."""
+    """Why one tool use breaks an agent's fence, or None. Subjects and graders may Read their own files only."""
     if name == "StructuredOutput":
         return None
-    if name == "Read":
-        paths = [str(tool_input.get("file_path", ""))]
-    elif name in ("Glob", "Grep"):
-        paths = [str(tool_input.get("path", ""))]
-    elif name == "Bash":
-        command = str(tool_input.get("command", "")).strip()
-        if not command:
-            return None
-        if not LISTING.match(command) or re.search(r"[;&>`]|\$\(", command):
-            return f"ran {command}"
-        paths = re.findall(r"(?<![\w.])/[^\s|'\"]+", command) or [""]
-    else:
+    if name != "Read":
         return f"used {name}"
-    outside = [p for p in paths if not any(p == base or p.startswith(base + "/") for base in allowed)]
-    return f"{name} outside its own files: {outside[0] or '(no path)'}" if outside else None
+    path = os.path.normpath(str(tool_input.get("file_path", "")))
+    inside = any(path == base or path.startswith(base + "/") for base in allowed)
+    return None if inside else f"read {path}"
+
+
+def fence(label, root):
+    kind, case, *rest = label.split("|")
+    if kind == "g":
+        return (f"{root}/grader/{case}.json",)
+    return (f"{root}/arms/{rest[0]}", f"{root}/subject/cases/{case}.md")
 
 
 def contamination(journal_path, root):
-    """Subjects that changed something, or read or listed anything but their own skill folder and case."""
+    """Subjects and graders that used a tool other than Read, or read anything but their own files."""
     journal_path = Path(journal_path)
     found = []
     for line in journal_path.read_text(encoding="utf-8").splitlines():
         entry = json.loads(line)
-        if entry.get("type") != "started" or not entry["label"].startswith("s|"):
+        if entry.get("type") != "started":
             continue
         label = entry["label"]
-        _, case, arm, _ = label.split("|")
-        allowed = (f"{root}/arms/{arm}", f"{root}/subject/cases/{case}.md")
         transcript = journal_path.parent / f"agent-{entry['agentId']}.jsonl"
         if not transcript.exists():
             found.append(f"{label}: no transcript")
             continue
-        faults = {tool_fault(name, tool_input, allowed) for name, tool_input in tool_uses(transcript)} - {None}
+        faults = {tool_fault(name, tool_input, fence(label, root)) for name, tool_input in tool_uses(transcript)} - {None}
         found += [f"{label}: {fault}" for fault in sorted(faults)]
     return found
 
@@ -114,7 +112,7 @@ def cluster_passes(cases, arm, trials, parsed):
 
 
 def decide(*, n, wins, losses, a_rate, b_rate, decision, critical_regression, b_fails_critical,
-           control_effect, all_arms_fail_everything=False):
+           control_effect):
     """METHOD.md § Verdict precedence, steps 2 to 10. Returns (verdict, reason, interval)."""
     m = decision["margin"]
     low, high = paired_interval(wins, losses, n, decision["alpha"])
@@ -129,7 +127,7 @@ def decide(*, n, wins, losses, a_rate, b_rate, decision, critical_regression, b_
         return "INCONCLUSIVE", "design: graders, holdout, sampling or cluster count", interval
     if high < -m:
         return "REGRESSION", "interval below the negative margin", interval
-    floor = a_rate <= m or all_arms_fail_everything
+    floor = a_rate <= m
     ceiling = a_rate >= decision["ceiling_rate"]
     if (floor or ceiling) and not decision["last_allowed_suite"]:
         return "INCONCLUSIVE", "run the next rung", interval
@@ -165,7 +163,6 @@ def analyze(config, cases, parsed, contaminated=()):
         losses = sum(clusters[a][k] and not clusters[b][k] for k in clusters[a])
         return wins, losses
 
-    nothing_passes = not any(any(passed.values()) for passed in clusters.values())
     comparisons = []
     for a, b in config["comparisons"]:
         wins, losses = effect(a, b)
@@ -174,9 +171,10 @@ def analyze(config, cases, parsed, contaminated=()):
             n=n, wins=wins, losses=losses, a_rate=rate[a], b_rate=rate[b], decision=decision,
             critical_regression=any(crit[a][c] and not crit[b][c] for c in crit[a]),
             b_fails_critical=not all(crit[b].values()),
-            control_effect=(control_wins - control_losses) / n, all_arms_fail_everything=nothing_passes)
+            control_effect=(control_wins - control_losses) / n)
         comparisons.append({"a": a, "b": b, "wins": wins, "losses": losses, "n": n,
                             "effect": round((wins - losses) / n, 3), "interval": interval,
+                            "a_at_ceiling": rate[a] >= decision["ceiling_rate"],
                             "verdict": verdict, "reason": reason})
     per_case = {c["id"]: {arm: sum(cell_passes(c, parsed[(c["id"], arm, t)]) for t in range(trials)) for arm in names}
                 for c in cases}

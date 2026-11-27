@@ -28,10 +28,10 @@ async function run ({ args, subjectFn, graderFn }) {
 
 // Each subject's plan names its own arm, and the grader answers yes only for arm v2's plan,
 // so a correct mapping gives c1=1 to v2 and c1=0 to every other arm in every rotation.
-const subjectFn = label => ({ actions: [{ tool: 'Agent', what: `plan of ${label.split('|')[2]}` }], message_to_human: '' })
+const subjectFn = label => ({ actions: [{ tool: 'Agent', what: `plan of ${label.split('|')[2]}` }], message_to_human: '', then: '' })
 const plansIn = prompt => JSON.parse(prompt.slice(prompt.indexOf('Plans:\n') + 7))
 const graderFn = prompt => ({ plans: plansIn(prompt).map(p => ({ plan: p.plan,
-  answers: [{ id: 'c1', yes: /plan of v2/.test(p.actions[0].what), quote: 'q' }] })) })
+  answers: [{ id: 'c1', yes: /plan of v2/.test(p.actions[0]?.what || ''), quote: 'q' }] })) })
 const ARGS = { root: '/state', arms: ['v1', 'v2', 'v3'], cases: ['t01', 't02'], trials: 2,
   files: { v1: ['manager/SKILL.md'], v2: ['manager/SKILL.md', 'workflows/x.js'], v3: ['manager/SKILL.md'] } }
 
@@ -46,6 +46,8 @@ const t = async (n, f) => { try { if (await f()) { pass++; console.log('  ok  ' 
   await t('one subject per arm, case and trial', () => subjects.length === 12 && new Set(subjects.map(s => s.opts.label)).size === 12)
   await t('one grader per case and trial', () => graders.length === 4)
   await t('subjects and graders run on sonnet', () => x.calls.every(c => c.opts.model === 'sonnet'))
+  const other = await run({ args: { ...ARGS, model: 'opus' }, subjectFn, graderFn })
+  await t('...whatever the args say, because the frozen plan names the model', () => other.calls.every(c => c.opts.model === 'sonnet'))
   await t('a subject is pointed at its own arm and case only',
     () => subjects.every(s => { const [, id, arm] = s.opts.label.split('|')
       return s.prompt.includes(`/state/arms/${arm}/manager`) && s.prompt.includes(`/state/subject/cases/${id}.md`) && !s.prompt.includes('/grader/') }))
@@ -61,6 +63,15 @@ const t = async (n, f) => { try { if (await f()) { pass++; console.log('  ok  ' 
     () => dead.out.cells.includes('t01|v3|0|MISSING_SUBJECT') && dead.out.missing === 1)
   await t('...and the other arms of its group keep their own grades',
     () => dead.out.cells.includes('t01|v2|0|c1=1') && dead.out.cells.includes('t01|v1|0|c1=0'))
+
+  const blank = await run({ args: ARGS, graderFn, subjectFn: label => label === 's|t01|v3|0' ? { actions: [], message_to_human: ' ', then: '' } : subjectFn(label) })
+  await t('an empty plan is marked missing, not graded as a plan',
+    () => blank.out.cells.includes('t01|v3|0|MISSING_SUBJECT') && blank.out.missing === 1)
+  const silent = await run({ args: ARGS, graderFn, subjectFn: label => ({ actions: [], message_to_human: 'The skill gives me nothing to do.', then: '' }) })
+  await t('a plan with no actions but a message is graded', () => silent.out.missing === 0)
+  const sly = await run({ args: ARGS, graderFn, subjectFn: label => ({ ...subjectFn(label), plan: 'p1' }) })
+  await t('a plan cannot rename itself to another plan', () => sly.out.missing === 0 &&
+    sly.out.cells.every(c => c.endsWith(c.split('|')[1] === 'v2' ? 'c1=1' : 'c1=0')))
 
   const noGrade = await run({ args: ARGS, subjectFn, graderFn: (prompt, label) => label === 'g|t02|1' ? null : graderFn(prompt) })
   await t('a grader that returned nothing marks its whole group missing',

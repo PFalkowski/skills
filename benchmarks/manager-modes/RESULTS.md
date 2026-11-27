@@ -1,16 +1,19 @@
 # Results
 
 One scored run, on 2026-11-27, of the plan frozen in commit `4a767c2`: rung 1, the last
-allowed suite. 276 Sonnet subjects and 46 Sonnet graders; nothing missing, no subject
-outside its fence. Arms are named in [arms.json](arms.json): `pr418`, `pr417` and `pr416`
+allowed suite. 276 subjects and 46 graders on Sonnet (`claude-sonnet-5-5`); nothing
+missing, no agent outside its fence. Arms are named in [arms.json](arms.json): `pr418`, `pr417` and `pr416`
 are the three answers to the request, and `pr419` is `pr416` with its review fixes.
 
 ## Verdict
 
-**INCONCLUSIVE for all five comparisons.** Twenty clusters are too few for the interval
-rule at these effects: the lower bounds sit between -0.07 and +0.01, and the margin is
-0.10. What was observed is large all the same. Every pull request passes about twice
-as many clusters as `main`.
+**INCONCLUSIVE for all five comparisons, and against `main` no other verdict was
+reachable.** At twenty clusters and a margin of 0.10 the interval rule needs twelve
+clusters gained and none lost. `main` passed nine, which leaves eleven to gain, so the
+suite was too small before it ran. The four comparisons against `main` have lower
+bounds between -0.07 and +0.01; `pr416` to `pr419` runs from -0.28 to +0.28. What was
+observed is large all the same: every pull request passes about twice as many clusters
+as `main`.
 
 | Arm | Reliable success (20 test clusters) | P (5) | R1 (6) | R2 (3) | R3 (6) | Gates passed (3) |
 |---|---|---|---|---|---|---|
@@ -40,8 +43,8 @@ These are observed counts for Sonnet's stated plans, not established effects.
 - **No work of its own (R3).** `main` already passes four of six. `pr418`, `pr416` and
   `pr419` pass six. `pr417` passes four, like `main`: in two cases its manager session
   looked at the logs or the migration files itself.
-- **Manager session (R2) and preserved rules (P).** The arms differ by one cluster, and
-  two of these keys look faulty (below).
+- **Manager session (R2) and preserved rules (P).** The arms differ by one or two
+  clusters, and two of these keys look faulty (below).
 - **Gates.** `pr416` fails the `watch` gate in one of two trials: a session that wrote
   the code became the manager. `pr418`, `pr417` and `pr419` pass all three gates.
 - **`pr416` to `pr419`.** One cluster gained and one lost. The `watch` gate is the
@@ -108,4 +111,5 @@ Each cell is trials passed out of two. A cluster counts only at 2/2.
 - The scored run used 19.9 million tokens in about ten minutes. Three pilots, three
   grader checks and the two case authors used about seven million more.
 - Raw plans, grades, transcripts and the label map are in
-  `~/.agent-state/skills/benchmark-skill/manager-modes/2026-11-27-rung1/`.
+  `~/.agent-state/skills/benchmark-skill/manager-modes/2026-11-27-rung1/`, with the
+  pilots, the grader checks and the two authors' transcripts beside them.
