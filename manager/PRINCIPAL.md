@@ -3,7 +3,7 @@
 ## The brief — paste it into every dispatch
 
 ```
-PRINCIPAL: the manager (the session that dispatched you) is your principal. There is no
+PRINCIPAL: the manager (the session or subagent that dispatched you) is your principal. There is no
 human in this loop; questions to "the user" reach the manager, and it answers them.
 
 - Never block on a question. Turn it into a line
@@ -42,7 +42,7 @@ Fill every `<…>` from the mandate.
 
 ## Talking back to a running agent
 
-- **Live subagent** (spawned with `Agent`, still resident) → `SendMessage` with the verdict block. Keep it alive only while the next leg needs its context; otherwise let it end and brief a fresh one with the verdict handed in.
+- **A dispatched worker** (a skill leg or `Workflow` the manager asked for) → while it is still resident, `SendMessage` the verdict; otherwise the verdict goes into the *next* dispatch's brief, carried over with the assumptions that held.
 - **Fresh process** (`sdlc-old-fashioned` Dial 2, a `claude` OS process) → write the answer into the backlog file the next phase reads; the phase brief points at it.
 - **Workflow** → there is no channel into a running script; the verdict shapes the *next* dispatch's arguments.
 - **An agent in another session** (the pasted-report case) → the verdict is posted where that agent will look: a comment on its PR or ticket, and the report to the human names the agent to forward it to.
@@ -50,4 +50,4 @@ Fill every `<…>` from the mandate.
 
 ## Fencing — the hard leash under the soft one
 
-The brief is the soft leash. The toolset is the hard one, and both are used: dispatch with read-only tools granted freely and mutating ones withheld or fenced, so a worker that ignores the brief still cannot push, post or delete on its own. The manager's own session runs under [auto-mode-setup](../auto-mode-setup/SKILL.md); its deny rules bound everything the manager can approve, and a manager approval never reaches past them.
+The brief is the soft leash. The toolset is the hard one, and both are used: dispatch with read-only tools granted freely and mutating ones withheld or fenced, so a worker that ignores the brief still cannot push, post or delete on its own. The manager runs under its session's [auto-mode-setup](../auto-mode-setup/SKILL.md) deny list — whether it is a manager session or a manager subagent launched from one — those deny rules bound everything the manager can approve, and a manager approval never reaches past them.
