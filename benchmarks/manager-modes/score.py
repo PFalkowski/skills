@@ -194,12 +194,38 @@ def analyze(config, cases, parsed, contaminated=()):
     }
 
 
+def render(report, cases, config):
+    """The report as the Markdown tables RESULTS.md shows."""
+    names, trials = list(config["arms"]), report["trials"]
+    rules = sorted({c["rule"] for c in cases if c["split"] == "test"})
+    full = lambda case, arm: report["per_case"][case["id"]][arm] == trials
+    head = ["Arm", f"Reliable success ({report['test_clusters']} test clusters)"]
+    head += [f"{rule} ({sum(c['rule'] == rule and c['split'] == 'test' for c in cases)})" for rule in rules]
+    head.append(f"Gates passed ({len(report['critical'][names[0]])})")
+    lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
+    for arm in names:
+        row = [arm, f"{report['reliable_success'][arm]:.2f}"]
+        row += [str(sum(full(c, arm) for c in cases if c["split"] == "test" and c["rule"] == rule)) for rule in rules]
+        row.append(str(sum(report["critical"][arm].values())))
+        lines.append("| " + " | ".join(row) + " |")
+    lines += ["", "| Comparison | Only B passed | Only A passed | Effect | Interval | Verdict |", "|---|---|---|---|---|---|"]
+    for c in report["comparisons"]:
+        lines.append(f"| {c['a']} to {c['b']} | {c['wins']} | {c['losses']} | {c['effect']:+.2f} | "
+                     f"{c['interval'][0]:+.2f} to {c['interval'][1]:+.2f} | {c['verdict']}: {c['reason']} |")
+    lines += ["", "| Case | Rule | " + " | ".join(names) + " |", "|---|---|" + "---|" * len(names)]
+    for case in cases:
+        lines.append(f"| {case['id']} | {case['rule']} | " + " | ".join(f"{report['per_case'][case['id']][arm]}/{trials}" for arm in names) + " |")
+    return "\n".join(lines) + "\n"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--state", required=True, type=Path)
-    parser.add_argument("--run", required=True, type=Path, help="the workflow's return value, as JSON")
+    parser.add_argument("--run", required=True, type=Path,
+                        help="the workflow's return value as JSON, or the task output file that holds it under `result`")
     parser.add_argument("--journal", required=True, type=Path, nargs="+")
     parser.add_argument("--splits", nargs="+", default=["test", "gate"])
+    parser.add_argument("--markdown", type=Path, help="also write the tables here")
     options = parser.parse_args()
     state = options.state.expanduser().resolve()
     config = json.loads((HERE / "arms.json").read_text(encoding="utf-8"))
@@ -207,12 +233,16 @@ def main():
     name_of = {label: name for name, label in labels.items()}
     cases = [json.loads(p.read_text(encoding="utf-8"))
              for split in options.splits for p in sorted((HERE / "cases" / split).glob("*.json"))]
-    by_label = parse_cells(json.loads(options.run.read_text(encoding="utf-8"))["cells"])
+    run = json.loads(options.run.read_text(encoding="utf-8"))
+    by_label = parse_cells(run.get("result", run)["cells"])
     parsed = {(case, name_of[label], trial): answers for (case, label, trial), answers in by_label.items()}
     contaminated = [found for journal in options.journal for found in contamination(journal, str(state))]
     report = analyze(config, cases, parsed, contaminated)
     (state / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
-    print(json.dumps(report, indent=2))
+    if options.markdown and report["verdict"] == "VALID":
+        options.markdown.write_text(render(report, cases, config), encoding="utf-8")
+    summary = {k: report[k] for k in ("verdict", "invalid", "reliable_success", "comparisons", "case_lists") if k in report}
+    print(json.dumps(summary, indent=1))
 
 
 if __name__ == "__main__":

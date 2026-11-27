@@ -128,6 +128,17 @@ class Analyze(unittest.TestCase):
         parsed = cells(self.cases, {"main": self.ids, "new": self.ids, "control": set()})
         self.assertEqual(score.analyze(CONFIG, self.cases, parsed, ["s|t01|v1|0: used ['Bash']"])["verdict"], "INVALID")
 
+    def test_the_tables_show_each_arm_rule_and_comparison(self):
+        for c in self.cases:
+            c["rule"] = "P" if c["split"] == "gate" else ("R1" if c["id"] < "t06" else "P")
+        passing = {"main": {f"t{i:02d}" for i in range(6, 20)} | {"g01"}, "new": self.ids, "control": set()}
+        table = score.render(score.analyze(CONFIG, self.cases, cells(self.cases, passing)), self.cases, CONFIG)
+        self.assertIn("| Arm | Reliable success (20 test clusters) | P (14) | R1 (6) | Gates passed (1) |", table)
+        self.assertIn("| main | 0.70 | 14 | 0 | 1 |", table)
+        self.assertIn("| new | 1.00 | 14 | 6 | 1 |", table)
+        self.assertIn("| main to new | 6 | 0 | +0.30 |", table)
+        self.assertIn("| t00 | R1 | 0/2 | 2/2 | 0/2 |", table)
+
     def test_parse_cells_reads_answers_and_missing(self):
         parsed = score.parse_cells(["t01|v1|0|c1=1,c2=0", "t01|v2|0|MISSING_GRADE"])
         self.assertEqual(parsed, {("t01", "v1", 0): {"c1": True, "c2": False}, ("t01", "v2", 0): None})

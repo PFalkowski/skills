@@ -19,6 +19,7 @@ jobs:
           python3 -m unittest discover -s tests -p 'test_skill_context_benchmark.py'
           python3 -m unittest discover -s tests -p 'test_benchmark_skill*.py'
           python3 -m unittest discover -s tests -p 'test_attention_rewrite_benchmark.py'
+          python3 -m unittest discover -s tests -p 'test_manager_modes_benchmark.py'
           python3 benchmarks/unslop/grade.py --self-test > /dev/null
           python3 -m unittest discover -s tests -p 'test_unslop_real_prose.py'
           python3 benchmarks/unslop/real-prose/grade_real.py --self-test > /dev/null
