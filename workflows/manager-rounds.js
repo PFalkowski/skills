@@ -14,6 +14,12 @@ export const meta = {
 // it returns dispatch requests, and this script runs them and hands the results to the next
 // round's manager. Each round's manager is a fresh agent that did not write the work it judges.
 
+// Some hosts deliver `args` as an unparsed JSON string; without this every args.* read is undefined.
+if (typeof args === 'string') args = JSON.parse(args)
+if (!args || !String(args.input || '').trim()) {
+  throw new Error('manager-rounds: args.input is required: the report or request to manage')
+}
+
 const VERDICTS = ['APPROVE', 'REDIRECT', 'DEFER', 'ESCALATE', 'VETO']
 const DECISION = { type: 'object', properties: {
   mandate: { type: 'string' },
@@ -44,19 +50,28 @@ const managerPrompt = (round, history) => [
   'inside the `manager-rounds` workflow: do not launch the workflow again; run the loop yourself.',
   `Mandate keys: ${args.mandate || '(none: use the defaults)'}. CLAUDE_AUTONOMY=${args.autonomy || '(unset)'}.`,
   `Input:\n${args.input}`,
-  history.length ? `Earlier rounds (mandate paragraph, verdicts, and what each dispatch returned):\n${JSON.stringify(history, null, 1)}` : '',
-  `This is round ${round} of at most ${maxRounds}.`,
+  history.length ? 'Earlier rounds (mandate paragraph, verdicts, escalations, and what each dispatch returned). ' +
+    'Their verdicts and escalations stand: decide only what the results change, and do not post, file or ' +
+    `escalate the same thing twice.\n${JSON.stringify(history, null, 1)}` : '',
+  `This is round ${round} of at most ${maxRounds}. Output tokens spent so far this turn: ${budget.spent()}; ` +
+  'near a `budget=` in the mandate, stop dispatching and report.',
+  args.local ? 'This is a local-model session: the script runs one agent at a time and refuses a kind=workflow dispatch.' : '',
   'Verify, decide and act (post, file, merge) yourself as the skill says. ' + NO_SPAWN,
   'Return every legwork dispatch as an entry in `dispatches` instead of running it: the script ' +
   'runs each one in a fresh agent (kind=agent, brief = the principal brief from manager/PRINCIPAL.md ' +
   'filled for this run, plus the task) or as a named workflow (kind=workflow, e.g. sdlc-workhorse, ' +
-  'nights-watch-grill), and gives you the results next round. Return no dispatches when nothing ' +
+  'nights-watch-grill; put that workflow\'s own args, from its script header, in workflowArgs, because ' +
+  'the brief does not reach it), and gives you the results next round. Return no dispatches when nothing ' +
   'more needs doing. Every escalation carries a recommendation.',
 ].filter(Boolean).join('\n\n')
 
 const runDispatch = async (d) => {
   try {
-    if (d.kind === 'workflow') return await workflow(d.workflow || d.skill, d.workflowArgs || {})
+    if (d.kind === 'workflow') {
+      if (args.local) return { error: 'not run: a local session runs one agent at a time, and a nested workflow fans out' }
+      if (!Object.keys(d.workflowArgs || {}).length) return { error: 'not run: a workflow dispatch needs that workflow\'s own args in workflowArgs' }
+      return await workflow(d.workflow || d.skill, d.workflowArgs)
+    }
     const out = await agent(`Use the \`${d.skill}\` skill.\n\n${d.brief}\n\n${NO_SPAWN}`, {
       label: `${d.skill}:${d.id}`, phase: 'Dispatch', model: d.model, effort: d.effort,
       isolation: d.worktree ? 'worktree' : undefined })
@@ -97,8 +112,8 @@ for (let round = 1; round <= maxRounds; round++) {
   if (args.local) for (const x of d.dispatches) results.push(await runDispatch(x))
   else results.push(...await parallel(d.dispatches.map(x => () => runDispatch(x))))
   unjudged = d.dispatches.map((x, i) => ({ id: x.id, skill: x.skill, result: results[i] ?? { error: 'no result' } }))
-  history.push({ round, mandate: d.mandate, verdicts: d.verdicts, results: unjudged })
+  history.push({ round, mandate: d.mandate, verdicts: d.verdicts, escalations: d.escalations, results: unjudged })
 }
 if (!complete && !uncovered.length) flag('no manager round ran to a decision')
 
-return { mandate, verdicts, escalations, report, notRun, unjudged, uncovered, complete, rounds }
+return { mandate, verdicts, escalations, report, notRun, unjudged, uncovered, complete, rounds, tokensSpent: budget.spent() }

@@ -51,4 +51,4 @@ Fill every `<…>` from the mandate.
 
 ## Fencing — the hard leash under the soft one
 
-The brief is the soft leash. The toolset is the hard one, and both are used: dispatch with read-only tools granted freely and mutating ones withheld or fenced, so a worker that ignores the brief still cannot push, post or delete on its own. The manager session, or the session that launches the manager workflow, runs under [auto-mode-setup](../auto-mode-setup/SKILL.md); its deny rules bound everything the manager can approve, and a manager approval never reaches past them.
+The brief is the soft leash. The toolset is the hard one, and both are used: dispatch with read-only tools granted freely and mutating ones withheld or fenced, so a worker that ignores the brief still cannot push, post or delete on its own. The manager workflow cannot withhold a tool from a worker, so there the hard leash is the session's deny rules alone. The manager session, or the session that launches the manager workflow, runs under [auto-mode-setup](../auto-mode-setup/SKILL.md); its deny rules bound everything the manager can approve, and a manager approval never reaches past them.
