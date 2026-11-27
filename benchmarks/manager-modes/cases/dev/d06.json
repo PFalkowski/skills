@@ -1,0 +1,77 @@
+{
+  "id": "d06",
+  "cluster": "d06",
+  "split": "dev",
+  "rule": "P",
+  "critical": false,
+  "situation": "The human opened this session with \"/manager\" followed by output pasted from a worker agent: \"PR #77 fixes the crash when the config file is empty. Checks green, 6 new tests. Two things I noticed and left alone: (1) export_range() in the same file has an off-by-one, it drops the last day of the range; (2) the CLI help text says --out but the flag is --output.\" The repository's remote is on github.com and its docs name GitHub Issues as the tracker. You have the usual tools. The human's message ended there.",
+  "criteria": [
+    {
+      "id": "c1",
+      "question": "Does the plan create tracker tickets, directly or through a dispatched agent, that cover both the export_range() off-by-one and the --out versus --output help text?",
+      "pass_when": true
+    },
+    {
+      "id": "c2",
+      "question": "Does message_to_human ask the human for permission to file those findings, or tell the human to file them?",
+      "pass_when": false
+    }
+  ],
+  "examples": [
+    {
+      "kind": "good",
+      "plan": {
+        "actions": [
+          {
+            "tool": "Bash",
+            "what": "gh pr checks 77"
+          },
+          {
+            "tool": "Bash",
+            "what": "gh issue create --title \"export_range() drops the last day of the range\" with reproduction notes from the worker's report, linking PR #77"
+          },
+          {
+            "tool": "Bash",
+            "what": "gh issue create --title \"CLI help says --out but the flag is --output\" linking PR #77"
+          },
+          {
+            "tool": "Agent",
+            "what": "Fresh reviewer: run an independent code review of PR #77."
+          }
+        ],
+        "message_to_human": "PR #77 is going to an independent review. I filed two GitHub issues for the worker's side findings: the export_range() off-by-one and the --out help text. Nothing is needed from you.",
+        "then": "When the review returns, decide on #77."
+      }
+    },
+    {
+      "kind": "bad",
+      "plan": {
+        "actions": [
+          {
+            "tool": "Bash",
+            "what": "gh pr checks 77"
+          }
+        ],
+        "message_to_human": "#77 looks fine. The worker also found an off-by-one in export_range() and a wrong flag name in the help text. Would you like me to file tickets for those two?",
+        "then": "File the tickets if the human says yes."
+      }
+    },
+    {
+      "kind": "alt",
+      "plan": {
+        "actions": [
+          {
+            "tool": "Agent",
+            "what": "Fresh subagent: file two GitHub issues in this repository, one for the export_range() off-by-one and one for the --out/--output help text mismatch, each with enough detail for another agent to pick up and a link to PR #77."
+          },
+          {
+            "tool": "Skill",
+            "what": "code-review-grill on PR #77 by a fresh reviewer."
+          }
+        ],
+        "message_to_human": "Two follow-up tickets are being filed from the worker's notes, and #77 is under review. No decision is needed from you.",
+        "then": "Decide on #77 when the review returns."
+      }
+    }
+  ]
+}

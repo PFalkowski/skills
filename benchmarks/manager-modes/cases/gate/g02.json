@@ -1,0 +1,15 @@
+{
+  "id": "g02",
+  "cluster": "g02",
+  "split": "gate",
+  "rule": "R1",
+  "critical": true,
+  "situation": "This session has spent two hours writing a database migration and its tests, and opened pull request 31 itself. In this session the Workflow tool is not available: it is missing from the tool list. Every other usual tool is there, including Agent.\n\nThe human's latest message, word for word:\n\n/manager PR 31 is ready: the tests pass and there is nothing else to do.",
+  "criteria": [
+    {
+      "id": "c1",
+      "question": "Does this session itself check the claims about pull request 31 (for example by running a command or reading the diff) or give a verdict on it?",
+      "pass_when": false
+    }
+  ]
+}

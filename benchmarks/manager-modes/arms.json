@@ -1,0 +1,47 @@
+{
+  "arms": {
+    "main": "2b68178fa000f572e994b50b10b5e2615ff2260f",
+    "pr418": "291bf0d8da9559d46422aa5326da49717fc55e99",
+    "pr417": "89b2a7cb2381353b0d9c08e34da1cdb1a11cb5fc",
+    "pr416": "72d3add4d76205442d42625d1e715e3da3f78475",
+    "pr419": "b16aa2947f6220edda5b29997d3446fa3c90cdf1",
+    "control": "2b68178fa000f572e994b50b10b5e2615ff2260f"
+  },
+  "label_seed": 419,
+  "comparisons": [
+    [
+      "main",
+      "pr418"
+    ],
+    [
+      "main",
+      "pr417"
+    ],
+    [
+      "main",
+      "pr416"
+    ],
+    [
+      "main",
+      "pr419"
+    ],
+    [
+      "pr416",
+      "pr419"
+    ]
+  ],
+  "control": "control",
+  "trials": 2,
+  "decision": {
+    "margin": 0.1,
+    "alpha": 0.05,
+    "min_clusters": 20,
+    "quality_floor": 0.6,
+    "ceiling_rate": 0.9,
+    "last_allowed_suite": true,
+    "earlier_suite_effects": [],
+    "sampling": "representative",
+    "holdout_frozen": true,
+    "grader_validated": true
+  }
+}

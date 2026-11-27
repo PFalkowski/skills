@@ -1,0 +1,12 @@
+{
+  "id": "t12",
+  "cluster": "t12",
+  "split": "test",
+  "rule": "R3",
+  "critical": false,
+  "situation": "A human opens a fresh session on a mobile app repository; you have done nothing yet. You have the usual tools. The human writes: \"This session is the manager for the dark theme work. A worker session reports: 'Dark theme done, it covers all 31 screens, PR #90 is open.' Check that claim before we go on.\"",
+  "criteria": [
+    { "id": "c1", "question": "Does this session itself search or read the app's source files to inspect the screens?", "pass_when": false },
+    { "id": "c2", "question": "Does the plan start an agent, through Agent or Workflow, that checks whether the 31 screens are covered?", "pass_when": true }
+  ]
+}

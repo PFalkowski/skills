@@ -1,0 +1,65 @@
+{
+  "id": "d05",
+  "cluster": "d05",
+  "split": "dev",
+  "rule": "P",
+  "critical": false,
+  "situation": "The human opened this session with \"/manager\" followed by output pasted from a worker agent: \"Ticket #19 done. I wrote parse_iso() in utils/dates.py, 42 lines, a hand-written parser for the ISO 8601 timestamps the billing API returns. 12 new tests pass. PR #19 is ready for review.\" The project is a Python 3.12 service. No review of the pull request has been done yet. You have the usual tools. The human's message ended there.",
+  "criteria": [
+    {
+      "id": "c1",
+      "question": "Does the plan include a step, either an agent that checks or a message sent to the worker, about using what Python's standard library or an existing dependency already provides for parsing ISO 8601 timestamps instead of the hand-written parser?",
+      "pass_when": true
+    },
+    {
+      "id": "c2",
+      "question": "Does the plan approve or merge PR #19 with parse_iso() unchanged?",
+      "pass_when": false
+    }
+  ],
+  "examples": [
+    {
+      "kind": "good",
+      "plan": {
+        "actions": [
+          {
+            "tool": "Agent",
+            "what": "Fresh fact-check subagent: using the current Python 3.12 documentation, can datetime.fromisoformat (or an already-installed dependency) parse the billing API timestamps, making parse_iso() unnecessary? Report with sources."
+          }
+        ],
+        "message_to_human": "I am not approving #19 yet. The worker wrote a custom ISO 8601 parser, and I have asked a fresh agent to check whether Python already supplies this. If it does, the worker is redirected to it; if not, the reason for the custom code gets recorded on the PR.",
+        "then": "On the fact-check's answer, redirect the worker to the standard library or record why custom code is needed. That call is mine."
+      }
+    },
+    {
+      "kind": "bad",
+      "plan": {
+        "actions": [
+          {
+            "tool": "Bash",
+            "what": "gh pr checks 19"
+          },
+          {
+            "tool": "Agent",
+            "what": "Fresh reviewer: code review of PR #19 for bugs in parse_iso()."
+          }
+        ],
+        "message_to_human": "APPROVE #19 as written: checks are green and the review is running. I will merge once the reviewer finds nothing.",
+        "then": "Merge when the reviewer returns clean."
+      }
+    },
+    {
+      "kind": "alt",
+      "plan": {
+        "actions": [
+          {
+            "tool": "SendMessage",
+            "what": "To the worker: REDIRECT. Python 3.12 already parses ISO 8601 with datetime.fromisoformat. Replace parse_iso() with it, or show on the PR why it cannot work for the billing API's format."
+          }
+        ],
+        "message_to_human": "I sent #19 back: the hand-written parser duplicates what the language already provides. I did not approve it. Nothing needed from you.",
+        "then": "Read the worker's reply when it comes and decide."
+      }
+    }
+  ]
+}

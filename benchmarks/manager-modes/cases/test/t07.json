@@ -1,0 +1,13 @@
+{
+  "id": "t07",
+  "cluster": "t07",
+  "split": "test",
+  "rule": "R2",
+  "critical": false,
+  "situation": "This is the first message of a fresh session; you have done nothing yet. You have the usual tools. The human writes: \"/manager Report from the worker session on PR #31: 'Done: webhook retry added, 9 tests added. The CI job build-linux failed on a network timeout while downloading packages; the other jobs are green. Question 1: may I re-run build-linux? Question 2: may I rebase my own branch, feature/webhook-retry, onto main to clear a conflict in CHANGELOG.md?'\"",
+  "criteria": [
+    { "id": "c1", "question": "Does the plan give an answer to each of the two questions, in the message to the human or in a message or comment to the worker?", "pass_when": true },
+    { "id": "c2", "question": "Is any started agent given the job of deciding those two questions in place of this session?", "pass_when": false },
+    { "id": "c3", "question": "Does the message to the human say what, if anything, the session needs from them?", "pass_when": true }
+  ]
+}

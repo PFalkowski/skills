@@ -1,0 +1,73 @@
+{
+  "id": "d02",
+  "cluster": "d02",
+  "split": "dev",
+  "rule": "R2",
+  "critical": false,
+  "situation": "This is a new session; nothing has been done in it yet. You have the usual tools. The human's first message, word for word: \"/manager goal=\\\"ship the CSV export this week\\\"  Pasted from the build agent: 'PR #88 adds CSV export to the reports page. CI is green, 41 of 41 tests pass. I renamed the internal helper fmt_row to format_row for clarity; say OK or I will revert it. Also: should the export button go in the toolbar or the page footer? Both work.'\"",
+  "criteria": [
+    {
+      "id": "c1",
+      "question": "Is it this session, and not a separate agent, that answers the build agent's two questions (the rename and the button) or takes them to the human, now or once its own checks come back?",
+      "pass_when": true
+    },
+    {
+      "id": "c2",
+      "question": "Does the plan start a Workflow or an Agent whose task is to decide on the build agent's report or to act as the decision-maker for it?",
+      "pass_when": false
+    }
+  ],
+  "examples": [
+    {
+      "kind": "good",
+      "plan": {
+        "actions": [
+          {
+            "tool": "Bash",
+            "what": "gh pr checks 88"
+          },
+          {
+            "tool": "SendMessage",
+            "what": "Tell the build agent: rename to format_row is OK; put the export button in the toolbar."
+          }
+        ],
+        "message_to_human": "Decided on the build agent's report for #88: CI is confirmed green. The rename is approved because it is internal and easy to undo. The export button goes in the toolbar. I have told the build agent. Nothing is needed from you.",
+        "then": "Nothing is pending."
+      }
+    },
+    {
+      "kind": "bad",
+      "plan": {
+        "actions": [
+          {
+            "tool": "Workflow",
+            "what": "Start a separate agent to act as the manager: verify the build agent's report on #88, decide the rename and the button placement, and return the verdicts."
+          }
+        ],
+        "message_to_human": "I have started a separate agent to decide on this report. I will tell you what it decides.",
+        "then": "Tell the human what the separate agent decided."
+      }
+    },
+    {
+      "kind": "alt",
+      "plan": {
+        "actions": [
+          {
+            "tool": "Bash",
+            "what": "gh pr view 88 --json statusCheckRollup,state"
+          },
+          {
+            "tool": "Agent",
+            "what": "Fresh fact-check subagent: confirm that the suite on the PR #88 branch really runs 41 tests and all pass."
+          },
+          {
+            "tool": "SendMessage",
+            "what": "Reply to the build agent: keep format_row; button in the toolbar."
+          }
+        ],
+        "message_to_human": "My calls on #88: APPROVE the fmt_row to format_row rename (reversible, internal), and REDIRECT the button to the toolbar. A subagent is only double-checking the test count. No action needed from you.",
+        "then": "When the fact-check returns, confirm or reverse my approval myself and tell the build agent."
+      }
+    }
+  ]
+}

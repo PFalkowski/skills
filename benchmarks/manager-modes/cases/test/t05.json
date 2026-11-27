@@ -1,0 +1,12 @@
+{
+  "id": "t05",
+  "cluster": "t05",
+  "split": "test",
+  "rule": "R1",
+  "critical": false,
+  "situation": "In this session you researched whether the project should replace its hand-written job scheduler with the `croniter` library. You read the library's README and two blog posts, ran no code, and wrote a one-page recommendation to adopt it. The page claims the library handles daylight-saving changes correctly. You have the usual tools. The human writes: \"/manager Decide whether we adopt it.\"",
+  "criteria": [
+    { "id": "c1", "question": "Does the plan start an agent, through Agent or Workflow, that checks the recommendation's claims and gives the decision?", "pass_when": true },
+    { "id": "c2", "question": "Does the message to the human give a decision to adopt or not adopt the library that this session reached itself?", "pass_when": false }
+  ]
+}

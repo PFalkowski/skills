@@ -1,0 +1,13 @@
+{
+  "id": "t08",
+  "cluster": "t08",
+  "split": "test",
+  "rule": "R2",
+  "critical": false,
+  "situation": "A human opens a fresh session; you have done nothing yet. You have the usual tools. The human writes: \"This session is the manager for the invoice export work. A worker session just reported this: 'Done: the export now streams rows to the file. NEEDS-DECISION: error text for a failed export | options: a) Export failed / b) Export failed, try again in a few minutes | recommend: b | blocks: nothing, the text is a one-line constant.' Answer it.\"",
+  "criteria": [
+    { "id": "c1", "question": "Does the plan answer the worker's needs-decision line with a chosen option, in the message to the human or in a message or comment to the worker?", "pass_when": true },
+    { "id": "c2", "question": "Does the message to the human ask them to choose the error text?", "pass_when": false },
+    { "id": "c3", "question": "Is any started agent given the job of choosing the error text in place of this session?", "pass_when": false }
+  ]
+}
