@@ -1,5 +1,5 @@
 export const meta = {
-  name: 'manager',
+  name: 'manager-rounds',
   description: 'Run the manager as a fresh agent that did not write the work; the script dispatches its follow-ups',
   phases: [{ title: 'Decide' }, { title: 'Dispatch' }],
 }
@@ -34,16 +34,18 @@ const DECISION = { type: 'object', properties: {
   report: { type: 'string' } },
   required: ['mandate', 'verdicts', 'dispatches', 'escalations', 'report'] }
 
+const maxRounds = Number(args.maxRounds) || 8
+
 const NO_SPAWN = 'You run inside a Workflow: you have no Agent or Workflow tool. Do not spawn, ' +
   'delegate or simulate subagents; do the work yourself or list it under OPEN.'
 
 const managerPrompt = (round, history) => [
   'Invoke the `manager` skill and act as the manager it describes. You are the manager agent ' +
-  'inside the `manager` workflow: do not launch the workflow again; run the loop yourself.',
+  'inside the `manager-rounds` workflow: do not launch the workflow again; run the loop yourself.',
   `Mandate keys: ${args.mandate || '(none: use the defaults)'}. CLAUDE_AUTONOMY=${args.autonomy || '(unset)'}.`,
   `Input:\n${args.input}`,
   history.length ? `Earlier rounds (mandate paragraph, verdicts, and what each dispatch returned):\n${JSON.stringify(history, null, 1)}` : '',
-  `This is round ${round} of at most ${args.maxRounds || 8}.`,
+  `This is round ${round} of at most ${maxRounds}.`,
   'Verify, decide and act (post, file, merge) yourself as the skill says. ' + NO_SPAWN,
   'Return every legwork dispatch as an entry in `dispatches` instead of running it: the script ' +
   'runs each one in a fresh agent (kind=agent, brief = the principal brief from manager/PRINCIPAL.md ' +
@@ -53,39 +55,50 @@ const managerPrompt = (round, history) => [
 ].filter(Boolean).join('\n\n')
 
 const runDispatch = async (d) => {
-  if (d.kind === 'workflow') {
-    try { return await workflow(d.workflow || d.skill, d.workflowArgs || {}) }
-    catch (e) { return { error: `workflow ${d.workflow || d.skill} failed: ${e.message}` } }
-  }
-  const out = await agent(`Use the \`${d.skill}\` skill.\n\n${d.brief}\n\n${NO_SPAWN}`, {
-    label: `${d.skill}:${d.id}`, phase: 'Dispatch', model: d.model, effort: d.effort,
-    isolation: d.worktree ? 'worktree' : undefined })
-  return out === null ? { error: 'worker died or was skipped; nothing it claims is done' } : out
+  try {
+    if (d.kind === 'workflow') return await workflow(d.workflow || d.skill, d.workflowArgs || {})
+    const out = await agent(`Use the \`${d.skill}\` skill.\n\n${d.brief}\n\n${NO_SPAWN}`, {
+      label: `${d.skill}:${d.id}`, phase: 'Dispatch', model: d.model, effort: d.effort,
+      isolation: d.worktree ? 'worktree' : undefined })
+    return out === null ? { error: 'worker died or was skipped; nothing it claims is done' } : out
+  } catch (e) { return { error: `${d.kind} ${d.workflow || d.skill} failed: ${e.message}` } }
 }
 
-const maxRounds = args.maxRounds || 8
-const history = [], verdicts = [], escalations = []
-let mandate = '', report = '', open = []
+const history = [], verdicts = [], escalations = [], uncovered = []
+const flag = (why) => { uncovered.push(why); log(why) }
+let mandate = '', report = '', notRun = [], unjudged = [], complete = false, rounds = 0
 
 for (let round = 1; round <= maxRounds; round++) {
+  rounds = round
   phase('Decide')
-  const d = await agent(managerPrompt(round, history), {
-    label: `manager:${round}`, phase: 'Decide', schema: DECISION, model: args.tier || 'opus' })
-  if (d === null) { report = `manager agent died in round ${round}`; open = []; break }
+  let d = null, died = 'returned nothing'
+  try {
+    d = await agent(managerPrompt(round, history), {
+      label: `manager:${round}`, phase: 'Decide', schema: DECISION, model: args.tier || 'opus' })
+  } catch (e) { died = `threw: ${e.message}` }
+  if (d === null) {
+    flag(`round ${round}'s manager ${died}; whether it acted is unknown, so check the PR or ticket before re-running`)
+    break
+  }
+  unjudged = []
   mandate = mandate || d.mandate
   verdicts.push(...d.verdicts)
   escalations.push(...d.escalations)
   report = d.report
-  open = d.dispatches
-  if (!d.dispatches.length) break
-  if (round === maxRounds) { log(`round cap ${maxRounds} hit; ${open.length} dispatch(es) not run`); break }
+  if (!d.dispatches.length) { complete = true; break }
+  if (round === maxRounds) {
+    notRun = d.dispatches
+    flag(`round cap ${maxRounds} hit; ${notRun.length} dispatch(es) not run`)
+    break
+  }
 
   phase('Dispatch')
   const results = []
   if (args.local) for (const x of d.dispatches) results.push(await runDispatch(x))
   else results.push(...await parallel(d.dispatches.map(x => () => runDispatch(x))))
-  history.push({ round, mandate: d.mandate, verdicts: d.verdicts,
-    results: d.dispatches.map((x, i) => ({ id: x.id, skill: x.skill, result: results[i] ?? { error: 'no result' } })) })
+  unjudged = d.dispatches.map((x, i) => ({ id: x.id, skill: x.skill, result: results[i] ?? { error: 'no result' } }))
+  history.push({ round, mandate: d.mandate, verdicts: d.verdicts, results: unjudged })
 }
+if (!complete && !uncovered.length) flag('no manager round ran to a decision')
 
-return { mandate, verdicts, escalations, report, notRun: open, rounds: history.length + 1 }
+return { mandate, verdicts, escalations, report, notRun, unjudged, uncovered, complete, rounds }
