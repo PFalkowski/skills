@@ -51,7 +51,7 @@ const t = async (n, f) => { try { if (await f()) { pass++; console.log('  ok  ' 
 ;(async () => {
   const two = await run({ args: { input: 'PR #7 ready', mandate: 'merge=allow', autonomy: 'autonomous' }, spent: 4321, rounds: [
     D({ verdicts: [V('first')], escalations: [E('x')], dispatches: [W('a'), W('b')] }),
-    D({ verdicts: [V('second')], escalations: [E('y')] })] })
+    D({ verdicts: [V('second')], escalations: [E('y')], mandate: 'M2' })] })
   await t('each round is a new manager agent', () => managers(two).length === 2)
   await t('the manager is given the input', () => managers(two).every(m => m.prompt.includes('PR #7 ready')))
   await t('the manager is given the mandate keys', () => managers(two).every(m => m.prompt.includes('merge=allow')))
@@ -81,6 +81,9 @@ const t = async (n, f) => { try { if (await f()) { pass++; console.log('  ok  ' 
 
   const str = await run({ args: JSON.stringify({ input: 'PR #7 ready', local: true }), rounds: [D({ dispatches: [W('a'), W('b')] }), D()] })
   await t('args delivered as a JSON string are parsed', () => managers(str)[0].prompt.includes('PR #7 ready') && str.maxActive === 1)
+  const obj = await run({ args: { input: { report: 'PR #7 ready', unjudged: [{ id: 'a', result: 'DONE: pushed abc123' }] } }, rounds: [D()] })
+  await t('an input passed as structured data reaches the manager whole',
+    () => managers(obj)[0].prompt.includes('PR #7 ready') && managers(obj)[0].prompt.includes('DONE: pushed abc123'))
   for (const bad of [undefined, {}, { input: '  ' }]) {
     const threw = await run({ args: bad, rounds: [D()] }).then(() => false, e => /args\.input is required/.test(e.message))
     await t(`a run with no input refuses to start (${JSON.stringify(bad)})`, () => threw)
@@ -113,11 +116,14 @@ const t = async (n, f) => { try { if (await f()) { pass++; console.log('  ok  ' 
   await t('a workflow dispatch runs the named workflow, not an agent',
     () => wf.workflows.length === 1 && wf.workflows[0].name === 'sdlc-workhorse' && workers(wf).length === 0)
   await t('...with the dispatch\'s workflowArgs', () => wf.workflows[0].a.goal === 'g')
+  await t('the manager is told a workflow dispatch needs its own args', () => /in workflowArgs/.test(managers(wf)[0].prompt))
   const wfSkill = await run({ args: { input: 'x' }, rounds: [D({ dispatches: [{ ...WF, workflow: undefined, skill: 'nights-watch-grill' }] }), D()] })
   await t('a workflow dispatch with no workflow name runs the one named by its skill', () => wfSkill.workflows[0].name === 'nights-watch-grill')
   const wfBare = await run({ args: { input: 'x' }, rounds: [D({ dispatches: [{ ...WF, workflowArgs: undefined }] }), D()] })
   await t('a workflow dispatch with no workflowArgs is not run, and the manager is told why',
     () => wfBare.workflows.length === 0 && /needs that workflow's own args/.test(managers(wfBare)[1].prompt))
+  const wfEmpty = await run({ args: { input: 'x' }, rounds: [D({ dispatches: [{ ...WF, workflowArgs: {} }] }), D()] })
+  await t('...nor is one with empty workflowArgs', () => wfEmpty.workflows.length === 0)
   const wfLocal = await run({ args: { input: 'x', local: true }, rounds: [D({ dispatches: [WF] }), D()] })
   await t('a local session does not run a workflow dispatch, which would fan out',
     () => wfLocal.workflows.length === 0 && /one agent at a time/.test(managers(wfLocal)[1].prompt))

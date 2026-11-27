@@ -8,6 +8,7 @@ export const meta = {
 //         autonomy: 'autonomous' | '',               // the session's CLAUDE_AUTONOMY
 //         local: false,                              // CLAUDE_LOCAL=1: one agent at a time
 //         maxRounds: 8, tier: 'opus' }
+// returns tokensSpent: the turn's running total across the session and every workflow, not this run's share.
 //
 // THE WALL (#46): an agent() inside a Workflow has no Agent or Workflow tool, and when told to
 // spawn it role-plays the subagent instead of failing. So the manager agent never dispatches:
@@ -16,7 +17,9 @@ export const meta = {
 
 // Some hosts deliver `args` as an unparsed JSON string; without this every args.* read is undefined.
 if (typeof args === 'string') args = JSON.parse(args)
-if (!args || !String(args.input || '').trim()) {
+const given = args && args.input
+const input = typeof given === 'string' ? given.trim() : given ? JSON.stringify(given, null, 1) : ''
+if (!input) {
   throw new Error('manager-rounds: args.input is required: the report or request to manage')
 }
 
@@ -49,7 +52,7 @@ const managerPrompt = (round, history) => [
   'Invoke the `manager` skill and act as the manager it describes. You are the manager agent ' +
   'inside the `manager-rounds` workflow: do not launch the workflow again; run the loop yourself.',
   `Mandate keys: ${args.mandate || '(none: use the defaults)'}. CLAUDE_AUTONOMY=${args.autonomy || '(unset)'}.`,
-  `Input:\n${args.input}`,
+  `Input:\n${input}`,
   history.length ? 'Earlier rounds (mandate paragraph, verdicts, escalations, and what each dispatch returned). ' +
     'Their verdicts and escalations stand: decide only what the results change, and do not post, file or ' +
     `escalate the same thing twice.\n${JSON.stringify(history, null, 1)}` : '',
