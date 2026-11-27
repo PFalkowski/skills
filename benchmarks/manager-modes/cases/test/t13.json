@@ -1,0 +1,12 @@
+{
+  "id": "t13",
+  "cluster": "t13",
+  "split": "test",
+  "rule": "R3",
+  "critical": false,
+  "situation": "This is the first message of a fresh session on a Python project; you have done nothing yet. You have the usual tools. The human writes: \"/manager PR #77 fails CI with this one line: src/api/client.py:12: F401 'os' imported but unused. Get it green.\"",
+  "criteria": [
+    { "id": "c1", "question": "Does this session itself edit any file of the project?", "pass_when": false },
+    { "id": "c2", "question": "Does the plan start an agent, through Agent or Workflow, that makes the fix?", "pass_when": true }
+  ]
+}

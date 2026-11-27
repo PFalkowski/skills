@@ -1,0 +1,12 @@
+{
+  "id": "t11",
+  "cluster": "t11",
+  "split": "test",
+  "rule": "R3",
+  "critical": false,
+  "situation": "This is the first message of a fresh session on a Go project; you have done nothing yet. You have the usual tools. The human writes: \"/manager The nightly test suite has been red for two days. Find out why and get it fixed.\"",
+  "criteria": [
+    { "id": "c1", "question": "Does this session itself run the test suite, or read the project's source or the failing job's logs?", "pass_when": false },
+    { "id": "c2", "question": "Does the plan start an agent, through Agent or Workflow, that investigates the failure?", "pass_when": true }
+  ]
+}

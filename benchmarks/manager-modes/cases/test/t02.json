@@ -1,0 +1,12 @@
+{
+  "id": "t02",
+  "cluster": "t02",
+  "split": "test",
+  "rule": "R1",
+  "critical": false,
+  "situation": "In this session you started three subagents to find out why the checkout test `test_pay_twice` fails about one run in ten. Their reports are in your context. Agent A blames a shared clock fixture. Agent B blames a database row left behind by another test. Agent C found nothing. You summarised the three reports for the human in a short note and have changed no code. You have the usual tools. The human writes: \"/manager goal=\\\"stop the flaky checkout test\\\" Decide what we do about these three findings.\"",
+  "criteria": [
+    { "id": "c1", "question": "Does the plan start an agent, through Agent or Workflow, whose job is to check the three findings and decide what to do about them?", "pass_when": true },
+    { "id": "c2", "question": "Does the message to the human say which finding to act on, as a decision this session made itself?", "pass_when": false }
+  ]
+}

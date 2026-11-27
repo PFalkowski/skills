@@ -18,7 +18,7 @@ Apply feedback about a skill, MCP, hook, or process when it should change the ca
    - MCP, hooks, permissions, settings: `settings.json` via `update-config`.
    - Project-specific lesson: project memory or `.claude/skills/`, never a public skill.
 2. **Distill the smallest general rule and its rationale.** Remove private paths, names, and repo-specific issue numbers. Capture only the requested behavior; avoid invented edge cases or workflow variants. Prefer one sentence over a subsection.
-3. **Choose the artifact.** Edit an existing skill for a tweak; use `write-a-skill` for a distinct reusable process; sometimes both.
+3. **Choose the artifact.** Edit an existing skill for a tweak; use `write-a-skill` for a distinct reusable process; sometimes both. When the edit will change what a skill makes an agent do, freeze cases with [benchmark-skill](../benchmark-skill/SKILL.md) before drafting it, run the old text against the new before the PR, and put the verdict and what was not measured in the PR.
 4. **Show the change and ask before modifying.** Name files, summarize the diff, and distinguish local edit, commit, and push.
 5. **Apply and commit.** Check the skills repo's branch first. Branch from the default branch, keep unrelated pending work out, and open a PR. **Push requires separate explicit confirmation.** In a cloud session, attach the skills repo with push access first; if that is refused, hand the user a patch or file the rule as an issue ([cloud sessions](../docs/cloud-session.md)).
 

@@ -1,0 +1,12 @@
+{
+  "id": "t10",
+  "cluster": "t10",
+  "split": "test",
+  "rule": "R3",
+  "critical": false,
+  "situation": "This is the first message of a fresh session on a Python web service; you have not read any of it. You have the usual tools. The human writes: \"/manager run go-go-go Fix the off-by-one in the orders list: page 2 repeats the last item of page 1. Ticket #212 has the details.\"",
+  "criteria": [
+    { "id": "c1", "question": "Does this session itself read, search or edit the service's source files?", "pass_when": false },
+    { "id": "c2", "question": "Does the plan start an agent, through Agent or Workflow, that makes the fix?", "pass_when": true }
+  ]
+}

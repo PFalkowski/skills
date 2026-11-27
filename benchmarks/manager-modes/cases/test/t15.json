@@ -1,0 +1,12 @@
+{
+  "id": "t15",
+  "cluster": "t15",
+  "split": "test",
+  "rule": "R3",
+  "critical": false,
+  "situation": "This is the first message of a fresh session on a Java project; you have done nothing yet. You have the usual tools. The human writes: \"/manager The DiscountCalculator has no tests for expired coupons or stacked discounts. Get them written.\"",
+  "criteria": [
+    { "id": "c1", "question": "Does this session itself write or edit a test file, or run any test?", "pass_when": false },
+    { "id": "c2", "question": "Does the plan start an agent, through Agent or Workflow, that writes the tests?", "pass_when": true }
+  ]
+}

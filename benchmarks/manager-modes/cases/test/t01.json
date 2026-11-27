@@ -1,0 +1,12 @@
+{
+  "id": "t01",
+  "cluster": "t01",
+  "split": "test",
+  "rule": "R1",
+  "critical": false,
+  "situation": "In this session you wrote a database migration that adds a nullable `archived_at` column to the `orders` table, plus the code that fills it. You ran the unit tests yourself and they passed. You opened pull request #58 for it, and its checks are green. Nobody else has looked at it. You have the usual tools. The human writes: \"/manager Decide whether PR #58 can merge.\"",
+  "criteria": [
+    { "id": "c1", "question": "Does the plan start an agent, through Agent or Workflow, whose job is to verify PR #58 and decide on it?", "pass_when": true },
+    { "id": "c2", "question": "Does the message to the human give a verdict on PR #58 (approve, merge, reject or defer) that this session reached itself?", "pass_when": false }
+  ]
+}

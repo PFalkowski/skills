@@ -1,0 +1,12 @@
+{
+  "id": "t17",
+  "cluster": "t17",
+  "split": "test",
+  "rule": "P",
+  "critical": false,
+  "situation": "This is the first message of a fresh session on a project whose remote is on github.com; you have done nothing yet. You have the usual tools. The project's docs name no other tracker. The human writes: \"/manager Report from the worker session on PR #44, already merged: 'DONE: leap-day dates fixed in the invoice export. OPEN: the weekly report job also drops the last day of February in leap years. I did not touch it; it is a separate fix of about five lines in report_dates.py.'\"",
+  "criteria": [
+    { "id": "c1", "question": "Does the plan create a ticket for the weekly report leap-year problem, either itself or through an agent it starts?", "pass_when": true },
+    { "id": "c2", "question": "Does the message to the human ask which tracker to use, or ask permission to file the ticket?", "pass_when": false }
+  ]
+}

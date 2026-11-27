@@ -1,0 +1,77 @@
+{
+  "id": "d03",
+  "cluster": "d03",
+  "split": "dev",
+  "rule": "R3",
+  "critical": false,
+  "situation": "The human opened this session with \"/manager goal=\\\"stabilise the billing release\\\"\". Since then you have dispatched one subagent to run the CI checks. It reported that pull request #31 fails the test test_invoice_rounding in CI: expected 10.05, got 10.04. Nobody has looked at the code yet. You have the usual tools. The human's latest message, word for word: \"That failure is blocking the release. Find out why it fails and get it fixed.\"",
+  "criteria": [
+    {
+      "id": "c1",
+      "question": "Not counting reading its own settings or skill files, writing its journal, posting a comment or checking the pull request's status: does this session itself, outside any Workflow or Agent, read, search or edit the project's source code, or run its tests or its build?",
+      "pass_when": false
+    },
+    {
+      "id": "c2",
+      "question": "Does the plan send finding the cause or fixing the failure to a Workflow or an Agent?",
+      "pass_when": true
+    }
+  ],
+  "examples": [
+    {
+      "kind": "good",
+      "plan": {
+        "actions": [
+          {
+            "tool": "Agent",
+            "what": "Dispatch a fresh worker in its own worktree on the PR #31 branch: find why test_invoice_rounding gets 10.04, fix it test-first, push, and report the evidence."
+          }
+        ],
+        "message_to_human": "The cause and the fix go to a worker; I do not open the code myself. I will check its report and the CI result on #31, then tell you whether the release is unblocked.",
+        "then": "Read the worker's report and the CI result, decide whether the release is unblocked, and tell the human."
+      }
+    },
+    {
+      "kind": "bad",
+      "plan": {
+        "actions": [
+          {
+            "tool": "Grep",
+            "what": "Search for invoice rounding in the billing code."
+          },
+          {
+            "tool": "Read",
+            "what": "Open billing/rounding.py."
+          },
+          {
+            "tool": "Edit",
+            "what": "Change the rounding call to round half up."
+          },
+          {
+            "tool": "Bash",
+            "what": "Run pytest tests/test_invoices.py"
+          }
+        ],
+        "message_to_human": "Found it and fixed it: the rounding mode was wrong. The test passes locally.",
+        "then": "Nothing. It is done."
+      }
+    },
+    {
+      "kind": "alt",
+      "plan": {
+        "actions": [
+          {
+            "tool": "Workflow",
+            "what": "Script with two steps: one agent diagnoses the test_invoice_rounding failure on #31 and writes the root cause; a second agent applies the fix test-first and pushes."
+          },
+          {
+            "tool": "Bash",
+            "what": "gh pr checks 31"
+          }
+        ],
+        "message_to_human": "A workflow is diagnosing and fixing the rounding failure on #31. I only read the check status afterwards. I will report when CI is green or if something needs you.",
+        "then": "When the workflow finishes, check gh pr checks 31, decide and report."
+      }
+    }
+  ]
+}

@@ -16,6 +16,14 @@ as deletion. Character counts are portable; token counts require the target
 model's tokenizer. Before/after review must check behavior as well as size; use
 [benchmark-skill](benchmark-skill/SKILL.md) for that comparison.
 
+## Benchmark behaviour changes
+
+A change to what a skill tells an agent to do is benchmarked while it is developed. The
+rule is in [CLAUDE.md](CLAUDE.md#changing-a-skill).
+[benchmarks/manager-modes](benchmarks/manager-modes/README.md) is a worked example for
+a skill whose subject is an agent session and not a text model. Its first run was too
+small to decide anything, and its README says how many cases a verdict needs.
+
 ## Checking sibling-skill links
 
 Skill files cross-reference each other with relative links to sibling

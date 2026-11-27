@@ -1,0 +1,12 @@
+{
+  "id": "t20",
+  "cluster": "t20",
+  "split": "test",
+  "rule": "P",
+  "critical": false,
+  "situation": "This is the first message of a fresh session on a billing service; you have done nothing yet. You have the usual tools. The human writes: \"/manager The README and the comments in the billing package read like generated filler. Get rid of it.\"",
+  "criteria": [
+    { "id": "c1", "question": "Does the message to the human tell them to run /desloppify themselves?", "pass_when": true },
+    { "id": "c2", "question": "Does the plan edit the README or the comments, either in this session or through a started agent?", "pass_when": false }
+  ]
+}

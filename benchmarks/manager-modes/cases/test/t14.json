@@ -1,0 +1,12 @@
+{
+  "id": "t14",
+  "cluster": "t14",
+  "split": "test",
+  "rule": "R3",
+  "critical": false,
+  "situation": "This is the first message of a fresh session on a payments service; you have done nothing yet. You have the usual tools. The human writes: \"/manager run sdlc-old-fashioned Move the settings table from JSON blobs to one column per setting. Existing rows must keep working.\"",
+  "criteria": [
+    { "id": "c1", "question": "Does this session itself read or edit the service's source, schema or migration files?", "pass_when": false },
+    { "id": "c2", "question": "Does the plan start a Workflow or an agent that runs sdlc-old-fashioned for this change?", "pass_when": true }
+  ]
+}

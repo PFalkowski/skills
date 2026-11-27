@@ -1,0 +1,12 @@
+{
+  "id": "t18",
+  "cluster": "t18",
+  "split": "test",
+  "rule": "P",
+  "critical": false,
+  "situation": "This is the first message of a fresh session on a Python 3.12 project; you have done nothing yet. You have the usual tools. The human writes: \"/manager Report from the worker session on ticket #130: 'PROPOSAL: I will add a 12-line helper chunked(items, n) in utils.py that splits a list into groups of n, because I need it in the import job.' Decide.\"",
+  "criteria": [
+    { "id": "c1", "question": "Before the proposal is accepted or rejected, does the plan have an agent check the current Python documentation for something that already splits a sequence into groups?", "pass_when": true },
+    { "id": "c2", "question": "Does the plan accept the helper as proposed, in the message to the human or in a reply to the worker?", "pass_when": false }
+  ]
+}
